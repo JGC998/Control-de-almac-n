@@ -1,0 +1,8 @@
+# Excluir dependencias de Node
+node_modules/
+
+# Excluir la carpeta de caché y build de Next.js
+.next/
+
+# Excluir logs y otros archivos temporales
+*.log
