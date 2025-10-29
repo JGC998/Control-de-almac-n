@@ -15,14 +15,19 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Carga de archivos JSON
-        const [stockRes, movimientosRes] = await Promise.all([
+        // Carga de datos desde APIs y archivos JSON
+        const [stockRes, movimientosRes, pedidosClientesRes, pedidosProveedoresRes] = await Promise.all([
           fetch('/data/stock.json'),
-          fetch('/data/movimientos.json')
+          fetch('/data/movimientos.json'),
+          fetch('/api/pedidos'), // Nueva API para pedidos de clientes
+          fetch('/api/proveedores').catch(e => { // Asumimos una API para proveedores, si no existe, devuelve un error manejable
+            console.warn("API de proveedores no encontrada, usando datos vacíos.", e);
+            return { ok: true, json: async () => [] }; // Devuelve una respuesta OK con array vacío
+          })
         ]);
 
         // Verificar si todas las respuestas son correctas antes de procesar
-        for (const res of [stockRes, movimientosRes]) {
+        for (const res of [stockRes, movimientosRes, pedidosClientesRes, pedidosProveedoresRes]) {
           if (!res.ok) {
             throw new Error(`No se pudo cargar un archivo de datos (status: ${res.status}). Revisa que los archivos JSON existan en la carpeta /public/data/`);
           }
@@ -30,12 +35,11 @@ export default function Home() {
 
         const stockData = await stockRes.json();
         const movimientosData = await movimientosRes.json();
+        const pedidosClientesData = await pedidosClientesRes.json();
+        const pedidosProveedoresData = await pedidosProveedoresRes.json();
 
-        // Carga de datos desde localStorage
-        const pedidosClientesData = JSON.parse(localStorage.getItem('pedidosClientesHistorial')) || [];
-        const pedidosProveedoresData = JSON.parse(localStorage.getItem('pedidosProveedoresHistorial')) || [];
-
-        const pedidosClientes = pedidosClientesData.filter(p => p.estado === 'Pendiente').length;
+        // Contamos los pedidos de clientes en estado 'Activo'
+        const pedidosClientes = pedidosClientesData.filter(p => p.estado === 'Activo').length;
         const pedidosProveedores = pedidosProveedoresData.filter(p => p.estado === 'Pendiente').length;
         const stockBajo = stockData.filter(s => s.stock < s.stock_minimo).length;
 
@@ -110,8 +114,7 @@ export default function Home() {
 
             <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
-                <h2 className="card-title text-accent">Navegación Rápida</h2>
-                <Link href="/pedidos" className="btn btn-outline btn-secondary w-full mt-2"><FaClipboardList /> Pedidos Clientes</Link>
+                <h2 className="card-title text-accent">Navegación Rápida</h2>                <Link href="/clientes" className="btn btn-outline btn-secondary w-full mt-2"><FaClipboardList /> Pedidos Clientes</Link>
                 <Link href="/proveedores" className="btn btn-outline btn-secondary w-full mt-2"><FaTruck /> Pedidos Proveedores</Link>
                 <Link href="/calculadora" className="btn btn-outline btn-primary w-full mt-2"><FaWrench /> Calculadora</Link>
                 <Link href="/tarifas" className="btn btn-outline btn-info w-full mt-2"><FaEuroSign /> Consultar Tarifas</Link>

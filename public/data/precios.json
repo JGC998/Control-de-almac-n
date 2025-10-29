@@ -20,7 +20,7 @@
         "espesor": "10",
         "precio": 24.67,
         "unidad_precio": "m2",
-        "peso": 0.00,
+        "peso": 10,
         "unidad_peso": "kg/m2"
     },
     {
@@ -52,7 +52,7 @@
         "espesor": "15",
         "precio": 13.89,
         "unidad_precio": "m2",
-        "peso": 0.00,
+        "peso": 15,
         "unidad_peso": "kg/m2"
     },
     {

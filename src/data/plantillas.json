@@ -1,0 +1,20 @@
+[
+  {
+    "fabricante": "Aldama",
+    "modelo": "Faldeta",
+    "material": "Fieltro",
+    "espesor": "15",
+    "largo": "600",
+    "ancho": "500",
+    "id": 1761751277360
+  },
+  {
+    "fabricante": "Aldama",
+    "modelo": "Faldeta",
+    "material": "Goma",
+    "espesor": "10",
+    "largo": "540",
+    "ancho": "500",
+    "id": 1761751171887
+  }
+]
