@@ -1,46 +1,39 @@
-# 🚀 Componentes de Cohetes y Misiones Espaciales
+# 🏭 Gestión Taller y Control de Almacén
 
-Proyecto en Next.js y DaisyUI que simula una interfaz para la gestión y visualización de misiones espaciales.
+Aplicación web para la gestión de un taller especializado en la fabricación de piezas y el control de su almacén de materias primas.
 
-## Componentes Principales
+## 🚀 Tecnologías
 
-Se han utilizado varios componentes de DaisyUI y librerías externas para construir la interfaz:
+* **Frontend:** Next.js (v16) con React (v19)
+* **Estilo:** Tailwind CSS y DaisyUI (Tema por defecto: `forest`)
+* **Estado:** Hooks de React (`useState`, `useEffect`, `useMemo`) y `localStorage` para persistencia.
+* **Exportación:** jsPDF y jspdf-autotable.
 
-*   **Navegación:** `Navbar`, `Menu` y `Drawer` para la estructura principal y la navegación móvil.
-*   **Selección de Tema:** `Select` de DaisyUI para cambiar la apariencia de la aplicación.
-*   **Comparador Visual (`Diff`):** Componente de DaisyUI para comparar dos imágenes con un deslizador.
-*   **Selector de Fechas (`MyDatePicker`):** Implementado con `react-day-picker` para la planificación.
-*   **Carrusel de Imágenes (`CarouselCard`):** Un carrusel avanzado creado con `Glide.js` para mostrar hardware.
+## 📋 Módulos Principales
 
-## Estructura de Páginas
+El proyecto se compone de las siguientes secciones accesibles desde la barra de navegación:
 
-*   **/ (Inicio):** Página principal de la aplicación.
-*   **/pagina1:** Registro de lanzamiento.
-*   **/pagina2:** Reloj de Misión.
-*   **/pagina3:** Planificador de Fechas de misión (usando `MyDatePicker`).
-*   **/pagina4:** Comparativa de Cohetes (usando `Diff` para mostrar `cuhete.png` vs `cuhete_transformer.png`).
-*   **/pagina5:** Vistas del Hardware de la misión (usando el carrusel `Glide.js`).
+1.  **Dashboard / Inicio:**
+    * Panel de control con estadísticas de pedidos pendientes (clientes y proveedores) e inventario bajo.
+    * Tabla de movimientos recientes de stock.
 
-## Listado de Componentes Utilizados
+2.  **Tarifas:**
+    * Visualización de los precios por metro cuadrado y peso de las materias primas (datos en `/public/data/precios.json`).
 
-A continuación se detallan los 13 componentes principales identificados en el proyecto:
+3.  **Calculadora de Piezas:**
+    * Herramienta para calcular el coste y peso de las piezas a fabricar introduciendo dimensiones y material.
+    * Permite acumular cálculos en un presupuesto y exportar el resultado a un archivo PDF.
 
-### Componentes Propios
+4.  **Pedidos Clientes:**
+    * Módulo para la gestión del catálogo de productos (creación, edición y eliminación de productos).
+    * Registro y seguimiento de pedidos de clientes (Activo/Completado), con cálculo de totales de precio y peso.
 
-1.  **`Header`**: `src/components/Header.js` - Barra de navegación principal.
-2.  **`ThemeSelect`**: `src/components/ThemeSelect.js` - Selector de temas.
-3.  **`Diff`**: `src/components/Diff.js` - Comparador de imágenes.
-4.  **`MyDatePicker`**: `src/components/MyDatePicker.js` - Selector de fechas.
-5.  **`AutoCarousel`**: `src/components/AutoCarousel.js` - Carrusel de imágenes.
-6.  **`CountDown`**: `src/components/CountDown.js` - Reloj de cuenta atrás.
-7.  **`SortedTable`**: `src/components/SortedTable.js` - Tabla de datos ordenable.
-8.  **`RadialProgress`**: `src/components/RadialProgress.js` - Indicador de progreso circular.
+5.  **Pedidos Proveedores:**
+    * Sistema de registro y seguimiento de pedidos realizados a proveedores (Pendiente/Recibido).
 
-### Componentes de Librerías Externas
+## 🛠️ Procesos Adicionales
 
-9.  **`Link`** (de `next/link`) - Para la navegación entre páginas.
-10. **`Image`** (de `next/image`) - Para la optimización de imágenes.
-11. **`DayPicker`** (de `react-day-picker`) - El calendario base para `MyDatePicker`.
-12. **`Home`** (`src/app/page.js`) - Componente principal de la página de inicio.
-13. **`Page4`** (`src/app/pagina4/page.js`) - Componente principal de la página de comparación.
-# Control-de-almac-n
+El proyecto también incluye componentes de apoyo no enlazados en el menú principal:
+
+* `CalculadoraPVC.jsx`: Calculadora de presupuestos para bandas de PVC, incluyendo opciones de unión (vulcanizado/grapa) y tacos.
+* `Procesos.jsx`: Visor de parámetros de procesos de fabricación específicos (e.g., Vulcanizado, Troquelado) basados en `/public/data/procesos.json`.
