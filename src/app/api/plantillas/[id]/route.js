@@ -20,9 +20,9 @@ async function writeData(data) {
 
 // DELETE /api/plantillas/[id] - Elimina una plantilla por su ID
 export async function DELETE(request, { params }) {
-    const { id } = params;
+    const { id } = await params;
     const plantillas = await readData();
-    const nuevasPlantillas = plantillas.filter(p => p.id != id);
+    const nuevasPlantillas = plantillas.filter(p => p.id !== id);
 
     await writeData(nuevasPlantillas);
     return NextResponse.json({ message: 'Plantilla eliminada' }, { status: 200 });

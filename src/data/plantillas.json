@@ -2,19 +2,20 @@
   {
     "fabricante": "Aldama",
     "modelo": "Faldeta",
-    "material": "Fieltro",
-    "espesor": "15",
-    "largo": "600",
-    "ancho": "500",
-    "id": 1761751277360
-  },
-  {
-    "fabricante": "Aldama",
-    "modelo": "Faldeta",
     "material": "Goma",
     "espesor": "10",
     "largo": "540",
     "ancho": "500",
-    "id": 1761751171887
+    "id": "a441af30-f351-4a59-8700-d375db6e4435"
+  },
+  {
+    "id": "plant-002",
+    "fabricante": "Esbelt",
+    "modelo": "PVC-Standard",
+    "material": "PVC",
+    "espesor": "10",
+    "largo": 150,
+    "ancho": 1,
+    "descripcion": "Plantilla para banda de PVC Esbelt de uso general."
   }
 ]

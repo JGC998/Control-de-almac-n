@@ -1,26 +1,12 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { readData, writeData } from '../../../utils/dataManager';
+import { v4 as uuidv4 } from 'uuid';
 
-const dataFilePath = path.join(process.cwd(), 'src/data/fabricantes.json');
-
-async function readData() {
-    try {
-        const data = await fs.readFile(dataFilePath, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') return [];
-        throw error;
-    }
-}
-
-async function writeData(data) {
-    await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
-}
+const FILENAME = 'fabricantes.json';
 
 // GET /api/fabricantes - Obtiene todos los fabricantes
 export async function GET() {
-    const fabricantes = await readData();
+    const fabricantes = await readData(FILENAME);
     return NextResponse.json(fabricantes);
 }
 
@@ -31,15 +17,15 @@ export async function POST(request) {
         return NextResponse.json({ message: 'El nombre es requerido' }, { status: 400 });
     }
 
-    const fabricantes = await readData();
+    const fabricantes = await readData(FILENAME);
     const nombreNormalizado = nombre.trim().toUpperCase();
 
     if (fabricantes.some(f => f.nombre.toUpperCase() === nombreNormalizado)) {
         return NextResponse.json({ message: 'El fabricante ya existe' }, { status: 409 }); // 409 Conflict
     }
 
-    const nuevoFabricante = { id: Date.now(), nombre: nombre.trim() };
+    const nuevoFabricante = { id: uuidv4(), nombre: nombre.trim() };
     fabricantes.push(nuevoFabricante);
-    await writeData(fabricantes);
+    await writeData(FILENAME, fabricantes);
     return NextResponse.json(nuevoFabricante, { status: 201 });
 }

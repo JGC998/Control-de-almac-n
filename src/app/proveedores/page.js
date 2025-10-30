@@ -18,11 +18,22 @@ function PedidosProveedoresPage() {
     const [orderType, setOrderType] = useState('Nacional'); // 'Nacional' or 'Contenedor'
     const [costUSD, setCostUSD] = useState('');
     const [conversionRate, setConversionRate] = useState('');
-    const [containerExpenses, setContainerExpenses] = useState([{ description: '', amount: '' }]);
-    const [containerCoils, setContainerCoils] = useState([{ quantity: '', totalMeters: '', material: '', espesor: '' }]); // Renamed from 'coils'
+    const [containerExpenses, setContainerExpenses] = useState([{ description: '', amount: '', type: 'sujetos' }]);
+    const [containerCoils, setContainerCoils] = useState([{ quantity: '', totalMeters: '', material: '', espesor: '', pricePerLinearMeterUSD: '' }]);
+    const [calculatedContainerCoilCosts, setCalculatedContainerCoilCosts] = useState(null); // Stores array of coils with final calculated prices
+    const [calculatedContainerTotalCost, setCalculatedContainerTotalCost] = useState(null); // New state for total cost of container order
     const [calculatedContainerCostPerMeter, setCalculatedContainerCostPerMeter] = useState(null); // Renamed from 'calculatedCostPerMeter'
 
     const [materialsList, setMaterialsList] = useState([]);
+    const [selectedPedidoForCoils, setSelectedPedidoForCoils] = useState(null); // New state for viewing coils
+
+    const handleViewCoils = (pedido) => {
+        setSelectedPedidoForCoils(pedido);
+    };
+
+    const handleCloseCoilsModal = () => {
+        setSelectedPedidoForCoils(null);
+    };
 
     useEffect(() => {
         const fetchPedidos = async () => {
@@ -42,7 +53,7 @@ function PedidosProveedoresPage() {
 
         const fetchMaterials = async () => {
             try {
-                const response = await fetch('/data/materiales.json'); // Now fetching from public/data
+                const response = await fetch('/api/materiales');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -68,6 +79,10 @@ function PedidosProveedoresPage() {
     useEffect(() => {
         handleCalculateContainerCosts(); // Trigger calculation on changes
     }, [containerCoils, costUSD, conversionRate, containerExpenses]);
+
+    useEffect(() => {
+        resetFormFields();
+    }, [orderType]);
 
     const savePedidosToApi = async (updatedPedidos) => {
         try {
@@ -102,7 +117,7 @@ function PedidosProveedoresPage() {
     };
 
     const addContainerCoil = () => {
-        setContainerCoils([...containerCoils, { quantity: '', totalMeters: '', material: '', espesor: '' }]);
+        setContainerCoils([...containerCoils, { quantity: '', totalMeters: '', material: '', espesor: '', pricePerLinearMeterUSD: '' }]);
     };
 
     const removeContainerCoil = (index) => {
@@ -163,32 +178,58 @@ function PedidosProveedoresPage() {
         const parsedCostUSD = parseFloat(costUSD);
         const parsedConversionRate = parseFloat(conversionRate);
         
-        const totalContainerExpenses = containerExpenses.reduce((sum, expense) => {
+        const validCostUSD = isNaN(parsedCostUSD) || parsedCostUSD < 0 ? 0 : parsedCostUSD;
+        const validConversionRate = isNaN(parsedConversionRate) || parsedConversionRate < 0 ? 0 : parsedConversionRate;
+
+        // Separate expenses by type
+        const totalSujetos = containerExpenses.filter(exp => exp.type === 'sujetos').reduce((sum, expense) => {
+            const amount = parseFloat(expense.amount);
+            return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        const totalExentos = containerExpenses.filter(exp => exp.type === 'exentos').reduce((sum, expense) => {
+            const amount = parseFloat(expense.amount);
+            return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        const totalSuplidos = containerExpenses.filter(exp => exp.type === 'suplidos').reduce((sum, expense) => {
             const amount = parseFloat(expense.amount);
             return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
 
-        const validCostUSD = isNaN(parsedCostUSD) || parsedCostUSD < 0 ? 0 : parsedCostUSD;
-        const validConversionRate = isNaN(parsedConversionRate) || parsedConversionRate < 0 ? 0 : parsedConversionRate;
+        // For now, all expenses are prorated over coils
+        const totalProratableExpenses = totalSujetos + totalExentos + totalSuplidos;
 
-        let totalLinearMeters = 0;
-        const validCoils = containerCoils.filter(coil => {
-            const meters = parseFloat(coil.totalMeters);
-            return !isNaN(meters) && meters > 0;
+        let totalLinearMetersOrder = 0;
+        const calculatedCoils = containerCoils.map(coil => {
+            const priceUSD = parseFloat(coil.pricePerLinearMeterUSD);
+            const totalMeters = parseFloat(coil.totalMeters);
+            
+            const validPriceUSD = isNaN(priceUSD) || priceUSD < 0 ? 0 : priceUSD;
+            const validTotalMeters = isNaN(totalMeters) || totalMeters <= 0 ? 0 : totalMeters;
+
+            totalLinearMetersOrder += validTotalMeters;
+            return { ...coil, priceUSD: validPriceUSD, totalMeters: validTotalMeters };
         });
 
-        if (validCoils.length === 0) {
-            setCalculatedContainerCostPerMeter(null);
+        if (totalLinearMetersOrder === 0) {
+            setCalculatedContainerCostPerMeter(null); // No coils or invalid meters, so no calculated costs
             return;
         }
 
-        totalLinearMeters = validCoils.reduce((sum, coil) => sum + parseFloat(coil.totalMeters), 0);
+        const proratedExpensesPerLinearMeter = totalProratableExpenses / totalLinearMetersOrder;
 
-        const costEUR = validCostUSD * validConversionRate;
-        const totalExpensesEUR = costEUR + totalContainerExpenses;
-        const costPerMeter = totalExpensesEUR / totalLinearMeters;
+        const finalCalculatedCoils = calculatedCoils.map(coil => {
+            const priceEUR = coil.priceUSD * validConversionRate;
+            const finalPricePerLinearMeter = priceEUR + proratedExpensesPerLinearMeter;
+            return { ...coil, priceEUR, finalPricePerLinearMeter };
+        });
 
-        setCalculatedContainerCostPerMeter(costPerMeter);
+        // Calculate total cost for the entire container order
+        const totalContainerOrderCost = finalCalculatedCoils.reduce((sum, coil) => {
+            return sum + (coil.finalPricePerLinearMeter * coil.totalMeters);
+        }, 0);
+
+        setCalculatedContainerCoilCosts(finalCalculatedCoils);
+        setCalculatedContainerTotalCost(totalContainerOrderCost);
     };
 
     // Cost calculation logic for Nacional
@@ -243,7 +284,7 @@ function PedidosProveedoresPage() {
         setContainerExpenses([{ description: '', amount: '' }]);
         setContainerCoils([{ quantity: '', totalMeters: '', material: '', espesor: '' }]);
         setCalculatedContainerCostPerMeter(null);
-        setOrderType('Nacional'); // Reset to Nacional as default for next entry
+        // setOrderType('Nacional'); // Removed this line
     };
 
 
@@ -305,8 +346,12 @@ function PedidosProveedoresPage() {
                 return;
             }
 
-            if (calculatedContainerCostPerMeter === null) {
-                alert('Por favor, calcula primero el coste por metro lineal para el pedido de Contenedor.');
+            if (calculatedContainerCoilCosts === null || calculatedContainerCoilCosts.length === 0) {
+                alert('Por favor, calcula primero los costes de las bobinas para el pedido de Contenedor.');
+                return;
+            }
+            if (calculatedContainerTotalCost === null) {
+                alert('Por favor, calcula el coste total del contenedor.');
                 return;
             }
             newOrder = {
@@ -316,9 +361,9 @@ function PedidosProveedoresPage() {
                 material, // General description for the container order
                 costUSD: parseFloat(costUSD),
                 conversionRate: parseFloat(conversionRate),
-                containerExpenses: containerExpenses.map(exp => ({...exp, amount: parseFloat(exp.amount)})), // Store expenses
-                coils: containerCoils.map(c => ({...c, totalMeters: parseFloat(c.totalMeters), quantity: parseInt(c.quantity)})),
-                calculatedCostPerMeter: calculatedContainerCostPerMeter,
+                containerExpenses: containerExpenses.map(exp => ({...exp, amount: parseFloat(exp.amount), type: exp.type})), // Store expenses with type
+                coils: calculatedContainerCoilCosts.map(c => ({...c, totalMeters: parseFloat(c.totalMeters), quantity: parseInt(c.quantity)})),
+                calculatedTotalCost: calculatedContainerTotalCost,
                 fecha: new Date().toISOString(),
                 estado: 'Pendiente',
             };
@@ -364,7 +409,7 @@ function PedidosProveedoresPage() {
                                 className="radio radio-primary"
                                 value="Nacional"
                                 checked={orderType === 'Nacional'}
-                                onChange={() => { setOrderType('Nacional'); resetFormFields(); }}
+                                onChange={(e) => setOrderType(e.target.value)}
                             />
                             <span className="label-text">Nacional</span>
                             <input
@@ -373,7 +418,7 @@ function PedidosProveedoresPage() {
                                 className="radio radio-primary ml-4"
                                 value="Contenedor"
                                 checked={orderType === 'Contenedor'}
-                                onChange={() => { setOrderType('Contenedor'); resetFormFields(); }}
+                                onChange={(e) => setOrderType(e.target.value)}
                             />
                             <span className="label-text">Contenedor Importado (China)</span>
                         </label>
@@ -616,7 +661,7 @@ function PedidosProveedoresPage() {
 
                             <h3 className="text-lg font-semibold mb-3">Gastos (Transporte/Aduanas/Otros) del Contenedor</h3>
                             {containerExpenses.map((expense, index) => (
-                                <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border rounded-lg bg-base-200 relative">
+                                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg bg-base-200 relative">
                                     <div className="md:col-span-1">
                                         <label className="label"><span className="label-text">Descripción</span></label>
                                         <input
@@ -641,6 +686,19 @@ function PedidosProveedoresPage() {
                                             required
                                         />
                                     </div>
+                                    <div className="md:col-span-1">
+                                        <label className="label"><span className="label-text">Tipo de Gasto</span></label>
+                                        <select
+                                            className="select select-bordered w-full"
+                                            value={expense.type}
+                                            onChange={(e) => handleContainerExpenseChange(index, 'type', e.target.value)}
+                                            required
+                                        >
+                                            <option value="sujetos">Sujetos</option>
+                                            <option value="exentos">Exentos</option>
+                                            <option value="suplidos">Suplidos</option>
+                                        </select>
+                                    </div>
                                     <div className="md:col-span-1 flex items-end justify-center">
                                         {containerExpenses.length > 1 && (
                                             <button type="button" onClick={() => removeContainerExpense(index)} className="btn btn-error btn-sm">
@@ -658,7 +716,7 @@ function PedidosProveedoresPage() {
 
                             <h3 className="text-lg font-semibold mb-3">Bobinas del Pedido Contenedor</h3>
                             {containerCoils.map((coil, index) => (
-                                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 p-4 border rounded-lg bg-base-200 relative">
+                                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4 p-4 border rounded-lg bg-base-200 relative">
                                     <div className="md:col-span-1">
                                         <label className="label"><span className="label-text">Cantidad</span></label>
                                         <input
@@ -709,6 +767,19 @@ function PedidosProveedoresPage() {
                                             required
                                         />
                                     </div>
+                                    <div className="md:col-span-1">
+                                        <label className="label"><span className="label-text">Precio/Metro Lineal (USD)</span></label>
+                                        <input
+                                            type="number"
+                                            placeholder="Ej: 1.20"
+                                            className="input input-bordered w-full"
+                                            value={coil.pricePerLinearMeterUSD}
+                                            onChange={(e) => handleContainerCoilChange(index, 'pricePerLinearMeterUSD', e.target.value)}
+                                            step="0.01"
+                                            min="0"
+                                            required
+                                        />
+                                    </div>
                                     <div className="md:col-span-1 flex items-end justify-center">
                                         {containerCoils.length > 1 && (
                                             <button type="button" onClick={() => removeContainerCoil(index)} className="btn btn-error btn-sm">
@@ -726,9 +797,43 @@ function PedidosProveedoresPage() {
 
 
 
-                            {calculatedContainerCostPerMeter !== null && (
+                            {calculatedContainerCoilCosts && calculatedContainerCoilCosts.length > 0 && (
+                                <div className="mt-6 p-4 rounded-lg">
+                                    <h4 className="text-lg font-bold mb-2">Costes Calculados por Bobina (Contenedor):</h4>
+                                    <div className="overflow-x-auto">
+                                        <table className="table w-full table-zebra">
+                                            <thead>
+                                                <tr>
+                                                    <th>Material</th>
+                                                    <th>Espesor</th>
+                                                    <th>Cantidad</th>
+                                                    <th>Metros Totales</th>
+                                                    <th>Precio sin gastos (USD/m)</th>
+                                                    <th>Precio sin gastos (EUR/m)</th>
+                                                    <th>Precio Final (€/m)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {calculatedContainerCoilCosts.map((coil, index) => (
+                                                    <tr key={index}>
+                                                        <td>{coil.material}</td>
+                                                        <td>{coil.espesor}</td>
+                                                        <td>{coil.quantity}</td>
+                                                        <td>{coil.totalMeters} m</td>
+                                                        <td>{coil.priceUSD.toFixed(4)} $</td>
+                                                        <td>{(coil.priceUSD * conversionRate).toFixed(4)} €</td>
+                                                        <td>{coil.finalPricePerLinearMeter.toFixed(4)} €</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {calculatedContainerTotalCost !== null && (
                                 <div className="mt-6 p-4 bg-success text-success-content rounded-lg text-center text-xl font-bold">
-                                    Coste por Metro Lineal: <FaEuroSign /> {calculatedContainerCostPerMeter.toFixed(4)} EUR
+                                    Coste Total del Contenedor: <FaEuroSign /> {calculatedContainerTotalCost.toFixed(2)} EUR
                                 </div>
                             )}
                         </>
@@ -780,7 +885,7 @@ function PedidosProveedoresPage() {
                                             {p.type === 'Contenedor' && p.calculatedCostPerMeter !== null ?
                                                 `${p.calculatedCostPerMeter.toFixed(4)} €` :
                                             p.type === 'Nacional' && p.coils && p.coils.length > 0 ?
-                                                'Ver Bobinas' : 'N/A'
+                                            <button onClick={() => handleViewCoils(p)} className="btn btn-info btn-xs">Ver Bobinas</button> : 'N/A'
                                             }
                                         </td>
                                         <td className="text-center space-x-1">
@@ -801,7 +906,86 @@ function PedidosProveedoresPage() {
                     </div>
                 </div>
             </div>
+
+            {selectedPedidoForCoils && (
+                <CoilDetailsModal pedido={selectedPedidoForCoils} onClose={handleCloseCoilsModal} />
+            )}
         </main>
+    );
+}
+
+function CoilDetailsModal({ pedido, onClose }) {
+    if (!pedido) return null;
+
+    return (
+        <div className="modal modal-open">
+            <div className="modal-box w-11/12 max-w-5xl">
+                <h3 className="font-bold text-lg">Detalles de Pedido {pedido.id}</h3>
+                <p className="py-4">Proveedor: {pedido.proveedor}</p>
+                {pedido.type === 'Nacional' && <p className="pb-4">Material Común: {pedido.commonMaterial}</p>}
+                {pedido.type === 'Contenedor' && <p className="pb-4">Descripción: {pedido.material}</p>}
+
+                <h4 className="font-bold text-md mt-4 mb-2">Bobinas:</h4>
+                <div className="overflow-x-auto mb-4">
+                    <table className="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Espesor</th>
+                                <th>Largo (m)</th>
+                                <th>Ancho (mm)</th>
+                                <th>Atributo</th>
+                                <th>Precio sin gastos (€/m)</th>
+                                <th>Precio Final (€/m)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {pedido.coils.map((coil, index) => (
+                                <tr key={index}>
+                                    <td>{pedido.type === 'Nacional' ? pedido.commonMaterial : coil.material}</td>
+                                    <td>{coil.espesor}</td>
+                                    <td>{coil.length || coil.totalMeters}</td>
+                                    <td>{coil.width ? coil.width * 1000 : 'N/A'}</td>
+                                    <td>{coil.attribute || 'N/A'}</td>
+                                    <td>{coil.pricePerLinearMeter ? coil.pricePerLinearMeter.toFixed(4) + ' €' : 'N/A'}</td>
+                                    <td>{coil.finalPricePerLinearMeter ? coil.finalPricePerLinearMeter.toFixed(4) + ' €' : (pedido.calculatedCostPerMeter ? pedido.calculatedCostPerMeter.toFixed(4) + ' €' : 'N/A')}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4 className="font-bold text-md mt-4 mb-2">Gastos:</h4>
+                <div className="overflow-x-auto mb-4">
+                    <table className="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Descripción</th>
+                                <th>Cantidad (€)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(pedido.nationalExpenses || pedido.containerExpenses || []).map((expense, index) => (
+                                <tr key={index}>
+                                    <td>{expense.description}</td>
+                                    <td>{expense.amount.toFixed(2)} €</td>
+                                </tr>
+                            ))}
+                            {(pedido.type === 'Contenedor' && pedido.costUSD) && (
+                                <tr>
+                                    <td>Coste Inicial (USD a EUR)</td>
+                                    <td>{(pedido.costUSD * pedido.conversionRate).toFixed(2)} €</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="modal-action">
+                    <button onClick={onClose} className="btn">Cerrar</button>
+                </div>
+            </div>
+        </div>
     );
 }
 

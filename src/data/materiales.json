@@ -1,0 +1,26 @@
+[
+  {
+    "id": "mat-01",
+    "nombre": "PVC"
+  },
+  {
+    "id": "mat-02",
+    "nombre": "GOMA"
+  },
+  {
+    "id": "mat-03",
+    "nombre": "FIELTRO"
+  },
+  {
+    "id": "mat-04",
+    "nombre": "POLIURETANO"
+  },
+  {
+    "id": "mat-05",
+    "nombre": "SILICONA"
+  },
+  {
+    "id": "mat-06",
+    "nombre": "VERDE"
+  }
+]

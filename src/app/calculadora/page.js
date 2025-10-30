@@ -34,7 +34,7 @@ function CalculadoraPage() {
     useEffect(() => {
         const fetchMateriales = async () => {
             try {
-                const response = await fetch('/data/precios.json');
+                const response = await fetch('/api/precios');
                 if (!response.ok) {
                     throw new Error('No se pudo cargar el archivo de precios.');
                 }

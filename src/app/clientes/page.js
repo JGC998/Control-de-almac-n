@@ -26,7 +26,14 @@ function PlantillasManager({ plantillas, fabricantes, onUpdate, datosMateriales 
 
     const handleAddPlantilla = async (e) => {
         e.preventDefault();
-        const nuevaPlantilla = { fabricante, modelo, material, espesor, largo, ancho };
+        const nuevaPlantilla = {
+            fabricante,
+            modelo,
+            material,
+            espesor: parseFloat(espesor),
+            largo: parseFloat(largo),
+            ancho: parseFloat(ancho)
+        };
 
         // --- NUEVA LÓGICA ---
         // 1. Comprobar si el fabricante es nuevo.
@@ -371,7 +378,7 @@ function PedidosHistorial({ pedidos, onUpdate, onEdit }) {
 
 function EditarPedidoModal({ pedido, plantillas, datosMateriales, onClose, onSave }) {
     const [cliente, setCliente] = useState(pedido.cliente);
-    const [productos, setProductos] = useState(pedido.productos);
+    const [productos, setProductos] = useState(pedido.productos || []);
 
     // Estado para el formulario de añadir nuevo producto
     const [productoSeleccionadoId, setProductoSeleccionadoId] = useState('');
@@ -432,7 +439,7 @@ function EditarPedidoModal({ pedido, plantillas, datosMateriales, onClose, onSav
 
                 <div className="divider">Productos</div>
                 <ul className="menu bg-base-200 rounded-box mb-4">
-                    {productos.map(p => (
+                    {(productos || []).map(p => (
                         <li key={p.id}>
                             <div className="flex justify-between items-center">
                                 <span>{p.cantidad} x {p.nombre}</span>
@@ -483,7 +490,7 @@ function PedidosClientesPage() {
     useEffect(() => {
         const fetchMateriales = async () => {
             try {
-                const response = await fetch('/data/precios.json');
+                const response = await fetch('/api/precios');
                 if (!response.ok) throw new Error('No se pudo cargar precios.json');
                 setDatosMateriales(await response.json());
             } catch (error) {
@@ -578,7 +585,7 @@ function PedidosClientesPage() {
 }
 
 function PedidoCard({ pedido, onToggle, onDelete, onEdit }) {
-    const totales = useMemo(() => pedido.productos.reduce((acc, p) => {
+    const totales = useMemo(() => (pedido.productos || []).reduce((acc, p) => {
         acc.precio += p.precioUnitario * p.cantidad;
         acc.peso += p.pesoUnitario * p.cantidad;
         return acc;
@@ -604,7 +611,7 @@ function PedidoCard({ pedido, onToggle, onDelete, onEdit }) {
                 </div>
                 <div className="divider my-1"></div>
                 <ul className="list-disc list-inside mt-2 text-sm">
-                    {pedido.productos.map(prod => <li key={prod.id}>{prod.cantidad} x {prod.nombre}</li>)}
+                    {(pedido.productos || []).map(prod => <li key={prod.id}>{prod.cantidad} x {prod.nombre}</li>)}
                 </ul>
                 <div className="divider my-1"></div>
                 <div className="flex justify-end gap-4 text-sm font-semibold">

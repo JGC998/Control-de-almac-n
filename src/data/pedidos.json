@@ -3,16 +3,35 @@
     "cliente": "Aldama",
     "productos": [
       {
-        "id": "1761846992953-1761751277360",
-        "plantillaId": 1761751277360,
+        "id": "1761855796649-a441af30-f351-4a59-8700-d375db6e4435",
+        "plantillaId": "a441af30-f351-4a59-8700-d375db6e4435",
         "nombre": "Aldama - Faldeta",
-        "cantidad": 50,
-        "precioUnitario": 4.167,
-        "pesoUnitario": 4.5
+        "cantidad": 200,
+        "precioUnitario": 6.660900000000001,
+        "pesoUnitario": 2.7
       }
     ],
-    "fecha": "2025-10-30T17:56:36.105Z",
+    "fecha": "2025-10-30T20:23:17.845Z",
     "estado": "Activo",
-    "id": 1761846996142
+    "id": "e338671f-0850-4714-9fb0-02cbb4c00d33"
+  },
+  {
+    "id": "ped-cli-002",
+    "cliente": "Logística Express",
+    "fecha": "2025-10-30T14:20:00.000Z",
+    "estado": "Pendiente",
+    "items": [
+      {
+        "item_id": "item-002-1",
+        "descripcion": "Banda de goma para rampa",
+        "material": "GOMA",
+        "espesor": "12",
+        "largo": 15,
+        "ancho": 1.2,
+        "cantidad": 1,
+        "precio_unitario": 800
+      }
+    ],
+    "total": 800
   }
 ]

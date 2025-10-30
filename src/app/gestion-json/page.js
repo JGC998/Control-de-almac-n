@@ -13,6 +13,21 @@ const GestionJsonPage = () => {
   const [tableData, setTableData] = useState([]);
   const [tableColumns, setTableColumns] = useState([]);
 
+  const fileDisplayNames = {
+    'contenedores.json': 'Gestión de Contenedores',
+    'fabricantes.json': 'Gestión de Fabricantes',
+    'materiales.json': 'Gestión de Materiales',
+    'movimientos.json': 'Gestión de Movimientos',
+    'pedidos-clientes.json': 'Gestión de Pedidos de Clientes',
+    'pedidos-proveedores.json': 'Gestión de Pedidos de Proveedores',
+    'pedidos.json': 'Gestión de Pedidos',
+    'plantillas.json': 'Gestión de Plantillas',
+    'precios-pvc.json': 'Gestión de Precios PVC',
+    'precios.json': 'Gestión de Precios',
+    'procesos.json': 'Gestión de Procesos',
+    'stock.json': 'Gestión de Stock',
+  };
+
   useEffect(() => {
     fetchJsonFiles();
   }, []);
@@ -127,68 +142,72 @@ const GestionJsonPage = () => {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">Gestión de Archivos JSON</h1>
+    <div className="p-6 bg-base-200 min-h-screen">
+      <h1 className="text-3xl font-bold mb-6 text-primary">Gestión de Datos del Sistema</h1>
 
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
+        <div className="alert alert-error mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <span>Error: {error}</span>
         </div>
       )}
 
       {message && !error && (
-        <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4" role="alert">
-          <p>{message}</p>
+        <div className="alert alert-info mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>{message}</span>
         </div>
       )}
 
       <div className="flex space-x-6">
-        <div className="w-1/3 bg-white shadow-md rounded-lg p-4">
-          <h2 className="text-xl font-semibold mb-4 text-gray-700">Archivos JSON Disponibles</h2>
+        <div className="w-1/3 card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title">Archivos JSON Disponibles</h2>
           <ul className="space-y-2">
             {jsonFiles.map((file) => (
               <li key={file.path}>
                 <button
                   onClick={() => fetchFileContent(file.name)}
-                  className={`w-full text-left p-2 rounded-md transition-colors duration-200
-                    ${selectedFile === file.name ? 'bg-blue-500 text-white' : 'hover:bg-gray-100 text-gray-800'}`}
+                  className={`w-full text-left p-2 rounded-md transition-colors duration-200 btn btn-ghost
+                    ${selectedFile === file.name ? 'btn-primary' : ''}`}
                 >
-                  {file.name}
+                  {fileDisplayNames[file.name] || file.name}
                 </button>
               </li>
             ))}
           </ul>
+          </div>
         </div>
 
-        <div className="w-2/3 bg-white shadow-md rounded-lg p-4">
-          <h2 className="text-xl font-semibold mb-4 text-gray-700">Editar Contenido</h2>
+        <div className="w-2/3 card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title">Editar Contenido</h2>
           {selectedFile ? (
             <div>
               <p className="text-gray-600 mb-2">Editando: <span className="font-medium">{selectedFile}</span></p>
               {isTableEditable ? (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full bg-white border border-gray-300">
+                  <table className="table table-zebra table-pin-rows min-w-full">
                     <thead>
                       <tr>{tableColumns.map(col => (
-                          <th key={col} className="py-2 px-4 border-b border-gray-300 bg-gray-100 text-left text-sm font-semibold text-gray-600">{col}</th>
-                        ))}<th className="py-2 px-4 border-b border-gray-300 bg-gray-100"></th></tr>
+                          <th key={col} className="py-3 px-4 bg-base-200 text-left text-sm font-semibold text-base-content">{col}</th>
+                        ))}<th className="py-3 px-4 bg-base-200"></th></tr>
                     </thead>
                     <tbody>
                       {tableData.map((row, rowIndex) => (
                         <tr key={rowIndex}>{tableColumns.map(col => (
-                            <td key={col} className="py-2 px-4 border-b border-gray-300">
+                            <td key={col} className="py-2 px-4 border-b border-base-300">
                               <input
                                 type="text"
                                 value={row[col] || ''}
                                 onChange={(e) => handleTableCellChange(rowIndex, col, e.target.value)}
-                                className="w-full p-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                className="input input-bordered input-sm w-full"
                               />
                             </td>
-                          ))}<td className="py-2 px-4 border-b border-gray-300">
+                          ))}<td className="py-2 px-4 border-b border-base-300">
                             <button
                               onClick={() => handleDeleteRow(rowIndex)}
-                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm"
+                              className="btn btn-error btn-sm"
                             >
                               Eliminar
                             </button>
@@ -198,7 +217,7 @@ const GestionJsonPage = () => {
                   </table>
                   <button
                     onClick={handleAddRow}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="mt-4 btn btn-secondary"
                   >
                     Añadir Fila
                   </button>
@@ -213,7 +232,7 @@ const GestionJsonPage = () => {
               )}
               <button
                 onClick={handleSaveContent}
-                className="mt-4 px-6 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                className="mt-4 btn btn-primary"
               >
                 Guardar Cambios
               </button>
@@ -221,6 +240,7 @@ const GestionJsonPage = () => {
           ) : (
             <p className="text-gray-500">Selecciona un archivo de la lista para editar.</p>
           )}
+          </div>
         </div>
       </div>
     </div>

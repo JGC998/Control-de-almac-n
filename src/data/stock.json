@@ -1,0 +1,25 @@
+[
+  {
+    "id": "stk-goma-12-001",
+    "material": "GOMA",
+    "espesor": "12",
+    "metrosDisponibles": "200200",
+    "proveedor": "Siban",
+    "ubicacion": "Almacén Principal",
+    "fechaEntrada": "2025-10-28T10:00:00.000Z",
+    "attribute": "8+3",
+    "stock_minimo": "50",
+    "stock": "undefined200"
+  },
+  {
+    "id": "stk-pvc-10-001",
+    "material": "PVC",
+    "espesor": "10",
+    "metrosDisponibles": "500",
+    "proveedor": "Chiorino",
+    "ubicacion": "Estantería B2",
+    "fechaEntrada": "2025-10-20T09:00:00.000Z",
+    "attribute": "Liso",
+    "stock_minimo": "100"
+  }
+]

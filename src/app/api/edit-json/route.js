@@ -1,29 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
-const DATA_DIRECTORIES = [
-  path.join(process.cwd(), 'public', 'data'),
-  path.join(process.cwd(), 'src', 'data'),
-];
-
-async function getFilePath(filename) {
-  if (typeof filename !== 'string' || filename.trim() === '') {
-    throw new Error(`Invalid filename provided: "${filename}". Expected a non-empty string.`);
-  }
-  // Prevent directory traversal
-  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-    throw new Error(`Invalid filename: "${filename}". Filename cannot contain path separators or '..'.`);
-  }
-
-  for (const dir of DATA_DIRECTORIES) {
-    const filePath = path.join(dir, filename);
-    if (fs.existsSync(filePath)) {
-      return filePath;
-    }
-  }
-  return null;
-}
+import { listDataFiles, readData, writeData } from '../../../utils/dataManager';
 
 export async function GET(request) {
   try {
@@ -32,38 +8,30 @@ export async function GET(request) {
     const filename = searchParams.get('filename');
 
     if (action === 'list') {
-      let jsonFiles = [];
-      for (const dir of DATA_DIRECTORIES) {
-        try {
-          const files = await fs.promises.readdir(dir);
-          const jsonInDir = files.filter(file => file.endsWith('.json')).map(file => ({
-            name: file,
-            path: path.relative(process.cwd(), path.join(dir, file)),
-          }));
-          jsonFiles = jsonFiles.concat(jsonInDir);
-        } catch (error) {
-          console.warn(`Could not read directory ${dir}: ${error.message}`);
-          // Continue to the next directory even if one fails
-        }
-      }
+      const files = await listDataFiles();
+      // We map the file names to the format expected by the frontend.
+      const jsonFiles = files.map(file => ({
+        name: file,
+        path: `src/data/${file}`,
+      }));
       return NextResponse.json(jsonFiles);
-    } else if (action === 'read') {
-      const filePath = await getFilePath(filename);
-
-      if (!filePath) {
-        return NextResponse.json({ error: 'File not found' }, { status: 404 });
-      }
-
-      const content = await fs.promises.readFile(filePath, 'utf-8');
-      try {
-        return NextResponse.json({ content: JSON.parse(content) });
-      } catch (jsonError) {
-        console.error(`Error parsing JSON from file ${filePath}:`, jsonError);
-        return NextResponse.json({ error: 'Invalid JSON content in file', details: jsonError.message }, { status: 400 });
-      }
-    } else {
-      return NextResponse.json({ error: 'Invalid action specified. Use "list" or "read".' }, { status: 400 });
     }
+
+    if (action === 'read') {
+      if (!filename) {
+        return NextResponse.json({ error: 'Filename is required for read action' }, { status: 400 });
+      }
+      try {
+        const content = await readData(filename);
+        return NextResponse.json({ content });
+      } catch (error) {
+        // dataManager throws an error if file not found or parsing fails
+        return NextResponse.json({ error: error.message }, { status: 404 });
+      }
+    }
+
+    return NextResponse.json({ error: 'Invalid action specified. Use "list" or "read".' }, { status: 400 });
+
   } catch (error) {
     console.error("Unhandled error in GET /api/edit-json:", error);
     return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
@@ -77,28 +45,30 @@ export async function PUT(request) {
     const filename = searchParams.get('filename');
 
     if (action === 'write') {
-      const filePath = await getFilePath(filename);
-
-      if (!filePath) {
-        return NextResponse.json({ error: 'File not found' }, { status: 404 });
+      if (!filename) {
+        return NextResponse.json({ error: 'Filename is required for write action' }, { status: 400 });
       }
 
       const { content } = await request.json();
-      // Validate if the content is valid JSON before writing
-      try {
-        JSON.stringify(content, null, 2); // Attempt to stringify to validate
-      } catch (jsonError) {
-        console.error(`Error validating JSON content for file ${filePath}:`, jsonError);
-        return NextResponse.json({ error: 'Invalid JSON content provided', details: jsonError.message }, { status: 400 });
+
+      if (content === undefined) {
+        return NextResponse.json({ error: 'Content is required in the request body' }, { status: 400 });
       }
 
-      await fs.promises.writeFile(filePath, JSON.stringify(content, null, 2), 'utf-8');
-      return NextResponse.json({ message: 'File updated successfully' });
-    } else {
-      return NextResponse.json({ error: 'Invalid action specified. Use "write".' }, { status: 400 });
+      try {
+        await writeData(filename, content);
+        return NextResponse.json({ message: `File '${filename}' updated successfully` });
+      } catch (error) {
+        // dataManager handles validation and file system errors
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
     }
+
+    return NextResponse.json({ error: 'Invalid action specified. Use "write".' }, { status: 400 });
+
   } catch (error) {
     console.error("Unhandled error in PUT /api/edit-json:", error);
+    // This catches errors like invalid JSON in the request body
     return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }

@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { readData, writeData } from '../../../utils/dataManager';
 
-const PEDIDOS_PROVEEDORES_FILE = path.join(process.cwd(), 'src', 'data', 'pedidos-proveedores.json');
-const STOCK_FILE = path.join(process.cwd(), 'public', 'data', 'stock.json');
+const PEDIDOS_PROVEEDORES_FILE_NAME = 'pedidos-proveedores.json';
+const STOCK_FILE_NAME = 'stock.json';
 
 export async function GET() {
   try {
-    const data = await fs.promises.readFile(PEDIDOS_PROVEEDORES_FILE, 'utf-8');
-    return NextResponse.json(JSON.parse(data));
+    const data = await readData(PEDIDOS_PROVEEDORES_FILE_NAME);
+    return NextResponse.json(data);
   } catch (error) {
     if (error.code === 'ENOENT') {
       // File not found, return empty array
@@ -26,8 +25,7 @@ export async function PUT(request) {
     // Read previous pedidos to find newly received ones
     let oldPedidosContent = [];
     try {
-      const oldData = await fs.promises.readFile(PEDIDOS_PROVEEDORES_FILE, 'utf-8');
-      oldPedidosContent = JSON.parse(oldData);
+      oldPedidosContent = await readData(PEDIDOS_PROVEEDORES_FILE_NAME);
     } catch (error) {
       if (error.code !== 'ENOENT') {
         console.warn("Could not read old pedidos-proveedores.json for comparison:", error);
@@ -35,7 +33,7 @@ export async function PUT(request) {
     }
 
     // Write the new pedidos-proveedores.json content
-    await fs.promises.writeFile(PEDIDOS_PROVEEDORES_FILE, JSON.stringify(newPedidosContent, null, 2), 'utf-8');
+    await writeData(PEDIDOS_PROVEEDORES_FILE_NAME, newPedidosContent);
 
     // Process stock updates for newly received orders
     const newlyReceivedOrders = newPedidosContent.filter(newPedido => {
@@ -46,8 +44,7 @@ export async function PUT(request) {
     if (newlyReceivedOrders.length > 0) {
       let stockData = [];
       try {
-        const currentStockRaw = await fs.promises.readFile(STOCK_FILE, 'utf-8');
-        stockData = JSON.parse(currentStockRaw);
+        stockData = await readData(STOCK_FILE_NAME);
       } catch (error) {
         if (error.code === 'ENOENT') {
           console.log("stock.json not found, initializing with empty array.");
@@ -93,7 +90,7 @@ export async function PUT(request) {
       });
 
       // Write the updated stock.json content
-      await fs.promises.writeFile(STOCK_FILE, JSON.stringify(stockData, null, 2), 'utf-8');
+      await writeData(STOCK_FILE_NAME, stockData);
       console.log("Stock.json updated with newly received orders.");
     }
 

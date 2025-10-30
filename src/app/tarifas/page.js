@@ -1,32 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-
+import React from 'react';
+import { useTarifasData } from '../../utils/useTarifasData'; // Importamos el nuevo hook
 import { formatCurrency, formatWeight } from '@/utils/utils'; // Importamos las funciones de utilidad
 import { FaEuroSign } from 'react-icons/fa';
 
 function TarifasPage() {
-  const [precios, setPrecios] = useState([]);
-  const [error, setError] = useState(null);
+  // Toda la lógica de carga de datos ahora reside en el hook.
+  const { data, loading, error } = useTarifasData();
 
-  useEffect(() => {
-    const fetchPrecios = async () => {
-      try {
-        // Next.js sirve los archivos de /public en la raíz
-        const response = await fetch('/data/precios.json');
-        if (!response.ok) {
-          throw new Error('No se pudo cargar el archivo de precios.');
-        }
-        const data = await response.json();
-        setPrecios(data);
-      } catch (error) {
-        console.error('Error fetching precios:', error);
-        setError(error.message);
-      }
-    };
-
-    fetchPrecios();
-  }, []); // El array vacío asegura que se ejecute solo una vez
+  // Estado de carga
+  if (loading) {
+    return (
+      <main className="p-8 bg-base-200 min-h-screen flex justify-center items-center">
+        <span className="loading loading-spinner loading-lg text-primary"></span>
+      </main>
+    );
+  }
 
   return (
     <main className="p-4 sm:p-6 md:p-8 bg-base-200 min-h-screen">
@@ -59,7 +49,7 @@ function TarifasPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {precios.map((item, index) => (
+                                {data.precios.map((item, index) => (
                                     <tr key={index} className="hover">
                                         <td>{item.material}</td>
                                         <td>{item.espesor}</td>

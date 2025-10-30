@@ -1,0 +1,47 @@
+[
+  {
+    "id": "proc-001",
+    "nombre": "Vulcanizado de Banda PVC",
+    "material": "PVC",
+    "pasos": [
+      {
+        "orden": 1,
+        "descripcion": "Preparar superficie de unión",
+        "herramientas": ["Lijadora", "Limpiador"],
+        "tiempo_estimado_min": 10
+      },
+      {
+        "orden": 2,
+        "descripcion": "Aplicar adhesivo",
+        "herramientas": ["Brocha", "Adhesivo PVC"],
+        "tiempo_estimado_min": 5
+      },
+      {
+        "orden": 3,
+        "descripcion": "Prensado y calentamiento",
+        "herramientas": ["Prensa vulcanizadora"],
+        "tiempo_estimado_min": 30,
+        "temperatura_c": 160
+      }
+    ]
+  },
+  {
+    "id": "proc-002",
+    "nombre": "Corte Longitudinal de Goma",
+    "material": "GOMA",
+    "pasos": [
+      {
+        "orden": 1,
+        "descripcion": "Medir y marcar",
+        "herramientas": ["Metro", "Marcador"],
+        "tiempo_estimado_min": 5
+      },
+      {
+        "orden": 2,
+        "descripcion": "Corte con cuchilla rotatoria",
+        "herramientas": ["Mesa de corte", "Cuchilla rotatoria"],
+        "tiempo_estimado_min": 15
+      }
+    ]
+  }
+]

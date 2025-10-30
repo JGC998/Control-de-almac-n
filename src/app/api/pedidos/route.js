@@ -1,41 +1,24 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { readData, writeData } from '../../../utils/dataManager';
+import { v4 as uuidv4 } from 'uuid';
 
-const dataFilePath = path.join(process.cwd(), 'src/data/pedidos.json');
-
-async function readData() {
-    try {
-        const data = await fs.readFile(dataFilePath, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        // Si el archivo no existe, devuelve un array vacío
-        if (error.code === 'ENOENT') {
-            return [];
-        }
-        throw error;
-    }
-}
-
-async function writeData(data) {
-    await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
-}
+const FILENAME = 'pedidos.json';
 
 // GET /api/pedidos - Obtiene todos los pedidos
 export async function GET() {
-    const pedidos = await readData();
+    const pedidos = await readData(FILENAME);
     return NextResponse.json(pedidos);
 }
 
 // POST /api/pedidos - Crea un nuevo pedido
 export async function POST(request) {
     const nuevoPedido = await request.json();
-    const pedidos = await readData();
+    const pedidos = await readData(FILENAME);
 
-    // Asignamos un ID único
-    nuevoPedido.id = Date.now();
+    // Asignamos un ID único y robusto
+    nuevoPedido.id = uuidv4();
     pedidos.unshift(nuevoPedido); // Añade al principio
 
-    await writeData(pedidos);
+    await writeData(FILENAME, pedidos);
     return NextResponse.json(nuevoPedido, { status: 201 });
 }

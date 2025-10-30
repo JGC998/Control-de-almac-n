@@ -1,26 +1,12 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { readData, writeData } from '../../../utils/dataManager';
+import { v4 as uuidv4 } from 'uuid';
 
-const dataFilePath = path.join(process.cwd(), 'src/data/plantillas.json');
-
-async function readData() {
-    try {
-        const data = await fs.readFile(dataFilePath, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') return [];
-        throw error;
-    }
-}
-
-async function writeData(data) {
-    await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
-}
+const FILENAME = 'plantillas.json';
 
 // GET /api/plantillas - Obtiene todas las plantillas
 export async function GET() {
-    const plantillas = await readData();
+    const plantillas = await readData(FILENAME);
     return NextResponse.json(plantillas);
 }
 
@@ -33,7 +19,7 @@ export async function POST(request) {
         return NextResponse.json({ message: 'Todos los campos de la plantilla son requeridos' }, { status: 400 });
     }
 
-    const plantillas = await readData();
+    const plantillas = await readData(FILENAME);
 
     const existe = plantillas.some(p => 
         p.fabricante.trim().toUpperCase() === fabricante.trim().toUpperCase() &&
@@ -48,8 +34,8 @@ export async function POST(request) {
         return NextResponse.json({ message: `La plantilla ${fabricante} - ${modelo} ya existe.` }, { status: 409 });
     }
 
-    nuevaPlantilla.id = Date.now();
+    nuevaPlantilla.id = uuidv4();
     plantillas.unshift(nuevaPlantilla);
-    await writeData(plantillas);
+    await writeData(FILENAME, plantillas);
     return NextResponse.json(nuevaPlantilla, { status: 201 });
 }
