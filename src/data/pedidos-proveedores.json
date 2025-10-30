@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1761844887854,
+    "type": "Nacional",
+    "proveedor": "Siban",
+    "commonMaterial": "GOMA",
+    "nationalExpenses": [
+      {
+        "description": "Transporte",
+        "amount": 200
+      }
+    ],
+    "coils": [
+      {
+        "pricePerLinearMeter": 10,
+        "length": "200",
+        "width": 0.5,
+        "attribute": "8+3",
+        "espesor": "12",
+        "finalPricePerLinearMeter": 11
+      }
+    ],
+    "fecha": "2025-10-30T17:21:27.854Z",
+    "estado": "Recibido"
+  },
+  {
+    "id": 1761843913426,
+    "type": "Nacional",
+    "proveedor": "Siban",
+    "commonMaterial": "GOMA",
+    "nationalExpenses": [
+      {
+        "description": "Transporte",
+        "amount": 150
+      }
+    ],
+    "coils": [
+      {
+        "pricePerLinearMeter": 12,
+        "length": "100",
+        "width": 0.6,
+        "attribute": "8+2",
+        "espesor": "8",
+        "finalPricePerLinearMeter": 13.5
+      }
+    ],
+    "fecha": "2025-10-30T17:05:13.426Z",
+    "estado": "Recibido"
+  }
+]

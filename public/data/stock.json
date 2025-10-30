@@ -1,1 +1,23 @@
-[]
+[
+  {
+    "id": "1761844887854-0-1761845817367",
+    "material": "GOMA",
+    "espesor": "12",
+    "stock": "200",
+    "stock_minimo": 0,
+    "metrosDisponibles": "200",
+    "proveedor": "Siban",
+    "ubicacion": "Almacén",
+    "fechaEntrada": "2025-10-30T17:21:27.854Z",
+    "attribute": "8+3"
+  },
+  {
+    "id": "1761843913426-0-GOMA-8-8+2",
+    "material": "GOMA",
+    "espesor": "8",
+    "metrosDisponibles": "100",
+    "proveedor": "Siban",
+    "ubicacion": "Almacén",
+    "fechaEntrada": "2025-10-30T17:05:13.426Z"
+  }
+]
