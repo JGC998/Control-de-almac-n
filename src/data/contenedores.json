@@ -1,19 +1,7 @@
-
 [
   {
-    "id": "MSCU1234567",
-    "eta": "2025-11-15",
-    "estado": "En Tránsito",
-    "historialPuertos": [
-      {
-        "nombre": "Shanghai",
-        "fechaSalida": "2025-10-20"
-      },
-      {
-        "nombre": "Singapore",
-        "fechaLlegada": "2025-10-28",
-        "fechaSalida": "2025-10-30"
-      }
-    ]
+    "id": "Prueba",
+    "imo": "9266891",
+    "estado": "En Tránsito"
   }
 ]

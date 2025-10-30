@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "cliente": "Aldama",
+    "productos": [
+      {
+        "id": "1761846992953-1761751277360",
+        "plantillaId": 1761751277360,
+        "nombre": "Aldama - Faldeta",
+        "cantidad": 50,
+        "precioUnitario": 4.167,
+        "pesoUnitario": 4.5
+      }
+    ],
+    "fecha": "2025-10-30T17:56:36.105Z",
+    "estado": "Activo",
+    "id": 1761846996142
+  }
+]

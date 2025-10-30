@@ -309,6 +309,7 @@ function PedidosProveedoresPage() {
                 alert('Por favor, calcula primero el coste por metro lineal para el pedido de Contenedor.');
                 return;
             }
+            newOrder = {
                 id: Date.now(),
                 type: 'Contenedor',
                 proveedor,

@@ -6,6 +6,7 @@ const FotosPage = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [stream, setStream] = useState(null);
+  const [photos, setPhotos] = useState([]);
   const videoRef = useRef(null);
   const photoRef = useRef(null);
 
@@ -15,6 +16,8 @@ const FotosPage = () => {
     const mobile = Boolean(userAgent.match(/Android|BlackBerry|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i));
     setIsMobile(mobile);
 
+    fetchPhotos();
+
     // Cleanup camera stream on unmount
     return () => {
       if (stream) {
@@ -22,6 +25,19 @@ const FotosPage = () => {
       }
     };
   }, [stream]);
+
+  const fetchPhotos = async () => {
+    try {
+      const response = await fetch('/api/fotos');
+      if (!response.ok) {
+        throw new Error('Failed to fetch photos');
+      }
+      const data = await response.json();
+      setPhotos(data);
+    } catch (error) {
+      console.error('Error fetching photos:', error);
+    }
+  };
 
   const startCamera = async () => {
     try {
@@ -43,7 +59,7 @@ const FotosPage = () => {
     setCameraActive(false);
   };
 
-  const takePhoto = () => {
+  const takePhoto = async () => {
     if (videoRef.current && photoRef.current) {
       const video = videoRef.current;
       const photo = photoRef.current;
@@ -54,23 +70,31 @@ const FotosPage = () => {
       context.drawImage(video, 0, 0, photo.width, photo.height);
 
       const imageDataURL = photo.toDataURL('image/jpeg');
-      // Simulate saving and get the path
-      const simulatedPath = simulatePhotoStorage();
-      console.log("Foto tomada. Ruta simulada:", simulatedPath);
-      // In a real app, you would send imageDataURL to a server
-      alert(`Foto tomada y guardada simuladamente en: ${simulatedPath}`);
+      await savePhoto(imageDataURL);
+      fetchPhotos(); // Refresh photo list
+
       stopCamera(); // Stop camera after taking photo
     }
   };
 
-  const simulatePhotoStorage = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const day = now.getDate().toString().padStart(2, '0');
-    const timestampId = now.getTime(); // Unique ID based on timestamp
-
-    return `/public/fotos/${year}/${month}/${day}/${timestampId}.jpg`;
+  const savePhoto = async (imageDataURL) => {
+    try {
+      const response = await fetch('/api/fotos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: imageDataURL }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to save photo');
+      }
+      const data = await response.json();
+      alert(`Foto guardada en: ${data.path}`);
+    } catch (error) {
+      console.error('Error saving photo:', error);
+      alert('Error al guardar la foto.');
+    }
   };
 
   return (
@@ -110,6 +134,21 @@ const FotosPage = () => {
           Para probar la funcionalidad de la cámara, por favor, accede a esta página desde un dispositivo móvil.
         </p>
       )}
+
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold mb-4">Fotos Guardadas</h2>
+        {photos.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {photos.map((photoPath, index) => (
+              <div key={index} className="relative">
+                <img src={photoPath} alt={`Foto ${index + 1}`} className="w-full h-auto rounded-lg shadow-md" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>No hay fotos guardadas.</p>
+        )}
+      </div>
     </div>
   );
 };
