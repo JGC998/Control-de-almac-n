@@ -18,6 +18,19 @@ async function writeData(data) {
     await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
+// GET /api/pedidos/[id] - Obtiene un pedido por su ID
+export async function GET(request, { params }) {
+    const { id } = await params;
+    const pedidos = await readData();
+    const pedido = pedidos.find(p => String(p.id) === String(id));
+
+    if (!pedido) {
+        return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
+    }
+
+    return NextResponse.json(pedido);
+}
+
 // PUT /api/pedidos/[id] - Actualiza el estado de un pedido
 export async function PUT(request, { params }) {
     const { id } = await params; // Await params as suggested by the error message

@@ -1,179 +1,37 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { FaClipboardList, FaPlus, FaTrash, FaFilePdf, FaCheck, FaUndo, FaBook, FaBoxOpen, FaSpinner, FaEdit } from 'react-icons/fa';
+import { FaClipboardList, FaPlus, FaTrash, FaFilePdf, FaCheck, FaUndo, FaBook, FaBoxOpen, FaSpinner, FaEdit, FaEye } from 'react-icons/fa';
+import Link from 'next/link';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatCurrency, formatWeight } from '@/utils/utils';
 
 // --- Componentes Hijos (Componentes más pequeños y enfocados) ---
 
-function PlantillasManager({ plantillas, fabricantes, onUpdate, datosMateriales }) {
-    const [fabricante, setFabricante] = useState('');
-    const [modelo, setModelo] = useState('');
-    const [material, setMaterial] = useState('');
-    const [espesor, setEspesor] = useState('');
-    const [largo, setLargo] = useState('');
-    const [ancho, setAncho] = useState('');
 
-    const materialesUnicos = useMemo(() => [...new Set(datosMateriales.map(item => item.material))], [datosMateriales]);
-    const espesoresDisponibles = useMemo(() => {
-        if (material) {
-            return datosMateriales.filter(item => item.material === material).map(item => item.espesor);
-        }
-        return [];
-    }, [material, datosMateriales]);
 
-    const handleAddPlantilla = async (e) => {
-        e.preventDefault();
-        const nuevaPlantilla = {
-            fabricante,
-            modelo,
-            material,
-            espesor: parseFloat(espesor),
-            largo: parseFloat(largo),
-            ancho: parseFloat(ancho)
-        };
-
-        // --- NUEVA LÓGICA ---
-        // 1. Comprobar si el fabricante es nuevo.
-        const fabricanteNormalizado = fabricante.trim().toUpperCase();
-        const esFabricanteNuevo = !fabricantes.some(f => f.nombre.toUpperCase() === fabricanteNormalizado);
-
-        // 2. Si es nuevo, crearlo primero.
-        if (esFabricanteNuevo) {
-            try {
-                await fetch('/api/fabricantes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: fabricante.trim() }),
-                });
-            } catch (error) {
-                alert('Hubo un error al intentar crear el nuevo fabricante. Inténtalo de nuevo.');
-                return;
-            }
-        }
-
-        try {
-            const res = await fetch('/api/plantillas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(nuevaPlantilla),
-            });
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.message || 'Error al guardar la plantilla');
-            }
-            
-            // Limpiar formulario y notificar al padre para que recargue los datos
-            setFabricante(''); setModelo(''); setMaterial(''); setEspesor(''); setLargo(''); setAncho('');
-            onUpdate();
-        } catch (error) {
-            console.error("Error guardando plantilla:", error);
-            alert(`No se pudo añadir la plantilla: ${error.message}`);
-        }
-    };
-
-    const handleRemove = async (id) => {
-        if (window.confirm('¿Seguro que quieres eliminar esta plantilla?')) {
-            try {
-                const res = await fetch(`/api/plantillas/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error('Error al eliminar la plantilla');
-                onUpdate(); // Notificar para recargar
-            } catch (error) {
-                console.error("Error eliminando plantilla:", error);
-                alert('No se pudo eliminar la plantilla.');
-            }
-        }
-    };
-
-    return (
-        <div className="card bg-base-100 shadow-xl mb-8">
-            <div className="card-body">
-                <h2 className="card-title mb-4 flex items-center gap-2"><FaBook /> Gestión de Plantillas</h2>
-                <form onSubmit={handleAddPlantilla} className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-base-300 pb-6 mb-6">
-                    <div className="form-control md:col-span-1">
-                        <label className="label"><span className="label-text">Fabricante</span></label>
-                        <input 
-                            type="text" 
-                            list="fabricantes-list"
-                            placeholder="Escribe o selecciona"
-                            className="input input-bordered" 
-                            value={fabricante} 
-                            onChange={e => setFabricante(e.target.value)} required />
-                        <datalist id="fabricantes-list">
-                            {fabricantes.map(f => <option key={f.id} value={f.nombre} />)}
-                        </datalist>
-                    </div>
-                    <div className="form-control md:col-span-2">
-                        <label className="label"><span className="label-text">Modelo</span></label>
-                        <input type="text" placeholder="Ej: Faldeta 300x400" className="input input-bordered" value={modelo} onChange={e => setModelo(e.target.value)} required />
-                    </div>
-
-                    <select className="select select-bordered" value={material} onChange={e => setMaterial(e.target.value)} required>
-                        <option value="" disabled>Material</option>
-                        {materialesUnicos.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                    <select className="select select-bordered" value={espesor} onChange={e => setEspesor(e.target.value)} disabled={!material} required>
-                        <option value="" disabled>Espesor</option>
-                        {espesoresDisponibles.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                    <div className="grid grid-cols-2 gap-2">
-                        <input type="number" placeholder="Largo (mm)" className="input input-bordered" value={largo} onChange={e => setLargo(e.target.value)} required />
-                        <input type="number" placeholder="Ancho (mm)" className="input input-bordered" value={ancho} onChange={e => setAncho(e.target.value)} required />
-                    </div>
-                    <button type="submit" className="btn btn-accent md:col-span-3"><FaPlus /> Añadir Plantilla</button>
-                </form>
-                <div className="max-h-40 overflow-y-auto">
-                    <table className="table table-sm">
-                        <tbody>
-                            {plantillas.map(p => (
-                                <tr key={p.id} className="hover">
-                                    <td><strong>{p.fabricante}</strong> - {p.modelo}</td>
-                                    <td>{p.material} {p.espesor}mm</td>
-                                    <td>{p.largo}x{p.ancho}mm</td>
-                                    <td><button onClick={() => handleRemove(p.id)} className="btn btn-ghost btn-xs"><FaTrash /></button></td>
-                                </tr>
-                            ))}
-                            {plantillas.length === 0 && <tr><td colSpan="4" className="text-center">Aún no hay plantillas creadas.</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function NuevoPedido({ plantillas, datosMateriales, onPedidoCreado }) {
+function NuevoPedido({ productos, clientes, onPedidoCreado }) {
     const [cliente, setCliente] = useState('');
     const [productosBorrador, setProductosBorrador] = useState([]);
     const [productoSeleccionadoId, setProductoSeleccionadoId] = useState('');
     const [cantidadProducto, setCantidadProducto] = useState(1);
+    const [notas, setNotas] = useState('');
 
     const handleAddProductoAlBorrador = (e) => {
         e.preventDefault();
         if (!productoSeleccionadoId || cantidadProducto < 1) return;
 
-        const plantilla = plantillas.find(p => p.id == productoSeleccionadoId);
-        if (!plantilla) return;
-
-        const materialInfo = datosMateriales.find(m => m.material === plantilla.material && m.espesor == plantilla.espesor);
-        if (!materialInfo) {
-            alert('No se encontraron datos de precio/peso para el material de este producto.');
-            return;
-        }
-
-        const areaM2 = (plantilla.largo / 1000) * (plantilla.ancho / 1000);
-        const precioUnitario = areaM2 * materialInfo.precio;
-        const pesoUnitario = areaM2 * materialInfo.peso;
+        const productoToAdd = productos.find(p => p.id == productoSeleccionadoId);
+        if (!productoToAdd) return;
 
         const nuevoProducto = {
-            id: `${Date.now()}-${plantilla.id}`,
-            plantillaId: plantilla.id,
-            nombre: `${plantilla.fabricante} - ${plantilla.modelo}`,
+            id: `${Date.now()}-${productoToAdd.id}`,
+            productoId: productoToAdd.id,
+            nombre: productoToAdd.nombre,
             cantidad: cantidadProducto,
-            precioUnitario,
-            pesoUnitario,
+            precioUnitario: productoToAdd.precioUnitario,
+            pesoUnitario: productoToAdd.pesoUnitario,
         };
         setProductosBorrador(prev => [...prev, nuevoProducto]);
         setProductoSeleccionadoId('');
@@ -195,6 +53,7 @@ function NuevoPedido({ plantillas, datosMateriales, onPedidoCreado }) {
             productos: productosBorrador,
             fecha: new Date().toISOString(),
             estado: 'Activo',
+            notas,
         };
 
         try {
@@ -208,6 +67,7 @@ function NuevoPedido({ plantillas, datosMateriales, onPedidoCreado }) {
             // Limpiar formulario y notificar al padre
             setCliente('');
             setProductosBorrador([]);
+            setNotas('');
             onPedidoCreado();
         } catch (error) {
             console.error("Error guardando pedido:", error);
@@ -227,7 +87,12 @@ function NuevoPedido({ plantillas, datosMateriales, onPedidoCreado }) {
                 <h2 className="card-title mb-4 flex items-center gap-2"><FaBoxOpen /> Nuevo Pedido</h2>
                 <div className="form-control mb-4">
                     <label className="label"><span className="label-text">Nombre del Cliente</span></label>
-                    <input type="text" placeholder="Nombre del Cliente" className="input input-bordered w-full" value={cliente} onChange={(e) => setCliente(e.target.value)} />
+                    <select className="select select-bordered w-full" value={cliente} onChange={(e) => setCliente(e.target.value)} required>
+                        <option value="" disabled>Seleccionar cliente...</option>
+                        {clientes.map(c => (
+                            <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="divider">Productos del Pedido</div>
@@ -255,11 +120,11 @@ function NuevoPedido({ plantillas, datosMateriales, onPedidoCreado }) {
 
                 <form onSubmit={handleAddProductoAlBorrador} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
                     <div className="form-control sm:col-span-2">
-                        <label className="label"><span className="label-text">Plantilla de Producto</span></label>
+                        <label className="label"><span className="label-text">Producto</span></label>
                         <select className="select select-bordered" value={productoSeleccionadoId} onChange={e => setProductoSeleccionadoId(e.target.value)} required>
-                            <option value="" disabled>Seleccionar plantilla...</option>
-                            {plantillas.map(p => (
-                                <option key={p.id} value={p.id}>{`${p.fabricante} - ${p.modelo} (${p.material} ${p.espesor}mm, ${p.largo}x${p.ancho}mm)`}</option>
+                            <option value="" disabled>Seleccionar producto...</option>
+                            {productos.map(p => (
+                                <option key={p.id} value={p.id}>{`${p.nombre} (${p.material} ${p.espesor}mm, ${p.largo}x${p.ancho}mm)`}</option>
                             ))}
                         </select>
                     </div>
@@ -271,7 +136,11 @@ function NuevoPedido({ plantillas, datosMateriales, onPedidoCreado }) {
                 </form>
 
                 <div className="card-actions justify-end mt-6">
-                    <button onClick={handleSavePedido} className="btn btn-primary" disabled={!cliente || productosBorrador.length === 0}>
+                    <div className="form-control w-full">
+                        <label className="label"><span className="label-text">Notas Adicionales</span></label>
+                        <textarea className="textarea textarea-bordered h-24" placeholder="Añade aquí cualquier nota o comentario sobre el pedido..." value={notas} onChange={(e) => setNotas(e.target.value)}></textarea>
+                    </div>
+                    <button onClick={handleSavePedido} className="btn btn-primary mt-4" disabled={!cliente || productosBorrador.length === 0}>
                         Confirmar y Guardar Pedido
                     </button>
                 </div>
@@ -376,9 +245,10 @@ function PedidosHistorial({ pedidos, onUpdate, onEdit }) {
     );
 }
 
-function EditarPedidoModal({ pedido, plantillas, datosMateriales, onClose, onSave }) {
+function EditarPedidoModal({ pedido, productos, clientes, onClose, onSave }) {
     const [cliente, setCliente] = useState(pedido.cliente);
-    const [productos, setProductos] = useState(pedido.productos || []);
+    const [productosBorrador, setProductosBorrador] = useState(pedido.productos || []);
+    const [notas, setNotas] = useState(pedido.notas || '');
 
     // Estado para el formulario de añadir nuevo producto
     const [productoSeleccionadoId, setProductoSeleccionadoId] = useState('');
@@ -388,41 +258,32 @@ function EditarPedidoModal({ pedido, plantillas, datosMateriales, onClose, onSav
         e.preventDefault();
         if (!productoSeleccionadoId || cantidadProducto < 1) return;
 
-        const plantilla = plantillas.find(p => p.id == productoSeleccionadoId);
-        if (!plantilla) return;
-
-        const materialInfo = datosMateriales.find(m => m.material === plantilla.material && m.espesor == plantilla.espesor);
-        if (!materialInfo) {
-            alert('No se encontraron datos de precio/peso para el material de este producto.');
-            return;
-        }
-
-        const areaM2 = (plantilla.largo / 1000) * (plantilla.ancho / 1000);
-        const precioUnitario = areaM2 * materialInfo.precio;
-        const pesoUnitario = areaM2 * materialInfo.peso;
+        const productoToAdd = productos.find(p => p.id == productoSeleccionadoId);
+        if (!productoToAdd) return;
 
         const nuevoProducto = {
-            id: `${Date.now()}-${plantilla.id}`,
-            plantillaId: plantilla.id,
-            nombre: `${plantilla.fabricante} - ${plantilla.modelo}`,
+            id: `${Date.now()}-${productoToAdd.id}`,
+            productoId: productoToAdd.id,
+            nombre: productoToAdd.nombre,
             cantidad: cantidadProducto,
-            precioUnitario,
-            pesoUnitario,
+            precioUnitario: productoToAdd.precioUnitario,
+            pesoUnitario: productoToAdd.pesoUnitario,
         };
-        setProductos(prev => [...prev, nuevoProducto]);
+        setProductosBorrador(prev => [...prev, nuevoProducto]);
         setProductoSeleccionadoId('');
         setCantidadProducto(1);
     };
 
     const handleRemoveProducto = (id) => {
-        setProductos(prev => prev.filter(p => p.id !== id));
+        setProductosBorrador(prev => prev.filter(p => p.id !== id));
     };
 
     const handleGuardarCambios = () => {
         const pedidoActualizado = {
             ...pedido,
             cliente,
-            productos,
+            productos: productosBorrador,
+            notas,
         };
         onSave(pedidoActualizado);
     };
@@ -434,7 +295,17 @@ function EditarPedidoModal({ pedido, plantillas, datosMateriales, onClose, onSav
                 
                 <div className="form-control my-4">
                     <label className="label"><span className="label-text">Nombre del Cliente</span></label>
-                    <input type="text" className="input input-bordered w-full" value={cliente} onChange={(e) => setCliente(e.target.value)} />
+                    <select className="select select-bordered w-full" value={cliente} onChange={(e) => setCliente(e.target.value)} required>
+                        <option value="" disabled>Seleccionar cliente...</option>
+                        {clientes.map(c => (
+                            <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="form-control my-4">
+                    <label className="label"><span className="label-text">Notas</span></label>
+                    <textarea className="textarea textarea-bordered h-24" value={notas} onChange={(e) => setNotas(e.target.value)}></textarea>
                 </div>
 
                 <div className="divider">Productos</div>
@@ -451,11 +322,11 @@ function EditarPedidoModal({ pedido, plantillas, datosMateriales, onClose, onSav
 
                 <form onSubmit={handleAddProducto} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end p-4 border rounded-lg">
                     <div className="form-control sm:col-span-2">
-                        <label className="label"><span className="label-text">Añadir Plantilla</span></label>
+                        <label className="label"><span className="label-text">Añadir Producto</span></label>
                         <select className="select select-bordered" value={productoSeleccionadoId} onChange={e => setProductoSeleccionadoId(e.target.value)} required>
-                            <option value="" disabled>Seleccionar...</option>
-                            {plantillas.map(p => (
-                                <option key={p.id} value={p.id}>{`${p.fabricante} - ${p.modelo} (${p.material} ${p.espesor}mm, ${p.largo}x${p.ancho}mm)`}</option>
+                            <option value="" disabled>Seleccionar producto...</option>
+                            {productos.map(p => (
+                                <option key={p.id} value={p.id}>{`${p.nombre} (${p.material} ${p.espesor}mm, ${p.largo}x${p.ancho}mm)`}</option>
                             ))}
                         </select>
                     </div>
@@ -479,8 +350,9 @@ function EditarPedidoModal({ pedido, plantillas, datosMateriales, onClose, onSav
 
 function PedidosClientesPage() {
     const [pedidos, setPedidos] = useState([]);
-    const [plantillas, setPlantillas] = useState([]);
+    const [productos, setProductos] = useState([]);
     const [fabricantes, setFabricantes] = useState([]);
+    const [clientes, setClientes] = useState([]);
     const [datosMateriales, setDatosMateriales] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -506,17 +378,19 @@ function PedidosClientesPage() {
         setLoading(true);
         setError(null);
         try {
-            const [plantillasRes, pedidosRes, fabricantesRes] = await Promise.all([
-                fetch('/api/plantillas'),
+            const [productosRes, pedidosRes, fabricantesRes, clientesRes] = await Promise.all([
+                fetch('/api/productos'),
                 fetch('/api/pedidos'),
-                fetch('/api/fabricantes')
+                fetch('/api/fabricantes'),
+                fetch('/api/clientes')
             ]);
-            if (!plantillasRes.ok || !pedidosRes.ok || !fabricantesRes.ok) {
+            if (!productosRes.ok || !pedidosRes.ok || !fabricantesRes.ok || !clientesRes.ok) {
                 throw new Error('Error al cargar los datos del servidor');
             }
-            setPlantillas(await plantillasRes.json());
+            setProductos(await productosRes.json());
             setPedidos(await pedidosRes.json());
             setFabricantes(await fabricantesRes.json());
+            setClientes(await clientesRes.json());
         } catch (err) {
             console.error("Fallo al cargar datos:", err);
             setError(err.message || 'Ocurrió un error desconocido.');
@@ -565,17 +439,15 @@ function PedidosClientesPage() {
                 <FaClipboardList /> Pedidos de Clientes
             </h1>
 
-            <PlantillasManager plantillas={plantillas} fabricantes={fabricantes} onUpdate={fetchData} datosMateriales={datosMateriales} />
-
-            <NuevoPedido plantillas={plantillas} datosMateriales={datosMateriales} onPedidoCreado={fetchData} />
+            <NuevoPedido productos={productos} clientes={clientes} onPedidoCreado={fetchData} />
 
             <PedidosHistorial pedidos={pedidos} onUpdate={fetchData} onEdit={setPedidoEnEdicion} />
 
             {pedidoEnEdicion && (
                 <EditarPedidoModal 
                     pedido={pedidoEnEdicion}
-                    plantillas={plantillas}
-                    datosMateriales={datosMateriales}
+                    productos={productos}
+                    clientes={clientes}
                     onClose={() => setPedidoEnEdicion(null)}
                     onSave={handleGuardarEdicion}
                 />
@@ -600,6 +472,7 @@ function PedidoCard({ pedido, onToggle, onDelete, onEdit }) {
                         <p className="text-sm opacity-70">{new Date(pedido.fecha).toLocaleString('es-ES')}</p>
                     </div>
                     <div className="card-actions">
+                        <Link href={`/pedidos/${pedido.id}`} className="btn btn-outline btn-primary btn-sm" title="Ver Detalles"><FaEye /></Link>
                         <button onClick={() => onEdit(pedido)} className="btn btn-outline btn-info btn-sm" title="Editar Pedido"><FaEdit /></button>
                         {pedido.estado === 'Activo' ? (
                             <button onClick={() => onToggle(pedido.id, pedido.estado)} className="btn btn-success btn-sm" title="Marcar como Completado"><FaCheck /> Completar</button>

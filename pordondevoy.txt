@@ -1,1 +1,5 @@
 estas mejorando y perfeccionando el pedido de proveedor de importacion
+
+tenemos que implementar el poder imprimir en pdf los pedidos activos
+
+implementar un chatbot para preguntar por informacion de los json

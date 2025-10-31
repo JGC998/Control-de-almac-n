@@ -1,5 +1,56 @@
 [
   {
+    "cliente": "Moresil",
+    "productos": [
+      {
+        "id": "1761932489147-6bd1fde6-cbdc-48b1-a889-50327f3fd638",
+        "plantillaId": "6bd1fde6-cbdc-48b1-a889-50327f3fd638",
+        "nombre": "Moresil - UTV6040",
+        "cantidad": 20,
+        "precioUnitario": 10.56,
+        "pesoUnitario": 0
+      }
+    ],
+    "fecha": "2025-10-31T17:41:35.374Z",
+    "estado": "Activo",
+    "id": "PED-0062",
+    "notas": "Envíar el jueves"
+  },
+  {
+    "cliente": "Vibromart",
+    "productos": [
+      {
+        "id": "1761931531495-2565b5d9-1761-429c-8b2d-30abba1aaa61",
+        "plantillaId": "2565b5d9-1761-429c-8b2d-30abba1aaa61",
+        "nombre": "Vibromart - Paraguas",
+        "cantidad": 50,
+        "precioUnitario": 19.242600000000003,
+        "pesoUnitario": 7.800000000000001
+      }
+    ],
+    "fecha": "2025-10-31T17:25:33.878Z",
+    "estado": "Activo",
+    "id": "PED-0061",
+    "notas": ""
+  },
+  {
+    "cliente": "Agruiz",
+    "productos": [
+      {
+        "id": "1761927361398-8723e5e0-5910-4481-841a-788638ee5089",
+        "plantillaId": "8723e5e0-5910-4481-841a-788638ee5089",
+        "nombre": "Agruiz - Faldeta",
+        "cantidad": 20,
+        "precioUnitario": 8.819525000000002,
+        "pesoUnitario": 3.575
+      }
+    ],
+    "fecha": "2025-10-31T16:16:02.788Z",
+    "estado": "Activo",
+    "id": "e0d37689-e4c7-4069-aa37-60c94e9282e8",
+    "notas": ""
+  },
+  {
     "cliente": "Aldama",
     "productos": [
       {
@@ -13,7 +64,8 @@
     ],
     "fecha": "2025-10-30T20:23:17.845Z",
     "estado": "Activo",
-    "id": "e338671f-0850-4714-9fb0-02cbb4c00d33"
+    "id": "e338671f-0850-4714-9fb0-02cbb4c00d33",
+    "notas": ""
   },
   {
     "id": "ped-cli-002",
@@ -32,6 +84,7 @@
         "precio_unitario": 800
       }
     ],
-    "total": 800
+    "total": 800,
+    "notas": ""
   }
 ]

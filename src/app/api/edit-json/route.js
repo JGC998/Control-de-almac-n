@@ -8,7 +8,8 @@ export async function GET(request) {
     const filename = searchParams.get('filename');
 
     if (action === 'list') {
-      const files = await listDataFiles();
+      const allowedFiles = ['fabricantes.json', 'materiales.json', 'plantillas.json', 'precios.json', 'stock.json'];
+      const files = (await listDataFiles()).filter(file => allowedFiles.includes(file));
       // We map the file names to the format expected by the frontend.
       const jsonFiles = files.map(file => ({
         name: file,
@@ -17,9 +18,14 @@ export async function GET(request) {
       return NextResponse.json(jsonFiles);
     }
 
+    const allowedFiles = ['fabricantes.json', 'materiales.json', 'plantillas.json', 'precios.json', 'stock.json'];
+
     if (action === 'read') {
       if (!filename) {
         return NextResponse.json({ error: 'Filename is required for read action' }, { status: 400 });
+      }
+      if (!allowedFiles.includes(filename)) {
+        return NextResponse.json({ error: 'Access to this file is forbidden' }, { status: 403 });
       }
       try {
         const content = await readData(filename);
@@ -39,6 +45,7 @@ export async function GET(request) {
 }
 
 export async function PUT(request) {
+  const allowedFiles = ['fabricantes.json', 'materiales.json', 'plantillas.json', 'precios.json', 'stock.json'];
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
@@ -47,6 +54,9 @@ export async function PUT(request) {
     if (action === 'write') {
       if (!filename) {
         return NextResponse.json({ error: 'Filename is required for write action' }, { status: 400 });
+      }
+      if (!allowedFiles.includes(filename)) {
+        return NextResponse.json({ error: 'Access to this file is forbidden' }, { status: 403 });
       }
 
       const { content } = await request.json();

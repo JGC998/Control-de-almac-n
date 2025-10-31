@@ -14,17 +14,10 @@ const GestionJsonPage = () => {
   const [tableColumns, setTableColumns] = useState([]);
 
   const fileDisplayNames = {
-    'contenedores.json': 'Gestión de Contenedores',
     'fabricantes.json': 'Gestión de Fabricantes',
     'materiales.json': 'Gestión de Materiales',
-    'movimientos.json': 'Gestión de Movimientos',
-    'pedidos-clientes.json': 'Gestión de Pedidos de Clientes',
-    'pedidos-proveedores.json': 'Gestión de Pedidos de Proveedores',
-    'pedidos.json': 'Gestión de Pedidos',
     'plantillas.json': 'Gestión de Plantillas',
-    'precios-pvc.json': 'Gestión de Precios PVC',
     'precios.json': 'Gestión de Precios',
-    'procesos.json': 'Gestión de Procesos',
     'stock.json': 'Gestión de Stock',
   };
 

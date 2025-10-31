@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { FaBoxes, FaClipboardList, FaTruck, FaWrench, FaWarehouse, FaEuroSign } from "react-icons/fa";
 import MovimientosRecientesTable from "@/components/MovimientosRecientesTable";
-import NivelesStock from "@/components/NivelesStock";
+import TablonNotas from "@/components/TablonNotas";
+import ResumenPedidosCliente from "@/components/ResumenPedidosCliente";
 import { useDashboardData } from '../utils/useDashboardData'; // Importamos el nuevo hook
 
 export default function Home() {
@@ -41,32 +42,23 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 flex flex-col gap-6">
             <div className="stats shadow-lg stats-vertical lg:stats-horizontal">
-              <div className="stat">
+              <Link href="/clientes" className="stat">
                 <div className="stat-figure text-primary">
                   <FaClipboardList className="text-3xl" />
                 </div>
                 <div className="stat-title">Pedidos de Clientes</div>
                 <div className="stat-value text-primary">{data.stats.pedidosClientes}</div>
                 <div className="stat-desc">Pendientes de fabricar</div>
-              </div>
+              </Link>
               
-              <div className="stat">
-                <div className="stat-figure text-secondary">
-                  <FaBoxes className="text-3xl" />
-                </div>
-                <div className="stat-title">Items con Stock Bajo</div>
-                <div className="stat-value text-warning">{data.stats.stockBajo}</div>
-                <div className="stat-desc">Necesitan reposición</div>
-              </div>
-              
-              <div className="stat">
+              <Link href="/proveedores" className="stat">
                 <div className="stat-figure text-accent">
                   <FaTruck className="text-3xl" />
                 </div>
                 <div className="stat-title">Pedidos a Proveedores</div>
                 <div className="stat-value text-accent">{data.stats.pedidosProveedores}</div>
                 <div className="stat-desc">Pendientes de recibir</div>
-              </div>
+              </Link>
             </div>
 
             <div className="card bg-base-100 shadow-xl">
@@ -78,17 +70,8 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col gap-6">
-            <NivelesStock stockItems={data.stock} />
-
-            <div className="card bg-base-100 shadow-xl">
-              <div className="card-body">
-                <h2 className="card-title text-accent">Navegación Rápida</h2>
-                <Link href="/clientes" className="btn btn-outline btn-secondary w-full mt-2"><FaClipboardList /> Pedidos Clientes</Link>
-                <Link href="/proveedores" className="btn btn-outline btn-secondary w-full mt-2"><FaTruck /> Pedidos Proveedores</Link>
-                <Link href="/calculadora" className="btn btn-outline btn-primary w-full mt-2"><FaWrench /> Calculadora</Link>
-                <Link href="/tarifas" className="btn btn-outline btn-info w-full mt-2"><FaEuroSign /> Consultar Tarifas</Link>
-              </div>
-            </div>
+            <TablonNotas />
+            <ResumenPedidosCliente pedidos={data.pedidos} />
           </div>
         </div>
       </div>

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { readData, writeData } from '../../../utils/dataManager';
-import { v4 as uuidv4 } from 'uuid';
 
 const FILENAME = 'pedidos.json';
 
@@ -15,8 +14,19 @@ export async function POST(request) {
     const nuevoPedido = await request.json();
     const pedidos = await readData(FILENAME);
 
-    // Asignamos un ID único y robusto
-    nuevoPedido.id = uuidv4();
+    // --- Nueva lógica para generar ID secuencial ---
+    let maxId = 0;
+    for (const pedido of pedidos) {
+        // Extraer solo la parte numérica del ID
+        const idNum = parseInt(String(pedido.id).split('-').pop(), 10);
+        if (!isNaN(idNum) && idNum > maxId) {
+            maxId = idNum;
+        }
+    }
+    // Asignar el nuevo ID formateado
+    nuevoPedido.id = `PED-${String(maxId + 1).padStart(4, '0')}`;
+    // ---
+
     pedidos.unshift(nuevoPedido); // Añade al principio
 
     await writeData(FILENAME, pedidos);

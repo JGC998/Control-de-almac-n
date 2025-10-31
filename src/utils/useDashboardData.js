@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export function useDashboardData() {
-  const [data, setData] = useState({ stats: { pedidosClientes: 0, pedidosProveedores: 0, stockBajo: 0 }, movimientos: [], stock: [] });
+  const [data, setData] = useState({ stats: { pedidosClientes: 0, pedidosProveedores: 0 }, movimientos: [], stock: [], pedidos: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -33,16 +33,15 @@ export function useDashboardData() {
         // Procesamiento de los datos para las estadísticas
         const pedidosClientesActivos = pedidosClientesData.filter(p => p.estado === 'Activo').length;
         const pedidosProveedoresPendientes = pedidosProveedoresData.filter(p => p.estado === 'Pendiente').length;
-        const stockBajo = stockData.filter(s => parseFloat(s.metrosDisponibles) < parseFloat(s.stock_minimo)).length;
 
         setData({
           stats: {
             pedidosClientes: pedidosClientesActivos,
             pedidosProveedores: pedidosProveedoresPendientes,
-            stockBajo,
           },
           movimientos: movimientosData,
           stock: stockData,
+          pedidos: pedidosClientesData, // <-- Añadir esto
         });
 
       } catch (err) {

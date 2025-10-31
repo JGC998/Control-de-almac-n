@@ -1,0 +1,10 @@
+[
+  {
+    "id": "cli-001",
+    "nombre": "Cliente de Prueba 1"
+  },
+  {
+    "id": "cli-002",
+    "nombre": "Cliente de Prueba 2"
+  }
+]
