@@ -1,0 +1,26 @@
+[
+  {
+    "id": "guia-vulcanizado",
+    "title": "Guía de Vulcanizado de Bandas de PVC",
+    "category": "Máquinas",
+    "material": "PVC",
+    "htmlContent": "<h1>Guía de Vulcanizado de Bandas de PVC</h1><p>Este manual detalla el proceso de vulcanizado de bandas transportadoras de PVC.</p><h2>Paso 1: Preparación</h2><p>Asegúrese de que la máquina de vulcanizado esté limpia y en buen estado.</p><h2>Paso 2: Proceso</h2><p>Coloque la banda de PVC en la máquina y siga las instrucciones de temperatura y tiempo.</p><p>Para más detalles, consulte el <a href='/guias-attachments/manual_vulcanizado.pdf' target='_blank'>PDF adjunto</a>.</p>",
+    "attachments": ["/guias-attachments/manual_vulcanizado.pdf"]
+  },
+  {
+    "id": "procedimiento-recepcion",
+    "title": "Procedimiento de Recepción de Materiales",
+    "category": "General",
+    "material": "Todos",
+    "htmlContent": "<h1>Procedimiento de Recepción de Materiales</h1><p>Este documento describe los pasos para la correcta recepción de materiales en el almacén, aplicable a todos los tipos de materiales.</p><ol><li>Verificar el albarán con el pedido.</li><li>Inspeccionar la calidad y cantidad del material.</li><li>Registrar la entrada en el sistema.</li></ol>",
+    "attachments": []
+  },
+  {
+    "id": "guia-corte-acero",
+    "title": "Guía de Corte de Láminas de Acero",
+    "category": "Máquinas",
+    "material": "Acero",
+    "htmlContent": "<h1>Guía de Corte de Láminas de Acero</h1><p>Instrucciones para el corte preciso de láminas de acero.</p><h2>Paso 1: Configuración de la Cortadora</h2><p>Ajuste la cortadora según el espesor de la lámina de acero.</p><h2>Paso 2: Proceso de Corte</h2><p>Realice el corte siguiendo las medidas especificadas.</p>",
+    "attachments": []
+  }
+]

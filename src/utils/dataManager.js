@@ -77,3 +77,49 @@ export async function listDataFiles() {
     const files = await fs.readdir(DATA_DIRECTORY);
     return files.filter(file => file.endsWith('.json'));
 }
+
+/**
+ * Genera el siguiente número de presupuesto de forma secuencial para el año actual.
+ * Formato: YYYY-NNN (ej. 2023-001)
+ * @returns {Promise<string>} El siguiente número de presupuesto.
+ */
+export async function getNextPresupuestoNumber() {
+  const year = new Date().getFullYear();
+  const quotes = await readData('presupuestos.json');
+
+  const yearQuotes = quotes.filter(q => q.numero && q.numero.startsWith(`${year}-`));
+
+  let maxNumber = 0;
+  yearQuotes.forEach(q => {
+    const numberPart = parseInt(q.numero.split('-')[1], 10);
+    if (numberPart > maxNumber) {
+      maxNumber = numberPart;
+    }
+  });
+
+  const nextNumber = maxNumber + 1;
+  return `${year}-${String(nextNumber).padStart(3, '0')}`;
+}
+
+/**
+ * Genera el siguiente número de pedido de forma secuencial para el año actual.
+ * Formato: YYYY-NNN (ej. 2023-001)
+ * @returns {Promise<string>} El siguiente número de pedido.
+ */
+export async function getNextPedidoNumber() {
+  const year = new Date().getFullYear();
+  const orders = await readData('pedidos.json');
+
+  const yearOrders = orders.filter(o => o.numero && o.numero.startsWith(`${year}-`));
+
+  let maxNumber = 0;
+  yearOrders.forEach(o => {
+    const numberPart = parseInt(o.numero.split('-')[1], 10);
+    if (numberPart > maxNumber) {
+      maxNumber = numberPart;
+    }
+  });
+
+  const nextNumber = maxNumber + 1;
+  return `${year}-${String(nextNumber).padStart(3, '0')}`;
+}

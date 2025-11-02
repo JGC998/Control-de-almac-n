@@ -6,6 +6,7 @@ export default async function NuevoPresupuestoPage() {
   // Leemos los datos necesarios en el servidor
   const clients = await readData('clientes.json');
   const products = await readData('productos.json');
+  const config = await readData('config.json');
 
   return (
     <main className="p-4 sm:p-6 lg:p-8">
@@ -19,7 +20,7 @@ export default async function NuevoPresupuestoPage() {
           Pasamos los datos leídos en el servidor (clientes, productos) 
           al componente de cliente que manejará la interactividad del formulario.
         */}
-        <CreatePresupuestoForm clients={clients} products={products} />
+        <CreatePresupuestoForm clients={clients} products={products} ivaRate={config.iva_rate} />
       </div>
     </main>
   );

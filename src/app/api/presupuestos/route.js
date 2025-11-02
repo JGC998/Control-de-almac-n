@@ -1,14 +1,21 @@
 
 import { NextResponse } from 'next/server';
-import { readData, writeData } from '@/utils/dataManager';
+import { readData, writeData, getNextPresupuestoNumber } from '@/utils/dataManager';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Maneja las solicitudes GET para obtener todos los presupuestos.
  */
-export async function GET() {
+export async function GET(request) {
   try {
-    const quotes = await readData('presupuestos.json');
+    const { searchParams } = new URL(request.url);
+    const clientId = searchParams.get('clientId');
+
+    let quotes = await readData('presupuestos.json');
+
+    if (clientId) {
+      quotes = quotes.filter(quote => String(quote.clienteId) === String(clientId));
+    }
     return NextResponse.json(quotes);
   } catch (error) {
     console.error('Error al leer los presupuestos:', error);
@@ -31,7 +38,7 @@ export async function POST(request) {
     const newQuote = {
       ...quoteData,
       id: uuidv4(),
-      numero: `PRE-${Date.now()}`, // Numero de presupuesto simple
+      numero: await getNextPresupuestoNumber(),
       fechaCreacion: new Date().toISOString(),
       estado: 'Borrador', // Estado inicial por defecto
     };

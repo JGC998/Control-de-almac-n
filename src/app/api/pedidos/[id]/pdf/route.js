@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-
-const pedidosFilePath = path.join(process.cwd(), 'src', 'data', 'pedidos.json');
+import { readData } from '@/utils/dataManager';
 
 async function getPedido(id) {
-    const data = await fs.readFile(pedidosFilePath, 'utf-8');
-    const pedidos = JSON.parse(data);
+    const pedidos = await readData('pedidos.json');
     return pedidos.find(p => String(p.id) === String(id));
+}
+
+async function getCliente(id) {
+    if (!id) return null;
+    const clientes = await readData('clientes.json');
+    return clientes.find(c => String(c.id) === String(id));
 }
 
 export async function GET(request, { params }) {
@@ -18,6 +22,9 @@ export async function GET(request, { params }) {
     if (!pedido) {
         return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
     }
+
+    const cliente = await getCliente(pedido.clienteId);
+    const clienteNombre = cliente ? cliente.nombre : pedido.cliente;
 
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage();
@@ -48,7 +55,7 @@ export async function GET(request, { params }) {
     // Client Info
     page.drawText('CLIENTE:', { x: margin + 10, y: y, font: boldFont, size: 10, color: black });
     y -= 15;
-    page.drawText(pedido.cliente, { x: margin + 10, y: y, font: font, size: 12, color: black });
+    page.drawText(clienteNombre || 'Cliente no especificado', { x: margin + 10, y: y, font: font, size: 12, color: black });
     // Add more client details here if available
 
     // Order Info
@@ -56,11 +63,11 @@ export async function GET(request, { params }) {
     y += 15; // Reset Y for the second column
     page.drawText('Nº PEDIDO:', { x: orderInfoX, y: y, font: boldFont, size: 10, color: black });
     y -= 15;
-    page.drawText(String(pedido.id), { x: orderInfoX, y: y, font: font, size: 12, color: black });
+    page.drawText(String(pedido.numero || pedido.id), { x: orderInfoX, y: y, font: font, size: 12, color: black });
     y -= 20;
     page.drawText('FECHA:', { x: orderInfoX, y: y, font: boldFont, size: 10, color: black });
     y -= 15;
-    page.drawText(new Date(pedido.fecha).toLocaleDateString('es-ES'), { x: orderInfoX, y: y, font: font, size: 12, color: black });
+    page.drawText(new Date(pedido.fechaCreacion || pedido.fecha).toLocaleDateString('es-ES'), { x: orderInfoX, y: y, font: font, size: 12, color: black });
 
     y -= 80; // Move down past the details box
 
@@ -92,11 +99,16 @@ export async function GET(request, { params }) {
     let totalPeso = 0;
     let tableY = tableTop - headerHeight;
 
+    const productos = pedido.productos || pedido.items || [];
+
     // Table Rows
-    for (const producto of pedido.productos) {
+    for (const producto of productos) {
         tableY -= rowHeight;
-        const totalProducto = (producto.cantidad * producto.precioUnitario);
-        const pesoProducto = (producto.cantidad * producto.pesoUnitario);
+        const cantidad = producto.cantidad || 0;
+        const precioUnitario = producto.precioUnitario || producto.precio_unitario || 0;
+        const pesoUnitario = producto.pesoUnitario || 0;
+        const totalProducto = cantidad * precioUnitario;
+        const pesoProducto = cantidad * pesoUnitario;
         totalPedido += totalProducto;
         totalPeso += pesoProducto;
 
@@ -109,19 +121,19 @@ export async function GET(request, { params }) {
             borderWidth: 1,
         });
 
-        const nombre = producto.nombre;
-        const cantidad = String(producto.cantidad);
-        const pesoUnitario = `${producto.pesoUnitario.toFixed(2)} kg`;
-        const pesoTotal = `${pesoProducto.toFixed(2)} kg`;
-        const precioUnitario = `${producto.precioUnitario.toFixed(2)} €`;
-        const total = `${totalProducto.toFixed(2)} €`;
+        const nombre = producto.nombre || producto.descripcion || '';
+        const cantidadStr = String(cantidad);
+        const pesoUnitarioStr = `${pesoUnitario.toFixed(2)} kg`;
+        const pesoTotalStr = `${pesoProducto.toFixed(2)} kg`;
+        const precioUnitarioStr = `${precioUnitario.toFixed(2)} €`;
+        const totalStr = `${totalProducto.toFixed(2)} €`;
 
         page.drawText(nombre, { x: tableX + (190 - font.widthOfTextAtSize(nombre, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(cantidad, { x: tableX + 190 + (50 - font.widthOfTextAtSize(cantidad, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(pesoUnitario, { x: tableX + 240 + (60 - font.widthOfTextAtSize(pesoUnitario, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(pesoTotal, { x: tableX + 300 + (60 - font.widthOfTextAtSize(pesoTotal, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(precioUnitario, { x: tableX + 360 + (65 - font.widthOfTextAtSize(precioUnitario, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(total, { x: tableX + 425 + (70 - font.widthOfTextAtSize(total, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
+        page.drawText(cantidadStr, { x: tableX + 190 + (50 - font.widthOfTextAtSize(cantidadStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
+        page.drawText(pesoUnitarioStr, { x: tableX + 240 + (60 - font.widthOfTextAtSize(pesoUnitarioStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
+        page.drawText(pesoTotalStr, { x: tableX + 300 + (60 - font.widthOfTextAtSize(pesoTotalStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
+        page.drawText(precioUnitarioStr, { x: tableX + 360 + (65 - font.widthOfTextAtSize(precioUnitarioStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
+        page.drawText(totalStr, { x: tableX + 425 + (70 - font.widthOfTextAtSize(totalStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
     }
 
     // Draw vertical lines

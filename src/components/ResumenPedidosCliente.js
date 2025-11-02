@@ -2,15 +2,17 @@
 
 import { useMemo } from 'react';
 
-export default function ResumenPedidosCliente({ pedidos }) {
+export default function ResumenPedidosCliente({ pedidos, clients }) {
 
     const resumen = useMemo(() => {
-        if (!pedidos) return {};
+        if (!pedidos || !clients) return {};
+
+        const clientMap = new Map(clients.map(c => [c.id, c.nombre]));
 
         return pedidos
             .filter(p => p.estado === 'Activo')
             .reduce((acc, pedido) => {
-                const cliente = pedido.cliente || 'Cliente Desconocido';
+                const cliente = pedido.clienteId ? clientMap.get(pedido.clienteId) : (pedido.cliente || 'Cliente Desconocido');
                 if (!acc[cliente]) {
                     acc[cliente] = 0;
                 }
@@ -18,7 +20,7 @@ export default function ResumenPedidosCliente({ pedidos }) {
                 return acc;
             }, {});
 
-    }, [pedidos]);
+    }, [pedidos, clients]);
 
     const clientes = Object.keys(resumen).sort();
 

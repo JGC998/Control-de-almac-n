@@ -34,7 +34,7 @@ export default function Home() {
 
   // Una vez cargado, renderizamos la página con los datos del hook
   return (
-    <main className="p-4 sm:p-6 md:p-8 bg-base-200 min-h-screen">
+    <main className="p-4 sm:p-6 md:p-8 bg-base-200 min-h-screen w-full">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl md:text-5xl font-bold mb-8 text-primary flex items-center gap-3">
           <FaWarehouse /> Dashboard de Taller
@@ -78,4 +78,3 @@ export default function Home() {
     </main>
   );
 }
-

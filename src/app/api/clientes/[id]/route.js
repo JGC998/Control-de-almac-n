@@ -5,7 +5,7 @@ const FILENAME = 'clientes.json';
 
 // GET /api/clientes/[id] - Obtiene un cliente por su ID
 export async function GET(request, { params }) {
-    const { id } = params;
+    const { id } = await params;
     const clientes = await readData(FILENAME);
     const cliente = clientes.find(c => c.id === id);
 
@@ -18,7 +18,7 @@ export async function GET(request, { params }) {
 
 // PUT /api/clientes/[id] - Actualiza un cliente
 export async function PUT(request, { params }) {
-    const { id } = params;
+    const { id } = await params;
     const updatedCliente = await request.json();
     const clientes = await readData(FILENAME);
 
@@ -36,7 +36,7 @@ export async function PUT(request, { params }) {
 
 // DELETE /api/clientes/[id] - Elimina un cliente
 export async function DELETE(request, { params }) {
-    const { id } = params;
+    const { id } = await params;
     const clientes = await readData(FILENAME);
     const nuevosClientes = clientes.filter(c => c.id !== id);
 

@@ -135,6 +135,7 @@ function ClientesPage() {
                                     <tr key={cliente.id}>
                                         <td>{cliente.nombre}</td>
                                         <td>
+                                            <Link href={`/gestion/clientes/${cliente.id}`} className="btn btn-info btn-xs mr-2"><FaEye /> Ver Historial</Link>
                                             <button onClick={() => handleEdit(cliente.id, cliente.nombre)} className="btn btn-ghost btn-xs"><FaEdit /></button>
                                             <button onClick={() => handleDelete(cliente.id)} className="btn btn-ghost btn-xs"><FaTrash /></button>
                                         </td>

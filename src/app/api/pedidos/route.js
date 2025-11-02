@@ -4,8 +4,15 @@ import { readData, writeData } from '../../../utils/dataManager';
 const FILENAME = 'pedidos.json';
 
 // GET /api/pedidos - Obtiene todos los pedidos
-export async function GET() {
-    const pedidos = await readData(FILENAME);
+export async function GET(request) {
+    const { searchParams } = new URL(request.url);
+    const clientId = searchParams.get('clientId');
+
+    let pedidos = await readData(FILENAME);
+
+    if (clientId) {
+        pedidos = pedidos.filter(pedido => String(pedido.clienteId) === String(clientId));
+    }
     return NextResponse.json(pedidos);
 }
 

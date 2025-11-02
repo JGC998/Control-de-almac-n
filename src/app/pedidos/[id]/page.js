@@ -6,6 +6,7 @@ import { FaFilePdf, FaArrowLeft } from 'react-icons/fa';
 
 export default function PedidoDetailPage() {
     const [pedido, setPedido] = useState(null);
+    const [cliente, setCliente] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const params = useParams();
@@ -22,8 +23,15 @@ export default function PedidoDetailPage() {
                     }
                     return res.json();
                 })
-                .then(data => {
+                .then(async (data) => {
                     setPedido(data);
+                    if (data.clienteId) {
+                        const clientRes = await fetch(`/api/clientes/${data.clienteId}`);
+                        if (clientRes.ok) {
+                            const clientData = await clientRes.json();
+                            setCliente(clientData);
+                        }
+                    }
                     setLoading(false);
                 })
                 .catch(err => {
@@ -54,8 +62,17 @@ export default function PedidoDetailPage() {
         return null; // Or a not found component
     }
 
-    const totalPedido = pedido.productos.reduce((acc, prod) => acc + (prod.cantidad * prod.precioUnitario), 0);
-    const totalPeso = pedido.productos.reduce((acc, prod) => acc + (prod.cantidad * prod.pesoUnitario), 0);
+    const productosNormalizados = (pedido.productos || pedido.items || []).map(p => ({
+        id: p.id || p.item_id,
+        nombre: p.nombre || p.descripcion,
+        cantidad: p.cantidad,
+        precioUnitario: p.precioUnitario || p.precio_unitario || 0,
+        pesoUnitario: p.pesoUnitario || 0,
+    }));
+
+    const totalPedido = productosNormalizados.reduce((acc, prod) => acc + (prod.cantidad * prod.precioUnitario), 0);
+    const totalPeso = productosNormalizados.reduce((acc, prod) => acc + (prod.cantidad * prod.pesoUnitario), 0);
+    const clienteNombre = cliente ? cliente.nombre : pedido.cliente;
 
     return (
         <main className="p-4 sm:p-6 md:p-8">
@@ -68,10 +85,10 @@ export default function PedidoDetailPage() {
                     <div className="card-body">
                         <div className="flex justify-between items-start">
                             <div>
-                                <h1 className="card-title text-3xl">Pedido: {pedido.id}</h1>
-                                <p>Cliente: <span className="font-semibold">{pedido.cliente}</span></p>
-                                <p>Fecha: <span className="font-semibold">{new Date(pedido.fecha).toLocaleDateString('es-ES')}</span></p>
-                                <p>Estado: <span className={`badge ${pedido.estado === 'Activo' ? 'badge-success' : 'badge-warning'}`}>{pedido.estado}</span></p>
+                                <h1 className="card-title text-3xl">Pedido: {pedido.numero || pedido.id}</h1>
+                                <p>Cliente: <span className="font-semibold">{clienteNombre}</span></p>
+                                <p>Fecha: <span className="font-semibold">{new Date(pedido.fechaCreacion || pedido.fecha).toLocaleDateString('es-ES')}</span></p>
+                                <p>Estado: <span className={`badge ${pedido.estado === 'Activo' || pedido.estado === 'Pendiente' ? 'badge-success' : 'badge-warning'}`}>{pedido.estado}</span></p>
                             </div>
                             <a href={`/api/pedidos/${id}/pdf`} className="btn btn-primary">
                                 <FaFilePdf /> Descargar PDF
@@ -94,7 +111,7 @@ export default function PedidoDetailPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {pedido.productos.map((producto, index) => (
+                                    {productosNormalizados.map((producto, index) => (
                                         <tr key={producto.id || index}>
                                             <td>{producto.nombre}</td>
                                             <td className="text-right font-mono">{producto.cantidad}</td>

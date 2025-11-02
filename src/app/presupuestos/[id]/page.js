@@ -1,27 +1,96 @@
+'use client';
 
-import { readData } from '@/utils/dataManager';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { useRouter, notFound, useParams } from 'next/navigation';
 
 // Funciones de formato
 const formatDate = (isoString) => new Date(isoString).toLocaleDateString('es-ES');
 const formatCurrency = (amount) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount || 0);
 
-export default async function PresupuestoDetailPage({ params }) {
-  const resolvedParams = await params;
-  const { id } = resolvedParams;
+async function getPresupuesto(id) {
+  const res = await fetch(`/api/presupuestos/${id}`)
+  if (!res.ok) {
+    return notFound();
+  }
+  return res.json();
+}
 
-  // Leer todos los datos
-  const quotes = await readData('presupuestos.json');
-  const clients = await readData('clientes.json');
+async function getClient(id) {
+    const res = await fetch(`/api/clientes/${id}`)
+    if (!res.ok) {
+      return null;
+    }
+    return res.json();
+}
 
-  // Encontrar el presupuesto y cliente específicos
-  const quote = quotes.find(q => q.id === id);
-  if (!quote) {
-    notFound(); // Muestra una página 404 si no se encuentra el presupuesto
+export default function PresupuestoDetailPage() {
+  const params = useParams();
+  const { id } = params;
+  const router = useRouter();
+  const [quote, setQuote] = useState(null);
+  const [client, setClient] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    const loadData = async () => {
+      setIsLoading(true);
+      const quoteData = await getPresupuesto(id);
+      setQuote(quoteData);
+      if (quoteData && quoteData.clienteId) {
+        const clientData = await getClient(quoteData.clienteId);
+        setClient(clientData);
+      }
+      setIsLoading(false);
+    };
+
+    loadData();
+  }, [id]);
+
+  const handleDelete = async () => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este presupuesto?')) {
+      try {
+        const res = await fetch(`/api/presupuestos/${id}`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Error al eliminar');
+        router.push('/presupuestos');
+        router.refresh();
+      } catch (error) {
+        console.error('Error al eliminar el presupuesto:', error);
+        alert('No se pudo eliminar el presupuesto.');
+      }
+    }
+  };
+
+  const handleCreateOrder = async () => {
+    setIsCreatingOrder(true);
+    try {
+      const res = await fetch('/api/pedidos/from-presupuesto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presupuestoId: id }),
+      });
+      if (!res.ok) throw new Error('Error al crear el pedido');
+      const newOrder = await res.json();
+      router.push(`/pedidos/${newOrder.id}`);
+    } catch (error) {
+      console.error('Error al crear el pedido:', error);
+      alert('No se pudo crear el pedido a partir del presupuesto.');
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  };
+
+  if (isLoading) {
+    return <main className="p-4 sm:p-6 lg:p-8"><div className="max-w-4xl mx-auto text-center"><span className="loading loading-lg"></span></div></main>;
   }
 
-  const client = clients.find(c => c.id === quote.clienteId);
+  if (!quote) {
+    return notFound();
+  }
 
   return (
     <main className="p-4 sm:p-6 lg:p-8 bg-base-200">
@@ -30,10 +99,18 @@ export default async function PresupuestoDetailPage({ params }) {
         <div className="flex items-center justify-between mb-4">
             <Link href="/presupuestos" className="btn btn-ghost">← Volver a Presupuestos</Link>
             <div className="space-x-2">
-                <button className="btn btn-outline">Editar</button>
+                <Link href={`/presupuestos/${id}/editar`} className="btn btn-outline">Editar</Link>
+                <button onClick={handleDelete} className="btn btn-error btn-outline">Eliminar</button>
                 <Link href={`/api/presupuestos/${id}/pdf`} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
                   Generar PDF
                 </Link>
+                <button 
+                  onClick={handleCreateOrder} 
+                  className="btn btn-success"
+                  disabled={quote.estado === 'Aceptado' || isCreatingOrder}
+                >
+                  {isCreatingOrder ? 'Creando Pedido...' : 'Crear Pedido'}
+                </button>
             </div>
         </div>
 

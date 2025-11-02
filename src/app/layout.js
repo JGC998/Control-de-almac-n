@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export default function RootLayout({ children }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State for sidebar visibility
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Start with sidebar closed on mobile
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -30,13 +30,10 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex`}
       >
         <ThemeProvider>
-          {/* Sidebar container with conditional visibility */}
-          <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 text-white transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
-            <Sidebar toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} /> {/* Pass toggleSidebar to Sidebar */}
-          </div>
+          <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
-          {/* Main content area, shifted by sidebar width when open */}
-          <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}> {/* Adjusted ml-64 for sidebar width */}
+          {/* Main content area, shifted by sidebar width when open on md screens and above */}
+          <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-32' : 'ml-0'} md:ml-0 bg-base-200`}> 
             <Header toggleSidebar={toggleSidebar} />
             <main className="flex-1 p-4">
               {children}

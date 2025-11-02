@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -41,13 +41,12 @@ function ItemRow({ item, onRemove, products, onUpdate, clienteId }) {
         disabled={!item.productId}
       />
       <div className="col-span-2 relative">
-        <input 
-          type="number" 
-          value={(item.unitPrice || 0).toFixed(2)} 
-          readOnly 
-          className="input input-bordered w-full pr-8 bg-base-200"
-        />
-        {item.isPricingLoading && <span className="loading loading-spinner loading-xs absolute right-2 top-1/2 -translate-y-1/2"></span>}
+                  <input 
+                    type="number" 
+                    value={(item.unitPrice || 0).toFixed(2)} 
+                    disabled 
+                    className="input input-bordered w-full pr-8 bg-base-200"
+                  />        {item.isPricingLoading && <span className="loading loading-spinner loading-xs absolute right-2 top-1/2 -translate-y-1/2"></span>}
       </div>
       <span className="col-span-2 text-right font-semibold">{((item.quantity || 1) * (item.unitPrice || 0)).toFixed(2)} €</span>
       <button type="button" onClick={() => onRemove(item.id)} className="btn btn-ghost btn-sm col-span-1">X</button>
@@ -117,7 +116,7 @@ function NewClientModal({ isOpen, onClose, onSave }) {
 
 // --- MAIN FORM COMPONENT ---
 
-export default function CreatePresupuestoForm({ clients: initialClients, products }) {
+export default function CreatePresupuestoForm({ clients: initialClients, products, presupuestoToEdit, ivaRate = 0.21 }) {
   const router = useRouter();
   const [clients, setClients] = useState(initialClients);
   const [clienteId, setClienteId] = useState('');
@@ -126,17 +125,25 @@ export default function CreatePresupuestoForm({ clients: initialClients, product
   const [status, setStatus] = useState('idle');
   const [clientSearch, setClientSearch] = useState('');
   const [isClientModalOpen, setClientModalOpen] = useState(false);
+  const [isCalculatingPrice, setIsCalculatingPrice] = useState(0);
 
-  const getCalculatedPrice = useCallback(async (itemId) => {
-    // Find the item from the latest state to ensure we have the correct quantity/productId
-    let itemToCalculate;
-    setItems(currentItems => {
-      itemToCalculate = currentItems.find(i => i.id === itemId);
-      return currentItems.map(i => i.id === itemId ? { ...i, isPricingLoading: true } : i);
-    });
+  const isEditing = !!presupuestoToEdit;
+
+  useEffect(() => {
+    if (isEditing) {
+      const client = clients.find(c => c.id === presupuestoToEdit.clienteId);
+      setClienteId(presupuestoToEdit.clienteId);
+      setClientSearch(client ? client.nombre : '');
+      setItems(presupuestoToEdit.items.map(item => ({ ...item, id: uuidv4() })));
+      setNotes(presupuestoToEdit.notes || '');
+    }
+  }, [presupuestoToEdit, isEditing, clients]);
+
+  const getCalculatedPrice = useCallback(async (itemId, itemToCalculate) => {
+    setIsCalculatingPrice(prev => prev + 1);
 
     if (!itemToCalculate || !itemToCalculate.productId || !clienteId || !itemToCalculate.quantity) {
-      setItems(currentItems => currentItems.map(i => i.id === itemId ? { ...i, isPricingLoading: false } : i));
+      setIsCalculatingPrice(prev => prev - 1);
       return;
     }
 
@@ -158,9 +165,10 @@ export default function CreatePresupuestoForm({ clients: initialClients, product
     } catch (error) {
       console.error("Price calculation error:", error);
       setItems(currentItems => currentItems.map(i => i.id === itemId ? { ...i, isPricingLoading: false } : i));
+    } finally {
+        setIsCalculatingPrice(prev => prev - 1);
     }
-  }, [clienteId]); // Depend on clienteId, but not items to avoid re-creation on every item change
-
+  }, [clienteId]);
 
   const handleUpdateItem = (id, updatedValues, shouldRecalculatePrice = false) => {
     setItems(currentItems => {
@@ -168,8 +176,7 @@ export default function CreatePresupuestoForm({ clients: initialClients, product
       if (shouldRecalculatePrice) {
         const itemToCalculate = newItems.find(i => i.id === id);
         if (itemToCalculate) {
-          // We can't await here, so we call it as fire-and-forget
-          getCalculatedPrice(id, itemToCalculate, clienteId);
+          getCalculatedPrice(id, itemToCalculate);
         }
       }
       return newItems;
@@ -201,9 +208,9 @@ export default function CreatePresupuestoForm({ clients: initialClients, product
 
   const { subtotal, tax, total } = useMemo(() => {
     const sub = items.reduce((acc, item) => acc + ((item.quantity || 0) * (item.unitPrice || 0)), 0);
-    const taxAmount = sub * 0.21;
+    const taxAmount = sub * ivaRate;
     return { subtotal: sub, tax: taxAmount, total: sub + taxAmount };
-  }, [items]);
+  }, [items, ivaRate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -213,15 +220,33 @@ export default function CreatePresupuestoForm({ clients: initialClients, product
     }
     setStatus('loading');
     const finalItems = items.map(({id, isPricingLoading, ...rest}) => rest);
+
+    const budgetData = {
+      clienteId,
+      items: finalItems,
+      notes,
+      subtotal,
+      tax,
+      total,
+      estado: presupuestoToEdit ? presupuestoToEdit.estado : 'Borrador',
+    };
+
     try {
-      const response = await fetch('/api/presupuestos', {
-        method: 'POST',
+      const url = isEditing ? `/api/presupuestos/${presupuestoToEdit.id}` : '/api/presupuestos';
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteId, items: finalItems, notes, subtotal, tax, total }),
+        body: JSON.stringify(budgetData),
       });
+
       if (!response.ok) throw new Error('El servidor devolvió un error');
+      
       setStatus('success');
-      router.push(`/presupuestos`);
+      router.push(isEditing ? `/presupuestos/${presupuestoToEdit.id}` : '/presupuestos');
+      router.refresh(); // To see the changes in the list or detail view
+
     } catch (error) {
       setStatus('error');
       console.error('Error al guardar el presupuesto:', error);
@@ -245,8 +270,9 @@ export default function CreatePresupuestoForm({ clients: initialClients, product
               onChange={e => { setClientSearch(e.target.value); setClienteId(''); }}
               placeholder="Escribe para buscar..."
               className="input input-bordered w-full"
+              disabled={isEditing}
             />
-            {clientSearch && !clienteId && (
+            {clientSearch && !clienteId && !isEditing && (
               <div className="absolute mt-1 w-full z-10">
                 <ul className="menu bg-base-200 w-full rounded-box max-h-60 overflow-y-auto">
                   {filteredClients.map(c => (
@@ -284,15 +310,15 @@ export default function CreatePresupuestoForm({ clients: initialClients, product
           <div className="p-6 bg-base-100 rounded-lg shadow space-y-4">
               <h3 className="text-lg font-medium mb-4">Resumen</h3>
               <div className="flex justify-between"><span className="text-base-content/70">Subtotal</span><span>{subtotal.toFixed(2)} €</span></div>
-              <div className="flex justify-between"><span className="text-base-content/70">IVA (21%)</span><span>{tax.toFixed(2)} €</span></div>
+              <div className="flex justify-between"><span className="text-base-content/70">IVA ({(ivaRate * 100).toFixed(0)}%)</span><span>{tax.toFixed(2)} €</span></div>
               <div className="divider my-0"></div>
               <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{total.toFixed(2)} €</span></div>
           </div>
         </div>
 
         <div className="flex justify-end mt-6">
-          <button type="submit" className="btn btn-primary" disabled={status === 'loading' || !clienteId}>
-            {status === 'loading' ? 'Guardando...' : 'Guardar Presupuesto'}
+          <button type="submit" className="btn btn-primary" disabled={status === 'loading' || !clienteId || isCalculatingPrice > 0}>
+            {isCalculatingPrice > 0 ? 'Calculando Precios...' : (status === 'loading' ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Guardar Presupuesto'))}
           </button>
         </div>
       </form>

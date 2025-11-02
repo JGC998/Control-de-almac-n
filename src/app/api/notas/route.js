@@ -21,14 +21,21 @@ async function writeNotes(data) {
 }
 
 // GET all notes
-export async function GET() {
-    const notes = await readNotes();
+export async function GET(request) {
+    const { searchParams } = new URL(request.url);
+    const clientId = searchParams.get('clientId');
+
+    let notes = await readNotes();
+
+    if (clientId) {
+        notes = notes.filter(note => String(note.clientId) === String(clientId));
+    }
     return NextResponse.json(notes);
 }
 
 // POST a new note
 export async function POST(req) {
-    const { content } = await req.json();
+    const { content, clientId } = await req.json();
     if (!content) {
         return NextResponse.json({ message: 'El contenido no puede estar vacío.' }, { status: 400 });
     }
@@ -36,6 +43,8 @@ export async function POST(req) {
     const newNote = {
         id: Date.now(), // Simple unique ID
         content,
+        fecha: new Date().toISOString(), // Add creation date
+        ...(clientId && { clientId }), // Conditionally add clientId if provided
     };
     notes.push(newNote);
     await writeNotes(notes);

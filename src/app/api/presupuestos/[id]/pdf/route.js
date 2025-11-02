@@ -12,6 +12,8 @@ export async function GET(request, { params }) {
     try {
         const quotes = await readData('presupuestos.json');
         const clients = await readData('clientes.json');
+        const config = await readData('config.json');
+        const ivaRate = config.iva_rate || 0.21;
 
         const quote = quotes.find(q => q.id === id);
         if (!quote) {
@@ -94,7 +96,7 @@ export async function GET(request, { params }) {
         doc.text(`Subtotal:`, 145, finalY + 10);
         doc.text(`${(quote.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
 
-        doc.text(`IVA (21%):`, 145, finalY + 16);
+        doc.text(`IVA (${(ivaRate * 100).toFixed(0)}%):`, 145, finalY + 16);
         doc.text(`${(quote.tax || 0).toFixed(2)} €`, 198, finalY + 16, { align: 'right' });
 
         doc.setFontSize(12);

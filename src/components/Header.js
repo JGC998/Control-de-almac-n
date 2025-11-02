@@ -14,7 +14,7 @@ function Header({ toggleSidebar }) { // Accept toggleSidebar prop
             <div className="navbar-center">
                 <SearchBar />
             </div>
-            <div className="navbar-end"> {/* Container for the toggle button */}
+            <div className="navbar-end md:hidden"> {/* Container for the toggle button, hidden on md and above */}
                 <button onClick={toggleSidebar} className="btn btn-ghost btn-circle">
                     <FaBars className="h-5 w-5" />
                 </button>
