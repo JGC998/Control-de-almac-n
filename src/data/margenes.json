@@ -1,0 +1,15 @@
+[
+  {
+    "id": "margen-general",
+    "tipo": "general",
+    "valor": 1.5, 
+    "descripcion": "Margen de beneficio general del 50% (costo * 1.5)"
+  },
+  {
+    "id": "margen-pvc",
+    "tipo": "categoria",
+    "categoria": "PVC",
+    "valor": 1.6,
+    "descripcion": "Margen para productos de categoría PVC del 60% (costo * 1.6)"
+  }
+]

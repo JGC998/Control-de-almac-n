@@ -1,0 +1,84 @@
+[
+  {
+    "clienteId": "cli-001",
+    "items": [
+      {
+        "productId": "2565b5d9-1761-429c-8b2d-30abba1aaa61",
+        "quantity": 50,
+        "unitPrice": 30,
+        "description": "Vibromart - Paraguas"
+      }
+    ],
+    "notes": "",
+    "subtotal": 1500,
+    "tax": 315,
+    "total": 1815,
+    "id": "69dfc8d9-f6b2-4a54-b457-a8359ec192eb",
+    "numero": "PRE-1762095959746",
+    "fechaCreacion": "2025-11-02T15:05:59.746Z",
+    "estado": "Borrador"
+  },
+  {
+    "clienteId": "cli-002",
+    "items": [
+      {
+        "productId": "2565b5d9-1761-429c-8b2d-30abba1aaa61",
+        "quantity": 50,
+        "unitPrice": 30,
+        "description": "Vibromart - Paraguas"
+      }
+    ],
+    "notes": "",
+    "subtotal": 1500,
+    "tax": 315,
+    "total": 1815,
+    "id": "52fda772-1eed-4f42-968e-5919b9016c60",
+    "numero": "PRE-1762096205884",
+    "fechaCreacion": "2025-11-02T15:10:05.884Z",
+    "estado": "Borrador"
+  },
+  {
+    "clienteId": "cli-001",
+    "items": [
+      {
+        "productId": "a441af30-f351-4a59-8700-d375db6e4435",
+        "quantity": 100,
+        "unitPrice": 10,
+        "description": "Aldama - Faldeta"
+      }
+    ],
+    "notes": "",
+    "subtotal": 1000,
+    "tax": 210,
+    "total": 1210,
+    "id": "ba590c0a-176a-4498-8547-773d12776a8c",
+    "numero": "PRE-1762096688889",
+    "fechaCreacion": "2025-11-02T15:18:08.889Z",
+    "estado": "Borrador"
+  },
+  {
+    "clienteId": "cli-1762097114081",
+    "items": [
+      {
+        "productId": "a441af30-f351-4a59-8700-d375db6e4435",
+        "quantity": 50,
+        "unitPrice": 6.6609,
+        "description": "Aldama - Faldeta"
+      },
+      {
+        "productId": "a441af30-f351-4a59-8700-d375db6e4435",
+        "quantity": 50,
+        "unitPrice": 6.6609,
+        "description": "Aldama - Faldeta"
+      }
+    ],
+    "notes": "",
+    "subtotal": 666.09,
+    "tax": 139.8789,
+    "total": 805.9689000000001,
+    "id": "b7c04df7-7f51-4873-aa91-687cd4dfa32e",
+    "numero": "PRE-1762097139815",
+    "fechaCreacion": "2025-11-02T15:25:39.815Z",
+    "estado": "Borrador"
+  }
+]

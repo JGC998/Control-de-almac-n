@@ -1,5 +1,29 @@
 [
   {
+    "id": 1761942055696,
+    "type": "Nacional",
+    "proveedor": "Siban",
+    "commonMaterial": "GOMA",
+    "nationalExpenses": [
+      {
+        "description": "Transporte",
+        "amount": 150
+      }
+    ],
+    "coils": [
+      {
+        "pricePerLinearMeter": 12,
+        "length": "100",
+        "width": 0.6,
+        "attribute": "8+2",
+        "espesor": "12",
+        "finalPricePerLinearMeter": 13.5
+      }
+    ],
+    "fecha": "2025-10-31T20:20:55.696Z",
+    "estado": "Recibido"
+  },
+  {
     "id": 1761856410560,
     "type": "Nacional",
     "proveedor": "Esbelt",

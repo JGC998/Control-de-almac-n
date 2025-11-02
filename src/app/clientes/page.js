@@ -7,35 +7,61 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatCurrency, formatWeight } from '@/utils/utils';
 
-// --- Componentes Hijos (Componentes más pequeños y enfocados) ---
-
-
-
+// --- Componente para crear un nuevo pedido ---
 function NuevoPedido({ productos, clientes, onPedidoCreado }) {
-    const [cliente, setCliente] = useState('');
+    const [clienteId, setClienteId] = useState('');
     const [productosBorrador, setProductosBorrador] = useState([]);
     const [productoSeleccionadoId, setProductoSeleccionadoId] = useState('');
     const [cantidadProducto, setCantidadProducto] = useState(1);
     const [notas, setNotas] = useState('');
+    const [isAdding, setIsAdding] = useState(false);
 
-    const handleAddProductoAlBorrador = (e) => {
+    const handleAddProductoAlBorrador = async (e) => {
         e.preventDefault();
-        if (!productoSeleccionadoId || cantidadProducto < 1) return;
+        if (!productoSeleccionadoId || !clienteId || cantidadProducto < 1) {
+            alert('Por favor, selecciona un cliente y un producto.');
+            return;
+        }
+        
+        setIsAdding(true);
 
-        const productoToAdd = productos.find(p => p.id == productoSeleccionadoId);
-        if (!productoToAdd) return;
+        try {
+            const productoToAdd = productos.find(p => p.id === productoSeleccionadoId);
+            if (!productoToAdd) throw new Error('Producto no encontrado');
 
-        const nuevoProducto = {
-            id: `${Date.now()}-${productoToAdd.id}`,
-            productoId: productoToAdd.id,
-            nombre: productoToAdd.nombre,
-            cantidad: cantidadProducto,
-            precioUnitario: productoToAdd.precioUnitario,
-            pesoUnitario: productoToAdd.pesoUnitario,
-        };
-        setProductosBorrador(prev => [...prev, nuevoProducto]);
-        setProductoSeleccionadoId('');
-        setCantidadProducto(1);
+            // Llamar a la API del motor de precios
+            const priceRes = await fetch('/api/pricing/calculate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    productId: productoSeleccionadoId,
+                    clientId: clienteId,
+                    quantity: cantidadProducto
+                })
+            });
+
+            if (!priceRes.ok) throw new Error('Error al calcular el precio');
+            const priceData = await priceRes.json();
+
+            const nuevoProducto = {
+                id: `${Date.now()}-${productoToAdd.id}`,
+                productoId: productoToAdd.id,
+                nombre: productoToAdd.nombre,
+                cantidad: cantidadProducto,
+                precioUnitario: priceData.finalPrice, // Usar el precio calculado
+                pesoUnitario: productoToAdd.pesoUnitario,
+            };
+
+            setProductosBorrador(prev => [...prev, nuevoProducto]);
+            setProductoSeleccionadoId('');
+            setCantidadProducto(1);
+
+        } catch (error) {
+            console.error("Error añadiendo producto:", error);
+            alert('No se pudo añadir el producto o calcular su precio.');
+        } finally {
+            setIsAdding(false);
+        }
     };
 
     const handleRemoveProductoBorrador = (id) => {
@@ -43,13 +69,15 @@ function NuevoPedido({ productos, clientes, onPedidoCreado }) {
     };
 
     const handleSavePedido = async () => {
-        if (!cliente.trim() || productosBorrador.length === 0) {
+        if (!clienteId || productosBorrador.length === 0) {
             alert('Debe especificar un cliente y añadir al menos un producto.');
             return;
         }
 
+        const clienteSeleccionado = clientes.find(c => c.id === clienteId);
+
         const nuevoPedido = {
-            cliente,
+            cliente: clienteSeleccionado ? clienteSeleccionado.nombre : 'Cliente Desconocido',
             productos: productosBorrador,
             fecha: new Date().toISOString(),
             estado: 'Activo',
@@ -64,8 +92,7 @@ function NuevoPedido({ productos, clientes, onPedidoCreado }) {
             });
             if (!res.ok) throw new Error('Error al guardar el pedido');
 
-            // Limpiar formulario y notificar al padre
-            setCliente('');
+            setClienteId('');
             setProductosBorrador([]);
             setNotas('');
             onPedidoCreado();
@@ -76,8 +103,8 @@ function NuevoPedido({ productos, clientes, onPedidoCreado }) {
     };
 
     const totalesBorrador = useMemo(() => productosBorrador.reduce((acc, p) => {
-        acc.precio += p.precioUnitario * p.cantidad;
-        acc.peso += p.pesoUnitario * p.cantidad;
+        acc.precio += (p.precioUnitario || 0) * p.cantidad;
+        acc.peso += (p.pesoUnitario || 0) * p.cantidad;
         return acc;
     }, { precio: 0, peso: 0 }), [productosBorrador]);
 
@@ -86,11 +113,11 @@ function NuevoPedido({ productos, clientes, onPedidoCreado }) {
             <div className="card-body">
                 <h2 className="card-title mb-4 flex items-center gap-2"><FaBoxOpen /> Nuevo Pedido</h2>
                 <div className="form-control mb-4">
-                    <label className="label"><span className="label-text">Nombre del Cliente</span></label>
-                    <select className="select select-bordered w-full" value={cliente} onChange={(e) => setCliente(e.target.value)} required>
+                    <label className="label"><span className="label-text">Cliente</span></label>
+                    <select className="select select-bordered w-full" value={clienteId} onChange={(e) => setClienteId(e.target.value)} required>
                         <option value="" disabled>Seleccionar cliente...</option>
                         {clientes.map(c => (
-                            <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                            <option key={c.id} value={c.id}>{c.nombre}</option>
                         ))}
                     </select>
                 </div>
@@ -121,7 +148,7 @@ function NuevoPedido({ productos, clientes, onPedidoCreado }) {
                 <form onSubmit={handleAddProductoAlBorrador} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
                     <div className="form-control sm:col-span-2">
                         <label className="label"><span className="label-text">Producto</span></label>
-                        <select className="select select-bordered" value={productoSeleccionadoId} onChange={e => setProductoSeleccionadoId(e.target.value)} required>
+                        <select className="select select-bordered" value={productoSeleccionadoId} onChange={e => setProductoSeleccionadoId(e.target.value)} required disabled={!clienteId}>
                             <option value="" disabled>Seleccionar producto...</option>
                             {productos.map(p => (
                                 <option key={p.id} value={p.id}>{`${p.nombre} (${p.material} ${p.espesor}mm, ${p.largo}x${p.ancho}mm)`}</option>
@@ -130,9 +157,12 @@ function NuevoPedido({ productos, clientes, onPedidoCreado }) {
                     </div>
                     <div className="form-control">
                         <label className="label"><span className="label-text">Cantidad</span></label>
-                        <input type="number" min="1" className="input input-bordered" value={cantidadProducto} onChange={e => setCantidadProducto(Number(e.target.value))} required />
+                        <input type="number" min="1" className="input input-bordered" value={cantidadProducto} onChange={e => setCantidadProducto(Number(e.target.value))} required disabled={!clienteId}/>
                     </div>
-                    <button type="submit" className="btn btn-secondary sm:col-start-3"><FaPlus /> Añadir Producto</button>
+                    <button type="submit" className="btn btn-secondary sm:col-start-3" disabled={isAdding || !clienteId}>
+                        {isAdding ? <span className="loading loading-spinner"></span> : <FaPlus />}
+                        Añadir Producto
+                    </button>
                 </form>
 
                 <div className="card-actions justify-end mt-6">
@@ -140,7 +170,7 @@ function NuevoPedido({ productos, clientes, onPedidoCreado }) {
                         <label className="label"><span className="label-text">Notas Adicionales</span></label>
                         <textarea className="textarea textarea-bordered h-24" placeholder="Añade aquí cualquier nota o comentario sobre el pedido..." value={notas} onChange={(e) => setNotas(e.target.value)}></textarea>
                     </div>
-                    <button onClick={handleSavePedido} className="btn btn-primary mt-4" disabled={!cliente || productosBorrador.length === 0}>
+                    <button onClick={handleSavePedido} className="btn btn-primary mt-4" disabled={!clienteId || productosBorrador.length === 0}>
                         Confirmar y Guardar Pedido
                     </button>
                 </div>
@@ -148,6 +178,8 @@ function NuevoPedido({ productos, clientes, onPedidoCreado }) {
         </div>
     );
 }
+
+// --- El resto de los componentes (PedidosHistorial, EditarPedidoModal, etc.) permanecen igual ---
 
 function PedidosHistorial({ pedidos, onUpdate, onEdit }) {
     const pedidosActivos = useMemo(() => pedidos.filter(p => p.estado === 'Activo'), [pedidos]);

@@ -6,5 +6,12 @@
   {
     "id": "cli-002",
     "nombre": "Cliente de Prueba 2"
+  },
+  {
+    "nombre": "Industrias Barraza SL",
+    "email": "barraza@gmail.com",
+    "direccion": "carcabuey",
+    "telefono": "12389023",
+    "id": "cli-1762097114081"
   }
 ]

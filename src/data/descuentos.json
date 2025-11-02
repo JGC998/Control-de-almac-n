@@ -1,0 +1,29 @@
+[
+  {
+    "id": "promo-verano-pvc",
+    "tipo": "categoria",
+    "categoria": "PVC",
+    "descuento": 0.15,
+    "fechaInicio": "2025-06-01",
+    "fechaFin": "2025-08-31",
+    "descripcion": "Promoción de verano: 15% en todos los productos de PVC"
+  },
+  {
+    "id": "desc-vol-tornillos",
+    "tipo": "volumen",
+    "categoria": "Tornilleria",
+    "tiers": [
+      { "cantidadMinima": 50, "descuento": 0.05 },
+      { "cantidadMinima": 100, "descuento": 0.10 },
+      { "cantidadMinima": 500, "descuento": 0.15 }
+    ],
+    "descripcion": "Descuento por volumen escalonado para la categoría Tornilleria"
+  },
+  {
+    "id": "desc-cliente-gold",
+    "tipo": "cliente",
+    "tierCliente": "GOLD",
+    "descuento": 0.05,
+    "descripcion": "Descuento del 5% en todo para clientes GOLD (se aplica después de otros descuentos)"
+  }
+]

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { FaClipboardList, FaTruck, FaWarehouse, FaCamera, FaShip, FaEuroSign, FaCalculator, FaWrench } from 'react-icons/fa'; // Removed FaBars
+import { FaClipboardList, FaTruck, FaWarehouse, FaCamera, FaShip, FaEuroSign, FaCalculator, FaWrench, FaFileInvoice, FaCogs } from 'react-icons/fa'; // Removed FaBars
 
 const Sidebar = () => { // Removed toggleSidebar and isSidebarOpen props
   return (
@@ -13,6 +13,9 @@ const Sidebar = () => { // Removed toggleSidebar and isSidebarOpen props
         </Link>
         <Link href="/calculadora" className="hover:bg-gray-700 p-2 rounded flex items-center">
           <FaCalculator className="mr-2" /> Calculadora
+        </Link>
+        <Link href="/presupuestos" className="hover:bg-gray-700 p-2 rounded flex items-center">
+          <FaFileInvoice className="mr-2" /> Presupuestos
         </Link>
         <Link href="/clientes" className="hover:bg-gray-700 p-2 rounded flex items-center">
           <FaClipboardList className="mr-2" /> Pedidos Clientes
@@ -31,6 +34,9 @@ const Sidebar = () => { // Removed toggleSidebar and isSidebarOpen props
         </Link>
         <Link href="/gestion-json" className="hover:bg-gray-700 p-2 rounded flex items-center">
           <FaWrench className="mr-2" /> Gestión JSON
+        </Link>
+        <Link href="/ajustes/precios" className="hover:bg-gray-700 p-2 rounded flex items-center">
+          <FaCogs className="mr-2" /> Ajustes de Precios
         </Link>
       </nav>
     </aside>

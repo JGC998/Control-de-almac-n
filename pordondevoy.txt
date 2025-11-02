@@ -1,5 +1,243 @@
-estas mejorando y perfeccionando el pedido de proveedor de importacion
+### Guía para Construir el Dashboard del CRM
 
-tenemos que implementar el poder imprimir en pdf los pedidos activos
+El objetivo es crear una página principal que muestre métricas y gráficos clave para entender el estado de tu negocio de un vistazo.
 
-implementar un chatbot para preguntar por informacion de los json
+---
+
+#### Paso 1: El Backend - Crear la API de Datos del Dashboard
+
+Primero, crearemos una ruta de API que se encargará de leer los datos de tus pedidos, clientes y productos, y los procesará para devolver las cifras y la información que el dashboard necesita.
+
+1.  **Crea un nuevo archivo** en la siguiente ruta: `src/app/api/dashboard/route.js`.
+2.  **Pega el siguiente código** en ese archivo. El código está comentado para que entiendas qué hace cada parte.
+
+```javascript
+// src/app/api/dashboard/route.js
+
+import { NextResponse } from 'next/server';
+import { readData } from '@/utils/dataManager';
+
+export async function GET() {
+  try {
+    // 1. Cargar todos los datos necesarios en paralelo
+    const [pedidos, clientes, productos, stock] = await Promise.all([
+      readData('pedidos.json'),
+      readData('clientes.json'),
+      readData('productos.json'),
+      readData('stock.json')
+    ]);
+
+    // --- 2. Calcular KPIs (Indicadores Clave de Rendimiento) ---
+
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // KPI: Ingresos este mes
+    const ingresosMes = pedidos
+      .filter(p => new Date(p.fecha) >= firstDayOfMonth)
+      .reduce((sum, p) => sum + p.productos.reduce((sub, prod) => sub + (prod.precioUnitario * prod.cantidad), 0), 0);
+
+    // KPI: Nuevos clientes este mes
+    const nuevosClientesMes = clientes.filter(c => new Date(c.fechaAlta) >= firstDayOfMonth).length;
+
+    // KPI: Pedidos activos
+    const pedidosActivos = pedidos.filter(p => p.estado === 'Activo').length;
+
+    // --- 3. Preparar datos para el gráfico de ventas (últimos 30 días) ---
+    
+    const salesData = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(today.getDate() - i);
+      const dateString = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+      
+      const dailySales = pedidos
+        .filter(p => new Date(p.fecha).toDateString() === date.toDateString())
+        .reduce((sum, p) => sum + p.productos.reduce((sub, prod) => sub + (prod.precioUnitario * prod.cantidad), 0), 0);
+
+      salesData.push({ name: dateString, ventas: dailySales });
+    }
+
+    // --- 4. Calcular información adicional ---
+
+    // Lista: Productos con bajo stock (ej. menos de 10 unidades)
+    const lowStockItems = stock
+      .filter(s => s.cantidad < 10)
+      .map(s => {
+        const productInfo = productos.find(p => p.id === s.productoId);
+        return { id: s.productoId, nombre: productInfo?.nombre || 'Desconocido', cantidad: s.cantidad };
+      })
+      .slice(0, 5); // Limitar a 5 para el dashboard
+
+    // Devolver todos los datos calculados en un solo objeto
+    return NextResponse.json({
+      kpis: {
+        ingresosMes,
+        nuevosClientesMes,
+        pedidosActivos,
+      },
+      salesData,
+      lowStockItems,
+    });
+
+  } catch (error) {
+    console.error('Error al generar datos del dashboard:', error);
+    return NextResponse.json({ message: 'Error interno al procesar los datos' }, { status: 500 });
+  }
+}
+```
+
+---
+
+#### Paso 2: El Frontend - Visualizar los Datos
+
+Ahora que tenemos la API, vamos a construir la interfaz que la consumirá. Esto lo haremos en varios componentes para mantener el código limpio.
+
+**2a. La Página Principal (`src/app/page.js`)**
+
+1.  **Abre el archivo** `src/app/page.js`.
+2.  **Reemplaza todo su contenido** con el siguiente código:
+
+```javascript
+// src/app/page.js
+
+import { FaDollarSign, FaUserPlus, FaBox } from 'react-icons/fa';
+import KPICard from '@/components/KPICard';
+import SalesChart from '@/components/SalesChart';
+import InfoList from '@/components/InfoList';
+
+async function getDashboardData() {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/dashboard`, { cache: 'no-store' });
+  if (!res.ok) {
+    console.error("Failed to fetch dashboard data");
+    return null;
+  }
+  return res.json();
+}
+
+export default async function DashboardPage() {
+  const data = await getDashboardData();
+
+  if (!data) {
+    return <div className="p-8 text-center">No se pudieron cargar los datos del dashboard.</div>;
+  }
+
+  return (
+    <main className="p-4 sm:p-6 lg:p-8">
+      <h1 className="text-2xl font-bold text-base-content mb-6">Dashboard</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <KPICard 
+          title="Ingresos (este mes)" 
+          value={`€${data.kpis.ingresosMes.toFixed(2)}`} 
+          icon={<FaDollarSign />} 
+        />
+        <KPICard 
+          title="Nuevos Clientes (este mes)" 
+          value={data.kpis.nuevosClientesMes} 
+          icon={<FaUserPlus />} 
+        />
+        <KPICard 
+          title="Pedidos Activos" 
+          value={data.kpis.pedidosActivos} 
+          icon={<FaBox />} 
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <SalesChart data={data.salesData} />
+        </div>
+        <div>
+          <InfoList title="Stock Bajo" items={data.lowStockItems.map(item => `${item.nombre} (${item.cantidad} uds)`)} />
+        </div>
+      </div>
+    </main>
+  );
+}
+```
+*Nota: Para que la llamada a la API funcione, en tu archivo `.env.local`, añade la línea: `NEXT_PUBLIC_APP_URL="http://localhost:3000"`.*
+
+**2b. Componente para Tarjetas de KPI (`KPICard.js`)**
+
+1.  **Crea un nuevo archivo** en `src/components/KPICard.js`.
+2.  **Pega el siguiente código**:
+
+```javascript
+// src/components/KPICard.js
+
+export default function KPICard({ title, value, icon }) {
+  return (
+    <div className="card bg-base-100 shadow-lg">
+      <div className="card-body flex-row items-center">
+        <div className="text-3xl text-primary mr-4">{icon}</div>
+        <div>
+          <div className="text-sm text-base-content/70">{title}</div>
+          <div className="card-title text-2xl">{value}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+**2c. Componente para el Gráfico de Ventas (`SalesChart.js`)**
+
+1.  **Crea un nuevo archivo** en `src/components/SalesChart.js`.
+2.  **Pega el siguiente código**:
+
+```javascript
+// src/components/SalesChart.js
+'use client';
+
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+export default function SalesChart({ data }) {
+  return (
+    <div className="bg-base-100 shadow-lg rounded-lg p-6 h-96">
+      <h3 className="font-bold mb-4">Ventas (Últimos 30 días)</h3>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Line type="monotone" dataKey="ventas" stroke="#8884d8" strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+```
+
+**2d. Componente para las Listas de Información (`InfoList.js`)**
+
+1.  **Crea un nuevo archivo** en `src/components/InfoList.js`.
+2.  **Pega el siguiente código**:
+
+```javascript
+// src/components/InfoList.js
+
+export default function InfoList({ title, items }) {
+  return (
+    <div className="bg-base-100 shadow-lg rounded-lg p-6 h-96">
+      <h3 className="font-bold mb-4">{title}</h3>
+      <ul className="space-y-2">
+        {items.map((item, index) => (
+          <li key={index} className="text-sm p-2 bg-base-200 rounded">
+            {item}
+          </li>
+        ))}
+        {items.length === 0 && <li className="text-sm text-base-content/60">No hay información para mostrar.</li>}
+      </ul>
+    </div>
+  );
+}
+```
+
+---
+
+#### Paso 3: Unir Todo
+
+Después de crear estos cuatro archivos, tu dashboard debería estar listo. Reinicia tu servidor de desarrollo (`npm run dev`) si es necesario, y la página principal de tu aplicación ahora mostrará el nuevo dashboard.
