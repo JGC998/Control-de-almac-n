@@ -5,6 +5,9 @@ import path from 'path';
 // Unica fuente de verdad para la ruta de los datos.
 const DATA_DIRECTORY = path.join(process.cwd(), 'src', 'data');
 
+// Caché en memoria para reducir las lecturas de disco.
+const cache = new Map();
+
 /**
  * Asegura que el directorio de datos exista.
  */
@@ -40,10 +43,18 @@ function getSafeFilePath(filename) {
  * @throws {Error} Si el archivo no se encuentra o no es un JSON válido.
  */
 export async function readData(filename) {
+  // FASE I: Devolver datos desde la caché si están disponibles.
+  if (cache.has(filename)) {
+    return cache.get(filename);
+  }
+
   const filePath = getSafeFilePath(filename);
   try {
     const fileContent = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(fileContent);
+    const data = JSON.parse(fileContent);
+    cache.set(filename, data); // Cache the original data
+    return JSON.parse(JSON.stringify(data)); // Return a deep copy
+
   } catch (error) {
     if (error.code === 'ENOENT') {
       // Si el archivo no existe, podemos devolver un estado predeterminado como un array vacío.
@@ -65,7 +76,31 @@ export async function writeData(filename, content) {
   const filePath = getSafeFilePath(filename);
   await ensureDataDirExists();
   const stringContent = JSON.stringify(content, null, 2); // Formateado para legibilidad
+  // FASE I: Invalidar la caché después de una escritura.
+  cache.delete(filename);
   await fs.writeFile(filePath, stringContent, 'utf-8');
+}
+
+/**
+ * Actualiza un registro específico en un archivo JSON.
+ * @param {string} filename - El nombre del archivo (e.g., 'pedidos.json').
+ * @param {string} id - El ID del registro a actualizar.
+ * @param {object} updatedFields - Un objeto con los campos a actualizar y sus nuevos valores.
+ * @param {string} idKey - La clave del campo que contiene el ID (por defecto 'id').
+ * @returns {Promise<boolean>} True si se actualizó el registro, false si no se encontró.
+ */
+export async function updateData(filename, id, updatedFields, idKey = 'id') {
+  const data = await readData(filename);
+  const index = data.findIndex(item => item[idKey] === id);
+
+  if (index === -1) {
+    console.warn(`Registro con ${idKey} "${id}" no encontrado en ${filename}.`);
+    return false;
+  }
+
+  data[index] = { ...data[index], ...updatedFields };
+  await writeData(filename, data);
+  return true;
 }
 
 /**
@@ -79,47 +114,27 @@ export async function listDataFiles() {
 }
 
 /**
- * Genera el siguiente número de presupuesto de forma secuencial para el año actual.
+ * Genera el siguiente número secuencial para un tipo de documento (pedido, presupuesto) para el año actual.
  * Formato: YYYY-NNN (ej. 2023-001)
- * @returns {Promise<string>} El siguiente número de presupuesto.
+ * @param {string} filename - El nombre del archivo de datos (e.g., 'presupuestos.json').
+ * @returns {Promise<string>} El siguiente número secuencial.
  */
-export async function getNextPresupuestoNumber() {
+async function getNextSequentialNumber(filename) {
   const year = new Date().getFullYear();
-  const quotes = await readData('presupuestos.json');
+  // readData usará la caché si está disponible, mejorando el rendimiento.
+  const items = await readData(filename);
 
-  const yearQuotes = quotes.filter(q => q.numero && q.numero.startsWith(`${year}-`));
+  // FASE III: Lógica de generación de ID más robusta y centralizada.
+  const maxNumber = items
+    .filter(item => item.numero && item.numero.startsWith(`${year}-`))
+    .reduce((max, item) => {
+      const numberPart = parseInt(item.numero.split('-')[1], 10);
+      return numberPart > max ? numberPart : max;
+    }, 0);
 
-  let maxNumber = 0;
-  yearQuotes.forEach(q => {
-    const numberPart = parseInt(q.numero.split('-')[1], 10);
-    if (numberPart > maxNumber) {
-      maxNumber = numberPart;
-    }
-  });
-
-  const nextNumber = maxNumber + 1;
-  return `${year}-${String(nextNumber).padStart(3, '0')}`;
+  return `${year}-${String(maxNumber + 1).padStart(3, '0')}`;
 }
 
-/**
- * Genera el siguiente número de pedido de forma secuencial para el año actual.
- * Formato: YYYY-NNN (ej. 2023-001)
- * @returns {Promise<string>} El siguiente número de pedido.
- */
-export async function getNextPedidoNumber() {
-  const year = new Date().getFullYear();
-  const orders = await readData('pedidos.json');
+export const getNextPresupuestoNumber = () => getNextSequentialNumber('presupuestos.json');
 
-  const yearOrders = orders.filter(o => o.numero && o.numero.startsWith(`${year}-`));
-
-  let maxNumber = 0;
-  yearOrders.forEach(o => {
-    const numberPart = parseInt(o.numero.split('-')[1], 10);
-    if (numberPart > maxNumber) {
-      maxNumber = numberPart;
-    }
-  });
-
-  const nextNumber = maxNumber + 1;
-  return `${year}-${String(nextNumber).padStart(3, '0')}`;
-}
+export const getNextPedidoNumber = () => getNextSequentialNumber('pedidos.json');

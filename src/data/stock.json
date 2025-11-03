@@ -30,5 +30,17 @@
     "proveedor": "Siban",
     "ubicacion": "Almacén",
     "fechaEntrada": "2025-10-31T20:20:55.696Z"
+  },
+  {
+    "id": "1762209879143-0-1762209897802",
+    "material": "GOMA",
+    "espesor": "6",
+    "stock": "100",
+    "stock_minimo": 0,
+    "metrosDisponibles": "100",
+    "proveedor": "Siban",
+    "ubicacion": "Almacén",
+    "fechaEntrada": "2025-11-03T22:44:39.143Z",
+    "attribute": "ep 8+2"
   }
 ]

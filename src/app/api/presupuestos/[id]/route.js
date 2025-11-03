@@ -23,32 +23,36 @@ export async function GET(request, { params }) {
 // PUT: Actualizar un presupuesto existente
 export async function PUT(request, { params }) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const updatedQuoteData = await request.json();
 
     if (!updatedQuoteData) {
       return NextResponse.json({ message: 'Datos de actualización no proporcionados' }, { status: 400 });
     }
 
+    // Obtener el presupuesto original para mantener campos inmutables
     const quotes = await readData('presupuestos.json');
-    const quoteIndex = quotes.findIndex(q => q.id === id);
+    const originalQuote = quotes.find(q => q.id === id);
 
-    if (quoteIndex === -1) {
+    if (!originalQuote) {
       return NextResponse.json({ message: 'Presupuesto no encontrado para actualizar' }, { status: 404 });
     }
 
-    // Mantener datos originales que no se deberían sobreescribir desde el cliente
-    const originalQuote = quotes[quoteIndex];
-    const updatedQuote = {
-      ...originalQuote,
+    const dataToUpdate = {
       ...updatedQuoteData,
       id: originalQuote.id, // Asegurar que el ID no cambie
       numero: originalQuote.numero, // Asegurar que el número de presupuesto no cambie
       fechaModificacion: new Date().toISOString(), // Añadir fecha de modificación
     };
 
-    quotes[quoteIndex] = updatedQuote;
-    await writeData('presupuestos.json', quotes);
+    const success = await updateData('presupuestos.json', id, dataToUpdate);
+
+    if (!success) {
+      return NextResponse.json({ message: 'Presupuesto no encontrado para actualizar' }, { status: 404 });
+    }
+
+    // Para devolver el presupuesto actualizado, necesitamos leerlo de nuevo o construirlo.
+    const updatedQuote = await readData('presupuestos.json').then(q => q.find(item => item.id === id));
 
     return NextResponse.json(updatedQuote, { status: 200 });
   } catch (error) {

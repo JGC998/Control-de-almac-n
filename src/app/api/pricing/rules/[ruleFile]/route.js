@@ -14,8 +14,9 @@ function getValidatedFilename(filename) {
 }
 
 // GET /api/pricing/rules/[ruleFile] - Obtiene todas las reglas de un archivo
-export async function GET(request, { params }) {
-    const filename = getValidatedFilename(params.ruleFile);
+export async function GET(request, context) {
+    const { ruleFile } = await context.params;
+    const filename = getValidatedFilename(ruleFile);
     if (!filename) {
         return NextResponse.json({ message: 'Acceso no autorizado al archivo' }, { status: 403 });
     }
@@ -24,8 +25,9 @@ export async function GET(request, { params }) {
 }
 
 // POST /api/pricing/rules/[ruleFile] - Crea una nueva regla
-export async function POST(request, { params }) {
-    const filename = getValidatedFilename(params.ruleFile);
+export async function POST(request, context) {
+    const { ruleFile } = await context.params;
+    const filename = getValidatedFilename(ruleFile);
     if (!filename) {
         return NextResponse.json({ message: 'Acceso no autorizado al archivo' }, { status: 403 });
     }
@@ -41,8 +43,9 @@ export async function POST(request, { params }) {
 }
 
 // PUT /api/pricing/rules/[ruleFile] - Actualiza una regla existente
-export async function PUT(request, { params }) {
-    const filename = getValidatedFilename(params.ruleFile);
+export async function PUT(request, context) {
+    const { ruleFile } = await context.params;
+    const filename = getValidatedFilename(ruleFile);
     if (!filename) {
         return NextResponse.json({ message: 'Acceso no autorizado al archivo' }, { status: 403 });
     }
@@ -65,8 +68,9 @@ export async function PUT(request, { params }) {
 }
 
 // DELETE /api/pricing/rules/[ruleFile] - Elimina una regla
-export async function DELETE(request, { params }) {
-    const filename = getValidatedFilename(params.ruleFile);
+export async function DELETE(request, context) {
+    const { ruleFile } = await context.params;
+    const filename = getValidatedFilename(ruleFile);
     if (!filename) {
         return NextResponse.json({ message: 'Acceso no autorizado al archivo' }, { status: 403 });
     }

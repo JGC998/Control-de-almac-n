@@ -1,27 +1,12 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { readData, writeData, updateData } from '../../../../utils/dataManager';
 
-const dataFilePath = path.join(process.cwd(), 'src/data/pedidos.json');
-
-async function readData() {
-    try {
-        const data = await fs.readFile(dataFilePath, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') return [];
-        throw error;
-    }
-}
-
-async function writeData(data) {
-    await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
-}
+const FILENAME = 'pedidos.json';
 
 // GET /api/pedidos/[id] - Obtiene un pedido por su ID
 export async function GET(request, { params }) {
-    const { id } = await params;
-    const pedidos = await readData();
+    const { id } = params;
+    const pedidos = await readData(FILENAME);
     const pedido = pedidos.find(p => String(p.id) === String(id));
 
     if (!pedido) {
@@ -33,31 +18,33 @@ export async function GET(request, { params }) {
 
 // PUT /api/pedidos/[id] - Actualiza el estado de un pedido
 export async function PUT(request, { params }) {
-    const { id } = await params; // Await params as suggested by the error message
+    const { id } = params;
     const pedidoActualizado = await request.json();
-    const pedidos = await readData();
 
-    const pedidoIndex = pedidos.findIndex(p => p.id == id);
+    const success = await updateData(FILENAME, id, pedidoActualizado);
 
-    if (pedidoIndex === -1) {
+    if (!success) {
         return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     }
 
-    pedidos[pedidoIndex] = {
-        ...pedidos[pedidoIndex],
-        ...pedidoActualizado
-    };
-    await writeData(pedidos);
+    // Para devolver el pedido actualizado, necesitamos leerlo de nuevo o construirlo.
+    // Por simplicidad, leeremos todos los pedidos y encontraremos el actualizado.
+    const pedidos = await readData(FILENAME);
+    const updatedPedido = pedidos.find(p => String(p.id) === String(id));
 
-    return NextResponse.json(pedidos[pedidoIndex]);
+    return NextResponse.json(updatedPedido);
 }
 
 // DELETE /api/pedidos/[id] - Elimina un pedido por su ID
 export async function DELETE(request, { params }) {
-    const { id } = await params; // Await params as suggested by the error message
-    const pedidos = await readData();
-    const nuevosPedidos = pedidos.filter(p => p.id != id);
+    const { id } = params;
+    const pedidos = await readData(FILENAME);
+    const nuevosPedidos = pedidos.filter(p => String(p.id) !== String(id));
 
-    await writeData(nuevosPedidos);
+    if (nuevosPedidos.length === pedidos.length) {
+        return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
+    }
+
+    await writeData(FILENAME, nuevosPedidos);
     return NextResponse.json({ message: 'Pedido eliminado' }, { status: 200 });
 }

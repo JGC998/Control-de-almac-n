@@ -12,15 +12,15 @@
     "nombre": "FIELTRO"
   },
   {
-    "id": "mat-04",
-    "nombre": "POLIURETANO"
-  },
-  {
-    "id": "mat-05",
-    "nombre": "SILICONA"
+    "id": "mat-06",
+    "nombre": "VERDE"
   },
   {
     "id": "mat-06",
-    "nombre": "VERDE"
+    "nombre": "CARAMELO"
+  },
+  {
+    "id": "mat-07",
+    "nombre": "GOMA BLANDA"
   }
 ]

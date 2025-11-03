@@ -11,9 +11,11 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Falta el ID del presupuesto' }, { status: 400 });
     }
 
-    const [allQuotes, allProducts] = await Promise.all([
+    // FASE II: Las lecturas se benefician de la caché.
+    const [allQuotes, allProducts, allOrders] = await Promise.all([
         readData('presupuestos.json'),
-        readData('productos.json')
+        readData('productos.json'),
+        readData('pedidos.json')
     ]);
 
     const quoteIndex = allQuotes.findIndex(q => q.id === presupuestoId);
@@ -54,17 +56,32 @@ export async function POST(request) {
       presupuestoId: quote.id, // Guardar referencia al presupuesto original
     };
 
-    // Actualizar el estado del presupuesto
-    allQuotes[quoteIndex].estado = 'Aceptado';
+    // Iniciar transacción: Actualizar el estado del presupuesto y luego crear el pedido.
+    // Si falla la creación del pedido, revertir el estado del presupuesto.
+    let quoteUpdated = false;
+    try {
+      // 1. Actualizar el estado del presupuesto a 'Aceptado'
+      const updateQuoteSuccess = await updateData('presupuestos.json', presupuestoId, { estado: 'Aceptado' });
+      if (!updateQuoteSuccess) {
+        throw new Error('No se pudo actualizar el estado del presupuesto.');
+      }
+      quoteUpdated = true;
 
-    // Guardar los cambios
-    const allOrders = await readData('pedidos.json');
-    allOrders.push(newOrder);
+      // 2. Añadir el nuevo pedido a la lista de pedidos
+      allOrders.push(newOrder);
+      await writeData('pedidos.json', allOrders);
 
-    await writeData('presupuestos.json', allQuotes);
-    await writeData('pedidos.json', allOrders);
+      return NextResponse.json(newOrder, { status: 201 });
 
-    return NextResponse.json(newOrder, { status: 201 });
+    } catch (error) {
+      console.error('Error en la transacción de creación de pedido desde presupuesto:', error);
+      // Si el presupuesto fue actualizado pero el pedido no se creó, intentar revertir el estado del presupuesto.
+      if (quoteUpdated) {
+        console.warn('Intentando revertir el estado del presupuesto debido a un fallo en la creación del pedido.');
+        await updateData('presupuestos.json', presupuestoId, { estado: quote.estado }); // Revertir al estado original
+      }
+      return NextResponse.json({ message: 'Error interno al crear el pedido' }, { status: 500 });
+    }
 
   } catch (error) {
     console.error('Error al crear el pedido desde el presupuesto:', error);

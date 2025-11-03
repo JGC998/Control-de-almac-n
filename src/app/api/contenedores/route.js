@@ -1,13 +1,12 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 import { NextResponse } from 'next/server';
+import { readData, writeData, updateData } from '../../../../utils/dataManager';
+import { v4 as uuidv4 } from 'uuid';
 
-const containersFilePath = path.join(process.cwd(), 'src/data/contenedores.json');
+const FILENAME = 'contenedores.json';
 
 export async function GET() {
   try {
-    const fileContents = await fs.readFile(containersFilePath, 'utf8');
-    const containers = JSON.parse(fileContents);
+    const containers = await readData(FILENAME);
     return NextResponse.json(containers);
   } catch (error) {
     console.error('Error reading containers data:', error);
@@ -18,36 +17,44 @@ export async function GET() {
 export async function POST(request) {
   try {
     const newContainer = await request.json();
-    const fileContents = await fs.readFile(containersFilePath, 'utf8');
-    const containers = JSON.parse(fileContents);
+    // TODO: Add input validation for newContainer
 
-    // Assign a simple ID for new containers if not provided
-    newContainer.id = newContainer.id || `CONT-${Date.now()}`;
+    const containers = await readData(FILENAME);
+
+    newContainer.id = uuidv4(); // Use uuidv4 for robust ID generation
+    newContainer.fechaCreacion = new Date().toISOString();
+    newContainer.estado = 'Pendiente'; // Estado inicial
+
     containers.push(newContainer);
 
-    await fs.writeFile(containersFilePath, JSON.stringify(containers, null, 2), 'utf8');
+    await writeData(FILENAME, containers);
     return NextResponse.json(newContainer, { status: 201 });
   } catch (error) {
-    console.error('Error writing new container data:', error);
-    return NextResponse.json({ message: 'Error writing new container data' }, { status: 500 });
+    console.error('Error creating new container data:', error);
+    return NextResponse.json({ message: 'Error creating new container data' }, { status: 500 });
   }
 }
 
 export async function PUT(request) {
   try {
-    const { id } = await request.json();
-    const fileContents = await fs.readFile(containersFilePath, 'utf8');
-    let containers = JSON.parse(fileContents);
+    const { id, ...updatedFields } = await request.json(); // Destructure id and other fields
 
-    const containerIndex = containers.findIndex(c => c.id === id);
-    if (containerIndex === -1) {
-      return NextResponse.json({ message: 'Container not found' }, { status: 404 });
+    if (!id) {
+      return NextResponse.json({ message: 'ID del contenedor es requerido' }, { status: 400 });
     }
 
-    containers[containerIndex].estado = 'Llegado';
+    // Use updateData to update only the specific container
+    const success = await updateData(FILENAME, id, updatedFields);
 
-    await fs.writeFile(containersFilePath, JSON.stringify(containers, null, 2), 'utf8');
-    return NextResponse.json(containers[containerIndex]);
+    if (!success) {
+      return NextResponse.json({ message: 'Contenedor no encontrado' }, { status: 404 });
+    }
+
+    // Optionally, read the updated container to return it
+    const containers = await readData(FILENAME);
+    const updatedContainer = containers.find(c => c.id === id);
+
+    return NextResponse.json(updatedContainer);
   } catch (error) {
     console.error('Error updating container data:', error);
     return NextResponse.json({ message: 'Error updating container data' }, { status: 500 });

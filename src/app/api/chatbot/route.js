@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { readData, listDataFiles } from '../../../utils/dataManager';
+// import fs from 'fs/promises'; // No longer needed for direct file access
+// import path from 'path'; // No longer needed for direct file access
 
 // Helper function to dynamically import transformers.js
 async function getPipeline() {
@@ -12,27 +13,31 @@ class GeneratorSingleton {
   static task = 'text2text-generation';
   static model = 'Xenova/LaMini-T5-61M';
   static instance = null;
+  static instancePromise = null; // To handle concurrent initialization
 
   static async getInstance(progress_callback = null) {
     if (this.instance === null) {
-      const pipeline = await getPipeline();
-      this.instance = pipeline(this.task, this.model, { progress_callback });
+      if (this.instancePromise === null) {
+        this.instancePromise = (async () => {
+          const pipeline = await getPipeline();
+          this.instance = await pipeline(this.task, this.model, { progress_callback });
+          return this.instance;
+        })();
+      }
+      return this.instancePromise;
     }
     return this.instance;
   }
 }
 
 async function getJsonDataContext() {
-  const dataDir = path.join(process.cwd(), 'src', 'data');
-  const files = await fs.readdir(dataDir);
+  const files = await listDataFiles(); // Use listDataFiles from dataManager
   const dataMap = new Map();
 
   for (const file of files) {
-    if (file.endsWith('.json')) {
-      const filePath = path.join(dataDir, file);
-      const fileContent = await fs.readFile(filePath, 'utf-8');
-      dataMap.set(file, fileContent);
-    }
+    // readData will use the cache if available
+    const content = await readData(file);
+    dataMap.set(file, JSON.stringify(content)); // Store as string to match original behavior
   }
 
   return dataMap;

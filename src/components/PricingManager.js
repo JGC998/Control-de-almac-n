@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import RuleEditorModal from './RuleEditorModal'; // Import the modal
-
 // Helper to get the filename for the API
 const getFileNameForType = (type) => {
     const map = {
@@ -13,49 +11,6 @@ const getFileNameForType = (type) => {
     return map[type];
 }
 
-// Component to render a table of rules
-const RulesTable = ({ title, rules, columns, onAdd, onEdit, onDelete }) => (
-  <div>
-    <div className="flex justify-between items-center mb-4">
-      <h3 className="text-xl font-bold">{title}</h3>
-      <button onClick={onAdd} className="btn btn-primary btn-sm">+ Añadir Regla</button>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="table w-full">
-        <thead>
-          <tr>
-            {columns.map(col => <th key={col.key}>{col.label}</th>)}
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rules.map(rule => (
-            <tr key={rule.id} className="hover">
-              {columns.map(col => {
-                const value = rule[col.key];
-                // Render objects (like tiers) as strings
-                if (typeof value === 'object' && value !== null) {
-                    return <td key={col.key}>{JSON.stringify(value)}</td>;
-                }
-                return <td key={col.key}>{value || 'N/A'}</td>;
-              })}
-              <td className="space-x-2">
-                <button onClick={() => onEdit(rule)} className="btn btn-outline btn-xs">Editar</button>
-                <button onClick={() => onDelete(rule.id)} className="btn btn-ghost btn-xs">Eliminar</button>
-              </td>
-            </tr>
-          ))}
-          {rules.length === 0 && (
-            <tr>
-              <td colSpan={columns.length + 1} className="text-center">No hay reglas definidas.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
 export default function PricingManager({ initialMargins, initialDiscounts, initialSpecialPrices }) {
   const [activeTab, setActiveTab] = useState('margins');
   
@@ -63,9 +18,17 @@ export default function PricingManager({ initialMargins, initialDiscounts, initi
   const [discounts, setDiscounts] = useState(initialDiscounts);
   const [specialPrices, setSpecialPrices] = useState(initialSpecialPrices);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState(null);
-  const [currentRuleType, setCurrentRuleType] = useState('');
+  const [editingRuleId, setEditingRuleId] = useState(null); // null for new rule, id for existing
+  const [editingRuleData, setEditingRuleData] = useState(null); // Data for the rule being edited/created
+
+  const getEmptyRule = (type) => {
+    switch (type) {
+      case 'margins': return { descripcion: '', tipo: '', categoria: '', valor: '' };
+      case 'discounts': return { descripcion: '', tipo: '', descuento: '', tiers: '' };
+      case 'specialPrices': return { descripcion: '', clienteId: '', productoId: '', precio: '' };
+      default: return {};
+    }
+  };
 
   const stateMap = {
     margins: { data: margins, setter: setMargins },
@@ -73,16 +36,34 @@ export default function PricingManager({ initialMargins, initialDiscounts, initi
     specialPrices: { data: specialPrices, setter: setSpecialPrices },
   };
 
-  const handleOpenModal = (type, rule = null) => {
-    setCurrentRuleType(type);
-    setEditingRule(rule || {});
-    setIsModalOpen(true);
-  };
+  const handleSave = async () => {
+    if (!editingRuleData) return;
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingRule(null);
-    setCurrentRuleType('');
+    const filename = getFileNameForType(activeTab);
+    const isNew = !editingRuleData.id;
+    const method = isNew ? 'POST' : 'PUT';
+
+    try {
+        const res = await fetch(`/api/pricing/rules/${filename}`, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(editingRuleData),
+        });
+        if (!res.ok) throw new Error('Error al guardar la regla');
+        const savedRule = await res.json();
+
+        const { setter, data } = stateMap[activeTab];
+        if (isNew) {
+            setter([...data, savedRule]);
+        } else {
+            setter(data.map(rule => rule.id === savedRule.id ? savedRule : rule));
+        }
+        setEditingRuleId(null);
+        setEditingRuleData(null);
+    } catch (error) {
+        console.error('Error saving rule:', error);
+        alert('No se pudo guardar la regla.');
+    }
   };
 
   const handleDelete = async (ruleId, type) => {
@@ -106,75 +87,200 @@ export default function PricingManager({ initialMargins, initialDiscounts, initi
     }
   };
 
-  const handleSave = async (ruleData) => {
-    const filename = getFileNameForType(currentRuleType);
-    const isNew = !ruleData.id;
-    const method = isNew ? 'POST' : 'PUT';
+  const handleEditClick = (rule) => {
+    setEditingRuleId(rule.id);
+    setEditingRuleData({ ...rule });
+  };
 
-    try {
-        const res = await fetch(`/api/pricing/rules/${filename}`, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ruleData),
-        });
-        if (!res.ok) throw new Error('Error al guardar la regla');
-        const savedRule = await res.json();
+  const handleAddNewClick = () => {
+    setEditingRuleId(null);
+    setEditingRuleData(getEmptyRule(activeTab));
+  };
 
-        const { setter, data } = stateMap[currentRuleType];
-        if (isNew) {
-            setter([...data, savedRule]);
-        } else {
-            setter(data.map(rule => rule.id === savedRule.id ? savedRule : rule));
-        }
-        handleCloseModal();
-    } catch (error) {
-        console.error('Error saving rule:', error);
-        alert('No se pudo guardar la regla.');
+  const handleCancelEdit = () => {
+    setEditingRuleId(null);
+    setEditingRuleData(null);
+  };
+
+  const renderRuleForm = () => {
+    if (!editingRuleData) return null;
+
+    const isNew = !editingRuleData.id;
+
+    const commonFields = (
+      <div className="form-control w-full">
+        <label className="label"><span className="label-text">Descripción</span></label>
+        <input 
+          type="text" 
+          value={editingRuleData.descripcion || ''} 
+          onChange={(e) => setEditingRuleData({ ...editingRuleData, descripcion: e.target.value })}
+          placeholder="Descripción" 
+          className="input input-bordered w-full" 
+        />
+      </div>
+    );
+
+    switch (activeTab) {
+      case 'margins':
+        return (
+          <div className="space-y-4 p-4 border rounded-md bg-base-200">
+            <h4 className="text-lg font-bold">{isNew ? 'Añadir Nueva Regla de Margen' : 'Editar Regla de Margen'}</h4>
+            {commonFields}
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">Tipo</span></label>
+              <input 
+                type="text" 
+                value={editingRuleData.tipo || ''} 
+                onChange={(e) => setEditingRuleData({ ...editingRuleData, tipo: e.target.value })}
+                placeholder="Tipo" 
+                className="input input-bordered w-full" 
+              />
+            </div>
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">Categoría</span></label>
+              <input 
+                type="text" 
+                value={editingRuleData.categoria || ''} 
+                onChange={(e) => setEditingRuleData({ ...editingRuleData, categoria: e.target.value })}
+                placeholder="Categoría" 
+                className="input input-bordered w-full" 
+              />
+            </div>
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">Valor</span></label>
+              <input 
+                type="number" 
+                value={editingRuleData.valor || ''} 
+                onChange={(e) => setEditingRuleData({ ...editingRuleData, valor: parseFloat(e.target.value) })}
+                placeholder="Valor" 
+                className="input input-bordered w-full" 
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button onClick={handleSave} className="btn btn-primary">Guardar</button>
+              <button onClick={handleCancelEdit} className="btn btn-ghost">Cancelar</button>
+            </div>
+          </div>
+        );
+      case 'discounts':
+        return (
+          <div className="space-y-4 p-4 border rounded-md bg-base-200">
+            <h4 className="text-lg font-bold">{isNew ? 'Añadir Nueva Regla de Descuento' : 'Editar Regla de Descuento'}</h4>
+            {commonFields}
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">Tipo</span></label>
+              <input 
+                type="text" 
+                value={editingRuleData.tipo || ''} 
+                onChange={(e) => setEditingRuleData({ ...editingRuleData, tipo: e.target.value })}
+                placeholder="Tipo" 
+                className="input input-bordered w-full" 
+              />
+            </div>
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">Descuento</span></label>
+              <input 
+                type="number" 
+                value={editingRuleData.descuento || ''} 
+                onChange={(e) => setEditingRuleData({ ...editingRuleData, descuento: parseFloat(e.target.value) })}
+                placeholder="Descuento" 
+                className="input input-bordered w-full" 
+              />
+            </div>
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">Tiers (JSON)</span></label>
+              <textarea 
+                value={typeof editingRuleData.tiers === 'object' ? JSON.stringify(editingRuleData.tiers, null, 2) : editingRuleData.tiers || ''} 
+                onChange={(e) => {
+                  try {
+                    setEditingRuleData({ ...editingRuleData, tiers: JSON.parse(e.target.value) });
+                  } catch (error) {
+                    setEditingRuleData({ ...editingRuleData, tiers: e.target.value });
+                  }
+                }}
+                placeholder="Tiers (JSON)" 
+                className="textarea textarea-bordered w-full" 
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button onClick={handleSave} className="btn btn-primary">Guardar</button>
+              <button onClick={handleCancelEdit} className="btn btn-ghost">Cancelar</button>
+            </div>
+          </div>
+        );
+      case 'specialPrices':
+        return (
+          <div className="space-y-4 p-4 border rounded-md bg-base-200">
+            <h4 className="text-lg font-bold">{isNew ? 'Añadir Nuevo Precio Especial' : 'Editar Precio Especial'}</h4>
+            {commonFields}
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">ID Cliente</span></label>
+              <input 
+                type="text" 
+                value={editingRuleData.clienteId || ''} 
+                onChange={(e) => setEditingRuleData({ ...editingRuleData, clienteId: e.target.value })}
+                placeholder="ID Cliente" 
+                className="input input-bordered w-full" 
+              />
+            </div>
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">ID Producto</span></label>
+              <input 
+                type="text" 
+                value={editingRuleData.productoId || ''} 
+                onChange={(e) => setEditingRuleData({ ...editingRuleData, productoId: e.target.value })}
+                placeholder="ID Producto" 
+                className="input input-bordered w-full" 
+              />
+            </div>
+            <div className="form-control w-full">
+              <label className="label"><span className="label-text">Precio Especial</span></label>
+              <input 
+                type="number" 
+                value={editingRuleData.precio || ''} 
+                onChange={(e) => setEditingRuleData({ ...editingRuleData, precio: parseFloat(e.target.value) })}
+                placeholder="Precio Especial" 
+                className="input input-bordered w-full" 
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button onClick={handleSave} className="btn btn-primary">Guardar</button>
+              <button onClick={handleCancelEdit} className="btn btn-ghost">Cancelar</button>
+            </div>
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
-  const marginColumns = [
-    { key: 'descripcion', label: 'Descripción' },
-    { key: 'tipo', label: 'Tipo' },
-    { key: 'categoria', label: 'Categoría' },
-    { key: 'valor', label: 'Valor' },
-  ];
-
-  const discountColumns = [
-    { key: 'descripcion', label: 'Descripción' },
-    { key: 'tipo', label: 'Tipo' },
-    { key: 'descuento', label: 'Descuento' },
-    { key: 'tiers', label: 'Tiers' },
-  ];
-
-  const specialPriceColumns = [
-    { key: 'descripcion', label: 'Descripción' },
-    { key: 'clienteId', label: 'ID Cliente' },
-    { key: 'productoId', label: 'ID Producto' },
-    { key: 'precio', label: 'Precio Especial' },
-  ];
-
   return (
-    <>
-      {isModalOpen && <RuleEditorModal 
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        onSave={handleSave}
-        rule={editingRule}
-        ruleType={currentRuleType}
-      />}
-      <div className="bg-base-100 rounded-lg shadow p-6">
-        <div role="tablist" className="tabs tabs-lifted">
-            <a role="tab" className={`tab ${activeTab === 'margins' ? 'tab-active' : ''}`} onClick={() => setActiveTab('margins')}>Márgenes</a>
-            <a role="tab" className={`tab ${activeTab === 'discounts' ? 'tab-active' : ''}`} onClick={() => setActiveTab('discounts')}>Descuentos</a>
-            <a role="tab" className={`tab ${activeTab === 'specialPrices' ? 'tab-active' : ''}`} onClick={() => setActiveTab('specialPrices')}>Precios Especiales</a>
-        </div>
-        <div className="pt-6">
-            {activeTab === 'margins' && <RulesTable title="Reglas de Margen" rules={margins} columns={marginColumns} onAdd={() => handleOpenModal('margins')} onEdit={(rule) => handleOpenModal('margins', rule)} onDelete={(id) => handleDelete(id, 'margins')} />}
-            {activeTab === 'discounts' && <RulesTable title="Reglas de Descuento" rules={discounts} columns={discountColumns} onAdd={() => handleOpenModal('discounts')} onEdit={(rule) => handleOpenModal('discounts', rule)} onDelete={(id) => handleDelete(id, 'discounts')} />}
-            {activeTab === 'specialPrices' && <RulesTable title="Precios Especiales" rules={specialPrices} columns={specialPriceColumns} onAdd={() => handleOpenModal('specialPrices')} onEdit={(rule) => handleOpenModal('specialPrices', rule)} onDelete={(id) => handleDelete(id, 'specialPrices')} />}
-        </div>
+    <div className="bg-base-100 rounded-lg shadow p-6">
+      <div role="tablist" className="tabs tabs-lifted">
+          <a role="tab" className={`tab ${activeTab === 'margins' ? 'tab-active' : ''}`} onClick={() => setActiveTab('margins')}>Márgenes</a>
+          <a role="tab" className={`tab ${activeTab === 'discounts' ? 'tab-active' : ''}`} onClick={() => setActiveTab('discounts')}>Descuentos</a>
+          <a role="tab" className={`tab ${activeTab === 'specialPrices' ? 'tab-active' : ''}`} onClick={() => setActiveTab('specialPrices')}>Precios Especiales</a>
       </div>
-    </>
+      <div className="pt-6">
+          <button onClick={handleAddNewClick} className="btn btn-primary mb-4">Añadir Nueva Regla</button>
+          {editingRuleData && renderRuleForm()}
+
+          <div className="mt-6 space-y-2">
+            <h3 className="text-xl font-bold">Reglas Existentes</h3>
+            {(stateMap[activeTab]?.data || []).map(rule => (
+              <div key={rule.id} className="flex justify-between items-center p-2 border rounded-md">
+                <span>{rule.descripcion || `Regla ${rule.id}`}</span>
+                <div className="space-x-2">
+                  <button onClick={() => handleEditClick(rule)} className="btn btn-outline btn-xs">Editar</button>
+                  <button onClick={() => handleDelete(rule.id, activeTab)} className="btn btn-ghost btn-xs">Eliminar</button>
+                </div>
+              </div>
+            ))}
+            {(stateMap[activeTab]?.data || []).length === 0 && (
+              <p className="text-base-content/70">No hay reglas definidas.</p>
+            )}
+          </div>
+      </div>
+    </div>
   );
 }
