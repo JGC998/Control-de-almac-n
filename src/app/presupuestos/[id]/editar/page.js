@@ -1,38 +1,28 @@
+"use client";
+import { useParams } from 'next/navigation';
+import useSWR from 'swr';
+import CreatePresupuestoForm from "@/components/CreatePresupuestoForm";
+import { Edit } from "lucide-react";
 
-import { readData } from '@/utils/dataManager';
-import CreatePresupuestoForm from '@/components/CreatePresupuestoForm';
-import { notFound } from 'next/navigation';
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-export default async function EditarPresupuestoPage({ params }) {
+export default function EditarPresupuestoPage() {
+  const params = useParams();
   const { id } = params;
 
-  // Leemos todos los datos necesarios en el servidor
-  const clients = await readData('clientes.json');
-  const products = await readData('productos.json');
-  const quotes = await readData('presupuestos.json');
-  const config = await readData('config.json');
+  // Cargar los datos iniciales del presupuesto
+  const { data: initialData, error, isLoading } = useSWR(id ? `/api/presupuestos/${id}` : null, fetcher);
 
-  const quoteToEdit = quotes.find(q => q.id === id);
-
-  if (!quoteToEdit) {
-    notFound();
-  }
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (error) return <div className="text-red-500 text-center">Error al cargar el presupuesto para editar.</div>;
 
   return (
-    <main className="p-4 sm:p-6 lg:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-base-content">Editar Presupuesto</h1>
-          <p className="text-base-content/70">Modifica los datos del presupuesto.</p>
-        </div>
-        
-        <CreatePresupuestoForm 
-          clients={clients} 
-          products={products} 
-          presupuestoToEdit={quoteToEdit} 
-          ivaRate={config.iva_rate} 
-        />
-      </div>
-    </main>
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6 flex items-center">
+        <Edit className="mr-2" />
+        Editar Presupuesto ( {initialData?.numero} )
+      </h1>
+      <CreatePresupuestoForm initialData={initialData} />
+    </div>
   );
 }

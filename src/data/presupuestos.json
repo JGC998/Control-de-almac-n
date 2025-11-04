@@ -137,5 +137,24 @@
     "id": "df11dc35-fa86-4f94-9b42-fa162568d98f",
     "numero": "2025-003",
     "fechaCreacion": "2025-11-02T22:27:05.118Z"
+  },
+  {
+    "clienteId": "cli-1762279820323",
+    "items": [
+      {
+        "productId": "8723e5e0-5910-4481-841a-788638ee5089",
+        "quantity": 400,
+        "unitPrice": 8.819525,
+        "description": "Agruiz - Faldeta"
+      }
+    ],
+    "notes": "asdfasfd",
+    "subtotal": 3527.8100000000004,
+    "tax": 740.8401,
+    "total": 4268.650100000001,
+    "estado": "Borrador",
+    "id": "c57b66e1-de7e-467c-99d4-24ba4661c203",
+    "numero": "2025-004",
+    "fechaCreacion": "2025-11-04T18:10:28.626Z"
   }
 ]

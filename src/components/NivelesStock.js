@@ -1,39 +1,66 @@
-import { FaWrench } from "react-icons/fa";
+"use client";
+import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 
-const getProgressColor = (stock, stockMinimo) => {
-    if (stockMinimo <= 0) return "progress-success"; // Avoid division by zero, assume good if no minimum
-    const percentage = (stock / (stockMinimo * 2)) * 100;
-    if (percentage < 25) return "progress-error";
-    if (percentage < 50) return "progress-warning";
-    return "progress-success";
-};
-
-export default function NivelesStock({ stockItems }) {
+// Este componente ahora espera 'stockData' como prop,
+// que es un array de items de la tabla 'Stock'.
+export default function NivelesStock({ stockData }) {
+  
+  // Añadimos una comprobación para evitar el crash si stockData es undefined
+  if (!stockData || stockData.length === 0) {
     return (
-        <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-                <h2 className="card-title text-accent">Niveles de Stock</h2>
-                <div className="space-y-4 mt-4">
-                    {stockItems.slice(0, 4).map(item => {
-                        const currentStock = isNaN(parseFloat(item.stock)) ? 0 : parseFloat(item.stock);
-                        const minStock = isNaN(parseFloat(item.stock_minimo)) ? 0 : parseFloat(item.stock_minimo);
-                        const maxProgress = minStock * 2;
-
-                        return (
-                            <div key={item.id}>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="font-semibold">{item.material}</span>
-                                    <span className="font-mono">{currentStock} / {maxProgress}</span>
-                                </div>
-                                <progress 
-                                    className={`progress ${getProgressColor(currentStock, minStock)} w-full`} 
-                                    value={currentStock} 
-                                    max={maxProgress}></progress>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+      <div className="card bg-base-100 shadow-xl h-full">
+        <div className="card-body">
+          <h2 className="card-title text-accent">Niveles de Stock</h2>
+          <p>No hay datos de stock disponibles.</p>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="card bg-base-100 shadow-xl h-full">
+      <div className="card-body">
+        <h2 className="card-title text-accent">Niveles de Stock</h2>
+        <div className="space-y-4 mt-4 overflow-y-auto max-h-96">
+          {/* Usamos 'stockData' y 'slice' */}
+          {stockData.slice(0, 5).map(item => {
+            // Usamos los nuevos nombres de campo de la BD
+            const currentStock = item.metrosDisponibles;
+            // No tenemos 'stock_minimo' en la nueva BD,
+            // así que inventamos uno (ej. 100m) solo para la demo visual
+            const minStock = 100; 
+            const percentage = (currentStock / minStock) * 100;
+            
+            let Icon = TrendingUp;
+            let color = "text-success";
+            if (percentage < 50) {
+              Icon = TrendingDown;
+              color = "text-error";
+            } else if (percentage < 75) {
+              Icon = Minus;
+              color = "text-warning";
+            }
+
+            return (
+              <div key={item.id} className="flex items-center gap-4">
+                <Icon className={`w-6 h-6 ${color}`} />
+                <div>
+                  <div className="font-bold">{item.material} ({item.espesor}mm)</div>
+                  <div className="text-sm opacity-50">{item.proveedor}</div>
+                </div>
+                <div className="ml-auto text-right">
+                  <div className="font-bold">{currentStock.toFixed(2)}m</div>
+                  <progress 
+                    className={`progress ${color.replace('text-', 'progress-')} w-20`} 
+                    value={percentage} 
+                    max="100"
+                  ></progress>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -1,54 +1,52 @@
-
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-
-const dataDir = path.join(process.cwd(), 'src', 'data');
-const filesToSearch = ['pedidos.json', 'stock.json', 'materiales.json', 'fabricantes.json', 'plantillas.json'];
-
-async function searchInFile(filename, query) {
-    const filePath = path.join(dataDir, filename);
-    try {
-        const fileContent = await fs.readFile(filePath, 'utf-8');
-        const data = JSON.parse(fileContent);
-        const queryLower = query.toLowerCase();
-
-        if (!Array.isArray(data)) return [];
-
-        return data.filter(item => {
-            return Object.values(item).some(value => 
-                String(value).toLowerCase().includes(queryLower)
-            );
-        });
-    } catch (error) {
-        console.error(`Error searching in file ${filename}:`, error);
-        return []; // Return empty array if file is not found or there's a parsing error
-    }
-}
+import { db } from '@/lib/db';
 
 export async function GET(request) {
+  try {
     const { searchParams } = new URL(request.url);
-    const q = searchParams.get('q');
+    const query = searchParams.get('q');
 
-    if (!q) {
-        return NextResponse.json({ error: 'Query parameter "q" is required' }, { status: 400 });
+    if (!query) {
+      return NextResponse.json({ message: 'Se requiere un término de búsqueda' }, { status: 400 });
     }
 
-    const searchPromises = filesToSearch.map(filename => 
-        searchInFile(filename, q).then(results => ({ 
-            category: filename.replace('.json', ''), 
-            results 
-        }))
-    );
-
-    const searchResults = await Promise.all(searchPromises);
+    const searchConfig = {
+      where: {
+        nombre: {
+          contains: query,
+          mode: 'insensitive', // No distingue mayúsculas/minúsculas
+        },
+      },
+      take: 5,
+    };
     
-    const finalResults = searchResults.reduce((acc, result) => {
-        if (result.results.length > 0) {
-            acc[result.category] = result.results;
-        }
-        return acc;
-    }, {});
+    const numSearchConfig = (field) => ({
+      where: {
+        [field]: {
+          contains: query,
+        },
+      },
+      take: 5,
+    });
 
-    return NextResponse.json(finalResults);
+    // Buscar en paralelo
+    const [clientes, productos, pedidos, presupuestos] = await Promise.all([
+      db.cliente.findMany(searchConfig),
+      db.producto.findMany(searchConfig),
+      db.pedido.findMany(numSearchConfig('numero')),
+      db.presupuesto.findMany(numSearchConfig('numero')),
+    ]);
+
+    const results = [
+      ...clientes.map(c => ({ ...c, type: 'cliente' })),
+      ...productos.map(p => ({ ...p, type: 'producto' })),
+      ...pedidos.map(p => ({ ...p, type: 'pedido' })),
+      ...presupuestos.map(q => ({ ...q, type: 'presupuesto' })),
+    ];
+
+    return NextResponse.json(results);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Error al realizar la búsqueda' }, { status: 500 });
+  }
 }

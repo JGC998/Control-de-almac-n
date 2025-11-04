@@ -1,98 +1,82 @@
-'use client';
-
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+"use client";
+import { useSearchParams, notFound } from 'next/navigation';
+import useSWR from 'swr';
 import Link from 'next/link';
+import { User, Package, FileText } from 'lucide-react';
 
-function SearchResults() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const query = searchParams.get('q');
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-    const [results, setResults] = useState({});
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+const ResultItem = ({ item }) => {
+  let icon, title, path;
+  
+  switch(item.type) {
+    case 'cliente':
+      icon = <User className="w-5 h-5 text-blue-500" />;
+      title = item.nombre;
+      path = `/gestion/clientes/${item.id}`;
+      break;
+    case 'producto':
+      icon = <Package className="w-5 h-5 text-green-500" />;
+      title = item.nombre;
+      path = `/gestion/productos`; // Los productos no tienen página de detalle aún
+      break;
+    case 'pedido':
+      icon = <Package className="w-5 h-5 text-purple-500" />;
+      title = item.numero;
+      path = `/pedidos/${item.id}`;
+      break;
+    case 'presupuesto':
+      icon = <FileText className="w-5 h-5 text-yellow-500" />;
+      title = item.numero;
+      path = `/presupuestos/${item.id}`;
+      break;
+    default:
+      return null;
+  }
 
-    useEffect(() => {
-        if (query) {
-            setLoading(true);
-            setError(null);
-            fetch(`/api/search?q=${encodeURIComponent(query)}`)
-                .then(res => {
-                    if (!res.ok) throw new Error('Error al realizar la búsqueda.');
-                    return res.json();
-                })
-                .then(data => {
-                    setResults(data);
-                })
-                .catch(err => {
-                    setError(err.message);
-                })
-                .finally(() => {
-                    setLoading(false);
-                });
-        } else {
-            setResults({});
-        }
-    }, [query]);
+  return (
+    <li className="mb-2">
+      <Link href={path} className="flex items-center p-3 bg-base-100 hover:bg-base-200 rounded-lg shadow">
+        {icon}
+        <span className="ml-3 font-medium">{title}</span>
+        <span className="ml-auto badge badge-outline">{item.type}</span>
+      </Link>
+    </li>
+  );
+};
 
-    const renderResultItem = (item, category) => {
-        // Special rendering for 'pedidos' to link to the detail page
-        if (category === 'pedidos') {
-            return (
-                <Link href={`/pedidos/${item.id}`} className="card-body">
-                    <h3 className="card-title">Pedido ID: {item.id}</h3>
-                    <p>Cliente: {item.cliente}</p>
-                    <p>Fecha: {new Date(item.fecha).toLocaleDateString('es-ES')}</p>
-                </Link>
-            );
-        }
-
-        // Generic rendering for other categories
-        return (
-            <div className="card-body">
-                <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(item, null, 2)}</pre>
-            </div>
-        );
-    };
-
-    return (
-        <main className="p-4 sm:p-6 md:p-8">
-            <div className="max-w-4xl mx-auto">
-                <button onClick={() => router.back()} className="btn btn-ghost mb-4">Volver</button>
-                <h1 className="text-3xl font-bold mb-6">Resultados de la Búsqueda para: <span className="text-primary">"{query}"</span></h1>
-
-                {loading && <span className="loading loading-spinner loading-lg"></span>}
-                {error && <p className="text-error">{error}</p>}
-
-                {!loading && !error && Object.keys(results).length === 0 && (
-                    <p>No se encontraron resultados.</p>
-                )}
-
-                <div className="space-y-6">
-                    {Object.entries(results).map(([category, items]) => (
-                        <div key={category}>
-                            <h2 className="text-2xl font-bold mb-4 capitalize border-b-2 border-primary pb-2">Resultados en {category}</h2>
-                            <div className="space-y-4">
-                                {items.map((item, index) => (
-                                    <div key={`${category}-${item.id || index}`} className="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
-                                        {renderResultItem(item, category)}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </main>
-    );
-}
-
-// Use Suspense to handle client-side rendering of search params
 export default function SearchPage() {
-    return (
-        <Suspense fallback={<div className="p-8 flex justify-center items-center"><span className="loading loading-spinner loading-lg"></span></div>}>
-            <SearchResults />
-        </Suspense>
-    );
+  const searchParams = useSearchParams();
+  const query = searchParams.get('q');
+
+  const { data: results, error, isLoading } = useSWR(query ? `/api/search?q=${encodeURIComponent(query)}` : null, fetcher);
+
+  if (!query) {
+    return notFound();
+  }
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6">
+        Resultados de búsqueda para: <span className="text-primary">"{query}"</span>
+      </h1>
+
+      {isLoading && <div className="flex justify-center items-center h-64"><span className="loading loading-spinner loading-lg"></span></div>}
+      {error && <div className="alert alert-error">Error al realizar la búsqueda.</div>}
+      
+      {results && (
+        <div>
+          {results.length === 0 ? (
+            <p className="text-center text-gray-500">No se encontraron resultados.</p>
+          ) : (
+            <ul className="max-w-2xl mx-auto">
+              {results.map((item) => (
+                <ResultItem key={`${item.type}-${item.id}`} item={item} />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -1,233 +1,186 @@
-'use client';
+"use client";
+import React, { useState } from 'react';
+import useSWR, { mutate } from 'swr';
+import { PlusCircle, Edit, Trash2, Package } from 'lucide-react';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { FaBoxOpen, FaPlus, FaTrash, FaEdit } from 'react-icons/fa';
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-function ProductosPage() {
-    const [productos, setProductos] = useState([]);
-    const [datosMateriales, setDatosMateriales] = useState([]);
-    const [fabricantes, setFabricantes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+export default function GestionProductos() {
+  const [formData, setFormData] = useState({ 
+    id: null, nombre: '', modelo: '', espesor: 0, largo: 0, ancho: 0, 
+    precioUnitario: 0, pesoUnitario: 0, fabricante: '', material: '' 
+  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [error, setError] = useState(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const [productosRes, materialesRes, fabricantesRes] = await Promise.all([
-                fetch('/api/productos'),
-                fetch('/api/precios'),
-                fetch('/api/fabricantes'),
-            ]);
-            if (!productosRes.ok || !materialesRes.ok || !fabricantesRes.ok) throw new Error('Error al cargar los datos');
-            setProductos(await productosRes.json());
-            setDatosMateriales(await materialesRes.json());
-            setFabricantes(await fabricantesRes.json());
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+  const { data: productos, error: productosError, isLoading: productosLoading } = useSWR('/api/productos', fetcher);
+  const { data: fabricantes, error: fabError, isLoading: fabLoading } = useSWR('/api/fabricantes', fetcher);
+  const { data: materiales, error: matError, isLoading: matLoading } = useSWR('/api/materiales', fetcher);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+  const isLoading = productosLoading || fabLoading || matLoading;
 
-    const handleProductUpdate = () => {
-        fetchData();
-    };
-
-    if (error) {
-        return <div className="p-8 text-center text-red-500">Error: {error}</div>;
+  const openModal = (producto = null) => {
+    if (producto) {
+      setFormData({ 
+        id: producto.id, nombre: producto.nombre, modelo: producto.modelo || '', 
+        espesor: producto.espesor || 0, largo: producto.largo || 0, ancho: producto.ancho || 0, 
+        precioUnitario: producto.precioUnitario || 0, pesoUnitario: producto.pesoUnitario || 0, 
+        fabricante: producto.fabricante?.nombre || '', // Asume que el GET trae el objeto
+        material: producto.material?.nombre || ''      // Asume que el GET trae el objeto
+      });
+    } else {
+      setFormData({ 
+        id: null, nombre: '', modelo: '', espesor: 0, largo: 0, ancho: 0, 
+        precioUnitario: 0, pesoUnitario: 0, fabricante: '', material: '' 
+      });
     }
+    setError(null);
+    setIsModalOpen(true);
+  };
 
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                <span className="loading loading-spinner loading-lg"></span>
-            </div>
-        );
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleSelectChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    const url = formData.id ? `/api/productos/${formData.id}` : '/api/productos';
+    const method = formData.id ? 'PUT' : 'POST';
+
+    // Convertir a número antes de enviar
+    const dataToSend = {
+      ...formData,
+      espesor: parseFloat(formData.espesor),
+      largo: parseFloat(formData.largo),
+      ancho: parseFloat(formData.ancho),
+      precioUnitario: parseFloat(formData.precioUnitario),
+      pesoUnitario: parseFloat(formData.pesoUnitario),
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSend),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Error al guardar el producto');
+      }
+
+      mutate('/api/productos'); // Revalida el cache
+      closeModal();
+    } catch (err) {
+      setError(err.message);
     }
+  };
 
-    return (
-        <main className="p-4 sm:p-6 md:p-8 bg-base-200 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-primary flex items-center gap-3">
-                <FaBoxOpen /> Gestión de Productos
-            </h1>
-
-            <AddProductForm onProductAdded={handleProductUpdate} datosMateriales={datosMateriales} fabricantes={fabricantes} />
-
-            <ProductList productos={productos} onProductDeleted={handleProductUpdate} onProductUpdated={handleProductUpdate} />
-        </main>
-    );
-}
-
-function AddProductForm({ onProductAdded, datosMateriales, fabricantes }) {
-    const [fabricante, setFabricante] = useState('');
-    const [modelo, setModelo] = useState('');
-    const [material, setMaterial] = useState('');
-    const [espesor, setEspesor] = useState('');
-    const [largo, setLargo] = useState('');
-    const [ancho, setAncho] = useState('');
-
-    const materialesUnicos = useMemo(() => [...new Set(datosMateriales.map(item => item.material))], [datosMateriales]);
-    const espesoresDisponibles = useMemo(() => {
-        if (material) {
-            return datosMateriales.filter(item => item.material === material).map(item => item.espesor);
+  const handleDelete = async (id) => {
+    if (confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+      try {
+        const res = await fetch(`/api/productos/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.message || 'Error al eliminar el producto');
         }
-        return [];
-    }, [material, datosMateriales]);
+        mutate('/api/productos');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (productosError || fabError || matError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
 
-        const materialInfo = datosMateriales.find(m => m.material === material && m.espesor == espesor);
-        if (!materialInfo) {
-            alert('No se encontraron datos de precio/peso para el material seleccionado.');
-            return;
-        }
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6 flex items-center"><Package className="mr-2" /> Gestión de Productos</h1>
+      
+      <button onClick={() => openModal()} className="btn btn-primary mb-6">
+        <PlusCircle className="w-4 h-4" /> Nuevo Producto
+      </button>
 
-        const areaM2 = (parseFloat(largo) / 1000) * (parseFloat(ancho) / 1000);
-        const precioUnitario = areaM2 * materialInfo.precio;
-        const pesoUnitario = areaM2 * materialInfo.peso;
+      <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Fabricante</th>
+              <th>Material</th>
+              <th>Precio Unit.</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productos && productos.map((p) => (
+              <tr key={p.id} className="hover">
+                <td className="font-bold">{p.nombre}</td>
+                <td>{p.fabricante?.nombre || 'N/A'}</td>
+                <td>{p.material?.nombre || 'N/A'}</td>
+                <td>{p.precioUnitario.toFixed(2)} €</td>
+                <td className="flex gap-2">
+                  <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-outline btn-error">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-        const nuevoProducto = {
-            nombre: `${fabricante} - ${modelo}`,
-            fabricante,
-            modelo,
-            material,
-            espesor: parseFloat(espesor),
-            largo: parseFloat(largo),
-            ancho: parseFloat(ancho),
-            precioUnitario,
-            pesoUnitario,
-        };
-
-        try {
-            const res = await fetch('/api/productos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(nuevoProducto),
-            });
-            if (!res.ok) throw new Error('Error al añadir el producto');
-            
-            // Limpiar formulario
-            setFabricante('');
-            setModelo('');
-            setMaterial('');
-            setEspesor('');
-            setLargo('');
-            setAncho('');
-
-            onProductAdded();
-        } catch (error) {
-            alert(error.message);
-        }
-    };
-
-    return (
-        <div className="card bg-base-100 shadow-xl mb-8">
-            <div className="card-body">
-                <h2 className="card-title mb-4"><FaPlus /> Añadir Nuevo Producto</h2>
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Fabricante</span></label>
-                        <input type="text" list="fabricantes-list" placeholder="Escribe o selecciona" className="input input-bordered" value={fabricante} onChange={e => setFabricante(e.target.value)} required />
-                        <datalist id="fabricantes-list">
-                            {fabricantes.map(f => <option key={f.id} value={f.nombre} />)}
-                        </datalist>
-                    </div>
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Modelo</span></label>
-                        <input type="text" placeholder="Ej: Faldeta 300x400" className="input input-bordered" value={modelo} onChange={e => setModelo(e.target.value)} required />
-                    </div>
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Material</span></label>
-                        <select className="select select-bordered" value={material} onChange={e => setMaterial(e.target.value)} required>
-                            <option value="" disabled>Selecciona material</option>
-                            {materialesUnicos.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                    </div>
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Espesor (mm)</span></label>
-                        <select className="select select-bordered" value={espesor} onChange={e => setEspesor(e.target.value)} disabled={!material} required>
-                            <option value="" disabled>Selecciona espesor</option>
-                            {espesoresDisponibles.map(e => <option key={e} value={e}>{e}</option>)}
-                        </select>
-                    </div>
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Largo (mm)</span></label>
-                        <input type="number" placeholder="Largo" className="input input-bordered" value={largo} onChange={e => setLargo(e.target.value)} required />
-                    </div>
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Ancho (mm)</span></label>
-                        <input type="number" placeholder="Ancho" className="input input-bordered" value={ancho} onChange={e => setAncho(e.target.value)} required />
-                    </div>
-                    <div className="card-actions justify-end md:col-span-3 mt-4">
-                        <button type="submit" className="btn btn-primary"><FaPlus /> Añadir Producto</button>
-                    </div>
-                </form>
-            </div>
+      {/* Modal para Crear/Editar Producto */}
+      {isModalOpen && (
+        <div className="modal modal-open">
+          <div className="modal-box w-11/12 max-w-2xl">
+            <h3 className="font-bold text-lg">{formData.id ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+            <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Nombre" className="input input-bordered w-full md:col-span-2" required />
+              <input type="text" name="modelo" value={formData.modelo} onChange={handleChange} placeholder="Modelo" className="input input-bordered w-full" />
+              
+              <select name="fabricante" value={formData.fabricante} onChange={handleSelectChange} className="select select-bordered w-full" required>
+                <option value="">Selecciona Fabricante</option>
+                {fabricantes?.map(f => <option key={f.id} value={f.nombre}>{f.nombre}</option>)}
+              </select>
+              
+              <select name="material" value={formData.material} onChange={handleSelectChange} className="select select-bordered w-full" required>
+                <option value="">Selecciona Material</option>
+                {materiales?.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+              </select>
+              
+              <input type="number" step="0.01" name="precioUnitario" value={formData.precioUnitario} onChange={handleChange} placeholder="Precio Unitario" className="input input-bordered w-full" />
+              <input type="number" step="0.01" name="pesoUnitario" value={formData.pesoUnitario} onChange={handleChange} placeholder="Peso Unitario" className="input input-bordered w-full" />
+              <input type="number" step="0.01" name="espesor" value={formData.espesor} onChange={handleChange} placeholder="Espesor (mm)" className="input input-bordered w-full" />
+              <input type="number" step="0.01" name="largo" value={formData.largo} onChange={handleChange} placeholder="Largo (m)" className="input input-bordered w-full" />
+              <input type="number" step="0.01" name="ancho" value={formData.ancho} onChange={handleChange} placeholder="Ancho (m)" className="input input-bordered w-full" />
+              
+              {error && <p className="text-red-500 text-sm md:col-span-2">{error}</p>}
+              
+              <div className="modal-action md:col-span-2">
+                <button type="button" onClick={closeModal} className="btn">Cancelar</button>
+                <button type="submit" className="btn btn-primary">Guardar</button>
+              </div>
+            </form>
+          </div>
         </div>
-    );
+      )}
+    </div>
+  );
 }
-
-function ProductList({ productos, onProductDeleted, onProductUpdated }) {
-
-    const handleDelete = async (id) => {
-        if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-            try {
-                const res = await fetch(`/api/productos/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error('Error al eliminar el producto');
-                onProductDeleted();
-            } catch (error) {
-                alert(error.message);
-            }
-        }
-    };
-
-    // TODO: Implementar edición
-    const handleEdit = (id) => {
-        alert('La función de editar aún no está implementada.');
-    };
-
-    return (
-        <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-                <h2 className="card-title mb-4">Listado de Productos</h2>
-                <div className="overflow-x-auto">
-                    <table className="table w-full">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Material</th>
-                                <th>Dimensiones</th>
-                                <th>Precio Unit.</th>
-                                <th>Peso Unit.</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {productos.map(producto => (
-                                <tr key={producto.id}>
-                                    <td>{producto.nombre}</td>
-                                    <td>{producto.material} {producto.espesor}mm</td>
-                                    <td>{producto.largo}x{producto.ancho}mm</td>
-                                    <td>{producto.precioUnitario.toFixed(2)} €</td>
-                                    <td>{producto.pesoUnitario.toFixed(2)} kg</td>
-                                    <td>
-                                        <button onClick={() => handleEdit(producto.id)} className="btn btn-ghost btn-xs"><FaEdit /></button>
-                                        <button onClick={() => handleDelete(producto.id)} className="btn btn-ghost btn-xs"><FaTrash /></button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-export default ProductosPage;

@@ -1,176 +1,129 @@
 import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import fs from 'fs/promises';
 import path from 'path';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { readData } from '@/utils/dataManager';
 
-async function getPedido(id) {
-    const pedidos = await readData('pedidos.json');
-    return pedidos.find(p => String(p.id) === String(id));
-}
+export async function GET(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
 
-async function getCliente(id) {
-    if (!id) return null;
-    const clientes = await readData('clientes.json');
-    return clientes.find(c => String(c.id) === String(id));
-}
+    // 1. Obtener todos los datos de la BD
+    const order = await db.pedido.findUnique({
+      where: { id: id },
+      include: {
+        cliente: true,
+        items: true,
+      },
+    });
 
-export async function GET(request, { params }) {
-    const { id } = await params;
-    const pedido = await getPedido(id);
-
-    if (!pedido) {
-        return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
+    if (!order) {
+      return new NextResponse('Pedido no encontrado', { status: 404 });
     }
-
-    const cliente = await getCliente(pedido.clienteId);
-    const clienteNombre = cliente ? cliente.nombre : pedido.cliente;
-
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage();
-    const { width, height } = page.getSize();
     
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    const margin = 50;
-    const black = rgb(0, 0, 0);
-
-    // === HEADER ===
-    page.drawText('PEDIDO', { x: width - margin - 150, y: height - margin, font: boldFont, size: 28, color: black });
-
-    let y = height - margin - 70;
-
-    // === ORDER & CLIENT DETAILS (2 columns) ===
-    const detailsBoxY = y + 20;
-    page.drawRectangle({
-        x: margin,
-        y: detailsBoxY - 80,
-        width: width - margin * 2,
-        height: 100,
-        borderColor: black,
-        borderWidth: 1,
+    // 2. Obtener la configuración (IVA)
+    const configIva = await db.config.findUnique({
+      where: { key: 'iva_rate' },
     });
+    const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;
+    const client = order.cliente;
 
-    // Client Info
-    page.drawText('CLIENTE:', { x: margin + 10, y: y, font: boldFont, size: 10, color: black });
-    y -= 15;
-    page.drawText(clienteNombre || 'Cliente no especificado', { x: margin + 10, y: y, font: font, size: 12, color: black });
-    // Add more client details here if available
+    // --- Inicio de la Generación del PDF ---
+    const doc = new jsPDF();
 
-    // Order Info
-    let orderInfoX = width / 2 + 30;
-    y += 15; // Reset Y for the second column
-    page.drawText('Nº PEDIDO:', { x: orderInfoX, y: y, font: boldFont, size: 10, color: black });
-    y -= 15;
-    page.drawText(String(pedido.numero || pedido.id), { x: orderInfoX, y: y, font: font, size: 12, color: black });
-    y -= 20;
-    page.drawText('FECHA:', { x: orderInfoX, y: y, font: boldFont, size: 10, color: black });
-    y -= 15;
-    page.drawText(new Date(pedido.fechaCreacion || pedido.fecha).toLocaleDateString('es-ES'), { x: orderInfoX, y: y, font: font, size: 12, color: black });
-
-    y -= 80; // Move down past the details box
-
-    // === PRODUCTS TABLE ===
-    const tableTop = y;
-    const tableX = margin;
-    const tableWidth = width - margin * 2;
-    const rowHeight = 20;
-    const headerHeight = 30;
-
-    // Draw table header
-    page.drawRectangle({
-        x: tableX,
-        y: tableTop - headerHeight,
-        width: tableWidth,
-        height: headerHeight,
-        borderColor: black,
-        borderWidth: 1,
-    });
-
-    page.drawText('Producto', { x: tableX + (190 - boldFont.widthOfTextAtSize('Producto', 10)) / 2, y: tableTop - 20, font: boldFont, size: 10, color: black });
-    page.drawText('Cantidad', { x: tableX + 190 + (50 - boldFont.widthOfTextAtSize('Cantidad', 10)) / 2, y: tableTop - 20, font: boldFont, size: 10, color: black });
-    page.drawText('Peso Unit.', { x: tableX + 240 + (60 - boldFont.widthOfTextAtSize('Peso Unit.', 10)) / 2, y: tableTop - 20, font: boldFont, size: 10, color: black });
-    page.drawText('Peso Total', { x: tableX + 300 + (60 - boldFont.widthOfTextAtSize('Peso Total', 10)) / 2, y: tableTop - 20, font: boldFont, size: 10, color: black });
-    page.drawText('Precio Unit.', { x: tableX + 360 + (65 - boldFont.widthOfTextAtSize('Precio Unit.', 10)) / 2, y: tableTop - 20, font: boldFont, size: 10, color: black });
-    page.drawText('Total', { x: tableX + 425 + (70 - boldFont.widthOfTextAtSize('Total', 10)) / 2, y: tableTop - 20, font: boldFont, size: 10, color: black });
-
-    let totalPedido = 0;
-    let totalPeso = 0;
-    let tableY = tableTop - headerHeight;
-
-    const productos = pedido.productos || pedido.items || [];
-
-    // Table Rows
-    for (const producto of productos) {
-        tableY -= rowHeight;
-        const cantidad = producto.cantidad || 0;
-        const precioUnitario = producto.precioUnitario || producto.precio_unitario || 0;
-        const pesoUnitario = producto.pesoUnitario || 0;
-        const totalProducto = cantidad * precioUnitario;
-        const pesoProducto = cantidad * pesoUnitario;
-        totalPedido += totalProducto;
-        totalPeso += pesoProducto;
-
-        page.drawRectangle({
-            x: tableX,
-            y: tableY,
-            width: tableWidth,
-            height: rowHeight,
-            borderColor: black,
-            borderWidth: 1,
-        });
-
-        const nombre = producto.nombre || producto.descripcion || '';
-        const cantidadStr = String(cantidad);
-        const pesoUnitarioStr = `${pesoUnitario.toFixed(2)} kg`;
-        const pesoTotalStr = `${pesoProducto.toFixed(2)} kg`;
-        const precioUnitarioStr = `${precioUnitario.toFixed(2)} €`;
-        const totalStr = `${totalProducto.toFixed(2)} €`;
-
-        page.drawText(nombre, { x: tableX + (190 - font.widthOfTextAtSize(nombre, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(cantidadStr, { x: tableX + 190 + (50 - font.widthOfTextAtSize(cantidadStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(pesoUnitarioStr, { x: tableX + 240 + (60 - font.widthOfTextAtSize(pesoUnitarioStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(pesoTotalStr, { x: tableX + 300 + (60 - font.widthOfTextAtSize(pesoTotalStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(precioUnitarioStr, { x: tableX + 360 + (65 - font.widthOfTextAtSize(precioUnitarioStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
-        page.drawText(totalStr, { x: tableX + 425 + (70 - font.widthOfTextAtSize(totalStr, 10)) / 2, y: tableY + 5, font, size: 10, color: black });
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'logo-crm.png');
+      const logoBuffer = await fs.readFile(logoPath);
+      doc.addImage(logoBuffer, 'PNG', 145, 15, 50, 15);
+    } catch (error) {
+      console.error("No se pudo cargar el logo:", error);
     }
 
-    // Draw vertical lines
-    page.drawLine({ start: { x: tableX + 190, y: tableTop }, end: { x: tableX + 190, y: tableY }, color: black, thickness: 1 });
-    page.drawLine({ start: { x: tableX + 240, y: tableTop }, end: { x: tableX + 240, y: tableY }, color: black, thickness: 1 });
-    page.drawLine({ start: { x: tableX + 300, y: tableTop }, end: { x: tableX + 300, y: tableY }, color: black, thickness: 1 });
-    page.drawLine({ start: { x: tableX + 360, y: tableTop }, end: { x: tableX + 360, y: tableY }, color: black, thickness: 1 });
-    page.drawLine({ start: { x: tableX + 425, y: tableTop }, end: { x: tableX + 425, y: tableY }, color: black, thickness: 1 });
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("PEDIDO", 14, 22);
 
-    // === NOTES ===
-    let notesY = tableY - 20;
-    if (pedido.notas) {
-        page.drawText('Notas:', { x: tableX, y: notesY, font: boldFont, size: 12, color: black });
-        notesY -= 20;
-        page.drawText(pedido.notas, { x: tableX, y: notesY, font: font, size: 10, color: black });
-        notesY -= 20;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(process.env.COMPANY_NAME || 'Tu Empresa', 200, 38, { align: 'right' });
+    doc.text(process.env.COMPANY_ADDRESS || 'Tu Dirección', 200, 44, { align: 'right' });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Número:`, 14, 36);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${order.numero}`, 38, 36);
+
+    doc.setFont("helvetica", "bold");
+    doc.text(`Fecha:`, 14, 42);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${new Date(order.fechaCreacion).toLocaleDateString('es-ES')}`, 38, 42);
+
+    doc.rect(14, 50, 90, 28);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Cliente:", 20, 56);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    if (client) {
+      doc.text(client.nombre, 20, 62);
+      doc.text(client.direccion || 'Dirección no especificada', 20, 68);
+      doc.text(client.email || 'Email no especificado', 20, 74);
     }
 
-    // === TOTALS ===
-    const totalY = notesY - 40;
-    page.drawLine({ start: { x: tableX + 300, y: tableY - 5 }, end: { x: tableX + tableWidth, y: tableY - 5 }, color: black, thickness: 1 });
-    page.drawText('TOTAL PESO', { x: tableX + 310, y: totalY, font: boldFont, size: 14, color: black });
-    page.drawText(`${totalPeso.toFixed(2)} kg`, { x: tableX + 310, y: totalY - 20, font: boldFont, size: 14, color: black });
-    page.drawText('TOTAL PEDIDO', { x: tableX + 435, y: totalY, font: boldFont, size: 14, color: black });
-    page.drawText(`${totalPedido.toFixed(2)} €`, { x: tableX + 435, y: totalY - 20, font: boldFont, size: 14, color: black });
-
-    // === FOOTER ===
-    const footerY = margin / 2;
-    page.drawText('Gracias por su confianza.', { x: margin, y: footerY, font, size: 10, color: black });
-    page.drawText('email@tuempresa.com | +34 123 456 789', { x: width - margin - 150, y: footerY, font, size: 10, color: black });
-
-    const pdfBytes = await pdfDoc.save();
-
-    return new Response(pdfBytes, {
-        headers: {
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="pedido_${id}.pdf"`,
-        },
+    const tableColumn = ["Descripción", "Cantidad", "Precio Unit.", "Total"];
+    const tableRows = [];
+    
+    order.items.forEach(item => {
+      const itemData = [
+        item.descripcion,
+        item.quantity,
+        `${(item.unitPrice || 0).toFixed(2)} €`,
+        `${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} €`
+      ];
+      tableRows.push(itemData);
     });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 85,
+      theme: 'grid'
+    });
+
+    const finalY = doc.lastAutoTable.finalY;
+    doc.setFontSize(10);
+    doc.text(`Subtotal:`, 145, finalY + 10);
+    doc.text(`${(order.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
+
+    doc.text(`IVA (${(ivaRate * 100).toFixed(0)}%):`, 145, finalY + 16);
+    doc.text(`${(order.tax || 0).toFixed(2)} €`, 198, finalY + 16, { align: 'right' });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL:`, 145, finalY + 24);
+    doc.text(`${(order.total || 0).toFixed(2)} €`, 198, finalY + 24, { align: 'right' });
+    
+    if (order.notes) {
+      doc.setFontSize(8);
+      doc.text("Notas:", 14, finalY + 40);
+      doc.setFontSize(8);
+      doc.text(order.notes, 14, finalY + 44, { maxWidth: 180 });
+    }
+
+    const pdfBuffer = doc.output('arraybuffer');
+
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="pedido-${order.numero}.pdf"`,
+      },
+    });
+
+  } catch (error) {
+    console.error('Error al generar el PDF:', error);
+    return new NextResponse('Error interno al generar el PDF', { status: 500 });
+  }
 }

@@ -1,50 +1,96 @@
 import { NextResponse } from 'next/server';
-import { readData, writeData, updateData } from '../../../../utils/dataManager';
+import { db } from '@/lib/db';
 
-const FILENAME = 'pedidos.json';
+// GET: Obtener un pedido específico por ID
+export async function GET(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const order = await db.pedido.findUnique({
+      where: { id: id },
+      include: {
+        cliente: true,
+        items: true,
+      },
+    });
 
-// GET /api/pedidos/[id] - Obtiene un pedido por su ID
-export async function GET(request, { params }) {
-    const { id } = params;
-    const pedidos = await readData(FILENAME);
-    const pedido = pedidos.find(p => String(p.id) === String(id));
-
-    if (!pedido) {
-        return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
+    if (!order) {
+      return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     }
-
-    return NextResponse.json(pedido);
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error('Error al leer el pedido:', error);
+    return NextResponse.json({ message: 'Error interno al leer los datos' }, { status: 500 });
+  }
 }
 
-// PUT /api/pedidos/[id] - Actualiza el estado de un pedido
-export async function PUT(request, { params }) {
-    const { id } = params;
-    const pedidoActualizado = await request.json();
+// PUT: Actualizar un pedido existente
+export async function PUT(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const data = await request.json();
+    const { items, ...updatedOrderData } = data;
 
-    const success = await updateData(FILENAME, id, pedidoActualizado);
+    const transaction = await db.$transaction(async (tx) => {
+      // 1. Actualizar datos principales del pedido
+      const updatedOrder = await tx.pedido.update({
+        where: { id: id },
+        data: {
+          ...updatedOrderData,
+        },
+      });
 
-    if (!success) {
-        return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
+      // 2. Eliminar todos los items antiguos
+      await tx.pedidoItem.deleteMany({
+        where: { pedidoId: id },
+      });
+
+      // 3. Crear todos los items nuevos
+      if (items && items.length > 0) {
+        await tx.pedidoItem.createMany({
+          data: items.map(item => ({
+            descripcion: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            pesoUnitario: item.pesoUnitario || 0,
+            productoId: item.productId,
+            pedidoId: id,
+          })),
+        });
+      }
+
+      return updatedOrder;
+    });
+
+    return NextResponse.json(transaction, { status: 200 });
+  } catch (error) {
+    console.error('Error al actualizar el pedido:', error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     }
-
-    // Para devolver el pedido actualizado, necesitamos leerlo de nuevo o construirlo.
-    // Por simplicidad, leeremos todos los pedidos y encontraremos el actualizado.
-    const pedidos = await readData(FILENAME);
-    const updatedPedido = pedidos.find(p => String(p.id) === String(id));
-
-    return NextResponse.json(updatedPedido);
+    return NextResponse.json({ message: 'Error interno al actualizar los datos' }, { status: 500 });
+  }
 }
 
-// DELETE /api/pedidos/[id] - Elimina un pedido por su ID
-export async function DELETE(request, { params }) {
-    const { id } = params;
-    const pedidos = await readData(FILENAME);
-    const nuevosPedidos = pedidos.filter(p => String(p.id) !== String(id));
+// DELETE: Eliminar un pedido
+export async function DELETE(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
 
-    if (nuevosPedidos.length === pedidos.length) {
-        return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
+    await db.$transaction(async (tx) => {
+      await tx.pedidoItem.deleteMany({
+        where: { pedidoId: id },
+      });
+      await tx.pedido.delete({
+        where: { id: id },
+      });
+    });
+
+    return NextResponse.json({ message: 'Pedido eliminado correctamente' }, { status: 200 });
+  } catch (error) {
+    console.error('Error al eliminar el pedido:', error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     }
-
-    await writeData(FILENAME, nuevosPedidos);
-    return NextResponse.json({ message: 'Pedido eliminado' }, { status: 200 });
+    return NextResponse.json({ message: 'Error interno al eliminar los datos' }, { status: 500 });
+  }
 }

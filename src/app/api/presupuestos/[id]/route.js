@@ -1,18 +1,21 @@
-
 import { NextResponse } from 'next/server';
-import { readData, writeData } from '@/utils/dataManager';
+import { db } from '@/lib/db';
 
 // GET: Obtener un presupuesto específico por ID
-export async function GET(request, { params }) {
+export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await params;
-    const quotes = await readData('presupuestos.json');
-    const quote = quotes.find(q => q.id === id);
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const quote = await db.presupuesto.findUnique({
+      where: { id: id },
+      include: {
+        cliente: true, // Incluye todos los datos del cliente
+        items: true,   // Incluye los items del presupuesto
+      },
+    });
 
     if (!quote) {
       return NextResponse.json({ message: 'Presupuesto no encontrado' }, { status: 404 });
     }
-
     return NextResponse.json(quote);
   } catch (error) {
     console.error('Error al leer el presupuesto:', error);
@@ -21,62 +24,77 @@ export async function GET(request, { params }) {
 }
 
 // PUT: Actualizar un presupuesto existente
-export async function PUT(request, { params }) {
+export async function PUT(request, { params: paramsPromise }) {
   try {
-    const { id } = params;
-    const updatedQuoteData = await request.json();
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const data = await request.json();
+    const { items, ...updatedQuoteData } = data; // Separamos los items del resto
 
-    if (!updatedQuoteData) {
-      return NextResponse.json({ message: 'Datos de actualización no proporcionados' }, { status: 400 });
-    }
+    const transaction = await db.$transaction(async (tx) => {
+      // 1. Actualizar datos principales del presupuesto
+      const updatedQuote = await tx.presupuesto.update({
+        where: { id: id },
+        data: {
+          ...updatedQuoteData,
+          // fechaModificacion: new Date().toISOString(), // (Opcional: añadir este campo al schema)
+        },
+      });
 
-    // Obtener el presupuesto original para mantener campos inmutables
-    const quotes = await readData('presupuestos.json');
-    const originalQuote = quotes.find(q => q.id === id);
+      // 2. Eliminar todos los items antiguos
+      await tx.presupuestoItem.deleteMany({
+        where: { presupuestoId: id },
+      });
 
-    if (!originalQuote) {
-      return NextResponse.json({ message: 'Presupuesto no encontrado para actualizar' }, { status: 404 });
-    }
+      // 3. Crear todos los items nuevos
+      if (items && items.length > 0) {
+        await tx.presupuestoItem.createMany({
+          data: items.map(item => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            productoId: item.productId,
+            presupuestoId: id, // Enlazamos al presupuesto
+          })),
+        });
+      }
 
-    const dataToUpdate = {
-      ...updatedQuoteData,
-      id: originalQuote.id, // Asegurar que el ID no cambie
-      numero: originalQuote.numero, // Asegurar que el número de presupuesto no cambie
-      fechaModificacion: new Date().toISOString(), // Añadir fecha de modificación
-    };
+      return updatedQuote;
+    });
 
-    const success = await updateData('presupuestos.json', id, dataToUpdate);
-
-    if (!success) {
-      return NextResponse.json({ message: 'Presupuesto no encontrado para actualizar' }, { status: 404 });
-    }
-
-    // Para devolver el presupuesto actualizado, necesitamos leerlo de nuevo o construirlo.
-    const updatedQuote = await readData('presupuestos.json').then(q => q.find(item => item.id === id));
-
-    return NextResponse.json(updatedQuote, { status: 200 });
+    // Devolvemos el presupuesto actualizado (sin los items, para simplificar)
+    return NextResponse.json(transaction, { status: 200 });
   } catch (error) {
     console.error('Error al actualizar el presupuesto:', error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Presupuesto no encontrado' }, { status: 404 });
+    }
     return NextResponse.json({ message: 'Error interno al actualizar los datos' }, { status: 500 });
   }
 }
 
 // DELETE: Eliminar un presupuesto
-export async function DELETE(request, { params }) {
+export async function DELETE(request, { params: paramsPromise }) {
   try {
-    const { id } = await params;
-    const quotes = await readData('presupuestos.json');
-    const filteredQuotes = quotes.filter(q => q.id !== id);
+    const { id } = await paramsPromise; // <-- CORREGIDO
 
-    if (quotes.length === filteredQuotes.length) {
-      return NextResponse.json({ message: 'Presupuesto no encontrado para eliminar' }, { status: 404 });
-    }
-
-    await writeData('presupuestos.json', filteredQuotes);
+    await db.$transaction(async (tx) => {
+      // 1. Eliminar todos los items asociados
+      await tx.presupuestoItem.deleteMany({
+        where: { presupuestoId: id },
+      });
+      
+      // 2. Eliminar el presupuesto principal
+      await tx.presupuesto.delete({
+        where: { id: id },
+      });
+    });
 
     return NextResponse.json({ message: 'Presupuesto eliminado correctamente' }, { status: 200 });
   } catch (error) {
     console.error('Error al eliminar el presupuesto:', error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Presupuesto no encontrado' }, { status: 404 });
+    }
     return NextResponse.json({ message: 'Error interno al eliminar los datos' }, { status: 500 });
   }
 }

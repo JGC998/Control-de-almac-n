@@ -9,3 +9,7 @@ node_modules/
 
 # Excluir variables de entorno locales
 .env.local
+
+/src/generated/prisma
+.env
+prisma/dev.db

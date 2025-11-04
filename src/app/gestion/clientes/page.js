@@ -1,155 +1,142 @@
-'use client';
+"use client";
+import React, { useState } from 'react';
+import useSWR, { mutate } from 'swr';
+import { PlusCircle, Edit, Trash2, User } from 'lucide-react';
+import Link from 'next/link';
 
-import { useState, useEffect, useCallback } from 'react';
-import { FaUsers, FaPlus, FaTrash, FaEdit } from 'react-icons/fa';
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-function ClientesPage() {
-    const [clientes, setClientes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+export default function GestionClientes() {
+  const [formData, setFormData] = useState({ id: null, nombre: '', email: '', direccion: '', telefono: '' });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [error, setError] = useState(null);
 
-    const [newClientName, setNewClientName] = useState('');
+  const { data: clientes, error: clientesError, isLoading } = useSWR('/api/clientes', fetcher);
 
-    const handleAddClient = async (e) => {
-        e.preventDefault();
-        if (!newClientName.trim()) return;
-
-        try {
-            const res = await fetch('/api/clientes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre: newClientName }),
-            });
-            if (!res.ok) throw new Error('Error al añadir el cliente');
-            setNewClientName('');
-            fetchData(); // Recargar la lista de clientes
-        } catch (error) {
-            setError(error.message);
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-            try {
-                const res = await fetch(`/api/clientes/${id}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error('Error al eliminar el cliente');
-                fetchData(); // Recargar la lista de clientes
-            } catch (error) {
-                setError(error.message);
-            }
-        }
-    };
-
-    const handleEdit = async (id, currentName) => {
-        const newName = prompt('Introduce el nuevo nombre para el cliente:', currentName);
-        if (newName && newName.trim() && newName !== currentName) {
-            try {
-                const res = await fetch(`/api/clientes/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: newName }),
-                });
-                if (!res.ok) throw new Error('Error al actualizar el cliente');
-                fetchData(); // Recargar la lista de clientes
-            } catch (error) {
-                setError(error.message);
-            }
-        }
-    };
-
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await fetch('/api/clientes');
-            if (!res.ok) throw new Error('Error al cargar los clientes');
-            setClientes(await res.json());
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    if (error) {
-        return <div className="p-8 text-center text-red-500">Error: {error}</div>;
+  const openModal = (cliente = null) => {
+    if (cliente) {
+      setFormData({ id: cliente.id, nombre: cliente.nombre, email: cliente.email || '', direccion: cliente.direccion || '', telefono: cliente.telefono || '' });
+    } else {
+      setFormData({ id: null, nombre: '', email: '', direccion: '', telefono: '' });
     }
+    setError(null);
+    setIsModalOpen(true);
+  };
 
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                <span className="loading loading-spinner loading-lg"></span>
-            </div>
-        );
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    const url = formData.id ? `/api/clientes/${formData.id}` : '/api/clientes';
+    const method = formData.id ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Error al guardar el cliente');
+      }
+
+      mutate('/api/clientes'); // Revalida el cache de SWR
+      closeModal();
+    } catch (err) {
+      setError(err.message);
     }
+  };
 
-    return (
-        <main className="p-4 sm:p-6 md:p-8 bg-base-200 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-primary flex items-center gap-3">
-                <FaUsers /> Gestión de Clientes
-            </h1>
+  const handleDelete = async (id) => {
+    if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
+      try {
+        const res = await fetch(`/api/clientes/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.message || 'Error al eliminar el cliente');
+        }
+        mutate('/api/clientes'); // Revalida el cache
+      } catch (err) {
+        alert(err.message); // Usar un modal sería mejor
+      }
+    }
+  };
 
-            {/* Formulario para añadir nuevo cliente */}
-            <div className="card bg-base-100 shadow-xl mb-8">
-                <div className="card-body">
-                    <h2 className="card-title mb-4"><FaPlus /> Añadir Nuevo Cliente</h2>
-                    <form onSubmit={handleAddClient}>
-                        <div className="form-control">
-                            <label className="label">
-                                <span className="label-text">Nombre del Cliente</span>
-                            </label>
-                            <input 
-                                type="text" 
-                                placeholder="Introduce el nombre"
-                                className="input input-bordered w-full" 
-                                value={newClientName} 
-                                onChange={(e) => setNewClientName(e.target.value)} 
-                                required 
-                            />
-                        </div>
-                        <div className="card-actions justify-end mt-4">
-                            <button type="submit" className="btn btn-primary">
-                                <FaPlus /> Añadir Cliente
-                            </button>
-                        </div>
-                    </form>
-                </div> {/* Cierre de div.card-body del formulario */}
-            </div> {/* Cierre de div.card del formulario */}
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (clientesError) return <div className="text-red-500 text-center">Error al cargar los clientes.</div>;
 
-            {/* Tabla con el listado de clientes */}
-            <div className="card bg-base-100 shadow-xl">
-                <div className="card-body">
-                    <h2 className="card-title mb-4">Listado de Clientes</h2>
-                    <div className="overflow-x-auto">
-                        <table className="table w-full">
-                            <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {clientes.map(cliente => (
-                                    <tr key={cliente.id}>
-                                        <td>{cliente.nombre}</td>
-                                        <td>
-                                            <Link href={`/gestion/clientes/${cliente.id}`} className="btn btn-info btn-xs mr-2"><FaEye /> Ver Historial</Link>
-                                            <button onClick={() => handleEdit(cliente.id, cliente.nombre)} className="btn btn-ghost btn-xs"><FaEdit /></button>
-                                            <button onClick={() => handleDelete(cliente.id)} className="btn btn-ghost btn-xs"><FaTrash /></button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </main>
-    );
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6 flex items-center"><User className="mr-2" /> Gestión de Clientes</h1>
+      
+      <button onClick={() => openModal()} className="btn btn-primary mb-6">
+        <PlusCircle className="w-4 h-4" /> Nuevo Cliente
+      </button>
+
+      <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Teléfono</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {clientes && clientes.map((cliente) => (
+              <tr key={cliente.id} className="hover">
+                <td>
+                  <Link href={`/gestion/clientes/${cliente.id}`} className="link link-primary font-bold">
+                    {cliente.nombre}
+                  </Link>
+                </td>
+                <td>{cliente.email}</td>
+                <td>{cliente.telefono}</td>
+                <td className="flex gap-2">
+                  <button onClick={() => openModal(cliente)} className="btn btn-sm btn-outline btn-info">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDelete(cliente.id)} className="btn btn-sm btn-outline btn-error">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal para Crear/Editar Cliente */}
+      {isModalOpen && (
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg">{formData.id ? 'Editar Cliente' : 'Nuevo Cliente'}</h3>
+            <form onSubmit={handleSubmit} className="py-4 space-y-4">
+              <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Nombre" className="input input-bordered w-full" required />
+              <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="input input-bordered w-full" />
+              <input type="text" name="direccion" value={formData.direccion} onChange={handleChange} placeholder="Dirección" className="input input-bordered w-full" />
+              <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} placeholder="Teléfono" className="input input-bordered w-full" />
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+              <div className="modal-action">
+                <button type="button" onClick={closeModal} className="btn">Cancelar</button>
+                <button type="submit" className="btn btn-primary">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
-
-export default ClientesPage;

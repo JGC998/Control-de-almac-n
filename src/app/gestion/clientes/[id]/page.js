@@ -1,124 +1,95 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+"use client";
+import React from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import Link from 'next/link';
-import { FaUser, FaClipboardList, FaFileInvoice, FaStickyNote, FaArrowLeft } from 'react-icons/fa';
+import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin } from 'lucide-react';
 
-export default function ClienteDetailPage() {
-  const { id } = useParams();
-  const [cliente, setCliente] = useState(null);
-  const [pedidos, setPedidos] = useState([]);
-  const [presupuestos, setPresupuestos] = useState([]);
-  const [notas, setNotas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-  useEffect(() => {
-    if (!id) return;
+const InfoCard = ({ title, value, icon }) => (
+  <div className="flex items-center p-4 bg-base-200 rounded-lg">
+    {React.cloneElement(icon, { className: "w-5 h-5 mr-3 text-primary" })}
+    <div>
+      <div className="text-sm font-medium text-gray-500">{title}</div>
+      <div className="text-lg font-semibold">{value || '-'}</div>
+    </div>
+  </div>
+);
 
-    async function fetchData() {
-      try {
-        // Fetch client details
-        const clientRes = await fetch(`/api/clientes/${id}`);
-        if (!clientRes.ok) throw new Error('Error al cargar los datos del cliente');
-        setCliente(await clientRes.json());
+const SectionList = ({ title, data, pathPrefix }) => (
+  <div className="bg-base-100 shadow-xl rounded-lg p-6">
+    <h2 className="text-xl font-bold mb-4">{title}</h2>
+    <div className="overflow-y-auto max-h-60">
+      {data && data.length > 0 ? (
+        <ul className="divide-y divide-base-300">
+          {data.map(item => (
+            <li key={item.id} className="py-2 flex justify-between items-center hover:bg-base-200 px-2 rounded">
+              <Link href={`/${pathPrefix}/${item.id}`} className="link link-primary">
+                {item.numero}
+              </Link>
+              <span className="text-sm text-gray-500">{new Date(item.fechaCreacion).toLocaleDateString()}</span>
+              <span className={`badge ${item.estado === 'Aceptado' || item.estado === 'Completado' ? 'badge-success' : 'badge-warning'}`}>
+                {item.estado}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-gray-500">No hay {title.toLowerCase()} para este cliente.</p>
+      )}
+    </div>
+  </div>
+);
 
-        // Fetch orders for this client
-        const pedidosRes = await fetch(`/api/pedidos?clientId=${id}`);
-        if (!pedidosRes.ok) throw new Error('Error al cargar los pedidos del cliente');
-        setPedidos(await pedidosRes.json());
+export default function ClienteDetalle() {
+  const router = useRouter();
+  const params = useParams();
+  const { id } = params;
 
-        // Fetch presupuestos for this client
-        const presupuestosRes = await fetch(`/api/presupuestos?clientId=${id}`);
-        if (!presupuestosRes.ok) throw new Error('Error al cargar los presupuestos del cliente');
-        setPresupuestos(await presupuestosRes.json());
+  const { data: cliente, error: clienteError, isLoading: clienteLoading } = useSWR(id ? `/api/clientes/${id}` : null, fetcher);
+  const { data: pedidos, error: pedidosError, isLoading: pedidosLoading } = useSWR(id ? `/api/pedidos?clientId=${id}` : null, fetcher);
+  const { data: presupuestos, error: presupuestosError, isLoading: presupuestosLoading } = useSWR(id ? `/api/presupuestos?clientId=${id}` : null, fetcher);
 
-        // Fetch notes for this client (assuming notes can be linked by clientId)
-        const notasRes = await fetch(`/api/notas?clientId=${id}`);
-        if (!notasRes.ok) throw new Error('Error al cargar las notas del cliente');
-        setNotas(await notasRes.json());
+  const isLoading = clienteLoading || pedidosLoading || presupuestosLoading;
 
-      } catch (err) {
-        console.error("Error fetching client history:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [id]);
-
-  if (loading) {
-    return <div className="container mx-auto p-4 text-center">Cargando historial del cliente...</div>;
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   }
 
-  if (error) {
-    return <div className="container mx-auto p-4 text-center text-error">Error: {error}</div>;
+  if (clienteError) {
+    return <div className="text-red-500 text-center">Error al cargar el cliente.</div>;
   }
-
+  
   if (!cliente) {
-    return <div className="container mx-auto p-4 text-center">Cliente no encontrado.</div>;
+    return <div className="text-center">Cliente no encontrado.</div>;
   }
 
   return (
     <div className="container mx-auto p-4">
-      <Link href="/gestion/clientes" className="btn btn-ghost mb-4"><FaArrowLeft className="mr-2" /> Volver a Gestión de Clientes</Link>
-      
-      <div className="card bg-base-100 shadow-xl p-6 mb-6">
-        <h1 className="text-3xl font-bold mb-4 flex items-center gap-2"><FaUser /> Historial de {cliente.nombre}</h1>
-        <p><strong>ID del Cliente:</strong> {cliente.id}</p>
-        {/* Add more client details here if available in client object */}
+      <button onClick={() => router.back()} className="btn btn-ghost mb-4">
+        <ArrowLeft className="w-4 h-4" /> Volver
+      </button>
+
+      {/* Cabecera del Cliente */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold flex items-center"><User className="mr-2" /> {cliente.nombre}</h1>
+        <button onClick={() => alert('Función de editar no conectada a modal')} className="btn btn-outline btn-primary">
+          <Edit className="w-4 h-4" /> Editar Cliente
+        </button>
       </div>
 
-      {/* Sección de Pedidos */}
-      <div className="card bg-base-100 shadow-xl p-6 mb-6">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><FaClipboardList /> Pedidos ({pedidos.length})</h2>
-        {pedidos.length > 0 ? (
-          <ul className="list-disc list-inside">
-            {pedidos.map(pedido => (
-              <li key={pedido.id} className="mb-1">
-                Pedido #{pedido.id} - Fecha: {new Date(pedido.fecha).toLocaleDateString()} - Estado: {pedido.estado}
-                {/* Add link to order detail page if available */}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No hay pedidos registrados para este cliente.</p>
-        )}
+      {/* Tarjetas de Información */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <InfoCard title="Email" value={cliente.email} icon={<Mail />} />
+        <InfoCard title="Teléfono" value={cliente.telefono} icon={<Phone />} />
+        <InfoCard title="Dirección" value={cliente.direccion} icon={<MapPin />} />
       </div>
 
-      {/* Sección de Presupuestos */}
-      <div className="card bg-base-100 shadow-xl p-6 mb-6">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><FaFileInvoice /> Presupuestos ({presupuestos.length})</h2>
-        {presupuestos.length > 0 ? (
-          <ul className="list-disc list-inside">
-            {presupuestos.map(presupuesto => (
-              <li key={presupuesto.id} className="mb-1">
-                Presupuesto #{presupuesto.id} - Fecha: {new Date(presupuesto.fecha).toLocaleDateString()} - Total: {presupuesto.total}
-                {/* Add link to presupuesto detail page if available */}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No hay presupuestos registrados para este cliente.</p>
-        )}
-      </div>
-
-      {/* Sección de Notas */}
-      <div className="card bg-base-100 shadow-xl p-6 mb-6">
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2"><FaStickyNote /> Notas ({notas.length})</h2>
-        {notas.length > 0 ? (
-          <ul className="list-disc list-inside">
-            {notas.map(nota => (
-              <li key={nota.id} className="mb-1">
-                Fecha: {new Date(nota.fecha).toLocaleDateString()} - {nota.contenido}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No hay notas registradas para este cliente.</p>
-        )}
+      {/* Secciones de Pedidos y Presupuestos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionList title="Presupuestos Recientes" data={presupuestos} pathPrefix="presupuestos" icon={<FileText />} />
+        <SectionList title="Pedidos Recientes" data={pedidos} pathPrefix="pedidos" icon={<Package />} />
       </div>
     </div>
   );

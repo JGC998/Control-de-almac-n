@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import { readData } from '../../../utils/dataManager';
+import { db } from '@/lib/db';
 
-const FILENAME = 'movimientos.json';
-
-// GET /api/movimientos - Obtiene todos los movimientos
+// GET /api/movimientos - Obtiene los últimos movimientos
 export async function GET() {
   try {
-    const movimientos = await readData(FILENAME);
+    const movimientos = await db.movimientoStock.findMany({
+      orderBy: { fecha: 'desc' },
+      take: 50, // Limita a los últimos 50
+    });
     return NextResponse.json(movimientos);
   } catch (error) {
-    console.error(`Error reading ${FILENAME}:`, error);
-    return NextResponse.json({ error: `Failed to read ${FILENAME}` }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ message: 'Error al obtener movimientos' }, { status: 500 });
   }
 }

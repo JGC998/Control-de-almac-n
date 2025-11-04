@@ -1,31 +1,38 @@
 import { NextResponse } from 'next/server';
-import { readData, writeData } from '../../../utils/dataManager';
-import { v4 as uuidv4 } from 'uuid';
-
-const FILENAME = 'fabricantes.json';
+import { db } from '@/lib/db';
 
 // GET /api/fabricantes - Obtiene todos los fabricantes
 export async function GET() {
-    const fabricantes = await readData(FILENAME);
+  try {
+    const fabricantes = await db.fabricante.findMany({
+      orderBy: { nombre: 'asc' },
+    });
     return NextResponse.json(fabricantes);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Error al obtener fabricantes' }, { status: 500 });
+  }
 }
 
 // POST /api/fabricantes - Añade un nuevo fabricante
 export async function POST(request) {
-    const { nombre } = await request.json();
-    if (!nombre) {
-        return NextResponse.json({ message: 'El nombre es requerido' }, { status: 400 });
+  try {
+    const data = await request.json();
+    if (!data.nombre) {
+      return NextResponse.json({ message: 'El nombre es requerido' }, { status: 400 });
     }
 
-    const fabricantes = await readData(FILENAME);
-    const nombreNormalizado = nombre.trim().toUpperCase();
-
-    if (fabricantes.some(f => f.nombre.toUpperCase() === nombreNormalizado)) {
-        return NextResponse.json({ message: 'El fabricante ya existe' }, { status: 409 }); // 409 Conflict
-    }
-
-    const nuevoFabricante = { id: uuidv4(), nombre: nombre.trim() };
-    fabricantes.push(nuevoFabricante);
-    await writeData(FILENAME, fabricantes);
+    const nuevoFabricante = await db.fabricante.create({
+      data: {
+        nombre: data.nombre,
+      },
+    });
     return NextResponse.json(nuevoFabricante, { status: 201 });
+  } catch (error) {
+    if (error.code === 'P2002') { // Error de unicidad
+      return NextResponse.json({ message: 'El fabricante ya existe' }, { status: 409 });
+    }
+    console.error(error);
+    return NextResponse.json({ message: 'Error al crear fabricante' }, { status: 500 });
+  }
 }

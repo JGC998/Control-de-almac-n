@@ -1,0 +1,236 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- MODELOS DE DATOS PRINCIPALES ---
+
+model Cliente {
+  id           String        @id @default(uuid())
+  nombre       String
+  email        String?
+  direccion    String?
+  telefono     String?
+  tier         String? // Para reglas de descuento
+  pedidos      Pedido[]
+  presupuestos Presupuesto[]
+  precios      PrecioEspecial[]
+}
+
+model Producto {
+  id            String        @id @default(uuid())
+  nombre        String
+  modelo        String?
+  espesor       Float?
+  largo         Float?
+  ancho         Float?
+  precioUnitario Float // Precio base de venta
+  pesoUnitario  Float
+  costo         Float? // Costo de compra (para calcular margen)
+  categoria     String? // Para descuentos por categoría
+
+  fabricante    Fabricante? @relation(fields: [fabricanteId], references: [id])
+  fabricanteId  String?
+  material      Material?   @relation(fields: [materialId], references: [id])
+  materialId    String?
+  
+  itemsPedido   PedidoItem[]
+  itemsPresup   PresupuestoItem[]
+  precios       PrecioEspecial[]
+}
+
+model Fabricante {
+  id        String     @id @default(uuid())
+  nombre    String     @unique
+  productos Producto[]
+}
+
+model Material {
+  id        String     @id @default(uuid())
+  nombre    String     @unique
+  productos Producto[]
+}
+
+model Pedido {
+  id            String       @id @default(uuid())
+  numero        String       @unique
+  fechaCreacion DateTime     @default(now())
+  estado        String       // "Activo", "Completado", "Pendiente"
+  notas         String?
+  subtotal      Float
+  tax           Float
+  total         Float
+  
+  cliente       Cliente?     @relation(fields: [clienteId], references: [id])
+  clienteId     String?
+  
+  presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id])
+  presupuestoId String?      @unique // Un pedido solo puede venir de un presupuesto
+
+  items         PedidoItem[]
+}
+
+model PedidoItem {
+  id             String  @id @default(uuid())
+  descripcion    String  // Mantenemos la descripción (nombre)
+  quantity       Int
+  unitPrice      Float   // Precio de venta final
+  pesoUnitario   Float
+
+  pedido         Pedido  @relation(fields: [pedidoId], references: [id])
+  pedidoId       String
+  
+  producto       Producto? @relation(fields: [productoId], references: [id]) // Enlace al catálogo
+  productoId     String?
+}
+
+model Presupuesto {
+  id            String    @id @default(uuid())
+  numero        String    @unique
+  fechaCreacion DateTime  @default(now())
+  estado        String    // "Borrador", "Aceptado"
+  notas         String?
+  subtotal      Float
+  tax           Float
+  total         Float
+
+  cliente       Cliente?  @relation(fields: [clienteId], references: [id])
+  clienteId     String?
+
+  items         PresupuestoItem[]
+  pedido        Pedido? // Relación 1-a-1 con Pedido
+}
+
+model PresupuestoItem {
+  id          String   @id @default(uuid())
+  description String
+  quantity    Int
+  unitPrice   Float
+
+  presupuesto   Presupuesto @relation(fields: [presupuestoId], references: [id])
+  presupuestoId String
+  
+  producto      Producto?   @relation(fields: [productoId], references: [id])
+  productoId    String?
+}
+
+// --- MODELOS DE ALMACÉN Y PROVEEDORES ---
+
+model Stock {
+  id                String   @id @default(uuid())
+  material          String
+  espesor           String?
+  metrosDisponibles Float
+  proveedor         String?
+  ubicacion         String?
+  fechaEntrada      DateTime @default(now())
+  
+  movimientos MovimientoStock[]
+}
+
+model MovimientoStock {
+  id          String   @id @default(uuid())
+  tipo        String   // "Entrada", "Salida", "Ajuste"
+  cantidad    Float
+  fecha       DateTime @default(now())
+  referencia  String?
+  
+  stockItem   Stock    @relation(fields: [stockId], references: [id])
+  stockId     String
+}
+
+model PedidoProveedor {
+  id            String   @id @default(uuid())
+  proveedor     String
+  material      String
+  fecha         DateTime @default(now())
+  estado        String   // "Pendiente", "Recibido"
+  
+  bobinas       BobinaPedido[]
+}
+
+model BobinaPedido {
+  id           String @id @default(uuid())
+  precioMetro  Float
+  longitud     Float
+  ancho        Float
+  espesor      String
+  
+  pedido       PedidoProveedor @relation(fields: [pedidoId], references: [id])
+  pedidoId     String
+}
+
+// --- MODELOS DE CONFIGURACIÓN Y REGLAS ---
+
+model TarifaMaterial {
+  id            String @id @default(uuid())
+  material      String
+  espesor       String
+  precio        Float  // precio por m2
+  peso          Float  // peso por m2
+  
+  @@unique([material, espesor]) // Clave única compuesta
+}
+
+model ReglaMargen {
+  id          String  @id @default(uuid())
+  descripcion String
+  tipo        String  // "General", "Categoria"
+  categoria   String?
+  valor       Float   // Ej: 1.5 (para 50% margen)
+}
+
+model ReglaDescuento {
+  id          String   @id @default(uuid())
+  descripcion String
+  tipo        String   // "categoria", "volumen", "cliente"
+  categoria   String?
+  tierCliente String?
+  descuento   Float
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  // Para 'volumen', los tiers se mueven a su propia tabla
+  tiers       DescuentoTier[]
+}
+
+model DescuentoTier {
+  id             String  @id @default(uuid())
+  cantidadMinima Int
+  descuento      Float
+  
+  regla          ReglaDescuento @relation(fields: [reglaId], references: [id])
+  reglaId        String
+}
+
+model PrecioEspecial {
+  id          String   @id @default(uuid())
+  descripcion String
+  precio      Float
+  
+  cliente     Cliente  @relation(fields: [clienteId], references: [id])
+  clienteId   String
+  
+  producto    Producto @relation(fields: [productoId], references: [id])
+  productoId  String
+  
+  @@unique([clienteId, productoId])
+}
+
+model Nota {
+  id      String   @id @default(uuid())
+  content String
+  fecha   DateTime @default(now())
+}
+
+model Config {
+  id      String @id @default(uuid())
+  key     String @unique // ej: "iva_rate"
+  value   String // ej: "0.21"
+}

@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { readData } from '../../../utils/dataManager';
-
-const FILENAME = 'materiales.json';
+import { db } from '@/lib/db';
 
 // GET /api/materiales - Obtiene todos los materiales
 export async function GET() {
   try {
-    const materiales = await readData(FILENAME);
+    const materiales = await db.material.findMany({
+      orderBy: { nombre: 'asc' },
+    });
     return NextResponse.json(materiales);
   } catch (error) {
-    console.error(`Error reading ${FILENAME}:`, error);
-    return NextResponse.json({ error: `Failed to read ${FILENAME}` }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ message: 'Error al obtener materiales' }, { status: 500 });
   }
 }

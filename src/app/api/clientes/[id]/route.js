@@ -1,49 +1,62 @@
 import { NextResponse } from 'next/server';
-import { readData, writeData } from '../../../../utils/dataManager';
-
-const FILENAME = 'clientes.json';
+import { db } from '@/lib/db'; // Importamos el cliente de BD
 
 // GET /api/clientes/[id] - Obtiene un cliente por su ID
-export async function GET(request, { params }) {
-    const { id } = await params;
-    const clientes = await readData(FILENAME);
-    const cliente = clientes.find(c => c.id === id);
+export async function GET(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const cliente = await db.cliente.findUnique({
+      where: { id: id },
+    });
 
     if (!cliente) {
-        return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
+      return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
     }
-
     return NextResponse.json(cliente);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Error al obtener cliente' }, { status: 500 });
+  }
 }
 
 // PUT /api/clientes/[id] - Actualiza un cliente
-export async function PUT(request, { params }) {
-    const { id } = await params;
-    const updatedCliente = await request.json();
-    const clientes = await readData(FILENAME);
+export async function PUT(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const data = await request.json();
 
-    const clienteIndex = clientes.findIndex(c => c.id === id);
-
-    if (clienteIndex === -1) {
-        return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
+    const updatedCliente = await db.cliente.update({
+      where: { id: id },
+      data: {
+        nombre: data.nombre,
+        email: data.email,
+        direccion: data.direccion,
+        telefono: data.telefono,
+      },
+    });
+    return NextResponse.json(updatedCliente);
+  } catch (error) {
+    console.error(error);
+    if (error.code === 'P2025') { // Error de Prisma si no encuentra el registro
+      return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
     }
-
-    clientes[clienteIndex] = { ...clientes[clienteIndex], ...updatedCliente };
-
-    await writeData(FILENAME, clientes);
-    return NextResponse.json(clientes[clienteIndex]);
+    return NextResponse.json({ message: 'Error al actualizar cliente' }, { status: 500 });
+  }
 }
 
 // DELETE /api/clientes/[id] - Elimina un cliente
-export async function DELETE(request, { params }) {
-    const { id } = await params;
-    const clientes = await readData(FILENAME);
-    const nuevosClientes = clientes.filter(c => c.id !== id);
-
-    if (clientes.length === nuevosClientes.length) {
-        return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
-    }
-
-    await writeData(FILENAME, nuevosClientes);
+export async function DELETE(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    await db.cliente.delete({
+      where: { id: id },
+    });
     return NextResponse.json({ message: 'Cliente eliminado' }, { status: 200 });
+  } catch (error) {
+    console.error(error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
+    }
+    return NextResponse.json({ message: 'Error al eliminar cliente' }, { status: 500 });
+  }
 }

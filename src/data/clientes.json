@@ -34,5 +34,12 @@
     "direccion": "asdkfjl",
     "telefono": "123123",
     "id": "cli-1762122413641"
+  },
+  {
+    "nombre": "asdf",
+    "email": "asdf",
+    "direccion": "asdf",
+    "telefono": "asdf",
+    "id": "cli-1762279820323"
   }
 ]

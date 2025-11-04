@@ -1,90 +1,97 @@
-
 import { NextResponse } from 'next/server';
-import { readData, writeData, getNextPedidoNumber } from '@/utils/dataManager';
+import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
+ */
+async function getNextPedidoNumber(tx) {
+  // tx (Prisma Transaction Client) es opcional pero recomendado
+  const dbClient = tx || db;
+  const year = new Date().getFullYear();
+  const prefix = `PED-${year}-`;
+
+  const lastPedido = await dbClient.pedido.findFirst({
+    where: { numero: { startsWith: prefix } },
+    orderBy: { numero: 'desc' },
+  });
+
+  let nextNum = 1;
+  if (lastPedido) {
+    const numberPart = lastPedido.numero.split('-')[2];
+    nextNum = parseInt(numberPart, 10) + 1;
+  }
+  
+  return `${prefix}${String(nextNum).padStart(3, '0')}`;
+}
+
+// POST /api/pedidos/from-presupuesto - Crea un pedido desde un presupuesto
 export async function POST(request) {
   try {
     const { presupuestoId } = await request.json();
 
     if (!presupuestoId) {
-      return NextResponse.json({ message: 'Falta el ID del presupuesto' }, { status: 400 });
+      return NextResponse.json({ message: 'Se requiere presupuestoId' }, { status: 400 });
     }
 
-    // FASE II: Las lecturas se benefician de la caché.
-    const [allQuotes, allProducts, allOrders] = await Promise.all([
-        readData('presupuestos.json'),
-        readData('productos.json'),
-        readData('pedidos.json')
-    ]);
+    // Usamos una transacción para asegurar que ambas operaciones (crear pedido y actualizar presupuesto)
+    // ocurran correctamente o fallen juntas.
+    const newPedido = await db.$transaction(async (tx) => {
+      // 1. Obtener el presupuesto y sus items
+      const quote = await tx.presupuesto.findUnique({
+        where: { id: presupuestoId },
+        include: { items: true },
+      });
 
-    const quoteIndex = allQuotes.findIndex(q => q.id === presupuestoId);
-
-    if (quoteIndex === -1) {
-      return NextResponse.json({ message: 'Presupuesto no encontrado' }, { status: 404 });
-    }
-
-    const quote = allQuotes[quoteIndex];
-
-    if (quote.estado === 'Aceptado') {
-        return NextResponse.json({ message: 'El presupuesto ya ha sido aceptado y convertido en pedido.' }, { status: 400 });
-    }
-
-    const productMap = new Map(allProducts.map(p => [p.id, p]));
-
-    // Crear el nuevo pedido a partir del presupuesto
-    const newOrder = {
-      id: uuidv4(),
-      numero: await getNextPedidoNumber(),
-      fechaCreacion: new Date().toISOString(),
-      clienteId: quote.clienteId,
-      productos: quote.items.map(item => {
-        const product = productMap.get(item.productId);
-        return {
-            id: uuidv4(),
-            plantillaId: item.productId,
-            nombre: item.description,
-            cantidad: item.quantity,
-            precioUnitario: item.unitPrice,
-            pesoUnitario: product ? product.pesoUnitario : 0,
-        }
-      }),
-      subtotal: quote.subtotal,
-      tax: quote.tax,
-      total: quote.total,
-      estado: 'Activo', // Estado inicial del pedido
-      presupuestoId: quote.id, // Guardar referencia al presupuesto original
-    };
-
-    // Iniciar transacción: Actualizar el estado del presupuesto y luego crear el pedido.
-    // Si falla la creación del pedido, revertir el estado del presupuesto.
-    let quoteUpdated = false;
-    try {
-      // 1. Actualizar el estado del presupuesto a 'Aceptado'
-      const updateQuoteSuccess = await updateData('presupuestos.json', presupuestoId, { estado: 'Aceptado' });
-      if (!updateQuoteSuccess) {
-        throw new Error('No se pudo actualizar el estado del presupuesto.');
+      if (!quote) {
+        throw new Error('Presupuesto no encontrado');
       }
-      quoteUpdated = true;
 
-      // 2. Añadir el nuevo pedido a la lista de pedidos
-      allOrders.push(newOrder);
-      await writeData('pedidos.json', allOrders);
-
-      return NextResponse.json(newOrder, { status: 201 });
-
-    } catch (error) {
-      console.error('Error en la transacción de creación de pedido desde presupuesto:', error);
-      // Si el presupuesto fue actualizado pero el pedido no se creó, intentar revertir el estado del presupuesto.
-      if (quoteUpdated) {
-        console.warn('Intentando revertir el estado del presupuesto debido a un fallo en la creación del pedido.');
-        await updateData('presupuestos.json', presupuestoId, { estado: quote.estado }); // Revertir al estado original
+      if (quote.estado === 'Aceptado') {
+        throw new Error('Este presupuesto ya ha sido aceptado y convertido en pedido');
       }
-      return NextResponse.json({ message: 'Error interno al crear el pedido' }, { status: 500 });
-    }
+
+      // 2. Generar un nuevo número de pedido
+      const newOrderNumber = await getNextPedidoNumber(tx);
+
+      // 3. Crear el nuevo pedido copiando los datos
+      const createdPedido = await tx.pedido.create({
+        data: {
+          id: uuidv4(),
+          numero: newOrderNumber,
+          fechaCreacion: new Date().toISOString(),
+          estado: 'Pendiente', // Estado inicial del pedido
+          clienteId: quote.clienteId,
+          notas: quote.notas,
+          subtotal: quote.subtotal,
+          tax: quote.tax,
+          total: quote.total,
+          presupuestoId: quote.id, // Enlazamos al presupuesto
+          items: {
+            create: quote.items.map(item => ({
+              descripcion: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              pesoUnitario: 0, // El presupuesto no tiene peso, se pone 0
+              productoId: item.productoId,
+            })),
+          },
+        },
+      });
+
+      // 4. Actualizar el estado del presupuesto
+      await tx.presupuesto.update({
+        where: { id: presupuestoId },
+        data: { estado: 'Aceptado' },
+      });
+
+      return createdPedido;
+    });
+
+    return NextResponse.json(newPedido, { status: 201 });
 
   } catch (error) {
-    console.error('Error al crear el pedido desde el presupuesto:', error);
-    return NextResponse.json({ message: 'Error interno al crear el pedido' }, { status: 500 });
+    console.error('Error al convertir presupuesto a pedido:', error);
+    return NextResponse.json({ message: error.message || 'Error interno' }, { status: 500 });
   }
 }

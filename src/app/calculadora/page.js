@@ -1,284 +1,185 @@
-'use client';
+"use client";
+import React, { useState, useCallback } from 'react';
+import useSWR from 'swr';
+import { Plus, Trash2, Calculator } from 'lucide-react'; // CORREGIDO: Calculate -> Calculator
 
-import { useState, useEffect, useMemo } from 'react';
-import { FaCalculator, FaRulerCombined, FaLayerGroup, FaTh, FaHashtag, FaPlus, FaTrash, FaFilePdf } from 'react-icons/fa';
-import { formatCurrency, formatWeight } from "@/utils/utils";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-function CalculadoraPage() {
-    // Estado para los datos y la UI
-    const [datosMateriales, setDatosMateriales] = useState([]);
-    const [error, setError] = useState(null);
-    const [historial, setHistorial] = useState([]);
+export default function CalculadoraPrecios() {
+  const [clienteId, setClienteId] = useState('');
+  const [items, setItems] = useState([{ productId: '', quantity: 1, unitPrice: 0 }]);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [calculatedItems, setCalculatedItems] = useState([]);
 
-    // Estado de los inputs del formulario
-    const [selectedMaterial, setSelectedMaterial] = useState('');
-    const [selectedEspesor, setSelectedEspesor] = useState('');
-    const [largo, setLargo] = useState(''); // en mm
-    const [ancho, setAncho] = useState(''); // en mm
-    const [cantidad, setCantidad] = useState(1);
+  // Cargar datos para los selectores
+  const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
+  const { data: plantillas, error: plantillasError } = useSWR('/api/plantillas', fetcher);
 
-    // Cargar historial desde localStorage
-    useEffect(() => {
-        try {
-            const historialGuardado = JSON.parse(localStorage.getItem('calculosHistorial')) || [];
-            setHistorial(historialGuardado);
-        } catch (e) {
-            console.error("Error al cargar el historial de localStorage", e);
-            setHistorial([]);
-        }
-    }, []);
+  const handleItemChange = (index, field, value) => {
+    const newItems = [...items];
+    const item = newItems[index];
 
-    // Cargar datos de precios.json al montar el componente
-    useEffect(() => {
-        const fetchMateriales = async () => {
-            try {
-                const response = await fetch('/api/precios');
-                if (!response.ok) {
-                    throw new Error('No se pudo cargar el archivo de precios.');
-                }
-                const data = await response.json();
-                setDatosMateriales(data);
-            } catch (error) {
-                console.error('Error fetching materiales:', error);
-                setError(error.message);
-            }
-        };
-        fetchMateriales();
-    }, []);
-
-    // Guardar historial en localStorage
-    useEffect(() => {
-        localStorage.setItem('calculosHistorial', JSON.stringify(historial));
-    }, [historial]);
-
-    // Listas para los selects, calculadas a partir de los datos
-    const materialesUnicos = useMemo(() => [...new Set(datosMateriales.map(item => item.material))], [datosMateriales]);
-    const espesoresDisponibles = useMemo(() => {
-        if (selectedMaterial) {
-            return datosMateriales
-                .filter(item => item.material === selectedMaterial)
-                .map(item => item.espesor);
-        }
-        return [];
-    }, [selectedMaterial, datosMateriales]);
-
-    // Resetear espesor si el material cambia
-    useEffect(() => {
-        if (selectedMaterial) {
-            setSelectedEspesor('');
-        }
-    }, [selectedMaterial]);
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const item = datosMateriales.find(
-            d => d.material === selectedMaterial && d.espesor == selectedEspesor
-        );
-
-        if (item) {
-            const anchoMM = parseFloat(ancho);
-            const largoMM = parseFloat(largo);
-            const cant = parseInt(cantidad, 10);
-
-            const areaM2 = (anchoMM / 1000) * (largoMM / 1000);
-
-            const precioIndividual = areaM2 * item.precio;
-            const pesoIndividual = areaM2 * item.peso;
-
-            const precioTotal = precioIndividual * cant;
-            const pesoTotal = pesoIndividual * cant;
-
-            const calculo = {
-                id: Date.now(),
-                material: selectedMaterial,
-                espesor: selectedEspesor,
-                anchoMM,
-                largoMM,
-                cantidad: cant,
-                precioIndividual,
-                pesoIndividual,
-                precioTotal,
-                pesoTotal
-            };
-
-            setHistorial(prev => [...prev, calculo]);
-
-            // Reset form
-            setSelectedMaterial('');
-            setSelectedEspesor('');
-            setAncho('');
-            setLargo('');
-            setCantidad(1);
-        }
-    };
-
-    const handleBorrarFila = (id) => {
-        setHistorial(historial.filter(item => item.id !== id));
-    };
-
-    const handleBorrarHistorial = () => {
-        if (window.confirm('¿Estás seguro de que quieres borrar todo el historial?')) {
-            setHistorial([]);
-        }
-    };
-
-    const handleExportarPDF = () => {
-        if (historial.length === 0) {
-            alert('No hay cálculos en el historial para exportar.');
-            return;
-        }
-
-        const doc = new jsPDF();
-        const granTotalPrecio = historial.reduce((sum, calculo) => sum + calculo.precioTotal, 0);
-        const currentDate = new Date().toLocaleDateString('es-ES');
-
-        // Título y Fecha
-        doc.setFontSize(22);
-        doc.setTextColor(40, 167, 69); // Color primario de DaisyUI (aproximado)
-        doc.text("Presupuesto de Piezas", 14, 22);
-        doc.setFontSize(12);
-        doc.setTextColor(100);
-        doc.text(`Fecha: ${currentDate}`, 14, 30);
-
-        // Tabla
-        const head = [["Material", "Espesor", "Dimensiones", "Cant.", "Precio Ind.", "Precio Total"]];
-        const body = historial.map(item => [
-            item.material,
-            item.espesor,
-            `${item.anchoMM}x${item.largoMM} mm`,
-            item.cantidad,
-            formatCurrency(item.precioIndividual),
-            formatCurrency(item.precioTotal)
-        ]);
-
-        autoTable(doc, { startY: 40, head, body, theme: 'striped', headStyles: { fillColor: [40, 167, 69] } });
-
-        // Total
-        const finalY = doc.lastAutoTable.finalY;
-        doc.setFontSize(14);
-        doc.text(`Total Presupuesto: ${formatCurrency(granTotalPrecio)}`, 140, finalY + 15, { align: 'right' });
-
-        doc.save(`Presupuesto faldetas ${currentDate.replace(/\//g, '-')}.pdf`);
-    };
-
-    const { granTotalPrecio, granTotalPeso } = useMemo(() => {
-        return historial.reduce((acc, item) => {
-            acc.granTotalPrecio += item.precioTotal;
-            acc.granTotalPeso += item.pesoTotal;
-            return acc;
-        }, { granTotalPrecio: 0, granTotalPeso: 0 });
-    }, [historial]);
-
-    if (error) {
-        return <div className="p-8 text-center text-error">Error: {error}</div>;
+    if (field === 'productId') {
+      const plantilla = plantillas.find(p => p.id === value);
+      if (plantilla) {
+        item.description = plantilla.nombre;
+        item.unitPrice = plantilla.precioUnitario;
+        item.productId = plantilla.id;
+      } else {
+         item.description = 'Item manual';
+         item.unitPrice = 0;
+         item.productId = '';
+      }
+    } else {
+      item[field] = value;
     }
+    
+    setItems(newItems);
+  };
 
-    if (datosMateriales.length === 0) {
-        return <div className="p-8 text-center">Cargando datos de materiales...</div>;
+  const addItem = () => {
+    setItems([...items, { productId: '', description: '', quantity: 1, unitPrice: 0 }]);
+  };
+
+  const removeItem = (index) => {
+    const newItems = items.filter((_, i) => i !== index);
+    setItems(newItems);
+  };
+
+  const handleCalculatePrices = async () => {
+    if (!clienteId) {
+      alert("Por favor, selecciona un cliente primero.");
+      return;
     }
+    setIsLoading(true);
+    setError(null);
+    setCalculatedItems([]);
+    try {
+      const res = await fetch('/api/pricing/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId, items }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Error al recalcular precios");
+      }
+      const newCalculatedItems = await res.json();
+      setCalculatedItems(newCalculatedItems);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    return (
-        <main className="p-4 sm:p-6 md:p-8 bg-base-200 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-primary flex items-center gap-3">
-                <FaCalculator /> Calculadora de Piezas
-            </h1>
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6">Calculadora de Precios</h1>
 
-            {/* Formulario de entrada */}
-            <div className="card bg-base-100 shadow-xl mb-8">
-                <form onSubmit={handleSubmit} className="card-body">
-                    <h2 className="card-title mb-4">Añadir Pieza al Presupuesto</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label className="form-control w-full">
-                            <div className="label"><span className="label-text flex items-center gap-2"><FaLayerGroup /> Material</span></div>
-                            <select className="select select-bordered" value={selectedMaterial} onChange={(e) => setSelectedMaterial(e.target.value)} required>
-                                <option value="" disabled>Selecciona un material</option>
-                                {materialesUnicos.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                        </label>
-                        <label className="form-control w-full">
-                            <div className="label"><span className="label-text flex items-center gap-2"><FaTh /> Espesor</span></div>
-                            <select className="select select-bordered" value={selectedEspesor} onChange={(e) => setSelectedEspesor(e.target.value)} disabled={!selectedMaterial} required>
-                                <option value="" disabled>Selecciona un espesor</option>
-                                {espesoresDisponibles.map(e => <option key={e} value={e}>{e}</option>)}
-                            </select>
-                        </label>
-                        <label className="form-control w-full">
-                            <div className="label"><span className="label-text flex items-center gap-2"><FaRulerCombined /> Largo (mm)</span></div>
-                            <input type="number" placeholder="Ej: 1200" className="input input-bordered w-full" value={largo} onChange={(e) => setLargo(e.target.value)} required min="1" />
-                        </label>
-                        <label className="form-control w-full">
-                            <div className="label"><span className="label-text flex items-center gap-2"><FaRulerCombined /> Ancho (mm)</span></div>
-                            <input type="number" placeholder="Ej: 800" className="input input-bordered w-full" value={ancho} onChange={(e) => setAncho(e.target.value)} required min="1" />
-                        </label>
-                        <label className="form-control w-full">
-                            <div className="label"><span className="label-text flex items-center gap-2"><FaHashtag /> Cantidad</span></div>
-                            <input type="number" className="input input-bordered w-full" value={cantidad} onChange={(e) => setCantidad(e.target.value)} required min="1" />
-                        </label>
-                        <div className="form-control w-full md:col-span-2 lg:col-span-1 self-end">
-                            <button type="submit" className="btn btn-primary w-full"><FaPlus /> Añadir al Presupuesto</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
+      <div className="card bg-base-100 shadow-xl mb-6">
+        <div className="card-body">
+          <h2 className="card-title">Cliente</h2>
+          {clientesError && <div className="text-red-500">Error al cargar clientes.</div>}
+          <select 
+            className="select select-bordered w-full" 
+            value={clienteId} 
+            onChange={(e) => setClienteId(e.target.value)} 
+            required
+          >
+            <option value="">Selecciona un cliente</option>
+            {clientes?.map(cliente => (
+              <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-            {/* Historial y Totales */}
-            {historial.length > 0 && (
-                <div className="card bg-base-100 shadow-xl">
-                    <div className="card-body">
-                        <h2 className="card-title mb-4">Historial del Presupuesto</h2>
-                        <div className="overflow-x-auto">
-                            <table className="table table-zebra w-full">
-                                <thead>
-                                    <tr>
-                                        <th>Material</th>
-                                        <th>Espesor</th>
-                                        <th>Dimensiones</th>
-                                        <th className="text-center">Cant.</th>
-                                        <th className="text-right">Precio Ind.</th>
-                                        <th className="text-right">Peso Ind.</th>
-                                        <th className="text-right">Precio Total</th>
-                                        <th className="text-right">Peso Total</th>
-                                        <th className="text-center">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {historial.map((calculo) => (
-                                        <tr key={calculo.id} className="hover">
-                                            <td>{calculo.material}</td>
-                                            <td>{calculo.espesor}</td>
-                                            <td>{`${calculo.anchoMM}x${calculo.largoMM} mm`}</td>
-                                            <td className="text-center">{calculo.cantidad}</td>
-                                            <td className="text-right font-mono">{formatCurrency(calculo.precioIndividual)}</td>
-                                            <td className="text-right font-mono">{formatWeight(calculo.pesoIndividual)}</td>
-                                            <td className="text-right font-mono font-bold">{formatCurrency(calculo.precioTotal)}</td>
-                                            <td className="text-right font-mono font-bold">{formatWeight(calculo.pesoTotal)}</td>
-                                            <td className="text-center">
-                                                <button onClick={() => handleBorrarFila(calculo.id)} className="btn btn-ghost btn-xs"><FaTrash /></button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                                <tfoot>
-                                    <tr className="font-bold text-base">
-                                        <td colSpan="6">Totales</td>
-                                        <td className="text-right text-primary">{formatCurrency(granTotalPrecio)}</td>
-                                        <td className="text-right text-secondary">{formatWeight(granTotalPeso)}</td>
-                                        <td></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                        <div className="card-actions justify-end mt-6 gap-2">
-                            <button onClick={handleBorrarHistorial} className="btn btn-error btn-outline"><FaTrash /> Borrar Historial</button>
-                            <button onClick={handleExportarPDF} className="btn btn-accent"><FaFilePdf /> Exportar a PDF</button>
-                        </div>
-                    </div>
+      <div className="card bg-base-100 shadow-xl">
+        <div className="card-body">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="card-title">Items a Calcular</h2>
+            <button type="button" onClick={addItem} className="btn btn-primary btn-sm">
+              <Plus className="w-4 h-4" /> Añadir Item
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="table w-full">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {plantillasError && <tr><td colSpan="3" className="text-red-500">Error al cargar productos.</td></tr>}
+                {items.map((item, index) => (
+                  <tr key={index}>
+                    <td>
+                      <select 
+                        className="select select-bordered select-sm w-full max-w-xs" 
+                        value={item.productId || ''} 
+                        onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
+                      >
+                        <option value="">Selecciona producto</option>
+                        {plantillas?.map(p => (
+                          <option key={p.id} value={p.id}>{p.nombre}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td><input type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)} className="input input-bordered input-sm w-20" /></td>
+                    <td>
+                      <button type="button" onClick={() => removeItem(index)} className="btn btn-ghost btn-sm btn-circle">
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onClick={handleCalculatePrices} className="btn btn-accent btn-wide mt-4" disabled={isLoading || !clienteId}>
+            {/* CORREGIDO: Calculate -> Calculator */}
+            {isLoading ? <span className="loading loading-spinner"></span> : <Calculator className="w-4 h-4" />}
+            Calcular Precios
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="alert alert-error shadow-lg mt-4">{error}</div>}
+
+      {calculatedItems.length > 0 && (
+        <div className="card bg-base-100 shadow-xl mt-6">
+            <div className="card-body">
+                <h2 className="card-title">Resultados</h2>
+                <div className="overflow-x-auto">
+                    <table className="table w-full">
+                        <thead>
+                            <tr>
+                                <th>Descripción</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unit. Calculado</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {calculatedItems.map((item, index) => (
+                                <tr key={index}>
+                                    <td>{item.description}</td>
+                                    <td>{item.quantity}</td>
+                                    <td className="font-bold text-success">{item.unitPrice.toFixed(2)} €</td>
+                                    <td>{(item.quantity * item.unitPrice).toFixed(2)} €</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            )}
-        </main>
-    );
+            </div>
+        </div>
+      )}
+    </div>
+  );
 }
-
-export default CalculadoraPage;

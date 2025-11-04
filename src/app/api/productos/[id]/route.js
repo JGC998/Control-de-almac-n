@@ -1,49 +1,69 @@
 import { NextResponse } from 'next/server';
-import { readData, writeData } from '../../../../utils/dataManager';
-
-const FILENAME = 'productos.json';
+import { db } from '@/lib/db';
 
 // GET /api/productos/[id] - Obtiene un producto por su ID
-export async function GET(request, { params }) {
-    const { id } = params;
-    const productos = await readData(FILENAME);
-    const producto = productos.find(p => p.id === id);
+export async function GET(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const producto = await db.producto.findUnique({
+      where: { id: id },
+      include: {
+        fabricante: true,
+        material: true,
+      },
+    });
 
     if (!producto) {
-        return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
+      return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
     }
-
     return NextResponse.json(producto);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Error al obtener producto' }, { status: 500 });
+  }
 }
 
 // PUT /api/productos/[id] - Actualiza un producto
-export async function PUT(request, { params }) {
-    const { id } = params;
-    const updatedProducto = await request.json();
-    const productos = await readData(FILENAME);
+export async function PUT(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const data = await request.json();
 
-    const productoIndex = productos.findIndex(p => p.id === id);
-
-    if (productoIndex === -1) {
-        return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
+    const updatedProducto = await db.producto.update({
+      where: { id: id },
+      data: {
+        nombre: data.nombre,
+        modelo: data.modelo,
+        espesor: data.espesor,
+        largo: data.largo,
+        ancho: data.ancho,
+        precioUnitario: data.precioUnitario,
+        pesoUnitario: data.pesoUnitario,
+      },
+    });
+    return NextResponse.json(updatedProducto);
+  } catch (error) {
+    console.error(error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
     }
-
-    productos[productoIndex] = { ...productos[productoIndex], ...updatedProducto };
-
-    await writeData(FILENAME, productos);
-    return NextResponse.json(productos[productoIndex]);
+    return NextResponse.json({ message: 'Error al actualizar producto' }, { status: 500 });
+  }
 }
 
 // DELETE /api/productos/[id] - Elimina un producto
-export async function DELETE(request, { params }) {
-    const { id } = params;
-    const productos = await readData(FILENAME);
-    const nuevosProductos = productos.filter(p => p.id !== id);
-
-    if (productos.length === nuevosProductos.length) {
-        return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
-    }
-
-    await writeData(FILENAME, nuevosProductos);
+export async function DELETE(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    await db.producto.delete({
+      where: { id: id },
+    });
     return NextResponse.json({ message: 'Producto eliminado' }, { status: 200 });
+  } catch (error) {
+    console.error(error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
+    }
+    return NextResponse.json({ message: 'Error al eliminar producto' }, { status: 500 });
+  }
 }

@@ -1,29 +1,24 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { db } from '@/lib/db';
 
-const dataFilePath = path.join(process.cwd(), 'src/data/plantillas.json');
+// GET /api/plantillas/[id] - Es un alias de /api/productos/[id]
+export async function GET(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; // <-- CORREGIDO
+    const producto = await db.producto.findUnique({
+      where: { id: id },
+      include: {
+        fabricante: true,
+        material: true,
+      },
+    });
 
-async function readData() {
-    try {
-        const data = await fs.readFile(dataFilePath, 'utf-8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') return [];
-        throw error;
+    if (!producto) {
+      return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
     }
-}
-
-async function writeData(data) {
-    await fs.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-// DELETE /api/plantillas/[id] - Elimina una plantilla por su ID
-export async function DELETE(request, { params }) {
-    const { id } = await params;
-    const plantillas = await readData();
-    const nuevasPlantillas = plantillas.filter(p => p.id !== id);
-
-    await writeData(nuevasPlantillas);
-    return NextResponse.json({ message: 'Plantilla eliminada' }, { status: 200 });
+    return NextResponse.json(producto);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Error al obtener producto' }, { status: 500 });
+  }
 }

@@ -1,186 +1,191 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+"use client";
+import React, { useState } from 'react';
+import { useParams, useRouter, notFound } from 'next/navigation';
+import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { useRouter, notFound, useParams } from 'next/navigation';
+import { ArrowLeft, Edit, Trash2, Download, CheckCircle, Package } from 'lucide-react';
 
-// Funciones de formato
-const formatDate = (isoString) => new Date(isoString).toLocaleDateString('es-ES');
-const formatCurrency = (amount) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount || 0);
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-async function getPresupuesto(id) {
-  const res = await fetch(`/api/presupuestos/${id}`)
-  if (!res.ok) {
-    return notFound();
-  }
-  return res.json();
-}
-
-async function getClient(id) {
-    const res = await fetch(`/api/clientes/${id}`)
-    if (!res.ok) {
-      return null;
-    }
-    return res.json();
-}
-
-export default function PresupuestoDetailPage() {
+export default function PresupuestoDetalle() {
+  const router = useRouter();
   const params = useParams();
   const { id } = params;
-  const router = useRouter();
-  const [quote, setQuote] = useState(null);
-  const [client, setClient] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (!id) return;
-    const loadData = async () => {
-      setIsLoading(true);
-      const quoteData = await getPresupuesto(id);
-      setQuote(quoteData);
-      if (quoteData && quoteData.clienteId) {
-        const clientData = await getClient(quoteData.clienteId);
-        setClient(clientData);
-      }
-      setIsLoading(false);
-    };
-
-    loadData();
-  }, [id]);
+  const { data: quote, error: quoteError, isLoading } = useSWR(id ? `/api/presupuestos/${id}` : null, fetcher);
 
   const handleDelete = async () => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este presupuesto?')) {
+    if (confirm('¿Estás seguro de que quieres eliminar este presupuesto?')) {
+      setIsDeleting(true);
+      setError(null);
       try {
-        const res = await fetch(`/api/presupuestos/${id}`, {
-          method: 'DELETE',
-        });
-        if (!res.ok) throw new Error('Error al eliminar');
-        router.push('/presupuestos');
-        router.refresh();
-      } catch (error) {
-        console.error('Error al eliminar el presupuesto:', error);
-        alert('No se pudo eliminar el presupuesto.');
+        const res = await fetch(`/api/presupuestos/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.message || 'Error al eliminar');
+        }
+        mutate('/api/presupuestos'); // Actualiza la lista
+        router.push('/presupuestos'); // Vuelve a la lista
+      } catch (err) {
+        setError(err.message);
+        setIsDeleting(false);
       }
     }
   };
 
-  const handleCreateOrder = async () => {
-    setIsCreatingOrder(true);
+  const handleDownloadPDF = async () => {
     try {
-      const res = await fetch('/api/pedidos/from-presupuesto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ presupuestoId: id }),
-      });
-      if (!res.ok) throw new Error('Error al crear el pedido');
-      const newOrder = await res.json();
-      router.push(`/pedidos/${newOrder.id}`);
-    } catch (error) {
-      console.error('Error al crear el pedido:', error);
-      alert('No se pudo crear el pedido a partir del presupuesto.');
-    } finally {
-      setIsCreatingOrder(false);
+      const res = await fetch(`/api/presupuestos/${id}/pdf`);
+      if (!res.ok) throw new Error('Error al generar el PDF');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `presupuesto-${quote.numero}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      setError(err.message);
     }
   };
 
-  if (isLoading) {
-    return <main className="p-4 sm:p-6 lg:p-8"><div className="max-w-4xl mx-auto text-center"><span className="loading loading-lg"></span></div></main>;
+  const handleConvertToPedido = async () => {
+    if (confirm('¿Estás seguro de que quieres convertir este presupuesto en un pedido? Esta acción no se puede deshacer.')) {
+      setIsConverting(true);
+      setError(null);
+      try {
+        const res = await fetch('/api/pedidos/from-presupuesto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ presupuestoId: id }),
+        });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.message || 'Error al convertir');
+        }
+        const newPedido = await res.json();
+        // Mutar el presupuesto actual para que muestre "Aceptado"
+        mutate(`/api/presupuestos/${id}`);
+        // Mutar la lista de pedidos
+        mutate('/api/pedidos');
+        // Redirigir al nuevo pedido
+        router.push(`/pedidos/${newPedido.id}`);
+      } catch (err) {
+        setError(err.message);
+        setIsConverting(false);
+      }
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (quoteError || !quote) {
+      if (quoteError?.status === 404) return notFound();
+      return <div className="text-red-500 text-center">Error al cargar el presupuesto.</div>;
   }
 
-  if (!quote) {
-    return notFound();
-  }
+  const { subtotal, tax, total } = quote;
 
   return (
-    <main className="p-4 sm:p-6 lg:p-8 bg-base-200">
-      <div className="max-w-4xl mx-auto">
-        {/* Barra de Acciones */}
-        <div className="flex items-center justify-between mb-4">
-            <Link href="/presupuestos" className="btn btn-ghost">← Volver a Presupuestos</Link>
-            <div className="space-x-2">
-                <Link href={`/presupuestos/${id}/editar`} className="btn btn-outline">Editar</Link>
-                <button onClick={handleDelete} className="btn btn-error btn-outline">Eliminar</button>
-                <Link href={`/api/presupuestos/${id}/pdf`} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
-                  Generar PDF
-                </Link>
-                <button 
-                  onClick={handleCreateOrder} 
-                  className="btn btn-success"
-                  disabled={quote.estado === 'Aceptado' || isCreatingOrder}
-                >
-                  {isCreatingOrder ? 'Creando Pedido...' : 'Crear Pedido'}
-                </button>
-            </div>
+    <div className="container mx-auto p-4">
+      <button onClick={() => router.back()} className="btn btn-ghost mb-4">
+        <ArrowLeft className="w-4 h-4" /> Volver
+      </button>
+
+      {error && <div className="alert alert-error shadow-lg mb-4">{error}</div>}
+
+      {/* Acciones */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {quote.estado === 'Borrador' && (
+          <Link href={`/presupuestos/${id}/editar`} className="btn btn-outline btn-primary">
+            <Edit className="w-4 h-4" /> Editar
+          </Link>
+        )}
+        <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary">
+          <Download className="w-4 h-4" /> Descargar PDF
+        </button>
+        {quote.estado === 'Borrador' && (
+          <button onClick={handleConvertToPedido} className="btn btn-success" disabled={isConverting}>
+            {isConverting ? <span className="loading loading-spinner loading-xs"></span> : <CheckCircle className="w-4 h-4" />}
+            Convertir a Pedido
+          </button>
+        )}
+        {quote.estado !== 'Aceptado' && (
+           <button onClick={handleDelete} className="btn btn-outline btn-error" disabled={isDeleting}>
+            {isDeleting ? <span className="loading loading-spinner loading-xs"></span> : <Trash2 className="w-4 h-4" />}
+            Eliminar
+          </button>
+        )}
+         {quote.estado === 'Aceptado' && quote.pedido?.id && (
+          <Link href={`/pedidos/${quote.pedido.id}`} className="btn btn-success btn-outline">
+            <Package className="w-4 h-4" /> Ver Pedido Creado
+          </Link>
+         )}
+      </div>
+
+      {/* Detalles del Presupuesto */}
+      <div className="bg-base-100 shadow-xl rounded-lg p-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold">Presupuesto {quote.numero}</h1>
+            <p className="text-gray-500">Fecha: {new Date(quote.fechaCreacion).toLocaleDateString()}</p>
+            <span className={`badge mt-2 ${quote.estado === 'Aceptado' ? 'badge-success' : 'badge-warning'}`}>
+              {quote.estado}
+            </span>
+          </div>
+          <div className="text-right">
+            <h2 className="text-xl font-bold">{quote.cliente.nombre}</h2>
+            <p>{quote.cliente.direccion}</p>
+            <p>{quote.cliente.email}</p>
+          </div>
         </div>
 
-        {/* Vista del Presupuesto */}
-        <div className="bg-base-100 shadow-lg rounded-lg p-8 sm:p-12">
-          {/* Cabecera */}
-          <div className="grid grid-cols-2 items-start mb-12">
-            <div>
-              <h1 className="text-2xl font-bold">{process.env.COMPANY_NAME || 'Tu Empresa'}</h1>
-              <p className="text-base-content/70">{process.env.COMPANY_ADDRESS || 'Tu Dirección'}</p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-3xl font-bold uppercase text-base-content/80">Presupuesto</h2>
-              <p className="font-mono">{quote.numero}</p>
-              <p className="mt-2 text-sm"><span className="font-bold">Fecha:</span> {formatDate(quote.fechaCreacion)}</p>
-              <p className="text-sm"><span className="font-bold">Estado:</span> <span className="badge badge-lg">{quote.estado}</span></p>
-            </div>
-          </div>
+        <div className="divider"></div>
 
-          {/* Cliente */}
-          <div className="mb-12">
-            <h3 className="font-bold">Cliente:</h3>
-            {client ? (
-              <div className="text-base-content/80">
-                <p className="font-bold text-lg">{client.nombre}</p>
-                <p>{client.direccion}</p>
-                <p>{client.telefono}</p>
-                <p>{client.email}</p>
-              </div>
-            ) : <p>Cliente no encontrado</p>}
-          </div>
-
-          {/* Tabla de Items */}
-          <table className="table w-full mb-8">
-            <thead className="bg-base-200">
+        {/* Items */}
+        <div className="overflow-x-auto mt-6">
+          <table className="table w-full">
+            <thead>
               <tr>
                 <th>Descripción</th>
-                <th className="text-center">Cantidad</th>
-                <th className="text-right">Precio Unit.</th>
-                <th className="text-right">Total</th>
+                <th>Cantidad</th>
+                <th>Precio Unit.</th>
+                <th>Total</th>
               </tr>
             </thead>
             <tbody>
               {quote.items.map((item, index) => (
                 <tr key={index}>
-                  <td>{item.description}</td>
-                  <td className="text-center">{item.quantity}</td>
-                  <td className="text-right">{formatCurrency(item.unitPrice)}</td>
-                  <td className="text-right">{formatCurrency(item.quantity * item.unitPrice)}</td>
+                  <td className="font-medium">{item.description}</td>
+                  <td>{item.quantity}</td>
+                  <td>{item.unitPrice.toFixed(2)} €</td>
+                  <td>{(item.quantity * item.unitPrice).toFixed(2)} €</td>
                 </tr>
               ))}
             </tbody>
           </table>
-
-          {/* Totales y Notas */}
-          <div className="grid grid-cols-2 gap-8">
-            <div className="text-base-content/80">
-                <h3 className="font-bold mb-2">Notas:</h3>
-                <p className="text-sm">{quote.notes || 'No se añadieron notas.'}</p>
-            </div>
-            <div className="space-y-2 text-right">
-                <div className="flex justify-between"><span className="text-base-content/70">Subtotal</span><span>{formatCurrency(quote.subtotal)}</span></div>
-                <div className="flex justify-between"><span className="text-base-content/70">IVA (21%)</span><span>{formatCurrency(quote.tax)}</span></div>
-                <div className="divider my-1"></div>
-                <div className="flex justify-between font-bold text-xl"><span >TOTAL</span><span>{formatCurrency(quote.total)}</span></div>
-            </div>
-          </div>
-
         </div>
+
+        {/* Totales */}
+        <div className="flex justify-end mt-6">
+          <div className="w-full max-w-xs space-y-2">
+            <div className="flex justify-between"><span>Subtotal</span> <span>{subtotal.toFixed(2)} €</span></div>
+            <div className="flex justify-between"><span>IVA (21%)</span> <span>{tax.toFixed(2)} €</span></div>
+            <div className="flex justify-between font-bold text-lg"><span>Total</span> <span>{total.toFixed(2)} €</span></div>
+          </div>
+        </div>
+
+        {/* Notas */}
+        {quote.notes && (
+          <div className="mt-6">
+            <h3 className="font-bold">Notas:</h3>
+            <p className="text-gray-600 whitespace-pre-wrap">{quote.notes}</p>
+          </div>
+        )}
       </div>
-    </main>
+    </div>
   );
 }
