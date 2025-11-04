@@ -142,7 +142,7 @@ export default function PedidoDetalle() {
             <tbody>
               {order.items.map((item, index) => (
                 <tr key={index}>
-                  <td className="font-medium">{item.description}</td>
+                  <td className="font-medium">{item.descripcion}</td>
                   <td>{item.quantity}</td>
                   <td>{item.unitPrice.toFixed(2)} €</td>
                   <td>{(item.quantity * item.unitPrice).toFixed(2)} €</td>

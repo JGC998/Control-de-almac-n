@@ -14,7 +14,6 @@ export async function GET(request) {
       where: {
         nombre: {
           contains: query,
-          mode: 'insensitive', // No distingue mayúsculas/minúsculas
         },
       },
       take: 5,

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Truck, PlusCircle, CheckSquare, PackageOpen } from 'lucide-react';
+import { Truck, PlusCircle, CheckSquare, PackageOpen, Trash2 } from 'lucide-react';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 

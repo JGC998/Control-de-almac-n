@@ -1,31 +1,22 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, Calculator } from 'lucide-react';
+import { Plus, Trash2, Save, Calculator } from 'lucide-react'; // Corregido a Calculator
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-export default function CreatePresupuestoForm({ initialData = null }) {
+// Este es un formulario nuevo, simplificado para crear Pedidos directamente
+export default function CreatePedidoForm() {
   const router = useRouter();
-  const [clienteId, setClienteId] = useState(initialData?.clienteId || '');
-  const [items, setItems] = useState(initialData?.items || []);
-  const [notes, setNotes] = useState(initialData?.notes || '');
+  const [clienteId, setClienteId] = useState('');
+  const [items, setItems] = useState([{ plantilladId: '', description: '', quantity: 1, unitPrice: 0, productId: null }]);
+  const [notes, setNotes] = useState('');
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Cargar datos necesarios para los selectores
   const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
-  const { data: plantillas, error: plantillasError } = useSWR('/api/plantillas', fetcher); // plantillas es alias de productos
-
-  // Sincronizar estado si initialData cambia (para la página de edición)
-  useEffect(() => {
-    if (initialData) {
-      setClienteId(initialData.clienteId || '');
-      setItems(initialData.items || []);
-      setNotes(initialData.notes || '');
-    }
-  }, [initialData]);
+  const { data: plantillas, error: plantillasError } = useSWR('/api/plantillas', fetcher);
 
   const handleItemChange = (index, field, value) => {
     const newItems = [...items];
@@ -36,7 +27,7 @@ export default function CreatePresupuestoForm({ initialData = null }) {
       if (plantilla) {
         item.description = plantilla.nombre;
         item.unitPrice = plantilla.precioUnitario;
-        item.productId = plantilla.id; // Guardamos el ID del producto
+        item.productId = plantilla.id;
       }
     } else {
       item[field] = value;
@@ -53,7 +44,7 @@ export default function CreatePresupuestoForm({ initialData = null }) {
     const newItems = items.filter((_, i) => i !== index);
     setItems(newItems);
   };
-
+  
   const handleRecalculatePrices = async () => {
     if (!clienteId) {
       alert("Por favor, selecciona un cliente primero.");
@@ -98,41 +89,35 @@ export default function CreatePresupuestoForm({ initialData = null }) {
     setError(null);
 
     const { subtotal, tax, total } = calculateTotals();
-    const quoteData = {
+    const orderData = {
       clienteId,
       items,
       notes,
       subtotal,
       tax,
       total,
-      estado: initialData?.estado || 'Borrador'
+      estado: 'Pendiente' // Estado por defecto
     };
 
-    const url = initialData ? `/api/presupuestos/${initialData.id}` : '/api/presupuestos';
-    const method = initialData ? 'PUT' : 'POST';
+    const url = '/api/pedidos'; // Apunta a la API de Pedidos
+    const method = 'POST';
 
     try {
       const res = await fetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(quoteData),
+        body: JSON.stringify(orderData),
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'Error al guardar el presupuesto');
+        throw new Error(errData.message || 'Error al guardar el pedido');
       }
       
-      const savedQuote = await res.json();
+      const savedOrder = await res.json();
 
-      // Limpiar cache de SWR
-      mutate('/api/presupuestos');
-      if(initialData) {
-        mutate(`/api/presupuestos/${initialData.id}`);
-      }
-
-      // Redirigir a la página del presupuesto guardado
-      router.push(`/presupuestos/${savedQuote.id}`);
+      mutate('/api/pedidos'); // Limpia cache de la lista de pedidos
+      router.push(`/pedidos/${savedOrder.id}`); // Redirige al nuevo pedido
 
     } catch (err) {
       setError(err.message);
@@ -212,9 +197,9 @@ export default function CreatePresupuestoForm({ initialData = null }) {
               </tbody>
             </table>
           </div>
-          <button type="button" onClick={handleRecalculatePrices} className="btn btn-outline btn-accent btn-sm mt-4" disabled={isLoading}>
-            <Calculator className="w-4 h-4" /> Recalcular Precios (según cliente)
-          </button>
+            <button type="button" onClick={handleRecalculatePrices} className="btn btn-outline btn-accent btn-sm mt-4" disabled={isLoading}>
+                <Calculator className="w-4 h-4" /> Recalcular Precios (según cliente)
+            </button>
         </div>
       </div>
 
@@ -248,9 +233,107 @@ export default function CreatePresupuestoForm({ initialData = null }) {
       <div className="flex justify-end gap-4 mt-6">
         <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
         <button type="submit" className="btn btn-primary" disabled={isLoading}>
-          <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : (initialData ? "Actualizar Presupuesto" : "Guardar Presupuesto")}
+          <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : "Guardar Pedido"}
         </button>
       </div>
     </form>
   );
 }
+EOF_PEDIDO_FORM'
+
+# --- 2. Crear la nueva página 'src/app/pedidos/nuevo/page.js' ---
+echo "Creando: src/app/pedidos/nuevo/page.js"
+mkdir -p src/app/pedidos/nuevo # Crea el directorio si no existe
+cat <<'EOF_PEDIDO_NUEVO_PAGE' > src/app/pedidos/nuevo/page.js
+"use client";
+import CreatePedidoForm from "@/components/CreatePedidoForm";
+import { PackagePlus } from "lucide-react";
+
+export default function NuevoPedidoPage() {
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6 flex items-center">
+        <PackagePlus className="mr-2" />
+        Crear Nuevo Pedido
+      </h1>
+      <CreatePedidoForm />
+    </div>
+  );
+}
+EOF_PEDIDO_NUEVO_PAGE'
+
+# --- 3. Modificar 'src/app/pedidos/page.js' para añadir el botón ---
+echo "Modificando: src/app/pedidos/page.js"
+cat <<'EOF_PEDIDOS_PAGE_MOD' > src/app/pedidos/page.js
+"use client";
+import React from 'react';
+import useSWR from 'swr';
+import Link from 'next/link';
+import { Package, Search, PlusCircle } from 'lucide-react'; // Añadido PlusCircle
+
+const fetcher = (url) => fetch(url).then((res) => res.json());
+
+export default function PedidosPage() {
+  const { data: pedidos, error, isLoading } = useSWR('/api/pedidos', fetcher);
+
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (error) return <div className="text-red-500 text-center">Error al cargar los pedidos.</div>;
+
+  return (
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold flex items-center"><Package className="mr-2" /> Pedidos</h1>
+        {/* --- AÑADIDO EL BOTÓN 'NUEVO PEDIDO' --- */}
+        <Link href="/pedidos/nuevo" className="btn btn-primary">
+          <PlusCircle className="w-4 h-4" /> Nuevo Pedido
+        </Link>
+      </div>
+      
+      <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Cliente</th>
+              <th>Fecha</th>
+              <th>Total</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pedidos && pedidos.map((order) => (
+              <tr key={order.id} className="hover">
+                <td>
+                  <Link href={`/pedidos/${order.id}`} className="link link-primary font-bold">
+                    {order.numero}
+                  </Link>
+                </td>
+                <td>{order.cliente?.nombre || 'N/A'}</td>
+                <td>{new Date(order.fechaCreacion).toLocaleDateString()}</td>
+                <td>{order.total.toFixed(2)} €</td>
+                <td>
+                  <span className={`badge ${order.estado === 'Completado' ? 'badge-success' : (order.estado === 'Enviado' ? 'badge-info' : 'badge-warning')}`}>
+                    {order.estado}
+                  </span>
+                </td>
+                <td>
+                  <Link href={`/pedidos/${order.id}`} className="btn btn-sm btn-outline">
+                    Ver <Search className="w-4 h-4" />
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+EOF_PEDIDOS_PAGE_MOD'
+
+echo "--- ¡Flujo de 'Nuevo Pedido' añadido! ---"
+echo "He corregido el icono 'Calculator' en el formulario de pedido."
+echo "Reinicia 'npm run dev' si es necesario y prueba a crear un pedido."
+
+

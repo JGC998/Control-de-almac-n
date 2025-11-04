@@ -1,206 +1,273 @@
 #!/bin/zsh
-echo "--- INICIANDO SCRIPT DE PRUEBAS E2E (v7 - TIMEOUT CORREGIDO) ---"
+echo "--- INICIANDO SCRIPT (Refactorización de Calculadora a Multi-Item v2) ---"
 
-# --- 1. Asegurando Playwright ---
-echo "Instalando dependencias de Playwright..."
-npm install -D @playwright/test
-echo "Instalando navegadores y dependencias del sistema..."
-npx playwright install --with-deps
+echo "Modificando: src/app/calculadora/page.js"
 
-# --- 2. Creando el archivo de test (v7 - Flujo Completo Corregido) ---
-echo "Creando el archivo 'tests/full_flow.spec.js'..."
-mkdir -p tests # Crea la carpeta 'tests' si no existe
+# Sobrescribimos la página de la calculadora con la nueva lógica de multi-item
+cat <<'EOF' > src/app/calculadora/page.js
+"use client";
+import React, { useState, useMemo, useEffect } from 'react';
+import useSWR from 'swr';
+import { Calculator, Plus, Trash2 } from 'lucide-react';
 
-cat <<'EOF_TEST' > tests/full_flow.spec.js
-import { test, expect } from '@playwright/test';
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-// Usaremos 'test.describe.serial' para forzar que los tests se ejecuten en orden,
-// ya que uno depende de los datos creados por el anterior.
-test.describe.serial('Prueba de Flujo Completo E2E', () => {
+const TotalDisplay = ({ label, value, unit }) => (
+  <div className="stat bg-primary text-primary-content rounded-lg">
+    <div className="stat-title">{label}</div>
+    <div className="stat-value">{value}</div>
+    <div className="stat-desc">{unit}</div>
+  </div>
+);
+
+export default function CalculadoraPage() {
+  // --- Estado para el item actual ---
+  const [selectedMaterial, setSelectedMaterial] = useState('');
+  const [selectedEspesor, setSelectedEspesor] = useState('');
+  const [unidades, setUnidades] = useState(1);
+  const [ancho, setAncho] = useState(0);
+  const [largo, setLargo] = useState(0);
   
-  const URL_BASE = 'http://localhost:3000';
-  
-  // Variables para compartir datos entre tests
-  const testId = Date.now();
-  const nuevoClienteNombre = `Cliente E2E ${testId}`;
-  const nuevoProductoNombre = `Producto E2E ${testId}`;
-  const nuevoMaterialStock = `Material E2E ${testId}`;
-  let nuevoPresupuestoNumero = '';
-  let nuevoPedidoNumero = '';
+  // --- Estado para la lista de items ---
+  const [itemsAgregados, setItemsAgregados] = useState([]);
 
-  test('1. Crear Cliente', async ({ page }) => {
-    await page.goto(`${URL_BASE}/gestion/clientes`);
+  // 1. Cargar todas las tarifas de la BD
+  const { data: tarifas, error, isLoading } = useSWR('/api/precios', fetcher);
 
-    // Esperar a que la página termine de cargar (que aparezca el título)
-    // Usamos un selector que busca un h1 QUE CONTIENE el texto.
-    await expect(page.locator('h1:has-text("Gestión de Clientes")')).toBeVisible({ timeout: 10000 });
+  // 2. Derivar listas únicas para los selectores
+  const uniqueMaterials = useMemo(() => {
+    if (!tarifas) return [];
+    return [...new Set(tarifas.map(t => t.material))].sort();
+  }, [tarifas]);
 
-    // Ahora sí, hacemos clic
-    await page.getByRole('button', { name: 'Nuevo Cliente' }).click();
-    
-    await expect(page.getByRole('heading', { name: 'Nuevo Cliente' })).toBeVisible();
-    await page.getByPlaceholder('Nombre').fill(nuevoClienteNombre);
-    await page.getByPlaceholder('Email').fill('e2e@test.com');
-    await page.getByRole('button', { name: 'Guardar' }).click();
-    
-    // Verificar que aparece en la tabla
-    await expect(page.getByText(nuevoClienteNombre)).toBeVisible();
-    console.log(`\nÉXITO Test 1: Cliente "${nuevoClienteNombre}" creado.\n`);
-  });
+  const availableEspesores = useMemo(() => {
+    if (!tarifas || !selectedMaterial) return [];
+    return [...new Set(
+      tarifas
+        .filter(t => t.material === selectedMaterial)
+        .map(t => t.espesor)
+    )].sort((a, b) => parseFloat(a) - parseFloat(b));
+  }, [tarifas, selectedMaterial]);
 
-  test('2. Crear Producto', async ({ page }) => {
-    await page.goto(`${URL_BASE}/gestion/productos`);
+  // 3. Resetear espesor si el material cambia
+  useEffect(() => {
+    setSelectedEspesor('');
+  }, [selectedMaterial]);
 
-    // Esperar a que la página termine de cargar
-    await expect(page.locator('h1:has-text("Gestión de Productos")')).toBeVisible({ timeout: 10000 });
-    
-    await page.getByRole('button', { name: 'Nuevo Producto' }).click();
-    
-    await expect(page.getByRole('heading', { name: 'Nuevo Producto' })).toBeVisible();
-    
-    // Rellenar formulario
-    await page.getByPlaceholder('Nombre').fill(nuevoProductoNombre);
-    await page.getByPlaceholder('Modelo').fill('Test Model');
-    
-    // Esperar a que los selectores carguen sus datos
-    await expect(page.getByRole('combobox').nth(0).locator('option').nth(1)).toBeEnabled({ timeout: 10000 });
-    await expect(page.getByRole('combobox').nth(1).locator('option').nth(1)).toBeEnabled({ timeout: 10000 });
-    
-    await page.getByRole('combobox').nth(0).selectOption({ index: 1 }); // Fabricante
-    await page.getByRole('combobox').nth(1).selectOption({ index: 1 }); // Material
-    await page.getByPlaceholder('Precio Unitario').fill('150');
-    await page.getByPlaceholder('Peso Unitario').fill('10');
-    
-    await page.getByRole('button', { name: 'Guardar' }).click();
-    
-    // Verificar que aparece en la tabla
-    await expect(page.getByText(nuevoProductoNombre)).toBeVisible();
-    console.log(`\nÉXITO Test 2: Producto "${nuevoProductoNombre}" creado.\n`);
-  });
+  // 4. Calcular los totales generales de la lista
+  const totalesGenerales = useMemo(() => {
+    const totalPrecio = itemsAgregados.reduce((acc, item) => acc + item.precioTotal, 0);
+    const totalPeso = itemsAgregados.reduce((acc, item) => acc + item.pesoTotal, 0);
+    return { totalPrecio, totalPeso };
+  }, [itemsAgregados]);
 
-  test('3. Crear Presupuesto y Convertir a Pedido', async ({ page }) => {
-    await page.goto(`${URL_BASE}/presupuestos/nuevo`);
+  // 5. Handler para añadir un item a la lista
+  const handleAddItem = () => {
+    if (!tarifas || !selectedMaterial || !selectedEspesor || !unidades || unidades <= 0 || !ancho || ancho <= 0 || !largo || largo <= 0) {
+      alert("Por favor, completa todos los campos (Material, Espesor, Unidades, Ancho y Largo) con valores válidos.");
+      return;
+    }
 
-    // --- CORRECCIÓN ---
-    // Esperar a que la página cargue, aumentando el timeout
-    await expect(page.locator('h1:has-text("Crear Nuevo Presupuesto")')).toBeVisible({ timeout: 10000 });
+    const tarifa = tarifas.find(t => 
+      t.material === selectedMaterial && 
+      t.espesor === selectedEspesor
+    );
 
-    // esperamos a que el *texto* del cliente (creado en Test 1) aparezca en la página.
-    await expect(page.getByText(nuevoClienteNombre)).toBeVisible({ timeout: 10000 });
+    if (!tarifa) {
+      alert("Tarifa no encontrada para la selección.");
+      return;
+    }
 
-    // Ahora que sabemos que los datos están, seleccionamos el cliente
-    const clienteSelect = page.getByRole('combobox').first();
-    await clienteSelect.selectOption({ label: nuevoClienteNombre });
+    const precioPorM2 = tarifa.precio || 0;
+    const pesoPorM2 = tarifa.peso || 0;
     
-    // Añadir item
-    await page.getByRole('button', { name: 'Añadir Item' }).click();
-    const itemRow = page.getByRole('row').last();
+    // Calcular área de una pieza (convirtiendo mm a m)
+    const areaPorPieza = (ancho / 1000) * (largo / 1000); 
     
-    // Esperar a que el selector de plantilla esté listo y seleccionar el producto
-    const plantillaSelect = itemRow.getByRole('combobox');
-    await expect(plantillaSelect).toBeVisible();
-    // Esperamos a que el producto (creado en Test 2) esté en las opciones
-    await expect(itemRow.getByText(nuevoProductoNombre)).toBeVisible({ timeout: 10000 });
-    await plantillaSelect.selectOption({ label: nuevoProductoNombre });
-    
-    // Verificar que la descripción se autocompletó
-    await expect(itemRow.getByDisplayValue(nuevoProductoNombre)).toBeVisible();
-    
-    // Guardar presupuesto
-    await page.getByRole('button', { name: 'Guardar Presupuesto' }).click();
+    // Calcular precio y peso por CADA PIEZA
+    const precioUnitario = precioPorM2 * areaPorPieza; 
+    const pesoUnitario = pesoPorM2 * areaPorPieza;
 
-    // Estamos en la página de "Ver Presupuesto"
-    await expect(page.getByText('Presupuesto ')).toBeVisible({ timeout: 10000 }); // Espera extra
-    await expect(page.getByText(nuevoClienteNombre)).toBeVisible();
-    await expect(page.getByText(nuevoProductoNombre)).toBeVisible();
+    const newItem = {
+      id: Date.now(), // Usamos un timestamp como key simple
+      descripcion: `${selectedMaterial} - ${selectedEspesor}mm`,
+      medidas: `${ancho} x ${largo}`,
+      unidades: unidades,
+      precioUnitario: precioUnitario, // Precio por pieza
+      pesoUnitario: pesoUnitario, // Peso por pieza
+      precioTotal: precioUnitario * unidades, // Precio total línea
+      pesoTotal: pesoUnitario * unidades, // Peso total línea
+    };
 
-    // Obtener el número de presupuesto
-    const presupuestoTitulo = await page.locator('h1').first().innerText(); // "Presupuesto 2025-001"
-    nuevoPresupuestoNumero = presupuestoTitulo.split(' ')[1];
-    console.log(`\nÉXITO Test 3a: Presupuesto "${nuevoPresupuestoNumero}" creado.`);
+    setItemsAgregados(prev => [...prev, newItem]);
+    
+    // Resetear inputs
+    setSelectedMaterial('');
+    setSelectedEspesor('');
+    setUnidades(1);
+    setAncho(0);
+    setLargo(0);
+  };
 
-    // Convertir a Pedido
-    page.on('dialog', dialog => dialog.accept());
-    await page.getByRole('button', { name: 'Convertir a Pedido' }).click();
+  // 6. Handler para eliminar un item
+  const handleRemoveItem = (id) => {
+    setItemsAgregados(prev => prev.filter(item => item.id !== id));
+  };
 
-    // Verificar que fuimos redirigidos a la página de Pedido
-    await expect(page.getByText('Pedido PED-')).toBeVisible({ timeout: 10000 }); // Espera extra
-    await expect(page.getByText(nuevoClienteNombre)).toBeVisible();
-    await expect(page.getByText(nuevoProductoNombre)).toBeVisible();
-    
-    const pedidoTitulo = await page.locator('h1').first().innerText();
-    nuevoPedidoNumero = pedidoTitulo.split(' ')[1];
-    console.log(`\nÉXITO Test 3b: Pedido "${nuevoPedidoNumero}" creado desde ${nuevoPresupuestoNumero}.\n`);
-  });
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (error) return <div className="text-red-500 text-center">Error al cargar las tarifas.</div>;
 
-  test('4. Recibir Stock de Proveedor', async ({ page }) => {
-    await page.goto(`${URL_BASE}/proveedores`);
-    
-    // Esperar a que la página termine de cargar
-    await expect(page.locator('h1:has-text("Pedidos a Proveedores")')).toBeVisible({ timeout: 10000 });
-    
-    await page.getByRole('button', { name: 'Nuevo Pedido a Proveedor' }).click();
-    
-    // Rellenar modal
-    await expect(page.getByRole('heading', { name: 'Nuevo Pedido a Proveedor' })).toBeVisible();
-    await page.getByPlaceholder('Proveedor').fill('Proveedor Test E2E');
-    await page.getByPlaceholder('Material').fill(nuevoMaterialStock);
-    await page.getByPlaceholder('Longitud (m)').fill('100');
-    
-    await page.getByRole('button', { name: 'Crear Pedido' }).click();
-    
-    // Verificar que el pedido aparece
-    await expect(page.getByText('Proveedor Test E2E')).toBeVisible();
-    await expect(page.getByText(nuevoMaterialStock)).toBeVisible();
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6 flex items-center">
+        <Calculator className="mr-2" /> Simulador de Cálculo
+      </h1>
 
-    // Encontrar el nuevo pedido y recibirlo
-    const pedidoCard = page.locator('.card', { hasText: nuevoMaterialStock }).first();
-    
-    page.on('dialog', dialog => dialog.accept());
-    await pedidoCard.getByRole('button', { name: 'Marcar como Recibido' }).click();
-    
-    // Verificar que el estado cambia
-    await expect(pedidoCard.getByText('Recibido')).toBeVisible();
-    console.log(`\nÉXITO Test 4a: Pedido a proveedor recibido.`);
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Columna Izquierda (Inputs y Lista) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Card de Configuración de Item */}
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title">Añadir Item</h2>
+              
+              {/* Primera fila de inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Material</span></div>
+                  <select 
+                    className="select select-bordered"
+                    value={selectedMaterial}
+                    onChange={(e) => setSelectedMaterial(e.target.value)}
+                  >
+                    <option value="">Selecciona material</option>
+                    {uniqueMaterials.map(material => (
+                      <option key={material} value={material}>{material}</option>
+                    ))}
+                  </select>
+                </label>
 
-    // Ir a Almacén a verificar
-    await page.goto(`${URL_BASE}/almacen`);
-    
-    // Esperar a que cargue
-    await expect(page.locator('h1:has-text("Gestión de Almacén")')).toBeVisible({ timeout: 10000 });
+                <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Espesor (mm)</span></div>
+                  <select 
+                    className="select select-bordered"
+                    value={selectedEspesor}
+                    onChange={(e) => setSelectedEspesor(e.target.value)}
+                    disabled={!selectedMaterial}
+                  >
+                    <option value="">Selecciona espesor</option>
+                    {availableEspesores.map(espesor => (
+                      <option key={espesor} value={espesor}>{espesor} mm</option>
+                    ))}
+                  </select>
+                </label>
 
-    // Verificar que el nuevo material está en la tabla de inventario
-    await expect(page.getByText(nuevoMaterialStock)).toBeVisible();
-    await expect(page.locator('td', { hasText: nuevoMaterialStock }).first().locator('..').getByText('100.00 m')).toBeVisible();
-    console.log(`\nÉXITO Test 4b: Stock de "${nuevoMaterialStock}" verificado en almacén.\n`);
-  });
+                <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Unidades</span></div>
+                  <input 
+                    type="number" 
+                    placeholder="Ej: 5" 
+                    className="input input-bordered"
+                    value={unidades}
+                    onChange={(e) => setUnidades(parseInt(e.target.value) || 1)}
+                  />
+                </label>
+              </div>
 
-  test('5. Probar Búsqueda', async ({ page }) => {
-    await page.goto(`${URL_BASE}/`);
-    
-    // Esperar a que el Dashboard cargue
-    await expect(page.getByText('Total Pedidos')).toBeVisible({ timeout: 10000 });
-    
-    // Buscar el cliente
-    await page.getByPlaceholder('Buscar cliente, pedido...').fill(nuevoClienteNombre);
-    await page.getByRole('button', { name: 'Search' }).click(); 
-    
-    // Verificar resultado
-    await expect(page.getByText(nuevoClienteNombre)).toBeVisible();
-    await expect(page.getByText('cliente')).toBeVisible();
-    console.log(`\nÉXITO Test 5: Búsqueda de cliente funciona.\n`);
-  });
-});
-EOF_TEST
+              {/* Segunda fila de inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                 <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Ancho (mm)</span></div>
+                  <input 
+                    type="number" 
+                    placeholder="Ej: 1200" 
+                    className="input input-bordered"
+                    value={ancho}
+                    onChange={(e) => setAncho(parseInt(e.target.value) || 0)}
+                  />
+                </label>
+                <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Largo (mm)</span></div>
+                  <input 
+                    type="number" 
+                    placeholder="Ej: 2000" 
+                    className="input input-bordered"
+                    value={largo}
+                    onChange={(e) => setLargo(parseInt(e.target.value) || 0)}
+                  />
+                </label>
+              </div>
 
-echo "--- 3. Ejecutando los tests E2E (v7 - TIMEOUT CORREGIDO) ---"
-echo "IMPORTANTE: Asegúrate de que tu servidor (npm run dev) esté corriendo en OTRA TERMINAL."
-echo "Presiona Enter cuando estés listo para lanzar las pruebas..."
-read -s # Espera a que el usuario presione Enter
+              <div className="card-actions justify-end mt-4">
+                <button onClick={handleAddItem} className="btn btn-primary">
+                  <Plus className="w-4 h-4" /> Añadir Item al Cálculo
+                </button>
+              </div>
+            </div>
+          </div>
 
-# Ejecutamos el nuevo archivo de test
-npx playwright test tests/full_flow.spec.js
+          {/* Card de Lista de Items */}
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title">Items Agregados</h2>
+              <div className="overflow-x-auto">
+                <table className="table w-full table-zebra">
+                  <thead>
+                    <tr>
+                      <th>Descripción</th>
+                      <th className="text-center">Medidas (mm)</th>
+                      <th className="text-center">Unidades</th>
+                      <th className="text-right">P. Unitario</th>
+                      <th className="text-right">P. Total</th>
+                      <th className="text-right">Peso Total</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itemsAgregados.length === 0 && (
+                      <tr><td colSpan="7" className="text-center">Añade items para verlos aquí.</td></tr>
+                    )}
+                    {itemsAgregados.map(item => (
+                      <tr key={item.id} className="hover">
+                        <td className="font-medium">{item.descripcion}</td>
+                        <td className="text-center">{item.medidas}</td>
+                        <td className="text-center">{item.unidades}</td>
+                        <td className="text-right">{item.precioUnitario.toFixed(2)} €</td>
+                        <td className="text-right font-bold">{item.precioTotal.toFixed(2)} €</td>
+                        <td className="text-right">{item.pesoTotal.toFixed(2)} kg</td>
+                        <td className="text-center">
+                          <button onClick={() => handleRemoveItem(item.id)} className="btn btn-ghost btn-sm btn-circle">
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
 
-echo "--- ¡Pruebas completadas! Revisa los resultados arriba. ---"
+        {/* Columna Derecha (Resultados Totales) */}
+        <div className="lg:col-span-1 card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title mb-4">Total General</h2>
+            
+            <div className="stats stats-vertical shadow">
+              <TotalDisplay label="Precio Total General" value={`${totalesGenerales.totalPrecio.toFixed(2)} €`} unit="Sin IVA" />
+              <TotalDisplay label="Peso Total General" value={`${totalesGenerales.totalPeso.toFixed(2)} kg`} unit="Aproximado" />
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+EOF
+
+echo "--- ¡Página de Calculadora refactorizada a multi-item v2! ---"
+echo "El servidor de desarrollo debería recargarse automáticamente."
 
 

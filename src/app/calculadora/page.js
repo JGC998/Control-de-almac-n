@@ -1,185 +1,260 @@
 "use client";
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
-import { Plus, Trash2, Calculator } from 'lucide-react'; // CORREGIDO: Calculate -> Calculator
+import { Calculator, Plus, Trash2 } from 'lucide-react';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-export default function CalculadoraPrecios() {
-  const [clienteId, setClienteId] = useState('');
-  const [items, setItems] = useState([{ productId: '', quantity: 1, unitPrice: 0 }]);
-  const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [calculatedItems, setCalculatedItems] = useState([]);
+const TotalDisplay = ({ label, value, unit }) => (
+  <div className="stat bg-primary text-primary-content rounded-lg">
+    <div className="stat-title">{label}</div>
+    <div className="stat-value">{value}</div>
+    <div className="stat-desc">{unit}</div>
+  </div>
+);
 
-  // Cargar datos para los selectores
-  const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
-  const { data: plantillas, error: plantillasError } = useSWR('/api/plantillas', fetcher);
+export default function CalculadoraPage() {
+  // --- Estado para el item actual ---
+  const [selectedMaterial, setSelectedMaterial] = useState('');
+  const [selectedEspesor, setSelectedEspesor] = useState('');
+  const [unidades, setUnidades] = useState(1);
+  const [ancho, setAncho] = useState(0);
+  const [largo, setLargo] = useState(0);
+  
+  // --- Estado para la lista de items ---
+  const [itemsAgregados, setItemsAgregados] = useState([]);
 
-  const handleItemChange = (index, field, value) => {
-    const newItems = [...items];
-    const item = newItems[index];
+  // 1. Cargar todas las tarifas de la BD
+  const { data: tarifas, error, isLoading } = useSWR('/api/precios', fetcher);
 
-    if (field === 'productId') {
-      const plantilla = plantillas.find(p => p.id === value);
-      if (plantilla) {
-        item.description = plantilla.nombre;
-        item.unitPrice = plantilla.precioUnitario;
-        item.productId = plantilla.id;
-      } else {
-         item.description = 'Item manual';
-         item.unitPrice = 0;
-         item.productId = '';
-      }
-    } else {
-      item[field] = value;
-    }
-    
-    setItems(newItems);
-  };
+  // 2. Derivar listas únicas para los selectores
+  const uniqueMaterials = useMemo(() => {
+    if (!tarifas) return [];
+    return [...new Set(tarifas.map(t => t.material))].sort();
+  }, [tarifas]);
 
-  const addItem = () => {
-    setItems([...items, { productId: '', description: '', quantity: 1, unitPrice: 0 }]);
-  };
+  const availableEspesores = useMemo(() => {
+    if (!tarifas || !selectedMaterial) return [];
+    return [...new Set(
+      tarifas
+        .filter(t => t.material === selectedMaterial)
+        .map(t => t.espesor)
+    )].sort((a, b) => parseFloat(a) - parseFloat(b));
+  }, [tarifas, selectedMaterial]);
 
-  const removeItem = (index) => {
-    const newItems = items.filter((_, i) => i !== index);
-    setItems(newItems);
-  };
+  // 3. Resetear espesor si el material cambia
+  useEffect(() => {
+    setSelectedEspesor('');
+  }, [selectedMaterial]);
 
-  const handleCalculatePrices = async () => {
-    if (!clienteId) {
-      alert("Por favor, selecciona un cliente primero.");
+  // 4. Calcular los totales generales de la lista
+  const totalesGenerales = useMemo(() => {
+    const totalPrecio = itemsAgregados.reduce((acc, item) => acc + item.precioTotal, 0);
+    const totalPeso = itemsAgregados.reduce((acc, item) => acc + item.pesoTotal, 0);
+    return { totalPrecio, totalPeso };
+  }, [itemsAgregados]);
+
+  // 5. Handler para añadir un item a la lista
+  const handleAddItem = () => {
+    if (!tarifas || !selectedMaterial || !selectedEspesor || !unidades || unidades <= 0 || !ancho || ancho <= 0 || !largo || largo <= 0) {
+      alert("Por favor, completa todos los campos (Material, Espesor, Unidades, Ancho y Largo) con valores válidos.");
       return;
     }
-    setIsLoading(true);
-    setError(null);
-    setCalculatedItems([]);
-    try {
-      const res = await fetch('/api/pricing/calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteId, items }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Error al recalcular precios");
-      }
-      const newCalculatedItems = await res.json();
-      setCalculatedItems(newCalculatedItems);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
+
+    const tarifa = tarifas.find(t => 
+      t.material === selectedMaterial && 
+      t.espesor === selectedEspesor
+    );
+
+    if (!tarifa) {
+      alert("Tarifa no encontrada para la selección.");
+      return;
     }
+
+    const precioPorM2 = tarifa.precio || 0;
+    const pesoPorM2 = tarifa.peso || 0;
+    
+    // Calcular área de una pieza (convirtiendo mm a m)
+    const areaPorPieza = (ancho / 1000) * (largo / 1000); 
+    
+    // Calcular precio y peso por CADA PIEZA
+    const precioUnitario = precioPorM2 * areaPorPieza; 
+    const pesoUnitario = pesoPorM2 * areaPorPieza;
+
+    const newItem = {
+      id: Date.now(), // Usamos un timestamp como key simple
+      descripcion: `${selectedMaterial} - ${selectedEspesor}mm`,
+      medidas: `${ancho} x ${largo}`,
+      unidades: unidades,
+      precioUnitario: precioUnitario, // Precio por pieza
+      pesoUnitario: pesoUnitario, // Peso por pieza
+      precioTotal: precioUnitario * unidades, // Precio total línea
+      pesoTotal: pesoUnitario * unidades, // Peso total línea
+    };
+
+    setItemsAgregados(prev => [...prev, newItem]);
+    
+    // Resetear inputs
+    setSelectedMaterial('');
+    setSelectedEspesor('');
+    setUnidades(1);
+    setAncho(0);
+    setLargo(0);
   };
+
+  // 6. Handler para eliminar un item
+  const handleRemoveItem = (id) => {
+    setItemsAgregados(prev => prev.filter(item => item.id !== id));
+  };
+
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (error) return <div className="text-red-500 text-center">Error al cargar las tarifas.</div>;
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Calculadora de Precios</h1>
+      <h1 className="text-3xl font-bold mb-6 flex items-center">
+        <Calculator className="mr-2" /> Simulador de Cálculo
+      </h1>
 
-      <div className="card bg-base-100 shadow-xl mb-6">
-        <div className="card-body">
-          <h2 className="card-title">Cliente</h2>
-          {clientesError && <div className="text-red-500">Error al cargar clientes.</div>}
-          <select 
-            className="select select-bordered w-full" 
-            value={clienteId} 
-            onChange={(e) => setClienteId(e.target.value)} 
-            required
-          >
-            <option value="">Selecciona un cliente</option>
-            {clientes?.map(cliente => (
-              <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">Items a Calcular</h2>
-            <button type="button" onClick={addItem} className="btn btn-primary btn-sm">
-              <Plus className="w-4 h-4" /> Añadir Item
-            </button>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="table w-full">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Cantidad</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {plantillasError && <tr><td colSpan="3" className="text-red-500">Error al cargar productos.</td></tr>}
-                {items.map((item, index) => (
-                  <tr key={index}>
-                    <td>
-                      <select 
-                        className="select select-bordered select-sm w-full max-w-xs" 
-                        value={item.productId || ''} 
-                        onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
-                      >
-                        <option value="">Selecciona producto</option>
-                        {plantillas?.map(p => (
-                          <option key={p.id} value={p.id}>{p.nombre}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td><input type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)} className="input input-bordered input-sm w-20" /></td>
-                    <td>
-                      <button type="button" onClick={() => removeItem(index)} className="btn btn-ghost btn-sm btn-circle">
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button type="button" onClick={handleCalculatePrices} className="btn btn-accent btn-wide mt-4" disabled={isLoading || !clienteId}>
-            {/* CORREGIDO: Calculate -> Calculator */}
-            {isLoading ? <span className="loading loading-spinner"></span> : <Calculator className="w-4 h-4" />}
-            Calcular Precios
-          </button>
-        </div>
-      </div>
-
-      {error && <div className="alert alert-error shadow-lg mt-4">{error}</div>}
-
-      {calculatedItems.length > 0 && (
-        <div className="card bg-base-100 shadow-xl mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Columna Izquierda (Inputs y Lista) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Card de Configuración de Item */}
+          <div className="card bg-base-100 shadow-xl">
             <div className="card-body">
-                <h2 className="card-title">Resultados</h2>
-                <div className="overflow-x-auto">
-                    <table className="table w-full">
-                        <thead>
-                            <tr>
-                                <th>Descripción</th>
-                                <th>Cantidad</th>
-                                <th>Precio Unit. Calculado</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {calculatedItems.map((item, index) => (
-                                <tr key={index}>
-                                    <td>{item.description}</td>
-                                    <td>{item.quantity}</td>
-                                    <td className="font-bold text-success">{item.unitPrice.toFixed(2)} €</td>
-                                    <td>{(item.quantity * item.unitPrice).toFixed(2)} €</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+              <h2 className="card-title">Añadir Item</h2>
+              
+              {/* Primera fila de inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Material</span></div>
+                  <select 
+                    className="select select-bordered"
+                    value={selectedMaterial}
+                    onChange={(e) => setSelectedMaterial(e.target.value)}
+                  >
+                    <option value="">Selecciona material</option>
+                    {uniqueMaterials.map(material => (
+                      <option key={material} value={material}>{material}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Espesor (mm)</span></div>
+                  <select 
+                    className="select select-bordered"
+                    value={selectedEspesor}
+                    onChange={(e) => setSelectedEspesor(e.target.value)}
+                    disabled={!selectedMaterial}
+                  >
+                    <option value="">Selecciona espesor</option>
+                    {availableEspesores.map(espesor => (
+                      <option key={espesor} value={espesor}>{espesor} mm</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Unidades</span></div>
+                  <input 
+                    type="number" 
+                    placeholder="Ej: 5" 
+                    className="input input-bordered"
+                    value={unidades}
+                    onChange={(e) => setUnidades(parseInt(e.target.value) || 1)}
+                  />
+                </label>
+              </div>
+
+              {/* Segunda fila de inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                 <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Ancho (mm)</span></div>
+                  <input 
+                    type="number" 
+                    placeholder="Ej: 1200" 
+                    className="input input-bordered"
+                    value={ancho}
+                    onChange={(e) => setAncho(parseInt(e.target.value) || 0)}
+                  />
+                </label>
+                <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Largo (mm)</span></div>
+                  <input 
+                    type="number" 
+                    placeholder="Ej: 2000" 
+                    className="input input-bordered"
+                    value={largo}
+                    onChange={(e) => setLargo(parseInt(e.target.value) || 0)}
+                  />
+                </label>
+              </div>
+
+              <div className="card-actions justify-end mt-4">
+                <button onClick={handleAddItem} className="btn btn-primary">
+                  <Plus className="w-4 h-4" /> Añadir Item al Cálculo
+                </button>
+              </div>
             </div>
+          </div>
+
+          {/* Card de Lista de Items */}
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h2 className="card-title">Items Agregados</h2>
+              <div className="overflow-x-auto">
+                <table className="table w-full table-zebra">
+                  <thead>
+                    <tr>
+                      <th>Descripción</th>
+                      <th className="text-center">Medidas (mm)</th>
+                      <th className="text-center">Unidades</th>
+                      <th className="text-right">P. Unitario</th>
+                      <th className="text-right">P. Total</th>
+                      <th className="text-right">Peso Total</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itemsAgregados.length === 0 && (
+                      <tr><td colSpan="7" className="text-center">Añade items para verlos aquí.</td></tr>
+                    )}
+                    {itemsAgregados.map(item => (
+                      <tr key={item.id} className="hover">
+                        <td className="font-medium">{item.descripcion}</td>
+                        <td className="text-center">{item.medidas}</td>
+                        <td className="text-center">{item.unidades}</td>
+                        <td className="text-right">{item.precioUnitario.toFixed(2)} €</td>
+                        <td className="text-right font-bold">{item.precioTotal.toFixed(2)} €</td>
+                        <td className="text-right">{item.pesoTotal.toFixed(2)} kg</td>
+                        <td className="text-center">
+                          <button onClick={() => handleRemoveItem(item.id)} className="btn btn-ghost btn-sm btn-circle">
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Columna Derecha (Resultados Totales) */}
+        <div className="lg:col-span-1 card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title mb-4">Total General</h2>
+            
+            <div className="stats stats-vertical shadow">
+              <TotalDisplay label="Precio Total General" value={`${totalesGenerales.totalPrecio.toFixed(2)} €`} unit="Sin IVA" />
+              <TotalDisplay label="Peso Total General" value={`${totalesGenerales.totalPeso.toFixed(2)} kg`} unit="Aproximado" />
+            </div>
+
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
