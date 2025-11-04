@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readData, writeData, updateData } from '../../../../utils/dataManager';
+import { readData, writeData, updateData } from '../../../utils/dataManager';
 import { v4 as uuidv4 } from 'uuid';
 
 const FILENAME = 'contenedores.json';

@@ -117,6 +117,8 @@ function ClientesPage() {
                             </button>
                         </div>
                     </form>
+                </div> {/* Cierre de div.card-body del formulario */}
+            </div> {/* Cierre de div.card del formulario */}
 
             {/* Tabla con el listado de clientes */}
             <div className="card bg-base-100 shadow-xl">
