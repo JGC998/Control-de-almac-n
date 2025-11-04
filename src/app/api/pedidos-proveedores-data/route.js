@@ -5,32 +5,93 @@ import { db } from '@/lib/db';
 export async function GET() {
   try {
     const pedidos = await db.pedidoProveedor.findMany({
-      include: { bobinas: true },
+      include: { 
+        bobinas: {
+          include: {
+            referencia: true // Incluir la referencia
+          }
+        },
+        proveedor: {
+          select: { nombre: true }
+        }
+      },
       orderBy: { fecha: 'desc' },
     });
-    return NextResponse.json(pedidos);
+
+    // Calcular el coste prorrateado on-the-fly para la vista previa
+    const pedidosConCoste = pedidos.map(pedido => {
+      // Si el pedido ya está recibido, el coste ya está guardado.
+      // Si está pendiente, lo calculamos para la vista previa.
+      if (pedido.estado === 'Pendiente') {
+        const tasaCambio = pedido.tasaCambio || 1;
+        const gastosTotales = pedido.gastosTotales || 0;
+        
+        const costeTotalBobinas = pedido.bobinas.reduce((acc, b) => acc + (b.precioMetro * (b.largo || 0)), 0);
+        const costeTotalDivisa = costeTotalBobinas + gastosTotales;
+        const costeTotalEuros = costeTotalDivisa * tasaCambio;
+        const totalMetros = pedido.bobinas.reduce((acc, b) => acc + (b.largo || 0), 0);
+
+        let costePorMetroProrrateado = 0;
+        if (totalMetros > 0) {
+          costePorMetroProrrateado = costeTotalEuros / totalMetros;
+        }
+
+        // Sobrescribir las bobinas con el coste calculado
+        const bobinasConCoste = pedido.bobinas.map(bobina => ({
+          ...bobina,
+          costoFinalMetro: costePorMetroProrrateado // Asignamos el coste calculado
+        }));
+        
+        return {
+          ...pedido,
+          bobinas: bobinasConCoste
+        };
+      }
+      return pedido;
+    });
+
+    return NextResponse.json(pedidosConCoste); // Devolver los pedidos modificados
+
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: 'Error al obtener pedidos a proveedores' }, { status: 500 });
   }
 }
 
-// POST /api/pedidos-proveedores-data
+// POST /api/pedidos-proveedores-data (Modificado para nueva lógica)
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { bobinas, ...pedidoData } = data;
+    const { 
+      bobinas, 
+      tipo, 
+      gastosTotales, 
+      tasaCambio, 
+      proveedorId, 
+      material,
+      notas 
+    } = data;
+
+    if (!proveedorId || !material || !bobinas || bobinas.length === 0) {
+      return NextResponse.json({ message: 'Faltan datos (proveedor, material o bobinas)' }, { status: 400 });
+    }
 
     const newPedidoProv = await db.pedidoProveedor.create({
       data: {
-        ...pedidoData,
+        proveedorId: proveedorId,
+        material: material,
+        tipo: tipo,
+        notas: notas,
+        gastosTotales: parseFloat(gastosTotales) || 0,
+        tasaCambio: parseFloat(tasaCambio) || 1,
         estado: 'Pendiente',
         bobinas: {
           create: bobinas.map(b => ({
-            precioMetro: parseFloat(b.precioMetro),
-            longitud: parseFloat(b.longitud),
-            ancho: parseFloat(b.ancho),
-            espesor: String(b.espesor),
+            referenciaId: b.referenciaId || null,
+            ancho: parseFloat(b.ancho) || null,
+            largo: parseFloat(b.largo) || null,
+            espesor: parseFloat(b.espesor) || null,
+            precioMetro: parseFloat(b.precioMetro) || 0,
           })),
         },
       },
