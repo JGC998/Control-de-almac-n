@@ -8,7 +8,8 @@ const fetcher = (url) => fetch(url).then((res) => res.json());
 export default function GestionProductos() {
   const [formData, setFormData] = useState({ 
     id: null, nombre: '', modelo: '', espesor: 0, largo: 0, ancho: 0, 
-    precioUnitario: 0, pesoUnitario: 0, fabricante: '', material: '' 
+    precioUnitario: 0, pesoUnitario: 0, fabricante: '', material: '',
+    clienteId: '', tieneTroquel: false // <-- NUEVOS CAMPOS
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState(null);
@@ -16,8 +17,9 @@ export default function GestionProductos() {
   const { data: productos, error: productosError, isLoading: productosLoading } = useSWR('/api/productos', fetcher);
   const { data: fabricantes, error: fabError, isLoading: fabLoading } = useSWR('/api/fabricantes', fetcher);
   const { data: materiales, error: matError, isLoading: matLoading } = useSWR('/api/materiales', fetcher);
+  const { data: clientes, error: cliError, isLoading: cliLoading } = useSWR('/api/clientes', fetcher); // <-- Cargar clientes
 
-  const isLoading = productosLoading || fabLoading || matLoading;
+  const isLoading = productosLoading || fabLoading || matLoading || cliLoading;
 
   const openModal = (producto = null) => {
     if (producto) {
@@ -25,13 +27,16 @@ export default function GestionProductos() {
         id: producto.id, nombre: producto.nombre, modelo: producto.modelo || '', 
         espesor: producto.espesor || 0, largo: producto.largo || 0, ancho: producto.ancho || 0, 
         precioUnitario: producto.precioUnitario || 0, pesoUnitario: producto.pesoUnitario || 0, 
-        fabricante: producto.fabricante?.nombre || '', // Asume que el GET trae el objeto
-        material: producto.material?.nombre || ''      // Asume que el GET trae el objeto
+        fabricante: producto.fabricante?.nombre || '',
+        material: producto.material?.nombre || '',
+        clienteId: producto.clienteId || '', // <-- NUEVO
+        tieneTroquel: producto.tieneTroquel || false // <-- NUEVO
       });
     } else {
       setFormData({ 
         id: null, nombre: '', modelo: '', espesor: 0, largo: 0, ancho: 0, 
-        precioUnitario: 0, pesoUnitario: 0, fabricante: '', material: '' 
+        precioUnitario: 0, pesoUnitario: 0, fabricante: '', material: '',
+        clienteId: '', tieneTroquel: false // <-- NUEVO
       });
     }
     setError(null);
@@ -43,13 +48,13 @@ export default function GestionProductos() {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const handleSelectChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    // Manejar checkbox
+    if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -67,6 +72,7 @@ export default function GestionProductos() {
       ancho: parseFloat(formData.ancho),
       precioUnitario: parseFloat(formData.precioUnitario),
       pesoUnitario: parseFloat(formData.pesoUnitario),
+      clienteId: formData.clienteId || null, // Enviar null si está vacío
     };
 
     try {
@@ -104,7 +110,7 @@ export default function GestionProductos() {
   };
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-  if (productosError || fabError || matError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
+  if (productosError || fabError || matError || cliError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
 
   return (
     <div className="container mx-auto p-4">
@@ -121,17 +127,19 @@ export default function GestionProductos() {
               <th>Nombre</th>
               <th>Fabricante</th>
               <th>Material</th>
-              <th>Precio Unit.</th>
+              <th>Cliente (Propietario)</th>
+              <th>Troquel</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {productos && productos.map((p) => (
+            {Array.isArray(productos) && productos.map((p) => (
               <tr key={p.id} className="hover">
                 <td className="font-bold">{p.nombre}</td>
                 <td>{p.fabricante?.nombre || 'N/A'}</td>
                 <td>{p.material?.nombre || 'N/A'}</td>
-                <td>{p.precioUnitario.toFixed(2)} €</td>
+                <td>{p.cliente?.nombre || '-'}</td> 
+                <td>{p.tieneTroquel ? 'Sí' : 'No'}</td>
                 <td className="flex gap-2">
                   <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info">
                     <Edit className="w-4 h-4" />
@@ -149,28 +157,42 @@ export default function GestionProductos() {
       {/* Modal para Crear/Editar Producto */}
       {isModalOpen && (
         <div className="modal modal-open">
-          <div className="modal-box w-11/12 max-w-2xl">
+          <div className="modal-box w-11/12 max-w-3xl">
             <h3 className="font-bold text-lg">{formData.id ? 'Editar Producto' : 'Nuevo Producto'}</h3>
             <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Nombre" className="input input-bordered w-full md:col-span-2" required />
               <input type="text" name="modelo" value={formData.modelo} onChange={handleChange} placeholder="Modelo" className="input input-bordered w-full" />
               
-              <select name="fabricante" value={formData.fabricante} onChange={handleSelectChange} className="select select-bordered w-full" required>
+              <select name="fabricante" value={formData.fabricante} onChange={handleChange} className="select select-bordered w-full" required>
                 <option value="">Selecciona Fabricante</option>
                 {fabricantes?.map(f => <option key={f.id} value={f.nombre}>{f.nombre}</option>)}
               </select>
               
-              <select name="material" value={formData.material} onChange={handleSelectChange} className="select select-bordered w-full" required>
+              <select name="material" value={formData.material} onChange={handleChange} className="select select-bordered w-full" required>
                 <option value="">Selecciona Material</option>
                 {materiales?.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
               </select>
-              
+
+              {/* Selector de Cliente (Propietario) */}
+              <select name="clienteId" value={formData.clienteId} onChange={handleChange} className="select select-bordered w-full">
+                <option value="">Plantilla general (sin cliente)</option>
+                {clientes?.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+
               <input type="number" step="0.01" name="precioUnitario" value={formData.precioUnitario} onChange={handleChange} placeholder="Precio Unitario" className="input input-bordered w-full" />
               <input type="number" step="0.01" name="pesoUnitario" value={formData.pesoUnitario} onChange={handleChange} placeholder="Peso Unitario" className="input input-bordered w-full" />
               <input type="number" step="0.01" name="espesor" value={formData.espesor} onChange={handleChange} placeholder="Espesor (mm)" className="input input-bordered w-full" />
               <input type="number" step="0.01" name="largo" value={formData.largo} onChange={handleChange} placeholder="Largo (m)" className="input input-bordered w-full" />
               <input type="number" step="0.01" name="ancho" value={formData.ancho} onChange={handleChange} placeholder="Ancho (m)" className="input input-bordered w-full" />
               
+              {/* Checkbox Troquel */}
+              <div className="form-control md:col-span-2">
+                <label className="label cursor-pointer">
+                  <span className="label-text">¿Existe un troquel para esta pieza?</span> 
+                  <input type="checkbox" name="tieneTroquel" checked={formData.tieneTroquel} onChange={handleChange} className="checkbox checkbox-primary" />
+                </label>
+              </div>
+
               {error && <p className="text-red-500 text-sm md:col-span-2">{error}</p>}
               
               <div className="modal-action md:col-span-2">

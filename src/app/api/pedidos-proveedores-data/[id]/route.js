@@ -41,6 +41,9 @@ export async function PUT(request, { params }) {
           notas: pedidoData.notas,
           gastosTotales: parseFloat(pedidoData.gastosTotales) || 0,
           tasaCambio: parseFloat(pedidoData.tasaCambio) || 1,
+          numeroContenedor: pedidoData.numeroContenedor, // <-- NUEVO
+          naviera: pedidoData.naviera, // <-- NUEVO
+          fechaLlegadaEstimada: pedidoData.fechaLlegadaEstimada ? new Date(pedidoData.fechaLlegadaEstimada) : null, // <-- NUEVO
         },
       });
 

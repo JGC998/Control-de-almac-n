@@ -17,6 +17,8 @@ export default function CreatePedidoForm() {
 
   const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
   const { data: plantillas, error: plantillasError } = useSWR('/api/plantillas', fetcher);
+  // Cargar configuración (para IVA)
+  const { data: config } = useSWR('/api/config', fetcher);
 
   const handleItemChange = (index, field, value) => {
     const newItems = [...items];
@@ -76,12 +78,14 @@ export default function CreatePedidoForm() {
 
   const calculateTotals = useCallback(() => {
     const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
-    const tax = subtotal * 0.21; // TODO: Cargar IVA desde DB
+    // Usar IVA de la config, con fallback a 0.21
+    const ivaRate = config?.iva_rate ? parseFloat(config.iva_rate) : 0.21;
+    const tax = subtotal * ivaRate;
     const total = subtotal + tax;
-    return { subtotal, tax, total };
-  }, [items]);
+    return { subtotal, tax, total, ivaRate };
+  }, [items, config]);
 
-  const { subtotal, tax, total } = calculateTotals();
+  const { subtotal, tax, total, ivaRate } = calculateTotals();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -221,7 +225,7 @@ export default function CreatePedidoForm() {
             <h2 className="card-title">Resumen</h2>
             <div className="space-y-2">
               <div className="flex justify-between"><span>Subtotal</span> <span>{subtotal.toFixed(2)} €</span></div>
-              <div className="flex justify-between"><span>IVA (21%)</span> <span>{tax.toFixed(2)} €</span></div>
+              <div className="flex justify-between"><span>IVA (${(ivaRate * 100).toFixed(0)}%)</span> <span>{tax.toFixed(2)} €</span></div>
               <div className="flex justify-between font-bold text-lg"><span>Total</span> <span>{total.toFixed(2)} €</span></div>
             </div>
           </div>
@@ -239,101 +243,3 @@ export default function CreatePedidoForm() {
     </form>
   );
 }
-EOF_PEDIDO_FORM'
-
-# --- 2. Crear la nueva página 'src/app/pedidos/nuevo/page.js' ---
-echo "Creando: src/app/pedidos/nuevo/page.js"
-mkdir -p src/app/pedidos/nuevo # Crea el directorio si no existe
-cat <<'EOF_PEDIDO_NUEVO_PAGE' > src/app/pedidos/nuevo/page.js
-"use client";
-import CreatePedidoForm from "@/components/CreatePedidoForm";
-import { PackagePlus } from "lucide-react";
-
-export default function NuevoPedidoPage() {
-  return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 flex items-center">
-        <PackagePlus className="mr-2" />
-        Crear Nuevo Pedido
-      </h1>
-      <CreatePedidoForm />
-    </div>
-  );
-}
-EOF_PEDIDO_NUEVO_PAGE'
-
-# --- 3. Modificar 'src/app/pedidos/page.js' para añadir el botón ---
-echo "Modificando: src/app/pedidos/page.js"
-cat <<'EOF_PEDIDOS_PAGE_MOD' > src/app/pedidos/page.js
-"use client";
-import React from 'react';
-import useSWR from 'swr';
-import Link from 'next/link';
-import { Package, Search, PlusCircle } from 'lucide-react'; // Añadido PlusCircle
-
-const fetcher = (url) => fetch(url).then((res) => res.json());
-
-export default function PedidosPage() {
-  const { data: pedidos, error, isLoading } = useSWR('/api/pedidos', fetcher);
-
-  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-  if (error) return <div className="text-red-500 text-center">Error al cargar los pedidos.</div>;
-
-  return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold flex items-center"><Package className="mr-2" /> Pedidos</h1>
-        {/* --- AÑADIDO EL BOTÓN 'NUEVO PEDIDO' --- */}
-        <Link href="/pedidos/nuevo" className="btn btn-primary">
-          <PlusCircle className="w-4 h-4" /> Nuevo Pedido
-        </Link>
-      </div>
-      
-      <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
-        <table className="table w-full">
-          <thead>
-            <tr>
-              <th>Número</th>
-              <th>Cliente</th>
-              <th>Fecha</th>
-              <th>Total</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pedidos && pedidos.map((order) => (
-              <tr key={order.id} className="hover">
-                <td>
-                  <Link href={`/pedidos/${order.id}`} className="link link-primary font-bold">
-                    {order.numero}
-                  </Link>
-                </td>
-                <td>{order.cliente?.nombre || 'N/A'}</td>
-                <td>{new Date(order.fechaCreacion).toLocaleDateString()}</td>
-                <td>{order.total.toFixed(2)} €</td>
-                <td>
-                  <span className={`badge ${order.estado === 'Completado' ? 'badge-success' : (order.estado === 'Enviado' ? 'badge-info' : 'badge-warning')}`}>
-                    {order.estado}
-                  </span>
-                </td>
-                <td>
-                  <Link href={`/pedidos/${order.id}`} className="btn btn-sm btn-outline">
-                    Ver <Search className="w-4 h-4" />
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-EOF_PEDIDOS_PAGE_MOD'
-
-echo "--- ¡Flujo de 'Nuevo Pedido' añadido! ---"
-echo "He corregido el icono 'Calculator' en el formulario de pedido."
-echo "Reinicia 'npm run dev' si es necesario y prueba a crear un pedido."
-
-

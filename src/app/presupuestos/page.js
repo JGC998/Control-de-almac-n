@@ -1,16 +1,21 @@
-"use client";
 import React from 'react';
-import useSWR from 'swr';
 import Link from 'next/link';
 import { PlusCircle, FileText, Search } from 'lucide-react';
+import { db } from '@/lib/db'; // Importar DB
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
-
-export default function PresupuestosPage() {
-  const { data: presupuestos, error, isLoading } = useSWR('/api/presupuestos', fetcher);
-
-  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-  if (error) return <div className="text-red-500 text-center">Error al cargar los presupuestos.</div>;
+// Convertido a React Server Component (RSC)
+// Se elimina "use client", useSWR, isLoading, error
+export default async function PresupuestosPage() {
+  
+  // Obtenemos datos directamente en el servidor
+  const presupuestos = await db.presupuesto.findMany({
+    include: {
+      cliente: {
+        select: { nombre: true },
+      },
+    },
+    orderBy: { fechaCreacion: 'desc' },
+  });
 
   return (
     <div className="container mx-auto p-4">
@@ -20,8 +25,6 @@ export default function PresupuestosPage() {
           <PlusCircle className="w-4 h-4" /> Nuevo Presupuesto
         </Link>
       </div>
-
-      {/* TODO: Añadir filtro por cliente o estado */}
       
       <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
         <table className="table w-full">
@@ -58,6 +61,11 @@ export default function PresupuestosPage() {
                 </td>
               </tr>
             ))}
+            {presupuestos.length === 0 && (
+              <tr>
+                <td colSpan="6" className="text-center">No hay presupuestos creados.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -69,7 +69,10 @@ export async function POST(request) {
       tasaCambio, 
       proveedorId, 
       material,
-      notas 
+      notas,
+      numeroContenedor, // <-- NUEVO
+      naviera, // <-- NUEVO
+      fechaLlegadaEstimada // <-- NUEVO
     } = data;
 
     if (!proveedorId || !material || !bobinas || bobinas.length === 0) {
@@ -85,6 +88,9 @@ export async function POST(request) {
         gastosTotales: parseFloat(gastosTotales) || 0,
         tasaCambio: parseFloat(tasaCambio) || 1,
         estado: 'Pendiente',
+        numeroContenedor: numeroContenedor,
+        naviera: naviera,
+        fechaLlegadaEstimada: fechaLlegadaEstimada ? new Date(fechaLlegadaEstimada) : null,
         bobinas: {
           create: bobinas.map(b => ({
             referenciaId: b.referenciaId || null,

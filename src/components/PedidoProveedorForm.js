@@ -3,6 +3,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2, Save, UserPlus } from 'lucide-react';
+import "react-day-picker/style.css"; // Importar estilos para el calendario
+import { DayPicker } from "react-day-picker";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -66,6 +70,9 @@ const defaultFormState = {
   tasaCambio: 1,
   gastosTotales: 0,
   bobinas: [],
+  numeroContenedor: '', // <-- NUEVO
+  naviera: '', // <-- NUEVO
+  fechaLlegadaEstimada: null, // <-- NUEVO
 };
 
 // --- Componente Principal del Formulario ---
@@ -75,36 +82,30 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  const [formData, setFormData] = useState(
-    initialData ? 
-    {
-      proveedorId: initialData.proveedorId,
-      material: initialData.material,
-      notas: initialData.notas || '',
-      tasaCambio: initialData.tasaCambio || 1,
-      gastosTotales: initialData.gastosTotales || 0,
-      bobinas: initialData.bobinas.map(b => ({
+  // Convertir fecha de string (ISO) a objeto Date para el DayPicker
+  const parseInitialData = (data) => {
+    if (!data) return { ...defaultFormState, tipo: tipo };
+    return {
+      proveedorId: data.proveedorId,
+      material: data.material,
+      notas: data.notas || '',
+      tasaCambio: data.tasaCambio || 1,
+      gastosTotales: data.gastosTotales || 0,
+      numeroContenedor: data.numeroContenedor || '',
+      naviera: data.naviera || '',
+      fechaLlegadaEstimada: data.fechaLlegadaEstimada ? new Date(data.fechaLlegadaEstimada) : null,
+      bobinas: data.bobinas.map(b => ({
         ...b,
-        referenciaId: b.referenciaId || '', // Asegurar que sea string vacío
+        referenciaId: b.referenciaId || '',
       })) || [],
-    } : 
-    { ...defaultFormState, tipo: tipo }
-  );
+    };
+  };
 
+  const [formData, setFormData] = useState(parseInitialData(initialData));
+
+  // Sincronizar si initialData cambia
   useEffect(() => {
-    if (initialData) {
-      setFormData({
-        proveedorId: initialData.proveedorId,
-        material: initialData.material,
-        notas: initialData.notas || '',
-        tasaCambio: initialData.tasaCambio || 1,
-        gastosTotales: initialData.gastosTotales || 0,
-        bobinas: initialData.bobinas.map(b => ({
-          ...b,
-          referenciaId: b.referenciaId || '',
-        })) || [],
-      });
-    }
+    setFormData(parseInitialData(initialData));
   }, [initialData]);
 
   // --- Carga de datos para Selectores ---
@@ -118,7 +119,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     if (!tarifas || !formData.material) return [];
     const espesores = tarifas
       .filter(t => t.material === formData.material)
-      .map(t => t.espesor); // Son strings, ej "10", "15"
+      .map(t => t.espesor); 
     return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
   }, [tarifas, formData.material]);
 
@@ -158,6 +159,8 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       // Convertir campos numéricos
       gastosTotales: parseFloat(formData.gastosTotales) || 0,
       tasaCambio: parseFloat(formData.tasaCambio) || 1,
+      // Convertir fecha a ISO si existe
+      fechaLlegadaEstimada: formData.fechaLlegadaEstimada ? formData.fechaLlegadaEstimada.toISOString() : null,
       bobinas: formData.bobinas.map(b => ({
         ...b,
         referenciaId: b.referenciaId || null,
@@ -238,6 +241,65 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
               </label>
             </div>
             
+            {/* --- CAMPOS DE IMPORTACIÓN --- */}
+            {tipo === 'IMPORTACION' && (
+              <div className="p-4 border border-base-300 rounded-lg mt-4">
+                <h3 className="font-bold mb-2">Datos de Importación</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <label className="form-control w-full">
+                    <div className="label"><span className="label-text">Nº Contenedor</span></div>
+                    <input 
+                      type="text" 
+                      name="numeroContenedor" 
+                      value={formData.numeroContenedor} 
+                      onChange={handleFormChange} 
+                      className="input input-bordered w-full" 
+                      placeholder="YMLU3456940"
+                    />
+                  </label>
+                  <label className="form-control w-full">
+                    <div className="label"><span className="label-text">Naviera</span></div>
+                    <select 
+                      name="naviera"
+                      value={formData.naviera}
+                      onChange={handleFormChange}
+                      className="select select-bordered w-full" 
+                    >
+                      <option value="">Selecciona naviera</option>
+                      <option value="Yang Ming">Yang Ming</option>
+                      <option value="MSC">MSC</option>
+                      <option value="Maersk">Maersk</option>
+                      <option value="CMA CGM">CMA CGM</option>
+                      <option value="Otra">Otra</option>
+                    </select>
+                  </label>
+                  
+                  <label className="form-control w-full">
+                    <div className="label"><span className="label-text">Fecha Llegada (ETA)</span></div>
+                    <div className="dropdown">
+                      <input 
+                        type="text" 
+                        readOnly
+                        value={formData.fechaLlegadaEstimada ? format(formData.fechaLlegadaEstimada, 'P', { locale: es }) : ''}
+                        placeholder="Selecciona fecha"
+                        className="input input-bordered w-full" 
+                        tabIndex={0}
+                      />
+                      <div className="dropdown-content bg-base-100 p-2 shadow rounded-lg z-10">
+                        <DayPicker
+                          mode="single"
+                          selected={formData.fechaLlegadaEstimada}
+                          onSelect={(date) => setFormData(prev => ({ ...prev, fechaLlegadaEstimada: date }))}
+                          locale={es}
+                        />
+                      </div>
+                    </div>
+                  </label>
+
+                </div>
+              </div>
+            )}
+            
             {/* Campos de Costes y Notas */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
              <label className="form-control w-full">
@@ -265,7 +327,6 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
               </label>
             )}
             </div>
-            {/* Campo de Notas */}
             <label className="form-control w-full mt-4">
               <div className="label"><span className="label-text">Notas del Pedido</span></div>
               <textarea
@@ -308,7 +369,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                     <tr key={index}>
                       <td>
                         <select 
-                          value={bobina.referenciaId} 
+                          value={bobina.referenciaId || ''} 
                           onChange={(e) => handleBobinaChange(index, 'referenciaId', e.target.value)} 
                           className="select select-bordered select-sm w-full"
                         >
@@ -327,7 +388,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                           disabled={!formData.material}
                         >
                           <option value="">Espesor</option>
-                          {availableEspesores.map(e => <option key={e} value={e}>{e} mm</option>)}
+                          {availableEspesores.map(e => <option key={e} value={parseFloat(e)}>{e} mm</option>)}
                         </select>
                       </td>
                       <td><input type="number" step="0.01" value={bobina.precioMetro} onChange={(e) => handleBobinaChange(index, 'precioMetro', e.target.value)} className="input input-bordered input-sm w-28" /></td>

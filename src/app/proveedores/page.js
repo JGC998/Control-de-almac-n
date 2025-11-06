@@ -1,10 +1,24 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit } from 'lucide-react';
+import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit, Anchor } from 'lucide-react';
 import Link from 'next/link'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
+
+// Mapa de URLs de seguimiento
+const trackingUrls = {
+  "Yang Ming": "https://www.yangming.com/en/esolution/cargo_tracking?service=",
+  "MSC": "https://www.msc.com/en/track-a-shipment?trackingNumber=",
+  "Maersk": "https://www.maersk.com/tracking/",
+  "CMA CGM": "https://www.cma-cgm.com/ebusiness/tracking/search?searchBy=Container&searchValue=",
+};
+
+const getTrackingUrl = (naviera, contenedor) => {
+  if (!naviera || !contenedor) return null;
+  const baseUrl = trackingUrls[naviera];
+  return baseUrl ? `${baseUrl}${contenedor}` : null;
+};
 
 export default function ProveedoresPage() {
   const [activeTab, setActiveTab] = useState('NACIONAL');
@@ -67,69 +81,86 @@ export default function ProveedoresPage() {
           {pedidosFiltrados.length === 0 && (
             <p className="text-center text-gray-500 py-8">No hay pedidos de este tipo.</p>
           )}
-          {pedidosFiltrados.map(pedido => (
-            <div key={pedido.id} className="card bg-base-200 shadow-md">
-              <div className="card-body">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h2 className="card-title">{pedido.proveedor?.nombre || 'Proveedor N/A'} - {pedido.material}</h2>
-                    <p>Fecha: {new Date(pedido.fecha).toLocaleDateString()}</p>
-                    <span className={`badge ${pedido.estado === 'Recibido' ? 'badge-success' : 'badge-warning'}`}>{pedido.estado}</span>
+          {pedidosFiltrados.map(pedido => {
+            const trackingUrl = getTrackingUrl(pedido.naviera, pedido.numeroContenedor);
+            return (
+              <div key={pedido.id} className="card bg-base-200 shadow-md">
+                <div className="card-body">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h2 className="card-title">{pedido.proveedor?.nombre || 'Proveedor N/A'} - {pedido.material}</h2>
+                      <p>Fecha Pedido: {new Date(pedido.fecha).toLocaleDateString()}</p>
+                      {/* Mostrar ETA si existe */}
+                      {pedido.fechaLlegadaEstimada && (
+                        <p className="font-bold">
+                          ETA: {new Date(pedido.fechaLlegadaEstimada).toLocaleDateString()}
+                        </p>
+                      )}
+                      <span className={`badge ${pedido.estado === 'Recibido' ? 'badge-success' : 'badge-warning'}`}>{pedido.estado}</span>
+                      {pedido.numeroContenedor && (
+                         <span className="badge badge-outline ml-2">{pedido.numeroContenedor} ({pedido.naviera})</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Botón de Rastreo */}
+                      {trackingUrl && pedido.estado === 'Pendiente' && (
+                        <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary btn-outline">
+                          <Anchor className="w-4 h-4" /> Rastrear
+                        </a>
+                      )}
+                      {pedido.estado === 'Pendiente' && (
+                        <>
+                          <Link href={`/proveedores/${pedido.id}/editar`} className="btn btn-sm btn-info btn-outline">
+                            <Edit className="w-4 h-4" /> Editar
+                          </Link>
+                          <button onClick={() => handleReceiveOrder(pedido.id)} className="btn btn-sm btn-success">
+                            <CheckSquare className="w-4 h-4" /> Marcar como Recibido
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    {pedido.estado === 'Pendiente' && (
-                      <>
-                        <Link href={`/proveedores/${pedido.id}/editar`} className="btn btn-sm btn-info btn-outline">
-                          <Edit className="w-4 h-4" /> Editar
-                        </Link>
-                        <button onClick={() => handleReceiveOrder(pedido.id)} className="btn btn-sm btn-success">
-                          <CheckSquare className="w-4 h-4" /> Marcar como Recibido
-                        </button>
-                      </>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mt-2">
+                    <span><strong>Gastos Totales:</strong> {pedido.gastosTotales} {pedido.tipo === 'IMPORTACION' ? '$' : '€'}</span>
+                    {pedido.tipo === 'IMPORTACION' && (
+                      <span><strong>Tasa Cambio:</strong> {pedido.tasaCambio}</span>
                     )}
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mt-2">
-                  <span><strong>Gastos Totales:</strong> {pedido.gastosTotales} {pedido.tipo === 'IMPORTACION' ? '$' : '€'}</span>
-                  {pedido.tipo === 'IMPORTACION' && (
-                    <span><strong>Tasa Cambio:</strong> {pedido.tasaCambio}</span>
+                  {pedido.notas && (
+                    <div className="text-sm mt-2 p-2 bg-base-100 rounded">
+                      <strong>Notas:</strong> {pedido.notas}
+                    </div>
                   )}
-                </div>
-                {/* --- AÑADIDO: Mostrar Notas --- */}
-                {pedido.notas && (
-                  <div className="text-sm mt-2 p-2 bg-base-100 rounded">
-                    <strong>Notas:</strong> {pedido.notas}
-                  </div>
-                )}
-                
-                <div className="overflow-x-auto mt-4">
-                  <table className="table table-sm w-full">
-                    <thead>
-                      <tr>
-                        <th>Referencia</th>
-                        <th>Medidas (Ancho x Largo)</th>
-                        <th>Espesor (mm)</th>
-                        <th>Precio/m ({pedido.tipo === 'IMPORTACION' ? '$' : '€'})</th>
-                        <th>Coste Final/m (€)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pedido.bobinas.map(bobina => (
-                        <tr key={bobina.id}>
-                          <td>{bobina.referencia?.nombre || 'N/A'}</td>
-                          <td>{bobina.ancho} mm x {bobina.largo} m</td>
-                          <td>{bobina.espesor}</td>
-                          <td>{bobina.precioMetro.toFixed(2)}</td>
-                          <td className="font-bold">{bobina.costoFinalMetro?.toFixed(2) || 'N/A'} €</td>
+                  
+                  <div className="overflow-x-auto mt-4">
+                    <table className="table table-sm w-full">
+                      <thead>
+                        <tr>
+                          <th>Referencia</th>
+                          <th>Medidas (Ancho x Largo)</th>
+                          <th>Espesor (mm)</th>
+                          <th>Precio/m ({pedido.tipo === 'IMPORTACION' ? '$' : '€'})</th>
+                          <th>Coste Final/m (€)</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {pedido.bobinas.map(bobina => (
+                          <tr key={bobina.id}>
+                            <td>{bobina.referencia?.nombre || 'N/A'}</td>
+                            <td>{bobina.ancho} mm x {bobina.largo} m</td>
+                            <td>{bobina.espesor}</td>
+                            <td>{bobina.precioMetro.toFixed(2)}</td>
+                            <td className="font-bold">{bobina.costoFinalMetro?.toFixed(2) || 'N/A'} €</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

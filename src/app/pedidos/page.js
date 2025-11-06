@@ -1,22 +1,29 @@
-"use client";
 import React from 'react';
-import useSWR from 'swr';
 import Link from 'next/link';
-import { Package, Search } from 'lucide-react';
+import { Package, Search, PlusCircle } from 'lucide-react'; // Importar PlusCircle
+import { db } from '@/lib/db'; // Importar DB
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
-
-export default function PedidosPage() {
-  const { data: pedidos, error, isLoading } = useSWR('/api/pedidos', fetcher);
-
-  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-  if (error) return <div className="text-red-500 text-center">Error al cargar los pedidos.</div>;
+// Convertido a React Server Component (RSC)
+export default async function PedidosPage() {
+  
+  // Obtenemos datos directamente en el servidor
+  const pedidos = await db.pedido.findMany({
+    include: {
+      cliente: {
+        select: { nombre: true },
+      },
+    },
+    orderBy: { fechaCreacion: 'desc' },
+  });
 
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold flex items-center"><Package className="mr-2" /> Pedidos</h1>
-        {/* Los pedidos se crean desde presupuestos, por lo que no hay botón "Nuevo" */}
+        {/* Enlace a la página de nuevo pedido (creada en un script anterior) */}
+        <Link href="/pedidos/nuevo" className="btn btn-primary">
+          <PlusCircle className="w-4 h-4" /> Nuevo Pedido
+        </Link>
       </div>
       
       <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
@@ -43,7 +50,7 @@ export default function PedidosPage() {
                 <td>{new Date(order.fechaCreacion).toLocaleDateString()}</td>
                 <td>{order.total.toFixed(2)} €</td>
                 <td>
-                  <span className={`badge ${order.estado === 'Completado' ? 'badge-success' : 'badge-warning'}`}>
+                  <span className={`badge ${order.estado === 'Completado' ? 'badge-success' : (order.estado === 'Enviado' ? 'badge-info' : 'badge-warning')}`}>
                     {order.estado}
                   </span>
                 </td>
@@ -54,6 +61,11 @@ export default function PedidosPage() {
                 </td>
               </tr>
             ))}
+            {pedidos.length === 0 && (
+              <tr>
+                <td colSpan="6" className="text-center">No hay pedidos creados.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

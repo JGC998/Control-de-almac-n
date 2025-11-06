@@ -17,6 +17,8 @@ export default function CreatePresupuestoForm({ initialData = null }) {
   // Cargar datos necesarios para los selectores
   const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
   const { data: plantillas, error: plantillasError } = useSWR('/api/plantillas', fetcher); // plantillas es alias de productos
+  // Cargar configuración (para IVA)
+  const { data: config } = useSWR('/api/config', fetcher);
 
   // Sincronizar estado si initialData cambia (para la página de edición)
   useEffect(() => {
@@ -85,18 +87,21 @@ export default function CreatePresupuestoForm({ initialData = null }) {
 
   const calculateTotals = useCallback(() => {
     const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
-    const tax = subtotal * 0.21; // TODO: Cargar IVA desde DB
+    // Usar IVA de la config, con fallback a 0.21
+    const ivaRate = config?.iva_rate ? parseFloat(config.iva_rate) : 0.21;
+    const tax = subtotal * ivaRate;
     const total = subtotal + tax;
-    return { subtotal, tax, total };
-  }, [items]);
+    return { subtotal, tax, total, ivaRate };
+  }, [items, config]);
 
-  const { subtotal, tax, total } = calculateTotals();
+  const { subtotal, tax, total, ivaRate } = calculateTotals();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
+    // Recalculamos por si acaso
     const { subtotal, tax, total } = calculateTotals();
     const quoteData = {
       clienteId,
@@ -236,7 +241,7 @@ export default function CreatePresupuestoForm({ initialData = null }) {
             <h2 className="card-title">Resumen</h2>
             <div className="space-y-2">
               <div className="flex justify-between"><span>Subtotal</span> <span>{subtotal.toFixed(2)} €</span></div>
-              <div className="flex justify-between"><span>IVA (21%)</span> <span>{tax.toFixed(2)} €</span></div>
+              <div className="flex justify-between"><span>IVA (${(ivaRate * 100).toFixed(0)}%)</span> <span>{tax.toFixed(2)} €</span></div>
               <div className="flex justify-between font-bold text-lg"><span>Total</span> <span>{total.toFixed(2)} €</span></div>
             </div>
           </div>

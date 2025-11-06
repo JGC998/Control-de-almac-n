@@ -2,13 +2,23 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
 // GET /api/productos - Obtiene todos los productos
-export async function GET() {
+// AÑADIDO: Soporte para ?clienteId=...
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const clienteId = searchParams.get('clienteId');
+
+    const whereClause = {};
+    if (clienteId) {
+      whereClause.clienteId = clienteId;
+    }
+
     const productos = await db.producto.findMany({
-      // "include" hace un JOIN para traer los nombres del fabricante y material
+      where: whereClause,
       include: {
         fabricante: true,
         material: true,
+        cliente: true, // <-- Incluir datos del cliente
       },
       orderBy: { nombre: 'asc' },
     });
@@ -24,9 +34,6 @@ export async function POST(request) {
   try {
     const data = await request.json();
     
-    // El frontend (gestion/productos/page.js) nos envía nombres,
-    // pero la BD necesita los IDs de las relaciones.
-    // Los buscamos primero.
     const fabricante = await db.fabricante.findUnique({
       where: { nombre: data.fabricante },
     });
@@ -50,8 +57,10 @@ export async function POST(request) {
         ancho: data.ancho,
         precioUnitario: data.precioUnitario,
         pesoUnitario: data.pesoUnitario,
-        fabricanteId: fabricante.id, // Usamos el ID encontrado
-        materialId: material.id,     // Usamos el ID encontrado
+        fabricanteId: fabricante.id,
+        materialId: material.id,
+        clienteId: data.clienteId || null, // <-- NUEVO
+        tieneTroquel: data.tieneTroquel || false, // <-- NUEVO
       },
     });
 
