@@ -1,100 +1,78 @@
-'use client';
+"use client";
+import { History, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-import { useState, useMemo } from 'react';
-import { FaArrowUp, FaArrowDown, FaSort } from 'react-icons/fa';
-
-const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString('es-ES', options);
-};
-
-const useSortableData = (items, config = null) => {
-  const [sortConfig, setSortConfig] = useState(config);
-
-  const sortedItems = useMemo(() => {
-    let sortableItems = [...items];
-    if (sortConfig !== null) {
-      sortableItems.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
-      });
+const getTipoBadge = (tipo) => {
+    switch (tipo) {
+        case 'Entrada':
+        case 'Entrada Manual':
+            return 'badge-success';
+        case 'Salida':
+            return 'badge-error';
+        default:
+            return 'badge-info';
     }
-    return sortableItems;
-  }, [items, sortConfig]);
-
-  const requestSort = (key) => {
-    let direction = 'ascending';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  return { items: sortedItems, requestSort, sortConfig };
 };
 
-const SortableHeader = ({ name, sortKey, requestSort, sortConfig }) => {
-    const isSorted = sortConfig && sortConfig.key === sortKey;
-    const directionIcon = isSorted ? (
-        sortConfig.direction === 'ascending' ? <FaArrowUp className="inline ml-1"/> : <FaArrowDown className="inline ml-1"/>
-    ) : <FaSort className="inline ml-1 text-gray-400"/>;
-
-    return (
-        <th onClick={() => requestSort(sortKey)} className="cursor-pointer">
-            {name} {directionIcon}
-        </th>
-    );
-};
-
-export default function MovimientosRecientesTable({ movimientos }) {
-    const [filter, setFilter] = useState('');
-    const { items, requestSort, sortConfig } = useSortableData(movimientos);
-
-    const filteredItems = useMemo(() => {
-        if (!filter) return items;
-        return items.filter(item => 
-            Object.values(item).some(value => 
-                String(value).toLowerCase().includes(filter.toLowerCase())
-            )
-        );
-    }, [items, filter]);
-
-    return (
-        <div className="overflow-x-auto">
-            <div className="form-control mb-4">
-                <input 
-                    type="text"
-                    placeholder="Buscar en movimientos..."
-                    className="input input-bordered w-full"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                />
+export default function MovimientosRecientesTable({ data }) {
+    if (!data || data.length === 0) {
+        return (
+            <div className="card bg-base-100 shadow-xl h-full">
+                <div className="card-body p-6">
+                    <h2 className="card-title text-xl flex items-center mb-4">
+                        <History className="w-6 h-6 mr-2 text-primary" /> Historial de Movimientos
+                    </h2>
+                    <p className="text-gray-500">No se encontraron movimientos recientes.</p>
+                </div>
             </div>
-            <table className="table table-sm">
-                <thead>
-                    <tr>
-                        <SortableHeader name="Tipo" sortKey="tipo" requestSort={requestSort} sortConfig={sortConfig} />
-                        <SortableHeader name="Material" sortKey="material" requestSort={requestSort} sortConfig={sortConfig} />
-                        <SortableHeader name="Cantidad" sortKey="cantidad" requestSort={requestSort} sortConfig={sortConfig} />
-                        <SortableHeader name="Fecha" sortKey="fecha" requestSort={requestSort} sortConfig={sortConfig} />
-                    </tr>
-                </thead>
-                <tbody>
-                    {filteredItems.map(mov => (
-                        <tr key={mov.id} className="hover">
-                            <td><span className={`badge ${mov.tipo === 'Entrada' ? 'badge-success' : 'badge-error'} badge-sm`}>{mov.tipo}</span></td>
-                            <td>{mov.stock_id}</td>
-                            <td className="text-right font-mono">{mov.cantidad}</td>
-                            <td>{formatDate(mov.fecha)}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+        );
+    }
+
+    return (
+        <div className="card bg-base-100 shadow-xl h-full">
+            <div className="card-body p-6">
+                <h2 className="card-title text-xl flex items-center mb-4">
+                    <History className="w-6 h-6 mr-2 text-primary" /> Movimientos Recientes
+                </h2>
+                
+                <div className="overflow-x-auto">
+                    <table className="table w-full">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Material</th>
+                                <th>Cantidad (m)</th>
+                                <th>Referencia</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {data.map((movimiento) => (
+                                <tr key={movimiento.id}>
+                                    <td>
+                                        <div className={`badge ${getTipoBadge(movimiento.tipo)} badge-outline`}>
+                                            {movimiento.tipo}
+                                        </div>
+                                    </td>
+                                    <td className="font-medium">{movimiento.materialNombre || 'N/A'}</td>
+                                    <td className="font-semibold text-right">
+                                        {movimiento.tipo.includes('Entrada') ? '+' : '-'}
+                                        {movimiento.cantidad?.toFixed(2)}
+                                    </td>
+                                    <td className="text-sm text-gray-500">{movimiento.referencia || 'N/A'}</td>
+                                    <td>
+                                        {format(new Date(movimiento.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="card-actions justify-end mt-4">
+                    <a href="/almacen" className="btn btn-sm btn-outline">Ver todos</a>
+                </div>
+            </div>
         </div>
     );
 }

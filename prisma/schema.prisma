@@ -19,27 +19,42 @@ model Cliente {
   pedidos      Pedido[]
   presupuestos Presupuesto[]
   precios      PrecioEspecial[]
+  
+  // CORREGIDO: Añadir la relación inversa a Producto
+  productos    Producto[] 
 }
 
 model Producto {
   id             String @id @default(uuid())
   nombre         String
-  modelo         String?
+  
+  referenciaFabricante String? @map("referencia_fab")
   espesor        Float?
-  largo          Float?
-  ancho          Float?
+  largo          Float? 
+  ancho          Float? 
+  
   precioUnitario Float
   pesoUnitario   Float
-  costo          Float?
-  categoria      String?
+  costoUnitario  Float? @map("costo") 
+  
+  tieneTroquel   Boolean? @default(false)
+  
+  // RELACIONES
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+  clienteId String? // Fabricante/Cliente propietario del diseño
 
   fabricante   Fabricante? @relation(fields: [fabricanteId], references: [id])
   fabricanteId String?
+  
   material     Material?   @relation(fields: [materialId], references: [id])
   materialId   String?
+  
+  // Otros
   itemsPedido PedidoItem[]
   itemsPresup PresupuestoItem[]
   precios     PrecioEspecial[]
+  
+  @@map("Producto")
 }
 
 model Fabricante {
@@ -68,7 +83,7 @@ model Pedido {
   clienteId String?
 
   presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id])
-  presupuestoId String?      @unique
+  presupuestoId String? @unique
 
   items PedidoItem[]
 }
@@ -117,7 +132,7 @@ model PresupuestoItem {
   productoId String?
 }
 
-// --- MODELOS DE ALMACÉN Y PROVEEDORES (MODIFICADOS) ---
+// --- MODELOS DE ALMACÉN Y PROVEEDORES ---
 
 model Proveedor {
   id        String   @id @default(uuid())
@@ -160,6 +175,10 @@ model PedidoProveedor {
   tipo      String   // "NACIONAL" | "IMPORTACION"
   notas     String?
   
+  numeroContenedor String?
+  naviera          String?
+  fechaLlegadaEstimada DateTime?
+
   tasaCambio    Float? @default(1)
   gastosTotales Float? @default(0)
 
@@ -175,7 +194,8 @@ model BobinaPedido {
   largo           Float?
   espesor         Float?
   precioMetro     Float
-  
+  color           String?
+
   costoFinalMetro Float?
   
   referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
@@ -190,7 +210,7 @@ model BobinaPedido {
 model TarifaMaterial {
   id       String @id @default(uuid())
   material String
-  espesor  Float  // <-- CAMBIADO DE STRING A FLOAT
+  espesor  Float  
   precio   Float
   peso     Float
   @@unique([material, espesor])
@@ -198,10 +218,14 @@ model TarifaMaterial {
 
 model ReferenciaBobina {
   id           String @id @default(uuid())
-  nombre       String @unique
-  descripcion  String?
+  referencia   String @unique @map("nombre")
+  ancho        Float?
+  lonas        Int?
+  pesoPorMetroLineal Float?
 
   bobinas BobinaPedido[]
+  
+  @@map("ReferenciaBobina")
 }
 
 model ReglaMargen {

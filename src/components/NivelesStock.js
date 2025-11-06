@@ -1,80 +1,84 @@
 "use client";
-import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, TrendingDown, Minus } from 'lucide-react';
 
-// Este componente ahora espera 'stockData' como prop,
-// que es un array de items de la tabla 'Stock'.
-export default function NivelesStock({ stockData }) {
+export default function NivelesStock({ data }) {
   
-  // Añadimos una comprobación para evitar el crash si stockData es undefined
-  if (!stockData || stockData.length === 0) {
+  if (!data || data.length === 0) {
     return (
       <div className="card bg-base-100 shadow-xl h-full">
-        <div className="card-body">
-          <h2 className="card-title text-accent">Niveles de Stock</h2>
-          <p>No hay datos de stock disponibles.</p>
+        <div className="card-body p-6">
+          <h2 className="card-title text-xl flex items-center mb-4">
+            <Package className="w-6 h-6 mr-2 text-primary" /> Niveles de Stock Críticos
+          </h2>
+          <div className="text-center py-10">
+            <CheckCircle className="w-10 h-10 mx-auto text-success" />
+            <p className="mt-2 text-lg text-success font-semibold">Stock Suficiente</p>
+            <p className="text-sm text-gray-500 mt-1">No hay materiales por debajo del mínimo.</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // --- ORDENAMOS: Los más bajos primero ---
-  const sortedStock = [...stockData].sort((a, b) => {
-    const aMin = a.stockMinimo || 100;
-    const bMin = b.stockMinimo || 100;
-    const aPerc = aMin > 0 ? a.metrosDisponibles / aMin : Infinity;
-    const bPerc = bMin > 0 ? b.metrosDisponibles / bMin : Infinity;
+  // Ordenar por el porcentaje más bajo
+  const sortedStock = [...data].sort((a, b) => {
+    const aMin = a.stockMinimo || 0;
+    const bMin = b.stockMinimo || 0;
+    const aPerc = aMin > 0 ? a.metrosDisponibles / aMin : (a.metrosDisponibles > 0 ? 1 : 0);
+    const bPerc = bMin > 0 ? b.metrosDisponibles / bMin : (b.metrosDisponibles > 0 ? 1 : 0);
     return aPerc - bPerc;
   });
 
+  const getItemStatus = (stock, minStock) => {
+    const percentage = minStock > 0 ? (stock / minStock) * 100 : 100;
+    if (percentage <= 25) {
+      return { icon: TrendingDown, color: "text-error", progress: "progress-error" };
+    }
+    if (percentage <= 75) {
+      return { icon: Minus, color: "text-warning", progress: "progress-warning" };
+    }
+    return { icon: CheckCircle, color: "text-success", progress: "progress-success" };
+  };
 
   return (
     <div className="card bg-base-100 shadow-xl h-full">
-      <div className="card-body">
-        <h2 className="card-title text-accent">Niveles de Stock</h2>
-        <div className="space-y-4 mt-4 overflow-y-auto max-h-96">
-          {/* Usamos 'sortedStock' y 'slice' */}
-          {sortedStock.slice(0, 5).map(item => {
-            // Usamos los nuevos nombres de campo de la BD
-            const currentStock = item.metrosDisponibles;
-            
-            // --- LÓGICA MEJORADA ---
-            // Usamos el stockMinimo de la BD, o 100 como fallback visual si no está definido
-            const minStock = item.stockMinimo || 100; 
-            // Prevenimos división por cero
-            const percentage = minStock > 0 ? (currentStock / minStock) * 100 : (currentStock > 0 ? 100 : 0);
-            
-            let Icon = TrendingUp;
-            let color = "text-success";
-            // Ajustamos los umbrales
-            if (percentage < 80) {
-              Icon = TrendingDown;
-              color = "text-error";
-            } else if (percentage < 100) {
-              Icon = Minus;
-              color = "text-warning";
-            }
-            // --- FIN LÓGICA MEJORADA ---
+      <div className="card-body p-6">
+        <h2 className="card-title text-xl flex items-center mb-4">
+          <Package className="w-6 h-6 mr-2 text-primary" /> Niveles de Stock Críticos
+        </h2>
+        
+        <p className="text-sm text-gray-500 mb-4">
+          Materiales por debajo del nivel mínimo establecido.
+        </p>
+
+        <ul className="space-y-4">
+          {sortedStock.map((item) => {
+            const status = getItemStatus(item.metrosDisponibles, item.stockMinimo);
+            const percentage = item.stockMinimo > 0 ? (item.metrosDisponibles / item.stockMinimo) * 100 : (item.metrosDisponibles > 0 ? 100 : 0);
 
             return (
-              <div key={item.id} className="flex items-center gap-4">
-                <Icon className={`w-6 h-6 ${color}`} />
-                <div>
-                  <div className="font-bold">{item.material} ({item.espesor}mm)</div>
-                  <div className="text-sm opacity-50">{item.proveedor}</div>
+              <li key={item.id}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {React.createElement(status.icon, { className: `w-5 h-5 ${status.color} mr-2` })}
+                    <span className="font-medium">{item.material}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold">{item.metrosDisponibles.toFixed(2)}m</span>
+                    <p className="text-xs text-gray-500">Min: {item.stockMinimo.toFixed(2)}m</p>
+                  </div>
                 </div>
-                <div className="ml-auto text-right">
-                  <div className="font-bold">{currentStock.toFixed(2)}m</div>
-                  {/* Mostramos el mínimo */}
-                  <div className="text-xs opacity-50">Min: {minStock}m</div> 
-                  <progress 
-                    className={`progress ${color.replace('text-', 'progress-')} w-20`} 
-                    value={percentage} 
-                    max="100"
-                  ></progress>
-                </div>
-              </div>
+                <progress 
+                  className={`progress ${status.progress} w-full`} 
+                  value={Math.min(percentage, 100)} // Limitar visualmente al 100%
+                  max="100"
+                ></progress>
+              </li>
             );
           })}
+        </ul>
+        <div className="card-actions justify-end mt-4">
+            <a href="/almacen" className="btn btn-sm btn-outline">Ir a Almacén</a>
         </div>
       </div>
     </div>

@@ -6,8 +6,9 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
 
-    if (!query) {
-      return NextResponse.json({ message: 'Se requiere un término de búsqueda' }, { status: 400 });
+    // Permitir consulta si está vacía o es muy corta para la búsqueda en tiempo real
+    if (!query || query.length < 2) {
+      return NextResponse.json([]);
     }
 
     const searchConfig = {
@@ -16,7 +17,7 @@ export async function GET(request) {
           contains: query,
         },
       },
-      take: 5,
+      take: 5, // Limitar a 5 resultados, según lo solicitado
     };
     
     const numSearchConfig = (field) => ({
@@ -42,6 +43,9 @@ export async function GET(request) {
       ...pedidos.map(p => ({ ...p, type: 'pedido' })),
       ...presupuestos.map(q => ({ ...q, type: 'presupuesto' })),
     ];
+
+    // Ordenar los resultados para priorizar los que coinciden al principio, si fuera necesario.
+    // Aquí simplemente los devolvemos todos juntos.
 
     return NextResponse.json(results);
   } catch (error) {

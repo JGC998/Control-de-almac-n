@@ -3,7 +3,7 @@ import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, CheckSquare } from 'lucide-react';
+import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin } from 'lucide-react';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -17,40 +17,26 @@ const InfoCard = ({ title, value, icon }) => (
   </div>
 );
 
-// Componente reutilizable para listas
-const SectionList = ({ title, data, pathPrefix, emptyMsg, icon }) => (
+const SectionList = ({ title, data, pathPrefix }) => (
   <div className="bg-base-100 shadow-xl rounded-lg p-6">
-    <h2 className="text-xl font-bold mb-4 flex items-center">
-      {React.cloneElement(icon, { className: "w-5 h-5 mr-2" })}
-      {title}
-    </h2>
+    <h2 className="text-xl font-bold mb-4">{title}</h2>
     <div className="overflow-y-auto max-h-60">
       {data && data.length > 0 ? (
         <ul className="divide-y divide-base-300">
           {data.map(item => (
             <li key={item.id} className="py-2 flex justify-between items-center hover:bg-base-200 px-2 rounded">
               <Link href={`/${pathPrefix}/${item.id}`} className="link link-primary">
-                {item.numero || item.nombre}
+                {item.numero}
               </Link>
-              {item.fechaCreacion && (
-                <span className="text-sm text-gray-500">{new Date(item.fechaCreacion).toLocaleDateString()}</span>
-              )}
-              {item.estado && (
-                <span className={`badge ${item.estado === 'Aceptado' || item.estado === 'Completado' ? 'badge-success' : 'badge-warning'}`}>
-                  {item.estado}
-                </span>
-              )}
-              {/* Para plantillas, mostrar si tiene troquel */}
-              {typeof item.tieneTroquel !== 'undefined' && (
-                 <span className={`badge ${item.tieneTroquel ? 'badge-info' : 'badge-ghost'}`}>
-                   {item.tieneTroquel ? 'Con Troquel' : 'Sin Troquel'}
-                 </span>
-              )}
+              <span className="text-sm text-gray-500">{new Date(item.fechaCreacion).toLocaleDateString()}</span>
+              <span className={`badge ${item.estado === 'Aceptado' || item.estado === 'Completado' ? 'badge-success' : 'badge-warning'}`}>
+                {item.estado}
+              </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-gray-500">{emptyMsg}</p>
+        <p className="text-gray-500">No hay {title.toLowerCase()} para este cliente.</p>
       )}
     </div>
   </div>
@@ -64,11 +50,8 @@ export default function ClienteDetalle() {
   const { data: cliente, error: clienteError, isLoading: clienteLoading } = useSWR(id ? `/api/clientes/${id}` : null, fetcher);
   const { data: pedidos, error: pedidosError, isLoading: pedidosLoading } = useSWR(id ? `/api/pedidos?clientId=${id}` : null, fetcher);
   const { data: presupuestos, error: presupuestosError, isLoading: presupuestosLoading } = useSWR(id ? `/api/presupuestos?clientId=${id}` : null, fetcher);
-  // <-- NUEVA CARGA DE DATOS: Plantillas (Productos) filtradas por este cliente -->
-  const { data: plantillas, error: plantillasError, isLoading: plantillasLoading } = useSWR(id ? `/api/productos?clienteId=${id}` : null, fetcher);
 
-
-  const isLoading = clienteLoading || pedidosLoading || presupuestosLoading || plantillasLoading;
+  const isLoading = clienteLoading || pedidosLoading || presupuestosLoading;
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
@@ -104,29 +87,9 @@ export default function ClienteDetalle() {
       </div>
 
       {/* Secciones de Pedidos y Presupuestos */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <SectionList 
-          title="Presupuestos Recientes" 
-          data={presupuestos} 
-          pathPrefix="presupuestos" 
-          icon={<FileText />}
-          emptyMsg="No hay presupuestos para este cliente."
-        />
-        <SectionList 
-          title="Pedidos Recientes" 
-          data={pedidos} 
-          pathPrefix="pedidos" 
-          icon={<Package />}
-          emptyMsg="No hay pedidos para este cliente."
-        />
-        {/* <-- NUEVA SECCIÓN DE PLANTILLAS --> */}
-        <SectionList 
-          title="Plantillas Personalizadas" 
-          data={plantillas} 
-          pathPrefix="gestion/productos" // (Aunque la pág de detalle no existe, enlazamos a la gestión)
-          icon={<CheckSquare />}
-          emptyMsg="No hay plantillas personalizadas para este cliente."
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionList title="Presupuestos Recientes" data={presupuestos} pathPrefix="presupuestos" />
+        <SectionList title="Pedidos Recientes" data={pedidos} pathPrefix="pedidos" />
       </div>
     </div>
   );

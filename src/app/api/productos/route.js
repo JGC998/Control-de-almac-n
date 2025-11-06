@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
 // GET /api/productos - Obtiene todos los productos
-// AÑADIDO: Soporte para ?clienteId=...
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -10,7 +9,7 @@ export async function GET(request) {
 
     const whereClause = {};
     if (clienteId) {
-      whereClause.clienteId = clienteId;
+      whereClause.clienteId = clienteId; 
     }
 
     const productos = await db.producto.findMany({
@@ -18,7 +17,7 @@ export async function GET(request) {
       include: {
         fabricante: true,
         material: true,
-        cliente: true, // <-- Incluir datos del cliente
+        cliente: true,
       },
       orderBy: { nombre: 'asc' },
     });
@@ -34,6 +33,7 @@ export async function POST(request) {
   try {
     const data = await request.json();
     
+    // Buscar ID por nombre
     const fabricante = await db.fabricante.findUnique({
       where: { nombre: data.fabricante },
     });
@@ -51,16 +51,19 @@ export async function POST(request) {
     const nuevoProducto = await db.producto.create({
       data: {
         nombre: data.nombre,
-        modelo: data.modelo,
+        // CAMBIO: Usar nuevo campo
+        referenciaFabricante: data.modelo, // El frontend todavía envía 'modelo' por ahora
         espesor: data.espesor,
         largo: data.largo,
         ancho: data.ancho,
         precioUnitario: data.precioUnitario,
         pesoUnitario: data.pesoUnitario,
-        fabricanteId: fabricante.id,
+        // CAMBIO: Usar nuevo campo (costoUnitario)
+        costoUnitario: data.costo, // El frontend todavía podría enviar 'costo'
+        fabricanteId: fabricante.id, 
         materialId: material.id,
-        clienteId: data.clienteId || null, // <-- NUEVO
-        tieneTroquel: data.tieneTroquel || false, // <-- NUEVO
+        clienteId: data.clienteId || null,
+        tieneTroquel: data.tieneTroquel || false,
       },
     });
 

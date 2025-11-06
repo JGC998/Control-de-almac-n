@@ -1,20 +1,25 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db'; // Importamos el cliente de BD
+import { db } from '@/lib/db'; 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import fs from 'fs/promises';
 import path from 'path';
 
+// --- DATOS DE LA EMPRESA (Hardcodeados según solicitud) ---
+const COMPANY_ADDRESS = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
+const COMPANY_PHONE = '957 68 28 19';
+// --------------------------------------------------------
+
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise; 
 
     // 1. Obtener todos los datos de la BD en una sola consulta
     const quote = await db.presupuesto.findUnique({
       where: { id: id },
       include: {
-        cliente: true, // Incluye el objeto Cliente
-        items: true,   // Incluye el array de PresupuestoItem
+        cliente: true, 
+        items: true,
       },
     });
 
@@ -27,9 +32,9 @@ export async function GET(request, { params: paramsPromise }) {
       where: { key: 'iva_rate' },
     });
     const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;
-    const client = quote.cliente; // Cliente ya viene en la consulta
+    const client = quote.cliente; 
 
-    // --- Inicio de la Generación del PDF (Lógica idéntica a la anterior) ---
+    // --- Inicio de la Generación del PDF ---
     const doc = new jsPDF();
 
     // --- Añadir Logo ---
@@ -47,8 +52,10 @@ export async function GET(request, { params: paramsPromise }) {
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(process.env.COMPANY_NAME || 'Tu Empresa', 200, 38, { align: 'right' });
-    doc.text(process.env.COMPANY_ADDRESS || 'Tu Dirección', 200, 44, { align: 'right' });
+    
+    // DETALLES DE LA EMPRESA (Actualizado: REMOVIDO COMPANY_NAME)
+    doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
+    doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -59,24 +66,24 @@ export async function GET(request, { params: paramsPromise }) {
     doc.setFont("helvetica", "bold");
     doc.text(`Fecha:`, 14, 42);
     doc.setFont("helvetica", "normal");
-    doc.text(`${new Date(quote.fechaCreacion).toLocaleDateString('es-ES')}`, 38, 42);
+    const formattedDate = new Date(quote.fechaCreacion).toLocaleDateString('es-ES');
+    doc.text(formattedDate, 38, 42);
 
-    doc.rect(14, 50, 90, 28);
+    doc.rect(14, 55, 90, 28);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Cliente:", 20, 56);
+    doc.text("Cliente:", 20, 61);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     if (client) {
-      doc.text(client.nombre, 20, 62);
-      doc.text(client.direccion || 'Dirección no especificada', 20, 68);
-      doc.text(client.email || 'Email no especificado', 20, 74);
+      doc.text(client.nombre, 20, 67);
+      doc.text(client.direccion || 'Dirección no especificada', 20, 73);
+      doc.text(client.email || 'Email no especificado', 20, 79);
     }
 
     const tableColumn = ["Descripción", "Cantidad", "Precio Unit.", "Total"];
     const tableRows = [];
     
-    // Usamos quote.items que ya obtuvimos de la BD
     quote.items.forEach(item => {
       const itemData = [
         item.description,
@@ -90,7 +97,7 @@ export async function GET(request, { params: paramsPromise }) {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 85,
+      startY: 90, 
       theme: 'grid'
     });
 
@@ -107,13 +114,24 @@ export async function GET(request, { params: paramsPromise }) {
     doc.text(`TOTAL:`, 145, finalY + 24);
     doc.text(`${(quote.total || 0).toFixed(2)} €`, 198, finalY + 24, { align: 'right' });
     
+    // NOTAS ADICIONALES (Validez y notas del presupuesto)
+    let notesY = finalY + 35;
+    
+    // Nota de validez de 15 días (Requerido)
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text("Nota Importante:", 14, notesY);
+    doc.setFont("helvetica", "normal");
+    doc.text("Este presupuesto tiene una validez de quince (15) días desde la fecha presupuestada.", 14, notesY + 4);
+
+    // Notas del presupuesto
     if (quote.notes) {
-      doc.setFontSize(8);
-      doc.text("Notas:", 14, finalY + 40);
-      doc.setFontSize(8);
-      doc.text(quote.notes, 14, finalY + 44, { maxWidth: 180 });
+      notesY += 10;
+      doc.setFont("helvetica", "bold");
+      doc.text("Notas del Pedido:", 14, notesY);
+      doc.setFont("helvetica", "normal");
+      doc.text(quote.notes, 14, notesY + 4, { maxWidth: 180 });
     }
-    // --- Fin de la Generación del PDF ---
 
     const pdfBuffer = doc.output('arraybuffer');
 

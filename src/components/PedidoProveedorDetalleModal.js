@@ -1,12 +1,3 @@
-#!/bin/bash
-#
-# Mega Script: Mejora la estética de la sección de costes en el Modal de Detalles del Pedido Proveedor (Versión 3).
-#
-set -e
-
-echo "--- 🔄 Mejorando Estilo de Costes y Alineación en PedidoProveedorDetalleModal.js ---"
-
-cat <<'EOF' > src/components/PedidoProveedorDetalleModal.js
 "use client";
 import React, { useMemo } from 'react';
 import { Truck, PackageOpen, CheckSquare, Anchor, X, DollarSign, Euro } from 'lucide-react';
@@ -206,9 +197,3 @@ export default function PedidoProveedorDetalleModal({ pedido, onClose }) {
     </div>
   );
 }
-EOF
-
-echo "--- ✅ MEJORA DE ESTILO Y CLARIDAD COMPLETA ---"
-echo "El modal de detalles del pedido a proveedor ha sido mejorado y ahora muestra los costes de manera organizada."
-echo "Por favor, **reinicia** tu servidor de desarrollo:"
-echo "npm run dev"

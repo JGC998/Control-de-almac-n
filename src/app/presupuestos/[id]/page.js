@@ -137,9 +137,10 @@ export default function PresupuestoDetalle() {
             </span>
           </div>
           <div className="text-right">
-            <h2 className="text-xl font-bold">{quote.cliente.nombre}</h2>
-            <p>{quote.cliente.direccion}</p>
-            <p>{quote.cliente.email}</p>
+            {/* CORREGIDO: Usamos encadenamiento opcional (?. ) para evitar el TypeError */}
+            <h2 className="text-xl font-bold">{quote.cliente?.nombre}</h2>
+            <p>{quote.cliente?.direccion}</p>
+            <p>{quote.cliente?.email}</p>
           </div>
         </div>
 

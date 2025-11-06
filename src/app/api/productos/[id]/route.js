@@ -10,7 +10,7 @@ export async function GET(request, { params: paramsPromise }) {
       include: {
         fabricante: true,
         material: true,
-        cliente: true, // <-- NUEVO
+        cliente: true,
       },
     });
 
@@ -44,23 +44,31 @@ export async function PUT(request, { params: paramsPromise }) {
     if (!material) {
       return NextResponse.json({ message: `Material "${data.material}" no encontrado.` }, { status: 400 });
     }
-
-    const updatedProducto = await db.producto.update({
-      where: { id: id },
-      data: {
+    
+    // Prepara los datos para la actualización
+    const updateData = {
         nombre: data.nombre,
-        modelo: data.modelo,
+        // CAMBIO: Usar nuevo campo
+        referenciaFabricante: data.modelo, // El frontend todavía envía 'modelo' por ahora
         espesor: data.espesor,
         largo: data.largo,
         ancho: data.ancho,
         precioUnitario: data.precioUnitario,
         pesoUnitario: data.pesoUnitario,
+        // CAMBIO: Usar nuevo campo
+        costoUnitario: data.costo,
         fabricanteId: fabricante.id,
         materialId: material.id,
-        clienteId: data.clienteId || null, // <-- NUEVO
-        tieneTroquel: data.tieneTroquel || false, // <-- NUEVO
-      },
+        clienteId: data.clienteId || null,
+        tieneTroquel: data.tieneTroquel || false,
+    };
+
+
+    const updatedProducto = await db.producto.update({
+      where: { id: id },
+      data: updateData,
     });
+    
     return NextResponse.json(updatedProducto);
   } catch (error) {
     console.error(error);

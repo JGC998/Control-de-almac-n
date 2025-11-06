@@ -1,0 +1,4 @@
+[
+    { "id": "ped-001", "numero": "PED-2025-001", "fechaCreacion": "2025-11-06T11:00:00.000Z", "estado": "Enviado", "clienteId": "cli-001", "subtotal": 120.50, "tax": 25.30, "total": 145.80, "items": [{"description": "Banda PVC 3mm Reforzada", "quantity": 1, "unitPrice": 120.50, "productoId": "prod-001"}] },
+    { "id": "ped-002", "numero": "PED-2025-002", "fechaCreacion": "2025-11-07T10:00:00.000Z", "estado": "Pendiente", "clienteId": "cli-003", "subtotal": 55.00, "tax": 11.55, "total": 66.55, "items": [{"description": "Junta de Goma 8mm Industrial", "quantity": 1, "unitPrice": 55.00, "productoId": "prod-002"}] }
+]

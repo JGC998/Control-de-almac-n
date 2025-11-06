@@ -1,8 +1,9 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit, Anchor } from 'lucide-react';
+import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit, Anchor, Eye } from 'lucide-react';
 import Link from 'next/link'; 
+import PedidoProveedorDetalleModal from '@/components/PedidoProveedorDetalleModal'; // Importar el nuevo modal
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -22,6 +23,9 @@ const getTrackingUrl = (naviera, contenedor) => {
 
 export default function ProveedoresPage() {
   const [activeTab, setActiveTab] = useState('NACIONAL');
+  // Estado para controlar el modal
+  const [detallePedido, setDetallePedido] = useState(null); 
+  
   const { data: pedidos, error: pedidosError, isLoading } = useSWR('/api/pedidos-proveedores-data', fetcher);
 
   const handleReceiveOrder = async (pedidoId) => {
@@ -102,12 +106,18 @@ export default function ProveedoresPage() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {/* Botón de Rastreo */}
-                      {trackingUrl && pedido.estado === 'Pendiente' && (
+                      {/* Botón Ver Detalles - AHORA ABRE MODAL */}
+                      <button onClick={() => setDetallePedido(pedido)} className="btn btn-sm btn-info btn-outline">
+                         <Eye className="w-4 h-4" /> Ver Detalles
+                      </button>
+                      
+                      {/* Botón de Rastrear */}
+                      {trackingUrl && pedido.tipo === 'IMPORTACION' && pedido.estado === 'Pendiente' && (
                         <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary btn-outline">
                           <Anchor className="w-4 h-4" /> Rastrear
                         </a>
                       )}
+                      
                       {pedido.estado === 'Pendiente' && (
                         <>
                           <Link href={`/proveedores/${pedido.id}/editar`} className="btn btn-sm btn-info btn-outline">
@@ -147,7 +157,7 @@ export default function ProveedoresPage() {
                       <tbody>
                         {pedido.bobinas.map(bobina => (
                           <tr key={bobina.id}>
-                            <td>{bobina.referencia?.nombre || 'N/A'}</td>
+                            <td>{bobina.referencia?.nombre || 'N/A'}</td> 
                             <td>{bobina.ancho} mm x {bobina.largo} m</td>
                             <td>{bobina.espesor}</td>
                             <td>{bobina.precioMetro.toFixed(2)}</td>
@@ -163,6 +173,14 @@ export default function ProveedoresPage() {
           })}
         </div>
       </div>
+      
+      {/* Modal de Detalle */}
+      {detallePedido && (
+        <PedidoProveedorDetalleModal 
+          pedido={detallePedido} 
+          onClose={() => setDetallePedido(null)} 
+        />
+      )}
     </div>
   );
 }

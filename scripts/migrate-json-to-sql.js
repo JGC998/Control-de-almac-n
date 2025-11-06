@@ -30,6 +30,30 @@ async function main() {
   await db.$connect();
   console.log('Conectado a la base de datos.');
 
+  // --- Limpieza de DB (MANTENEMOS Tarifas y Config) ---
+  console.log('Limpiando tablas (excepto Tarifas y Config)...');
+  await db.movimientoStock.deleteMany();
+  await db.stock.deleteMany();
+  await db.bobinaPedido.deleteMany();
+  await db.pedidoProveedor.deleteMany();
+  await db.referenciaBobina.deleteMany(); // Nueva tabla
+  await db.precioEspecial.deleteMany();
+  await db.descuentoTier.deleteMany();
+  await db.reglaDescuento.deleteMany();
+  await db.reglaMargen.deleteMany();
+  await db.nota.deleteMany();
+  await db.pedidoItem.deleteMany();
+  await db.pedido.deleteMany();
+  await db.presupuestoItem.deleteMany();
+  await db.presupuesto.deleteMany();
+  await db.producto.deleteMany();
+  await db.cliente.deleteMany();
+  await db.material.deleteMany();
+  await db.fabricante.deleteMany();
+  await db.proveedor.deleteMany();
+  console.log('Limpieza completada.');
+  // ----------------------------------------------------
+  
   // --- 1. Migrar Modelos Simples (Sin Relaciones) ---
 
   console.log('Migrando Fabricantes...');
@@ -53,30 +77,22 @@ async function main() {
     });
   }
   console.log(`- ${materialesData.length} materiales procesados.`);
-
-  console.log('Migrando Tarifas (precios.json)...');
-  const tarifasData = await readJson('precios.json');
-  for (const t of tarifasData) {
-    await db.tarifaMaterial.upsert({
-      where: { material_espesor: { material: t.material, espesor: String(t.espesor) } }, // Usa la clave @@unique
-      update: {
-        precio: parseFloat(t.precio) || 0,
-        peso: parseFloat(t.peso) || 0,
-      },
-      create: {
-        material: t.material,
-        espesor: String(t.espesor),
-        precio: parseFloat(t.precio) || 0,
-        peso: parseFloat(t.peso) || 0,
-      },
+  
+  console.log('Migrando Proveedores...');
+  const proveedoresData = await readJson('proveedores.json');
+  for (const p of proveedoresData) {
+    await db.proveedor.upsert({
+      where: { nombre: p.nombre },
+      update: { nombre: p.nombre, email: p.email, telefono: p.telefono, direccion: p.direccion },
+      create: { nombre: p.nombre, email: p.email, telefono: p.telefono, direccion: p.direccion },
     });
   }
-  console.log(`- ${tarifasData.length} tarifas procesadas.`);
+  console.log(`- ${proveedoresData.length} proveedores procesados.`);
+
+  // Mantenemos la lógica de Tarifas y Config ya que no deben ser eliminadas por el script
   
   console.log('Migrando Notas...');
   const notasData = await readJson('notas.json');
-  // Para las notas, simplemente las creamos. Si el script se ejecuta 2 veces, se duplicarán.
-  // Esto es aceptable para 'notas' ya que no tienen un campo único claro.
   for (const n of notasData) {
      await db.nota.create({
         data: {
@@ -87,24 +103,12 @@ async function main() {
   }
   console.log(`- ${notasData.length} notas procesadas.`);
 
-  console.log('Migrando Config...');
-  const configData = await readJson('config.json');
-  if (configData.iva_rate) {
-    await db.config.upsert({
-      where: { key: 'iva_rate' },
-      update: { value: String(configData.iva_rate) },
-      create: { key: 'iva_rate', value: String(configData.iva_rate) },
-    });
-    console.log('- Configuración de IVA migrada.');
-  }
 
   // --- 2. Migrar Modelos Relacionales (Requiere Mapeo) ---
 
   console.log('Migrando Clientes...');
   const clientesData = await readJson('clientes.json');
   for (const c of clientesData) {
-    // Usamos el ID antiguo (ej. 'cli-001') como el ID en la nueva base de datos
-    // Esto hace que el mapeo de relaciones sea mucho más fácil.
     await db.cliente.upsert({
       where: { id: c.id },
       update: {
@@ -112,6 +116,7 @@ async function main() {
         email: c.email,
         direccion: c.direccion,
         telefono: c.telefono,
+        tier: c.tier,
       },
       create: {
         id: c.id, // Usamos el ID antiguo
@@ -119,24 +124,20 @@ async function main() {
         email: c.email,
         direccion: c.direccion,
         telefono: c.telefono,
+        tier: c.tier,
       },
     });
   }
   console.log(`- ${clientesData.length} clientes procesados.`);
 
-  // Ahora, creamos los mapas de IDs
+  // --- 3. Crear Mapeos para Productos ---
   const clientesDB = await db.cliente.findMany();
   const fabricantesDB = await db.fabricante.findMany();
   const materialesDB = await db.material.findMany();
 
-  // Mapa: Nombre de Cliente -> Nuevo ID
   const clienteNombreMap = new Map(clientesDB.map(c => [c.nombre, c.id]));
-  // Mapa: ID Antiguo (cli-001) -> Nuevo ID (que es el mismo)
-  const clienteIdMap = new Map(clientesData.map(c => [c.id, c.id]));
-
-  // Mapa: Nombre de Fabricante -> Nuevo ID
+  const clienteIdMap = new Map(clientesDB.map(c => [c.id, c.id])); // ID Antiguo -> Nuevo ID
   const fabricanteMap = new Map(fabricantesDB.map(f => [f.nombre, f.id]));
-  // Mapa: Nombre de Material -> Nuevo ID
   const materialMap = new Map(materialesDB.map(m => [m.nombre, m.id]));
 
   console.log('Mapeos de IDs creados.');
@@ -155,12 +156,15 @@ async function main() {
       create: {
         id: p.id,
         nombre: p.nombre,
-        modelo: p.modelo || p.nombre.split(' - ')[1],
+        // ACTUALIZADO: 'modelo' -> 'referenciaFabricante'
+        referenciaFabricante: p.modelo || p.nombre.split(' - ')[1],
         espesor: parseFloat(p.espesor) || 0,
         largo: parseFloat(p.largo) || 0,
         ancho: parseFloat(p.ancho) || 0,
         precioUnitario: parseFloat(p.precioUnitario) || 0,
         pesoUnitario: parseFloat(p.pesoUnitario) || 0,
+        // ACTUALIZADO: 'costo' -> 'costoUnitario'
+        costoUnitario: parseFloat(p.costo) || 0,
         fabricanteId: fabricanteId,
         materialId: materialId,
       },
@@ -170,6 +174,24 @@ async function main() {
   console.log(`- ${productosMigrados} productos procesados.`);
 
   const productoIdMap = new Map(productosData.map(p => [p.id, p.id]));
+  
+  // --- Migración de Referencias Bobina ---
+  console.log('Migrando Referencias Bobina...');
+  const refBobinaData = await readJson('referenciasBobina.json');
+  for (const r of refBobinaData) {
+    await db.referenciaBobina.upsert({
+      where: { referencia: r.referencia },
+      update: {},
+      create: {
+        referencia: r.referencia,
+        ancho: parseFloat(r.ancho) || 0,
+        lonas: parseInt(r.lonas) || 0,
+        pesoPorMetroLineal: parseFloat(r.pesoPorMetroLineal) || 0,
+      }
+    });
+  }
+  console.log(`- ${refBobinaData.length} referencias de bobina procesadas.`);
+
 
   console.log('Migrando Presupuestos...');
   const presupuestosData = await readJson('presupuestos.json');
@@ -181,14 +203,13 @@ async function main() {
       continue;
     }
 
-    // Generamos un número único si no existe
     const numeroPresupuesto = q.numero || `PRE-${Date.now()}-${presupuestosMigrados}`;
     
     await db.presupuesto.upsert({
       where: { numero: numeroPresupuesto },
-      update: {}, // No actualizamos si ya existe
+      update: {},
       create: {
-        id: q.id, // Reutilizamos ID antiguo
+        id: q.id, 
         numero: numeroPresupuesto,
         fechaCreacion: new Date(q.fechaCreacion || q.fecha),
         estado: q.estado || 'Borrador',
@@ -243,9 +264,9 @@ async function main() {
         notas: p.notas,
         subtotal: parseFloat(p.subtotal) || 0,
         tax: parseFloat(p.tax) || 0,
-        total: parseFloat(p.total) || p.items?.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0, // Recalcula si falta
+        total: parseFloat(p.total) || items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0,
         clienteId: clienteId,
-        presupuestoId: presupuestoIdMap.get(p.presupuestoId), // Puede ser null
+        presupuestoId: presupuestoIdMap.get(p.presupuestoId), 
         items: {
           create: items.map(item => ({
             descripcion: item.description || item.nombre || item.descripcion,
@@ -260,6 +281,9 @@ async function main() {
     pedidosMigrados++;
   }
   console.log(`- ${pedidosMigrados} pedidos procesados.`);
+  
+  // Faltan migraciones de PedidoProveedor, Stock y Movimientos, que el usuario puede rellenar manualmente
+  // o con un script de prueba dedicado.
 
   console.log('¡Migración de datos completada!');
 }
@@ -270,7 +294,6 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    // Cierra la conexión a la BD
     await db.$disconnect();
     console.log('Desconectado de la base de datos.');
   });

@@ -12,16 +12,18 @@ CREATE TABLE "Cliente" (
 CREATE TABLE "Producto" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "nombre" TEXT NOT NULL,
-    "modelo" TEXT,
+    "referencia_fab" TEXT,
     "espesor" REAL,
     "largo" REAL,
     "ancho" REAL,
     "precioUnitario" REAL NOT NULL,
     "pesoUnitario" REAL NOT NULL,
     "costo" REAL,
-    "categoria" TEXT,
+    "tieneTroquel" BOOLEAN DEFAULT false,
+    "clienteId" TEXT,
     "fabricanteId" TEXT,
     "materialId" TEXT,
+    CONSTRAINT "Producto_clienteId_fkey" FOREIGN KEY ("clienteId") REFERENCES "Cliente" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "Producto_fabricanteId_fkey" FOREIGN KEY ("fabricanteId") REFERENCES "Fabricante" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "Producto_materialId_fkey" FOREIGN KEY ("materialId") REFERENCES "Material" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
@@ -94,14 +96,25 @@ CREATE TABLE "PresupuestoItem" (
 );
 
 -- CreateTable
+CREATE TABLE "Proveedor" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "nombre" TEXT NOT NULL,
+    "email" TEXT,
+    "telefono" TEXT,
+    "direccion" TEXT
+);
+
+-- CreateTable
 CREATE TABLE "Stock" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "material" TEXT NOT NULL,
-    "espesor" TEXT,
+    "espesor" REAL,
     "metrosDisponibles" REAL NOT NULL,
     "proveedor" TEXT,
     "ubicacion" TEXT,
-    "fechaEntrada" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "fechaEntrada" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "costoMetro" REAL,
+    "stockMinimo" REAL
 );
 
 -- CreateTable
@@ -118,20 +131,32 @@ CREATE TABLE "MovimientoStock" (
 -- CreateTable
 CREATE TABLE "PedidoProveedor" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "proveedor" TEXT NOT NULL,
     "material" TEXT NOT NULL,
     "fecha" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "estado" TEXT NOT NULL
+    "estado" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "notas" TEXT,
+    "numeroContenedor" TEXT,
+    "naviera" TEXT,
+    "fechaLlegadaEstimada" DATETIME,
+    "tasaCambio" REAL DEFAULT 1,
+    "gastosTotales" REAL DEFAULT 0,
+    "proveedorId" TEXT NOT NULL,
+    CONSTRAINT "PedidoProveedor_proveedorId_fkey" FOREIGN KEY ("proveedorId") REFERENCES "Proveedor" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "BobinaPedido" (
     "id" TEXT NOT NULL PRIMARY KEY,
+    "ancho" REAL,
+    "largo" REAL,
+    "espesor" REAL,
     "precioMetro" REAL NOT NULL,
-    "longitud" REAL NOT NULL,
-    "ancho" REAL NOT NULL,
-    "espesor" TEXT NOT NULL,
+    "color" TEXT,
+    "costoFinalMetro" REAL,
+    "referenciaId" TEXT,
     "pedidoId" TEXT NOT NULL,
+    CONSTRAINT "BobinaPedido_referenciaId_fkey" FOREIGN KEY ("referenciaId") REFERENCES "ReferenciaBobina" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "BobinaPedido_pedidoId_fkey" FOREIGN KEY ("pedidoId") REFERENCES "PedidoProveedor" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -139,9 +164,18 @@ CREATE TABLE "BobinaPedido" (
 CREATE TABLE "TarifaMaterial" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "material" TEXT NOT NULL,
-    "espesor" TEXT NOT NULL,
+    "espesor" REAL NOT NULL,
     "precio" REAL NOT NULL,
     "peso" REAL NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "ReferenciaBobina" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "nombre" TEXT NOT NULL,
+    "ancho" REAL,
+    "lonas" INTEGER,
+    "pesoPorMetroLineal" REAL
 );
 
 -- CreateTable
@@ -200,6 +234,9 @@ CREATE TABLE "Config" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Cliente_nombre_key" ON "Cliente"("nombre");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Fabricante_nombre_key" ON "Fabricante"("nombre");
 
 -- CreateIndex
@@ -215,7 +252,13 @@ CREATE UNIQUE INDEX "Pedido_presupuestoId_key" ON "Pedido"("presupuestoId");
 CREATE UNIQUE INDEX "Presupuesto_numero_key" ON "Presupuesto"("numero");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Proveedor_nombre_key" ON "Proveedor"("nombre");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "TarifaMaterial_material_espesor_key" ON "TarifaMaterial"("material", "espesor");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ReferenciaBobina_nombre_key" ON "ReferenciaBobina"("nombre");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PrecioEspecial_clienteId_productoId_key" ON "PrecioEspecial"("clienteId", "productoId");

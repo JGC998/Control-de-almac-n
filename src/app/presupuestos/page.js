@@ -1,14 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { PlusCircle, FileText, Search } from 'lucide-react';
-import { db } from '@/lib/db'; // Importar DB
+import { db } from '@/lib/db'; 
 
-// Convertido a React Server Component (RSC)
-// Se elimina "use client", useSWR, isLoading, error
 export default async function PresupuestosPage() {
   
-  // Obtenemos datos directamente en el servidor
-  const presupuestos = await db.presupuesto.findMany({
+  // 1. Obtener todos los datos ordenados por fecha de creación descendente
+  const allPresupuestos = await db.presupuesto.findMany({
     include: {
       cliente: {
         select: { nombre: true },
@@ -16,6 +14,28 @@ export default async function PresupuestosPage() {
     },
     orderBy: { fechaCreacion: 'desc' },
   });
+  
+  // 2. Aplicar ordenamiento secundario en memoria por estado: Borrador, Aceptado, otros.
+  const sortOrder = ['Borrador', 'Aceptado'];
+
+  const presupuestos = allPresupuestos.sort((a, b) => {
+      // Si los estados son iguales, mantenemos el orden por fecha (desc) que vino de la DB
+      if (a.estado === b.estado) return 0; 
+      
+      const aIndex = sortOrder.indexOf(a.estado);
+      const bIndex = sortOrder.indexOf(b.estado);
+
+      // Borradores y Aceptados primero
+      if (aIndex !== -1 && bIndex !== -1) {
+          return aIndex - bIndex; // Borrador (0) antes de Aceptado (1)
+      }
+      // Los estados que no estén en la lista (e.g., 'Rechazado') van al final
+      if (aIndex === -1 && bIndex !== -1) return 1; // b (definido) va primero
+      if (aIndex !== -1 && bIndex === -1) return -1; // a (definido) va primero
+      
+      return 0; // Mantiene el orden de fecha si ambos son 'otros'
+  });
+
 
   return (
     <div className="container mx-auto p-4">

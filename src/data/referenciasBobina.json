@@ -1,0 +1,7 @@
+[
+  { "referencia": "PV-200-BLANCO", "ancho": 2000, "lonas": 2, "pesoPorMetroLineal": 4.5 },
+  { "referencia": "GOMA-15MM-ROJA", "ancho": 1500, "lonas": 0, "pesoPorMetroLineal": 12.0 },
+  { "referencia": "MALLA-ACERO-316", "ancho": 1200, "lonas": 0, "pesoPorMetroLineal": 25.0 },
+  { "referencia": "FABRIC-ESBELT-X", "ancho": 1000, "lonas": 1, "pesoPorMetroLineal": 3.2 },
+  { "referencia": "ROLLO-FELTRO-5", "ancho": 1800, "lonas": 0, "pesoPorMetroLineal": 1.5 }
+]

@@ -1,0 +1,7 @@
+[
+  { "material": "PVC", "espesor": 2.0, "precio": 15.50, "peso": 2.5 },
+  { "material": "PVC", "espesor": 3.0, "precio": 21.00, "peso": 3.5 },
+  { "material": "GOMA", "espesor": 6.0, "precio": 12.00, "peso": 4.0 },
+  { "material": "GOMA", "espesor": 10.0, "precio": 15.00, "peso": 7.5 },
+  { "material": "FIELTRO", "espesor": 5.0, "precio": 8.00, "peso": 1.0 }
+]
