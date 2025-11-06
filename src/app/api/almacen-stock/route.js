@@ -26,6 +26,7 @@ export async function POST(request) {
         metrosDisponibles: parseFloat(data.metrosDisponibles),
         proveedor: data.proveedor,
         ubicacion: data.ubicacion,
+        stockMinimo: parseFloat(data.stockMinimo) || null // <-- AÑADIDO
       },
     });
 

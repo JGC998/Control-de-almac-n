@@ -17,29 +17,43 @@ export default function NivelesStock({ stockData }) {
     );
   }
 
+  // --- ORDENAMOS: Los más bajos primero ---
+  const sortedStock = [...stockData].sort((a, b) => {
+    const aMin = a.stockMinimo || 100;
+    const bMin = b.stockMinimo || 100;
+    const aPerc = aMin > 0 ? a.metrosDisponibles / aMin : Infinity;
+    const bPerc = bMin > 0 ? b.metrosDisponibles / bMin : Infinity;
+    return aPerc - bPerc;
+  });
+
+
   return (
     <div className="card bg-base-100 shadow-xl h-full">
       <div className="card-body">
         <h2 className="card-title text-accent">Niveles de Stock</h2>
         <div className="space-y-4 mt-4 overflow-y-auto max-h-96">
-          {/* Usamos 'stockData' y 'slice' */}
-          {stockData.slice(0, 5).map(item => {
+          {/* Usamos 'sortedStock' y 'slice' */}
+          {sortedStock.slice(0, 5).map(item => {
             // Usamos los nuevos nombres de campo de la BD
             const currentStock = item.metrosDisponibles;
-            // No tenemos 'stock_minimo' en la nueva BD,
-            // así que inventamos uno (ej. 100m) solo para la demo visual
-            const minStock = 100; 
-            const percentage = (currentStock / minStock) * 100;
+            
+            // --- LÓGICA MEJORADA ---
+            // Usamos el stockMinimo de la BD, o 100 como fallback visual si no está definido
+            const minStock = item.stockMinimo || 100; 
+            // Prevenimos división por cero
+            const percentage = minStock > 0 ? (currentStock / minStock) * 100 : (currentStock > 0 ? 100 : 0);
             
             let Icon = TrendingUp;
             let color = "text-success";
-            if (percentage < 50) {
+            // Ajustamos los umbrales
+            if (percentage < 80) {
               Icon = TrendingDown;
               color = "text-error";
-            } else if (percentage < 75) {
+            } else if (percentage < 100) {
               Icon = Minus;
               color = "text-warning";
             }
+            // --- FIN LÓGICA MEJORADA ---
 
             return (
               <div key={item.id} className="flex items-center gap-4">
@@ -50,6 +64,8 @@ export default function NivelesStock({ stockData }) {
                 </div>
                 <div className="ml-auto text-right">
                   <div className="font-bold">{currentStock.toFixed(2)}m</div>
+                  {/* Mostramos el mínimo */}
+                  <div className="text-xs opacity-50">Min: {minStock}m</div> 
                   <progress 
                     className={`progress ${color.replace('text-', 'progress-')} w-20`} 
                     value={percentage} 

@@ -6,7 +6,7 @@ import { Warehouse, PlusCircle, ArrowRightLeft } from 'lucide-react';
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function AlmacenPage() {
-  const [formData, setFormData] = useState({ material: '', espesor: '', metrosDisponibles: 0, proveedor: '', ubicacion: 'Almacén' });
+  const [formData, setFormData] = useState({ material: '', espesor: '', metrosDisponibles: 0, proveedor: '', ubicacion: 'Almacén', stockMinimo: 100 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState(null);
 
@@ -16,7 +16,7 @@ export default function AlmacenPage() {
   const isLoading = stockLoading || movLoading;
 
   const openModal = () => {
-    setFormData({ material: '', espesor: '', metrosDisponibles: 0, proveedor: '', ubicacion: 'Almacén' });
+    setFormData({ material: '', espesor: '', metrosDisponibles: 0, proveedor: '', ubicacion: 'Almacén', stockMinimo: 100 });
     setError(null);
     setIsModalOpen(true);
   };
@@ -37,7 +37,8 @@ export default function AlmacenPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          metrosDisponibles: parseFloat(formData.metrosDisponibles)
+          metrosDisponibles: parseFloat(formData.metrosDisponibles),
+          stockMinimo: parseFloat(formData.stockMinimo)
         }),
       });
       if (!res.ok) {
@@ -68,22 +69,28 @@ export default function AlmacenPage() {
           <div className="card-body">
             <h2 className="card-title">Inventario Actual</h2>
             <div className="overflow-x-auto max-h-96">
+              {/*
+                AQUÍ ESTÁ LA CORRECCIÓN:
+                He compactado <thead>, <tr>, <tbody> y el map
+                para eliminar cualquier nodo de texto de espacio en blanco
+                que cause el error de hidratación de React.
+              */}
               <table className="table table-pin-rows table-sm">
-                <thead>
-                  <tr>
-                    <th>Material</th>
-                    <th>Espesor</th>
-                    <th>Metros Disp.</th>
-                    <th>Proveedor</th>
-                    <th>Ubicación</th>
-                  </tr>
-                </thead>
+                <thead><tr>
+                  <th>Material</th>
+                  <th>Espesor</th>
+                  <th>Metros Disp.</th>
+                  <th>Stock Mín.</th>
+                  <th>Proveedor</th>
+                  <th>Ubicación</th>
+                </tr></thead>
                 <tbody>
                   {stock?.map(item => (
                     <tr key={item.id} className="hover">
                       <td className="font-bold">{item.material}</td>
                       <td>{item.espesor}</td>
                       <td>{item.metrosDisponibles.toFixed(2)} m</td>
+                      <td>{item.stockMinimo ? `${item.stockMinimo.toFixed(2)} m` : 'N/A'}</td>
                       <td>{item.proveedor}</td>
                       <td>{item.ubicacion}</td>
                     </tr>
@@ -128,6 +135,7 @@ export default function AlmacenPage() {
               <input type="text" name="material" value={formData.material} onChange={handleChange} placeholder="Material" className="input input-bordered w-full" required />
               <input type="text" name="espesor" value={formData.espesor} onChange={handleChange} placeholder="Espesor" className="input input-bordered w-full" />
               <input type="number" step="0.01" name="metrosDisponibles" value={formData.metrosDisponibles} onChange={handleChange} placeholder="Metros Disponibles" className="input input-bordered w-full" required />
+              <input type="number" step="0.01" name="stockMinimo" value={formData.stockMinimo} onChange={handleChange} placeholder="Stock Mínimo" className="input input-bordered w-full" required />
               <input type="text" name="proveedor" value={formData.proveedor} onChange={handleChange} placeholder="Proveedor" className="input input-bordered w-full" />
               <input type="text" name="ubicacion" value={formData.ubicacion} onChange={handleChange} placeholder="Ubicación" className="input input-bordered w-full" />
               {error && <p className="text-red-500 text-sm">{error}</p>}

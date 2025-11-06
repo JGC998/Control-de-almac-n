@@ -1,257 +1,143 @@
 'use client';
 
 import { useState } from 'react';
-// Helper to get the filename for the API
-const getFileNameForType = (type) => {
-    const map = {
-        margins: 'margenes.json',
-        discounts: 'descuentos.json',
-        specialPrices: 'precios_especiales.json',
-    };
-    return map[type];
-}
+import useSWR, { mutate } from 'swr';
+import RuleEditorModal from './RuleEditorModal'; // Importamos el modal
+import { DollarSign, Trash2, Edit } from 'lucide-react';
 
-export default function PricingManager({ initialMargins, initialDiscounts, initialSpecialPrices }) {
-  const [activeTab, setActiveTab] = useState('margins');
-  
-  const [margins, setMargins] = useState(initialMargins);
-  const [discounts, setDiscounts] = useState(initialDiscounts);
-  const [specialPrices, setSpecialPrices] = useState(initialSpecialPrices);
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-  const [editingRuleId, setEditingRuleId] = useState(null); // null for new rule, id for existing
-  const [editingRuleData, setEditingRuleData] = useState(null); // Data for the rule being edited/created
-
-  const getEmptyRule = (type) => {
-    switch (type) {
-      case 'margins': return { descripcion: '', tipo: '', categoria: '', valor: '' };
-      case 'discounts': return { descripcion: '', tipo: '', descuento: '', tiers: '' };
-      case 'specialPrices': return { descripcion: '', clienteId: '', productoId: '', precio: '' };
-      default: return {};
+const ruleConfig = {
+    margins: {
+        endpoint: '/api/pricing/margenes',
+        title: 'Márgenes',
+        emptyRule: { descripcion: '', tipo: 'General', valor: 1.5 },
+    },
+    discounts: {
+        endpoint: '/api/pricing/descuentos',
+        title: 'Descuentos',
+        emptyRule: { descripcion: '', tipo: 'categoria', descuento: 0.1, categoria: '', tiers: [] },
+    },
+    specialPrices: {
+        endpoint: '/api/pricing/especiales',
+        title: 'Precios Especiales',
+        emptyRule: { descripcion: '', clienteId: '', productoId: '', precio: 0 },
     }
+};
+
+export default function PricingManager() {
+  const [activeTab, setActiveTab] = useState('margins');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState(null); // Objeto de la regla a editar o null
+  const [error, setError] = useState(null);
+
+  const { data, isLoading, error: swrError } = useSWR(
+    ruleConfig[activeTab].endpoint, 
+    fetcher
+  );
+
+  const handleOpenModal = (rule = null) => {
+    setError(null);
+    if (rule) {
+      setEditingRule(rule);
+    } else {
+      setEditingRule(ruleConfig[activeTab].emptyRule); // Crear nueva regla
+    }
+    setIsModalOpen(true);
   };
 
-  const stateMap = {
-    margins: { data: margins, setter: setMargins },
-    discounts: { data: discounts, setter: setDiscounts },
-    specialPrices: { data: specialPrices, setter: setSpecialPrices },
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingRule(null);
   };
 
-  const handleSave = async () => {
-    if (!editingRuleData) return;
-
-    const filename = getFileNameForType(activeTab);
-    const isNew = !editingRuleData.id;
+  const handleSave = async (ruleData) => {
+    const isNew = !ruleData.id;
+    const endpoint = ruleConfig[activeTab].endpoint;
+    const url = isNew ? endpoint : `${endpoint}/${ruleData.id}`;
     const method = isNew ? 'POST' : 'PUT';
 
     try {
-        const res = await fetch(`/api/pricing/rules/${filename}`, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(editingRuleData),
-        });
-        if (!res.ok) throw new Error('Error al guardar la regla');
-        const savedRule = await res.json();
-
-        const { setter, data } = stateMap[activeTab];
-        if (isNew) {
-            setter([...data, savedRule]);
-        } else {
-            setter(data.map(rule => rule.id === savedRule.id ? savedRule : rule));
-        }
-        setEditingRuleId(null);
-        setEditingRuleData(null);
-    } catch (error) {
-        console.error('Error saving rule:', error);
-        alert('No se pudo guardar la regla.');
-    }
-  };
-
-  const handleDelete = async (ruleId, type) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar esta regla?')) return;
-
-    const filename = getFileNameForType(type);
-    try {
-      const res = await fetch(`/api/pricing/rules/${filename}`, {
-        method: 'DELETE',
+      const res = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: ruleId }),
+        body: JSON.stringify(ruleData),
       });
-      if (!res.ok) throw new Error('Error al eliminar la regla');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Error al guardar');
+      }
       
-      const { setter, data } = stateMap[type];
-      setter(data.filter(rule => rule.id !== ruleId));
+      mutate(endpoint); // Revalida el SWR cache
+      handleCloseModal();
 
-    } catch (error) {
-      console.error('Error deleting rule:', error);
-      alert('No se pudo eliminar la regla.');
+    } catch (err) {
+      setError(err.message);
     }
   };
 
-  const handleEditClick = (rule) => {
-    setEditingRuleId(rule.id);
-    setEditingRuleData({ ...rule });
+  const handleDelete = async (ruleId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar esta regla?')) return;
+    
+    const endpoint = ruleConfig[activeTab].endpoint;
+    try {
+      const res = await fetch(`${endpoint}/${ruleId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Error al eliminar');
+      }
+      
+      mutate(endpoint); // Revalida
+
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  const handleAddNewClick = () => {
-    setEditingRuleId(null);
-    setEditingRuleData(getEmptyRule(activeTab));
-  };
-
-  const handleCancelEdit = () => {
-    setEditingRuleId(null);
-    setEditingRuleData(null);
-  };
-
-  const renderRuleForm = () => {
-    if (!editingRuleData) return null;
-
-    const isNew = !editingRuleData.id;
-
-    const commonFields = (
-      <div className="form-control w-full">
-        <label className="label"><span className="label-text">Descripción</span></label>
-        <input 
-          type="text" 
-          value={editingRuleData.descripcion || ''} 
-          onChange={(e) => setEditingRuleData({ ...editingRuleData, descripcion: e.target.value })}
-          placeholder="Descripción" 
-          className="input input-bordered w-full" 
-        />
+  const renderContent = () => {
+    if (isLoading) return <span className="loading loading-spinner"></span>;
+    if (swrError) return <div className="alert alert-error">Error al cargar las reglas.</div>;
+    
+    return (
+      <div className="mt-6 space-y-2">
+        <h3 className="text-xl font-bold">Reglas de {ruleConfig[activeTab].title}</h3>
+        <div className="overflow-x-auto">
+          <table className="table w-full">
+            <thead>
+              <tr>
+                <th>Descripción</th>
+                <th>Detalles</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.map(rule => (
+                <tr key={rule.id} className="hover">
+                  <td>{rule.descripcion || 'N/A'}</td>
+                  <td>
+                    {/* Detalles específicos por tipo */}
+                    {activeTab === 'margins' && `Valor: ${rule.valor}`}
+                    {activeTab === 'discounts' && `Tipo: ${rule.tipo}, Desc: ${rule.descuento * 100}%`}
+                    {activeTab === 'specialPrices' && `Cliente: ${rule.cliente?.nombre || rule.clienteId} | Prod: ${rule.producto?.nombre || rule.productoId} | Precio: ${rule.precio}€`}
+                  </td>
+                  <td className="flex gap-2">
+                    <button onClick={() => handleOpenModal(rule)} className="btn btn-outline btn-info btn-sm">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(rule.id)} className="btn btn-outline btn-error btn-sm">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {data?.length === 0 && (
+          <p className="text-base-content/70">No hay reglas definidas.</p>
+        )}
       </div>
     );
-
-    switch (activeTab) {
-      case 'margins':
-        return (
-          <div className="space-y-4 p-4 border rounded-md bg-base-200">
-            <h4 className="text-lg font-bold">{isNew ? 'Añadir Nueva Regla de Margen' : 'Editar Regla de Margen'}</h4>
-            {commonFields}
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">Tipo</span></label>
-              <input 
-                type="text" 
-                value={editingRuleData.tipo || ''} 
-                onChange={(e) => setEditingRuleData({ ...editingRuleData, tipo: e.target.value })}
-                placeholder="Tipo" 
-                className="input input-bordered w-full" 
-              />
-            </div>
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">Categoría</span></label>
-              <input 
-                type="text" 
-                value={editingRuleData.categoria || ''} 
-                onChange={(e) => setEditingRuleData({ ...editingRuleData, categoria: e.target.value })}
-                placeholder="Categoría" 
-                className="input input-bordered w-full" 
-              />
-            </div>
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">Valor</span></label>
-              <input 
-                type="number" 
-                value={editingRuleData.valor || ''} 
-                onChange={(e) => setEditingRuleData({ ...editingRuleData, valor: parseFloat(e.target.value) })}
-                placeholder="Valor" 
-                className="input input-bordered w-full" 
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <button onClick={handleSave} className="btn btn-primary">Guardar</button>
-              <button onClick={handleCancelEdit} className="btn btn-ghost">Cancelar</button>
-            </div>
-          </div>
-        );
-      case 'discounts':
-        return (
-          <div className="space-y-4 p-4 border rounded-md bg-base-200">
-            <h4 className="text-lg font-bold">{isNew ? 'Añadir Nueva Regla de Descuento' : 'Editar Regla de Descuento'}</h4>
-            {commonFields}
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">Tipo</span></label>
-              <input 
-                type="text" 
-                value={editingRuleData.tipo || ''} 
-                onChange={(e) => setEditingRuleData({ ...editingRuleData, tipo: e.target.value })}
-                placeholder="Tipo" 
-                className="input input-bordered w-full" 
-              />
-            </div>
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">Descuento</span></label>
-              <input 
-                type="number" 
-                value={editingRuleData.descuento || ''} 
-                onChange={(e) => setEditingRuleData({ ...editingRuleData, descuento: parseFloat(e.target.value) })}
-                placeholder="Descuento" 
-                className="input input-bordered w-full" 
-              />
-            </div>
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">Tiers (JSON)</span></label>
-              <textarea 
-                value={typeof editingRuleData.tiers === 'object' ? JSON.stringify(editingRuleData.tiers, null, 2) : editingRuleData.tiers || ''} 
-                onChange={(e) => {
-                  try {
-                    setEditingRuleData({ ...editingRuleData, tiers: JSON.parse(e.target.value) });
-                  } catch (error) {
-                    setEditingRuleData({ ...editingRuleData, tiers: e.target.value });
-                  }
-                }}
-                placeholder="Tiers (JSON)" 
-                className="textarea textarea-bordered w-full" 
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <button onClick={handleSave} className="btn btn-primary">Guardar</button>
-              <button onClick={handleCancelEdit} className="btn btn-ghost">Cancelar</button>
-            </div>
-          </div>
-        );
-      case 'specialPrices':
-        return (
-          <div className="space-y-4 p-4 border rounded-md bg-base-200">
-            <h4 className="text-lg font-bold">{isNew ? 'Añadir Nuevo Precio Especial' : 'Editar Precio Especial'}</h4>
-            {commonFields}
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">ID Cliente</span></label>
-              <input 
-                type="text" 
-                value={editingRuleData.clienteId || ''} 
-                onChange={(e) => setEditingRuleData({ ...editingRuleData, clienteId: e.target.value })}
-                placeholder="ID Cliente" 
-                className="input input-bordered w-full" 
-              />
-            </div>
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">ID Producto</span></label>
-              <input 
-                type="text" 
-                value={editingRuleData.productoId || ''} 
-                onChange={(e) => setEditingRuleData({ ...editingRuleData, productoId: e.target.value })}
-                placeholder="ID Producto" 
-                className="input input-bordered w-full" 
-              />
-            </div>
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">Precio Especial</span></label>
-              <input 
-                type="number" 
-                value={editingRuleData.precio || ''} 
-                onChange={(e) => setEditingRuleData({ ...editingRuleData, precio: parseFloat(e.target.value) })}
-                placeholder="Precio Especial" 
-                className="input input-bordered w-full" 
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <button onClick={handleSave} className="btn btn-primary">Guardar</button>
-              <button onClick={handleCancelEdit} className="btn btn-ghost">Cancelar</button>
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
   };
 
   return (
@@ -262,25 +148,21 @@ export default function PricingManager({ initialMargins, initialDiscounts, initi
           <a role="tab" className={`tab ${activeTab === 'specialPrices' ? 'tab-active' : ''}`} onClick={() => setActiveTab('specialPrices')}>Precios Especiales</a>
       </div>
       <div className="pt-6">
-          <button onClick={handleAddNewClick} className="btn btn-primary mb-4">Añadir Nueva Regla</button>
-          {editingRuleData && renderRuleForm()}
-
-          <div className="mt-6 space-y-2">
-            <h3 className="text-xl font-bold">Reglas Existentes</h3>
-            {(stateMap[activeTab]?.data || []).map(rule => (
-              <div key={rule.id} className="flex justify-between items-center p-2 border rounded-md">
-                <span>{rule.descripcion || `Regla ${rule.id}`}</span>
-                <div className="space-x-2">
-                  <button onClick={() => handleEditClick(rule)} className="btn btn-outline btn-xs">Editar</button>
-                  <button onClick={() => handleDelete(rule.id, activeTab)} className="btn btn-ghost btn-xs">Eliminar</button>
-                </div>
-              </div>
-            ))}
-            {(stateMap[activeTab]?.data || []).length === 0 && (
-              <p className="text-base-content/70">No hay reglas definidas.</p>
-            )}
-          </div>
+          <button onClick={() => handleOpenModal()} className="btn btn-primary mb-4">Añadir Nueva Regla</button>
+          
+          {renderContent()}
       </div>
+
+      {isModalOpen && (
+        <RuleEditorModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onSave={handleSave}
+          rule={editingRule}
+          ruleType={activeTab}
+          apiError={error} // Pasamos el error al modal
+        />
+      )}
     </div>
   );
 }

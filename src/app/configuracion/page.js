@@ -1,7 +1,8 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Settings, PlusCircle, Trash2, Edit } from 'lucide-react';
+import { Settings, PlusCircle, Trash2, Edit, DollarSign } from 'lucide-react';
+import Link from 'next/link'; // Importar Link
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -92,14 +93,31 @@ const ReferenciasManager = () => {
   );
 };
 
+// --- AÑADIDO: Tarjeta para enlazar a la gestión de precios ---
+const PreciosManagerCard = () => (
+  <div className="card bg-base-100 shadow-xl">
+    <div className="card-body">
+      <h2 className="card-title">Reglas de Precios</h2>
+      <p>Gestionar los márgenes, descuentos y precios especiales que usa la API.</p>
+      <div className="card-actions justify-end">
+        <Link href="/configuracion/precios" className="btn btn-primary">
+          <DollarSign className="w-4 h-4" /> Ir a Gestión de Precios
+        </Link>
+      </div>
+    </div>
+  </div>
+);
+
+
 export default function ConfiguracionPage() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 flex items-center"><Settings className="mr-2" /> Configuración</h1>
       
       <div className="space-y-6">
+        <PreciosManagerCard /> {/* <-- AÑADIDO */}
         <ReferenciasManager />
-        {/* Aquí se podrían añadir más componentes de configuración (ej. Gestionar Proveedores) */}
+        {/* Aquí se podrían añadir más componentes de configuración */}
       </div>
     </div>
   );

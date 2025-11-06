@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, Calculator } from 'lucide-react';
+import { Plus, Trash2, Save, Calculator } from 'lucide-react'; // <-- CORREGIDO AQUÍ
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
