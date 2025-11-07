@@ -1,15 +1,3 @@
-#!/bin/bash
-#
-# Mega Script: Corrige el TypeError: items.map is not a function en CatalogManager.js
-#
-set -e
-
-FILE="src/components/CatalogManager.js"
-
-echo "--- 🛠️  Corrigiendo TypeError en ${FILE} ---"
-
-# Sobrescribe el archivo para asegurar que items es un array antes de llamar a .map()
-cat <<'EOF' > "$FILE"
 'use client';
 import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -231,8 +219,3 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
     </div>
   );
 }
-EOF
-
-echo "--- ✅ Corrección aplicada ---"
-echo "Se añadió Array.isArray(items) para evitar errores si SWR devuelve un valor no-array temporalmente."
-echo "Por favor, **reinicia** tu servidor de desarrollo (npm run dev) y verifica si el error ha desaparecido."

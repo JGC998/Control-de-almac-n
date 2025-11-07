@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
 // GET /api/pedidos-proveedores-data/[id]
-export async function GET(request, { params }) {
+export async function GET(request, { params: paramsPromise }) {
   try {
     const { id } = await params;
     const pedido = await db.pedidoProveedor.findUnique({
@@ -24,7 +24,7 @@ export async function GET(request, { params }) {
 }
 
 // PUT /api/pedidos-proveedores-data/[id]
-export async function PUT(request, { params }) {
+export async function PUT(request, { params: paramsPromise }) {
   try {
     const { id } = await params;
     const data = await request.json();

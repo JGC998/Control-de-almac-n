@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { calculateTotalsBackend } from '@/lib/pricing-utils'; 
 
 /**
  * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
  */
 async function getNextPedidoNumber(tx) {
-  // tx (Prisma Transaction Client) es opcional pero recomendado
   const dbClient = tx || db;
   const year = new Date().getFullYear();
   const prefix = `PED-${year}-`;
@@ -51,8 +51,9 @@ export async function POST(request) {
         throw new Error('Este presupuesto ya ha sido aceptado y convertido en pedido');
       }
 
-      // 2. Generar un nuevo número de pedido
+      // 2. Generar un nuevo número de pedido y RECALCULAR TOTALES
       const newOrderNumber = await getNextPedidoNumber(tx);
+      const recalculatedTotals = await calculateTotalsBackend(quote.items, tx);
 
       // 3. Crear el nuevo pedido copiando los datos
       const createdPedido = await tx.pedido.create({
@@ -63,9 +64,9 @@ export async function POST(request) {
           estado: 'Pendiente', // Estado inicial del pedido
           clienteId: quote.clienteId,
           notas: quote.notas,
-          subtotal: quote.subtotal,
-          tax: quote.tax,
-          total: quote.total,
+          subtotal: recalculatedTotals.subtotal,
+          tax: recalculatedTotals.tax,
+          total: recalculatedTotals.total,
           presupuestoId: quote.id, // Enlazamos al presupuesto
           items: {
             create: quote.items.map(item => ({

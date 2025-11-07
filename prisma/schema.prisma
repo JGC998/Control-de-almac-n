@@ -30,9 +30,8 @@ model Producto {
   
   referenciaFabricante String? @map("referencia_fab")
   espesor        Float?
-  largo          Float? 
-  ancho          Float? 
-  
+  largo          Float?
+  ancho          Float?
   precioUnitario Float
   pesoUnitario   Float
   costoUnitario  Float? @map("costo") 
@@ -40,15 +39,17 @@ model Producto {
   tieneTroquel   Boolean? @default(false)
   
   // RELACIONES
-  cliente   Cliente? @relation(fields: [clienteId], references: [id])
-  clienteId String? // Fabricante/Cliente propietario del diseño
+  cliente   Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  clienteId String? 
 
-  fabricante   Fabricante? @relation(fields: [fabricanteId], references: [id])
+  // FIX: Se establece onDelete: Restrict para que no se pueda borrar si tiene productos
+  fabricante   Fabricante? @relation(fields: [fabricanteId], references: [id], onDelete: Restrict)
   fabricanteId String?
   
-  material     Material?   @relation(fields: [materialId], references: [id])
-  materialId   String?
-  
+  // FIX: Se establece onDelete: Restrict para que no se pueda borrar si tiene productos
+  material     Material?   @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  materialId   String? 
+
   // Otros
   itemsPedido PedidoItem[]
   itemsPresup PresupuestoItem[]
@@ -67,6 +68,7 @@ model Material {
   id        String     @id @default(uuid())
   nombre    String     @unique
   productos Producto[]
+  tarifas   TarifaMaterial[] // Añadir la relación de regreso a Tarifas (opcional, pero buena práctica)
 }
 
 model Pedido {
@@ -82,8 +84,8 @@ model Pedido {
   cliente   Cliente? @relation(fields: [clienteId], references: [id])
   clienteId String?
 
-  presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id])
-  presupuestoId String? @unique
+  presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id], onDelete: SetNull)
+  presupuestoId String?      @unique
 
   items PedidoItem[]
 }
@@ -95,10 +97,10 @@ model PedidoItem {
   unitPrice    Float
   pesoUnitario Float
 
-  pedido   Pedido @relation(fields: [pedidoId], references: [id])
+  pedido   Pedido @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
   pedidoId String
 
-  producto   Producto? @relation(fields: [productoId], references: [id])
+  producto   Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
   productoId String?
 }
 
@@ -125,10 +127,10 @@ model PresupuestoItem {
   quantity    Int
   unitPrice   Float
 
-  presupuesto   Presupuesto @relation(fields: [presupuestoId], references: [id])
+  presupuesto   Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Restrict)
   presupuestoId String
 
-  producto   Producto? @relation(fields: [productoId], references: [id])
+  producto   Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
   productoId String?
 }
 
@@ -163,7 +165,7 @@ model MovimientoStock {
   cantidad   Float
   fecha      DateTime @default(now())
   referencia String?
-  stockItem Stock  @relation(fields: [stockId], references: [id])
+  stockItem Stock  @relation(fields: [stockId], references: [id], onDelete: Restrict)
   stockId   String
 }
 
@@ -182,7 +184,7 @@ model PedidoProveedor {
   tasaCambio    Float? @default(1)
   gastosTotales Float? @default(0)
 
-  proveedor   Proveedor @relation(fields: [proveedorId], references: [id])
+  proveedor   Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
   proveedorId String
 
   bobinas BobinaPedido[]
@@ -195,13 +197,12 @@ model BobinaPedido {
   espesor         Float?
   precioMetro     Float
   color           String?
-
   costoFinalMetro Float?
   
-  referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
+  referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id], onDelete: SetNull)
   referenciaId String?
-
-  pedido   PedidoProveedor @relation(fields: [pedidoId], references: [id])
+  
+  pedido   PedidoProveedor @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
   pedidoId String
 }
 
@@ -209,11 +210,15 @@ model BobinaPedido {
 
 model TarifaMaterial {
   id       String @id @default(uuid())
-  material String
+  
+  // FIX: Usar ID de Material con Foreign Key RESTRICT
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  materialId String
+  
   espesor  Float  
   precio   Float
   peso     Float
-  @@unique([material, espesor])
+  @@unique([materialId, espesor]) // FIX: Cambiar a materialId
 }
 
 model ReferenciaBobina {
@@ -222,7 +227,6 @@ model ReferenciaBobina {
   ancho        Float?
   lonas        Int?
   pesoPorMetroLineal Float?
-
   bobinas BobinaPedido[]
   
   @@map("ReferenciaBobina")
@@ -252,7 +256,7 @@ model DescuentoTier {
   id             String  @id @default(uuid())
   cantidadMinima Int
   descuento      Float
-  regla   ReglaDescuento @relation(fields: [reglaId], references: [id])
+  regla   ReglaDescuento @relation(fields: [reglaId], references: [id], onDelete: Restrict)
   reglaId String
 }
 
@@ -260,9 +264,9 @@ model PrecioEspecial {
   id          String   @id @default(uuid())
   descripcion String
   precio      Float
-  cliente   Cliente @relation(fields: [clienteId], references: [id])
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   clienteId String
-  producto   Producto @relation(fields: [productoId], references: [id])
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
   productoId String
   @@unique([clienteId, productoId])
 }

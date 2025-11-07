@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator, Users, Settings } from 'lucide-react';
+import { Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator, Users, Settings, Layers } from 'lucide-react'; // Añadido 'Layers'
 
 const links = [
   { href: '/', label: 'Dashboard', icon: Home },
@@ -13,6 +13,7 @@ const links = [
   { href: '/tarifas', label: 'Tarifas', icon: DollarSign },
   { href: '/gestion/clientes', label: 'Gestión Clientes', icon: Users },
   { href: '/gestion/productos', label: 'Gestión Productos', icon: Package },
+  { href: '/gestion/catalogos', label: 'Gestión Catálogos', icon: Layers }, // <-- ENLACE REQUERIDO
   { href: '/configuracion', label: 'Configuración', icon: Settings },
 ];
 

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
 // GET: Obtener un pedido específico por ID
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise; 
     const order = await db.pedido.findUnique({
       where: { id: id },
       include: {
@@ -26,16 +27,22 @@ export async function GET(request, { params: paramsPromise }) {
 // PUT: Actualizar un pedido existente
 export async function PUT(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise; 
     const data = await request.json();
     const { items, ...updatedOrderData } = data;
 
     const transaction = await db.$transaction(async (tx) => {
+      // Recalcular totales con el IVA actual antes de guardar
+      const recalculatedTotals = await calculateTotalsBackend(items, tx);
+
       // 1. Actualizar datos principales del pedido
       const updatedOrder = await tx.pedido.update({
         where: { id: id },
         data: {
           ...updatedOrderData,
+          subtotal: recalculatedTotals.subtotal,
+          tax: recalculatedTotals.tax,
+          total: recalculatedTotals.total,
         },
       });
 
@@ -74,7 +81,7 @@ export async function PUT(request, { params: paramsPromise }) {
 // DELETE: Eliminar un pedido
 export async function DELETE(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise; 
 
     await db.$transaction(async (tx) => {
       await tx.pedidoItem.deleteMany({

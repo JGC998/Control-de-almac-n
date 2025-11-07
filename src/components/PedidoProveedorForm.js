@@ -121,6 +121,11 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
         referenciaNombre: b.referencia?.nombre || '',
         referenciaBusqueda: b.referencia?.nombre || '', 
         color: b.color || '', 
+        // Aseguramos que los campos numéricos sean tratados como cadenas vacías si son nulos
+        ancho: b.ancho || '',
+        largo: b.largo || '',
+        espesor: b.espesor || '',
+        precioMetro: b.precioMetro || 0
       })) || [],
     };
   };
@@ -206,12 +211,20 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     setFormData(prev => ({ ...prev, bobinas: newBobinas }));
   };
   
+  // --- MODIFICADO: Lógica de Auto-llenado ---
   const handleSelectReferencia = (index, refId, refName) => {
-      const newBobinas = [...formData.bobinas];
-      newBobinas[index].referenciaId = refId;
-      newBobinas[index].referenciaBusqueda = refName;
-      newBobinas[index].referenciaNombre = refName;
-      setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+    const newBobinas = [...formData.bobinas];
+    const ref = referencias.find(r => r.id === refId);
+    if (ref) {
+        newBobinas[index].ancho = ref.ancho || '';
+        newBobinas[index].largo = newBobinas[index].largo || '';
+        newBobinas[index].espesor = newBobinas[index].espesor || ''; // Mantenemos manual si no hay valor o la referencia no lo da
+    }
+    
+    newBobinas[index].referenciaId = refId;
+    newBobinas[index].referenciaBusqueda = refName;
+    newBobinas[index].referenciaNombre = refName;
+    setFormData(prev => ({ ...prev, bobinas: newBobinas }));
   };
   
   const handleReferenciaCreada = (index, newRef) => {
@@ -225,8 +238,8 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
         bobinas: [...prev.bobinas, { 
             referenciaId: '', 
             referenciaBusqueda: '', 
-            ancho: 0, 
-            largo: 0, 
+            ancho: '', // Cambiado a ''
+            largo: '', // Cambiado a ''
             espesor: '',
             color: '',
             precioMetro: 0 
@@ -261,9 +274,9 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       bobinas: formData.bobinas.map(b => ({
         ...b,
         referenciaId: b.referenciaId || null,
-        ancho: parseFloat(b.ancho) || null,
-        largo: parseFloat(b.largo) || null,
-        // Usar null para que Prisma use el tipo Float?
+        // Convertimos a Float o NULL si es cadena vacía
+        ancho: b.ancho ? parseFloat(b.ancho) : null,
+        largo: b.largo ? parseFloat(b.largo) : null,
         espesor: b.espesor ? parseFloat(b.espesor) : null, 
         color: b.color || null,
         precioMetro: parseFloat(b.precioMetro) || 0,
@@ -613,7 +626,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
           endpoint="/api/configuracion/referencias"
           cacheKey="/api/configuracion/referencias"
           fields={[
-              { name: 'nombre', placeholder: 'Nombre (ej: GOMA_2MM_B)' },
+              { name: 'nombre', placeholder: 'Nombre (ej: GOMA_NEGRA)' },
               { name: 'descripcion', placeholder: 'Descripción (Opcional)', required: false }
           ]}
         />

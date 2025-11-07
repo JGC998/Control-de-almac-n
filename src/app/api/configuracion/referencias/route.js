@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 export async function GET() {
   try {
     const referencias = await db.referenciaBobina.findMany({
-      orderBy: { nombre: 'asc' },
+      orderBy: { referencia: 'asc' }, // CORREGIDO: Usamos el campo de Prisma 'referencia'
     });
     return NextResponse.json(referencias);
   } catch (error) {
@@ -18,14 +18,19 @@ export async function GET() {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { nombre, descripcion } = data;
+    const { nombre, ancho, lonas, pesoPorMetroLineal } = data; // AHORA ACEPTA MÁS CAMPOS
 
     if (!nombre) {
       return NextResponse.json({ message: 'El nombre es requerido' }, { status: 400 });
     }
 
     const nuevaReferencia = await db.referenciaBobina.create({
-      data: { nombre, descripcion },
+      data: {
+        referencia: nombre, // Mapeado en schema.prisma a 'nombre'
+        ancho: parseFloat(ancho) || 0,
+        lonas: parseInt(lonas) || 0,
+        pesoPorMetroLineal: parseFloat(pesoPorMetroLineal) || 0,
+      },
     });
     return NextResponse.json(nuevaReferencia, { status: 201 });
   } catch (error) {

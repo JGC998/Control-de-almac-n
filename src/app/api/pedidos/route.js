@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
 /**
  * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
@@ -55,13 +56,14 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { clienteId, items, notas, subtotal, tax, total, estado } = data;
+    const { clienteId, items, notas, estado } = data; // Totales se recalculan aquí
 
     if (!clienteId || !items || items.length === 0) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
     }
 
     const newOrderNumber = await getNextPedidoNumber();
+    const recalculatedTotals = await calculateTotalsBackend(items);
 
     const newOrder = await db.pedido.create({
       data: {
@@ -71,9 +73,9 @@ export async function POST(request) {
         estado: estado || 'Pendiente',
         clienteId: clienteId,
         notas: notas,
-        subtotal: subtotal,
-        tax: tax,
-        total: total,
+        subtotal: recalculatedTotals.subtotal,
+        tax: recalculatedTotals.tax,
+        total: recalculatedTotals.total,
         items: {
           create: items.map(item => ({
             descripcion: item.description,

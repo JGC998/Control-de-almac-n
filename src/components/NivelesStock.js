@@ -1,4 +1,5 @@
 "use client";
+import React from 'react'; // <--- AÑADIDO: Importar React
 import { Package, AlertTriangle, CheckCircle, TrendingDown, Minus } from 'lucide-react';
 
 export default function NivelesStock({ data }) {
@@ -70,7 +71,7 @@ export default function NivelesStock({ data }) {
                 </div>
                 <progress 
                   className={`progress ${status.progress} w-full`} 
-                  value={Math.min(percentage, 100)} // Limitar visualmente al 100%
+                  value={Math.min(percentage, 100)} 
                   max="100"
                 ></progress>
               </li>

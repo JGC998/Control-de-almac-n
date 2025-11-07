@@ -1,6 +1,44 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+// Función central de cálculo (Ahora usa materialId para la búsqueda)
+async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
+    if (!materialId || !espesor || !largo || !ancho || largo <= 0 || ancho <= 0) {
+        return { costo: 0, peso: 0 };
+    }
+
+    // 1. Obtener el nombre del material para buscar la tarifa
+    const material = await db.material.findUnique({
+      where: { id: materialId },
+      select: { nombre: true }
+    });
+
+    if (!material) {
+        return { costo: 0, peso: 0 };
+    }
+
+    // 2. Buscar la TarifaMaterial usando el ID del material (clave única compuesta)
+    const tarifa = await db.tarifaMaterial.findUnique({
+        where: { 
+            materialId_espesor: { 
+                materialId: materialId,
+                espesor: espesor
+            }
+        },
+    });
+
+    if (!tarifa || tarifa.precio <= 0) {
+        return { costo: 0, peso: 0 };
+    }
+
+    // 3. Aplicar las fórmulas de cálculo (Ancho y Largo están en mm)
+    const areaM2 = (ancho / 1000) * (largo / 1000);
+    const costo = areaM2 * tarifa.precio; // Costo = Área * Precio Tarifa (€/m²)
+    const peso = areaM2 * tarifa.peso;     // Peso = Área * Peso Tarifa (kg/m²)
+
+    return { costo: parseFloat(costo.toFixed(2)), peso: parseFloat(peso.toFixed(2)) };
+}
+
 // GET /api/productos - Obtiene todos los productos
 export async function GET(request) {
   try {
@@ -33,7 +71,7 @@ export async function POST(request) {
   try {
     const data = await request.json();
     
-    // Buscar ID por nombre
+    // 1. Buscar IDs de Fabricante y Material
     const fabricante = await db.fabricante.findUnique({
       where: { nombre: data.fabricante },
     });
@@ -47,19 +85,25 @@ export async function POST(request) {
     if (!material) {
       return NextResponse.json({ message: `Material "${data.material}" no encontrado.` }, { status: 400 });
     }
+    
+    // 2. Calcular Costo Unitario y Peso Unitario
+    const { costo: calculatedCosto, peso: calculatedPeso } = await calculateCostAndWeight(
+        material.id, // Usar ID de Material
+        parseFloat(data.espesor), 
+        parseFloat(data.largo), 
+        parseFloat(data.ancho)
+    );
 
     const nuevoProducto = await db.producto.create({
       data: {
         nombre: data.nombre,
-        // CAMBIO: Usar nuevo campo
-        referenciaFabricante: data.modelo, // El frontend todavía envía 'modelo' por ahora
-        espesor: data.espesor,
-        largo: data.largo,
-        ancho: data.ancho,
-        precioUnitario: data.precioUnitario,
-        pesoUnitario: data.pesoUnitario,
-        // CAMBIO: Usar nuevo campo (costoUnitario)
-        costoUnitario: data.costo, // El frontend todavía podría enviar 'costo'
+        referenciaFabricante: data.modelo,
+        espesor: parseFloat(data.espesor) || 0,
+        largo: parseFloat(data.largo) || 0,
+        ancho: parseFloat(data.ancho) || 0,
+        precioUnitario: parseFloat(data.precioUnitario),
+        pesoUnitario: calculatedPeso, 
+        costoUnitario: calculatedCosto, 
         fabricanteId: fabricante.id, 
         materialId: material.id,
         clienteId: data.clienteId || null,
@@ -69,7 +113,7 @@ export async function POST(request) {
 
     return NextResponse.json(nuevoProducto, { status: 201 });
   } catch (error) {
-    console.error(error);
+    console.error('Error al crear el producto:', error);
     return NextResponse.json({ message: 'Error al crear el producto' }, { status: 500 });
   }
 }

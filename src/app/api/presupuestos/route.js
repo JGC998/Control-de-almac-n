@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db'; // Importamos el cliente de BD
+import { db } from '@/lib/db'; 
 import { v4 as uuidv4 } from 'uuid';
+import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
 /**
  * Genera el siguiente número secuencial para un presupuesto (ej. 2025-001)
@@ -57,32 +58,32 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { clienteId, items, notes, subtotal, tax, total, estado } = data;
+    const { clienteId, items, notes, estado } = data; // Totales se recalculan aquí
 
     if (!clienteId || !items || items.length === 0) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
     }
 
     const newQuoteNumber = await getNextPresupuestoNumber();
+    const recalculatedTotals = await calculateTotalsBackend(items);
 
     const newQuote = await db.presupuesto.create({
       data: {
-        id: uuidv4(), // Opcional, pero bueno para mantener IDs consistentes si se migran
+        id: uuidv4(), 
         numero: newQuoteNumber,
         fechaCreacion: new Date().toISOString(),
         estado: estado || 'Borrador',
         clienteId: clienteId,
         notas: notes,
-        subtotal: subtotal,
-        tax: tax,
-        total: total,
-        // Aquí ocurre la magia de Prisma: crea los "items" anidados
+        subtotal: recalculatedTotals.subtotal,
+        tax: recalculatedTotals.tax,
+        total: recalculatedTotals.total,
         items: {
           create: items.map(item => ({
             description: item.description,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            productoId: item.productId, // Enlazamos al producto
+            productoId: item.productId,
           })),
         },
       },

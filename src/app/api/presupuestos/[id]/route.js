@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
 // GET: Obtener un presupuesto específico por ID
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise; 
     const quote = await db.presupuesto.findUnique({
       where: { id: id },
       include: {
-        cliente: true, // Incluye todos los datos del cliente
-        items: true,   // Incluye los items del presupuesto
+        cliente: true, 
+        items: true,   
       },
     });
 
@@ -26,17 +27,22 @@ export async function GET(request, { params: paramsPromise }) {
 // PUT: Actualizar un presupuesto existente
 export async function PUT(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise; 
     const data = await request.json();
-    const { items, ...updatedQuoteData } = data; // Separamos los items del resto
+    const { items, ...updatedQuoteData } = data; 
 
     const transaction = await db.$transaction(async (tx) => {
+      // Recalcular totales con el IVA actual antes de guardar
+      const recalculatedTotals = await calculateTotalsBackend(items, tx);
+      
       // 1. Actualizar datos principales del presupuesto
       const updatedQuote = await tx.presupuesto.update({
         where: { id: id },
         data: {
           ...updatedQuoteData,
-          // fechaModificacion: new Date().toISOString(), // (Opcional: añadir este campo al schema)
+          subtotal: recalculatedTotals.subtotal,
+          tax: recalculatedTotals.tax,
+          total: recalculatedTotals.total,
         },
       });
 
@@ -52,8 +58,8 @@ export async function PUT(request, { params: paramsPromise }) {
             description: item.description,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            productoId: item.productId,
-            presupuestoId: id, // Enlazamos al presupuesto
+            productoId: item.productId, 
+            presupuestoId: id, 
           })),
         });
       }
@@ -61,7 +67,6 @@ export async function PUT(request, { params: paramsPromise }) {
       return updatedQuote;
     });
 
-    // Devolvemos el presupuesto actualizado (sin los items, para simplificar)
     return NextResponse.json(transaction, { status: 200 });
   } catch (error) {
     console.error('Error al actualizar el presupuesto:', error);
@@ -75,7 +80,7 @@ export async function PUT(request, { params: paramsPromise }) {
 // DELETE: Eliminar un presupuesto
 export async function DELETE(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise; 
 
     await db.$transaction(async (tx) => {
       // 1. Eliminar todos los items asociados
