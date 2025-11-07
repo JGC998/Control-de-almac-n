@@ -7,78 +7,9 @@ import "react-day-picker/style.css";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal"; // IMPORTACIÓN REFACTORIZADA
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
-
-// --- Componente Modal para creación rápida (Unificado) ---
-const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoint, fields, cacheKey }) => {
-  const [formData, setFormData] = useState({});
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (isOpen) {
-        setFormData(fields.reduce((acc, field) => ({ ...acc, [field.name]: '' }), {}));
-        setError(null);
-    }
-  }, [isOpen, fields]);
-
-  if (!isOpen) return null;
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || `Error al crear ${title}`);
-      }
-      const newItem = await res.json();
-      mutate(cacheKey);
-      onCreated(newItem); 
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  return (
-    <div className="modal modal-open">
-      <div className="modal-box">
-        <h3 className="font-bold text-lg">Nuevo {title} Rápido</h3>
-        <form onSubmit={handleSubmit} className="py-4 space-y-4">
-          {fields.map(field => (
-            <input 
-              key={field.name}
-              type={field.type || 'text'} 
-              name={field.name} 
-              value={formData[field.name] || ''} 
-              onChange={handleChange} 
-              placeholder={field.placeholder} 
-              className="input input-bordered w-full" 
-              required={field.required !== false}
-            />
-          ))}
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <div className="modal-action">
-            <button type="button" onClick={onClose} className="btn">Cancelar</button>
-            <button type="submit" className="btn btn-primary">Guardar</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 
 // --- Estado inicial por defecto para un formulario nuevo ---
 const defaultFormState = {
@@ -121,11 +52,6 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
         referenciaNombre: b.referencia?.nombre || '',
         referenciaBusqueda: b.referencia?.nombre || '', 
         color: b.color || '', 
-        // Aseguramos que los campos numéricos sean tratados como cadenas vacías si son nulos
-        ancho: b.ancho || '',
-        largo: b.largo || '',
-        espesor: b.espesor || '',
-        precioMetro: b.precioMetro || 0
       })) || [],
     };
   };
@@ -143,8 +69,21 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   const { data: referencias, error: refError } = useSWR('/api/configuracion/referencias', fetcher);
   const { data: tarifas, error: tarifasError } = useSWR('/api/precios', fetcher); 
   
-  // Colores de PVC (Basado en la estructura de precios-pvc.json)
+  // Colores de PVC 
   const pvcColors = ['Blanco', 'Verde', 'Azul', 'Rojo'];
+
+  // --- Lógica de Espesores Dinámicos (SIMPLIFICADA - usa solo tarifas) ---
+  const availableEspesores = useMemo(() => {
+    if (!tarifas || !formData.material) return [];
+    
+    const espesores = tarifas
+      .filter(t => t.material.toLowerCase() === formData.material.toLowerCase()) // Filtrar por material
+      .map(t => String(t.espesor)); // Mapear a string para usar en <select>
+
+    // Asegurar unicidad y ordenar
+    return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
+  }, [tarifas, formData.material]);
+  // ----------------------------------------------------
 
   // --- Lógica de Búsqueda de Proveedores ---
   const filteredProveedores = proveedores?.filter(p => 
@@ -168,31 +107,12 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   };
   // ------------------------------------------
 
-  // --- Lógica de Espesores Dinámicos ---
-  const availableEspesores = useMemo(() => {
-    // Espesores específicos para PVC
-    if (formData.material === 'PVC') {
-        return ['2', '3', '6', '8']; 
-    }
-    
-    // Espesores específicos para GOMA
-    if (formData.material === 'GOMA') {
-        return ['6', '8', '10', '12', '15'];
-    }
-
-    // Para otros materiales, usamos las tarifas de la base de datos.
-    if (!tarifas || !formData.material) return [];
-    const espesores = tarifas
-      .filter(t => t.material === formData.material)
-      .map(t => String(t.espesor));
-    return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
-  }, [tarifas, formData.material]);
-
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     
     // Si cambia el material, limpiar espesores y colores de bobinas
     if (name === 'material') {
+        // Al cambiar el material, limpiamos espesor y color
         const newBobinas = formData.bobinas.map(b => ({ ...b, espesor: '', color: '' }));
         setFormData(prev => ({ ...prev, [name]: value, bobinas: newBobinas }));
     } else {
@@ -211,24 +131,33 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     setFormData(prev => ({ ...prev, bobinas: newBobinas }));
   };
   
-  // --- MODIFICADO: Lógica de Auto-llenado ---
   const handleSelectReferencia = (index, refId, refName) => {
-    const newBobinas = [...formData.bobinas];
-    const ref = referencias.find(r => r.id === refId);
-    if (ref) {
-        newBobinas[index].ancho = ref.ancho || '';
-        newBobinas[index].largo = newBobinas[index].largo || '';
-        newBobinas[index].espesor = newBobinas[index].espesor || ''; // Mantenemos manual si no hay valor o la referencia no lo da
-    }
-    
-    newBobinas[index].referenciaId = refId;
-    newBobinas[index].referenciaBusqueda = refName;
-    newBobinas[index].referenciaNombre = refName;
-    setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+      const newBobinas = [...formData.bobinas];
+      newBobinas[index].referenciaId = refId;
+      newBobinas[index].referenciaBusqueda = refName;
+      newBobinas[index].referenciaNombre = refName;
+      
+      // Intentar rellenar ancho/largo/espesor si es posible (solo funciona si se cargan con el producto)
+      const selectedRef = referencias.find(r => r.id === refId);
+      if (selectedRef) {
+          // Si la referencia tiene ancho/lonas/peso precargado, lo usamos
+          newBobinas[index].ancho = selectedRef.ancho || newBobinas[index].ancho;
+          // Dejamos largo y espesor para que el usuario los ajuste si es necesario.
+      }
+      
+      setFormData(prev => ({ ...prev, bobinas: newBobinas }));
   };
   
   const handleReferenciaCreada = (index, newRef) => {
-      handleSelectReferencia(index, newRef.id, newRef.nombre);
+      const newBobinas = [...formData.bobinas];
+      newBobinas[index].referenciaId = newRef.id;
+      newBobinas[index].referenciaBusqueda = newRef.nombre; // Usamos 'nombre' del objeto creado
+      newBobinas[index].referenciaNombre = newRef.nombre;
+      
+      // Rellenar campos opcionales con el valor creado si existen
+      newBobinas[index].ancho = newRef.ancho || newBobinas[index].ancho;
+      
+      setFormData(prev => ({ ...prev, bobinas: newBobinas }));
       setModalState(null);
   };
 
@@ -238,8 +167,8 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
         bobinas: [...prev.bobinas, { 
             referenciaId: '', 
             referenciaBusqueda: '', 
-            ancho: '', // Cambiado a ''
-            largo: '', // Cambiado a ''
+            ancho: 0, 
+            largo: 0, 
             espesor: '',
             color: '',
             precioMetro: 0 
@@ -274,9 +203,9 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       bobinas: formData.bobinas.map(b => ({
         ...b,
         referenciaId: b.referenciaId || null,
-        // Convertimos a Float o NULL si es cadena vacía
-        ancho: b.ancho ? parseFloat(b.ancho) : null,
-        largo: b.largo ? parseFloat(b.largo) : null,
+        ancho: parseFloat(b.ancho) || null,
+        largo: parseFloat(b.largo) || null,
+        // Usar null para que Prisma use el tipo Float?
         espesor: b.espesor ? parseFloat(b.espesor) : null, 
         color: b.color || null,
         precioMetro: parseFloat(b.precioMetro) || 0,
@@ -500,9 +429,9 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                     <tr><td colSpan={formData.material === 'PVC' ? "7" : "6"} className="text-center">Añade al menos una bobina.</td></tr>
                   )}
                   {formData.bobinas.map((bobina, index) => {
-                      // Filtrar referencias disponibles en tiempo real
+                      // Filtrar referencias disponibles en tiempo real (BUG FIX: Añadir '?.' para r.referencia)
                       const filteredRefs = referencias?.filter(r => 
-                          r.nombre.toLowerCase().includes(bobina.referenciaBusqueda?.toLowerCase() || '')
+                          r?.referencia?.toLowerCase().includes(bobina.referenciaBusqueda?.toLowerCase() || '')
                       ).slice(0, 5) || [];
                       
                       return (
@@ -527,12 +456,12 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                                     </button>
                                 </div>
                                 
-                                {/* Resultados de búsqueda */}
+                                {/* Resultados de búsqueda (Ajuste de estilo para que no se oculte) */}
                                 {bobina.referenciaBusqueda?.length >= 2 && filteredRefs.length > 0 && (
-                                    <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-full max-w-xs">
+                                    <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-96 max-w-lg mt-1">
                                         {filteredRefs.map(r => (
-                                            <li key={r.id} onClick={() => handleSelectReferencia(index, r.id, r.nombre)}>
-                                                <a>{r.nombre}</a>
+                                            <li key={r.id} onClick={() => handleSelectReferencia(index, r.id, r.referencia)}>
+                                                <a>{r.referencia}</a>
                                             </li>
                                         ))}
                                     </ul>
@@ -626,8 +555,11 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
           endpoint="/api/configuracion/referencias"
           cacheKey="/api/configuracion/referencias"
           fields={[
-              { name: 'nombre', placeholder: 'Nombre (ej: GOMA_NEGRA)' },
-              { name: 'descripcion', placeholder: 'Descripción (Opcional)', required: false }
+              // Usamos 'nombre' que es el campo mapeado en Prisma a 'referencia'
+              { name: 'nombre', placeholder: 'Referencia (ej: EP-250-2-400)' }, 
+              { name: 'ancho', placeholder: 'Ancho (mm)', type: 'number', required: false, step: '0.01' },
+              { name: 'lonas', placeholder: 'Número de Lonas', type: 'number', required: false },
+              { name: 'pesoPorMetroLineal', placeholder: 'Peso por Metro Lineal (kg)', type: 'number', required: false, step: '0.01' }
           ]}
         />
       )}
