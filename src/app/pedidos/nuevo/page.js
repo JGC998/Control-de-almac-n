@@ -1,8 +1,3 @@
-#!/bin/bash
-set -e
-
-echo "--- 1. Creando src/app/pedidos/nuevo/page.js para renderizar el formulario ---"
-cat > src/app/pedidos/nuevo/page.js <<'EOF'
 import CreatePedidoForm from "@/components/CreatePedidoForm";
 import { Package } from "lucide-react";
 
@@ -18,7 +13,3 @@ export default function NuevoPedidoPage() {
     </div>
   );
 }
-EOF
-
-echo "--- ✅ CREACIÓN DE PÁGINA COMPLETADA ---"
-echo "Se ha creado src/app/pedidos/nuevo/page.js. Reinicia tu servidor y comprueba la ruta /pedidos/nuevo."

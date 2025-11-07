@@ -7,13 +7,15 @@ import { Plus, Trash2, Save, UserPlus, X } from 'lucide-react';
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // --- Componente Modal para crear Cliente/Fabricante/Material (Unificado) ---
-const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoint, fields, cacheKey }) => {
-  const [formData, setFormData] = useState({});
+// NOTA: Se ha modificado para ser más flexible y permitir la inyección de datos locales
+const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoint, fields, cacheKey, isManualProduct = false }) => {
+  const [formData, setFormData] = useState(fields.reduce((acc, field) => ({ ...acc, [field.name]: field.type === 'number' ? 0 : '' }), {}));
   const [error, setError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-        setFormData(fields.reduce((acc, field) => ({ ...acc, [field.name]: '' }), {}));
+        setFormData(fields.reduce((acc, field) => ({ ...acc, [field.name]: field.type === 'number' ? 0 : '' }), {}));
         setError(null);
     }
   }, [isOpen, fields]);
@@ -21,13 +23,30 @@ const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoint, fie
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    // Manejar números para el caso de Producto Manual
+    const processedValue = type === 'number' ? parseFloat(value) : value;
+
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setIsSaving(true);
+    
+    // Si es Producto Manual, se ejecuta directamente onCreated con la data
+    if (isManualProduct) {
+        if (!formData.description || (formData.quantity <= 0) || (formData.unitPrice <= 0)) {
+            setError("La descripción, cantidad y precio deben ser mayores a cero.");
+            setIsSaving(false);
+            return;
+        }
+        onCreated(formData);
+        onClose();
+        return;
+    }
+
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -44,30 +63,36 @@ const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoint, fie
       onClose();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
     <div className="modal modal-open">
       <div className="modal-box">
-        <h3 className="font-bold text-lg">Nuevo {title} Rápido</h3>
+        <h3 className="font-bold text-lg">{isManualProduct ? "Crear y Añadir Producto Manual" : `Nuevo ${title} Rápido`}</h3>
         <form onSubmit={handleSubmit} className="py-4 space-y-4">
           {fields.map(field => (
             <input 
               key={field.name}
               type={field.type || 'text'} 
               name={field.name} 
-              value={formData[field.name] || ''} 
+              value={formData[field.name] || (field.type === 'number' ? 0 : '')} 
               onChange={handleChange} 
               placeholder={field.placeholder} 
               className="input input-bordered w-full" 
+              step={field.step}
+              min={field.min}
               required={field.required !== false}
             />
           ))}
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="modal-action">
-            <button type="button" onClick={onClose} className="btn">Cancelar</button>
-            <button type="submit" className="btn btn-primary">Guardar</button>
+            <button type="button" onClick={onClose} className="btn" disabled={isSaving}>Cancelar</button>
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? "Guardando..." : "Guardar"}
+            </button>
           </div>
         </form>
       </div>
@@ -86,7 +111,8 @@ export default function CreatePresupuestoForm({ initialData = null }) {
   const [isLoading, setIsLoading] = useState(false);
   
   // Estados para Modals
-  const [modalState, setModalState] = useState(null); // 'CLIENTE', 'FABRICANTE', 'MATERIAL'
+  // AÑADIDO: 'PRODUCTO_MANUAL' como posible estado
+  const [modalState, setModalState] = useState(null); // 'CLIENTE', 'FABRICANTE', 'MATERIAL', 'PRODUCTO_MANUAL'
 
   // Nuevos estados para filtros de producto
   const [filtroFabricanteId, setFiltroFabricanteId] = useState('');
@@ -105,7 +131,12 @@ export default function CreatePresupuestoForm({ initialData = null }) {
   useEffect(() => {
     if (initialData) {
       setClienteId(initialData.clienteId || '');
-      setItems(initialData.items || []);
+      // Mapear items.productoId a item.productId para consistencia
+      const initialItems = initialData.items.map(item => ({ 
+          ...item, 
+          productId: item.productId || item.plantillaId // Asegurar que usa productId
+      }));
+      setItems(initialItems || []);
       setNotes(initialData.notes || '');
       if (initialData.cliente?.nombre) {
         setClienteBusqueda(initialData.cliente.nombre);
@@ -155,22 +186,30 @@ export default function CreatePresupuestoForm({ initialData = null }) {
     setClienteBusqueda('');
   };
   
-  // --- Handlers de Items ---
+  // --- Handlers de Productos (antes Items) ---
 
   const handleItemChange = (index, field, value) => {
     const newItems = [...items];
     const item = newItems[index];
 
-    if (field === 'productId') { // Ahora se llama productId
+    if (field === 'productId') { 
       const producto = todosProductos.find(p => p.id === value);
+      
       if (producto) {
         item.description = producto.nombre;
-        // Redondear el precio a dos decimales al seleccionar el producto
-        item.unitPrice = parseFloat(producto.precioUnitario.toFixed(2)); 
+        // CORRECCIÓN: Actualizar unitPrice y productId al seleccionar un producto
+        item.unitPrice = parseFloat(parseFloat(producto.precioUnitario).toFixed(2)); 
         item.productId = producto.id; 
+      } else if (value === '') {
+        // Opción "Manual"
+        item.productId = null;
+        item.description = ''; // Limpiar descripción si es manual
+        item.unitPrice = 0;
       }
     } else if (field === 'unitPrice') {
       item[field] = parseFloat(parseFloat(value).toFixed(2)) || 0;
+    } else if (field === 'quantity') {
+       item[field] = parseInt(value) || 0;
     } else {
       item[field] = value;
     }
@@ -178,13 +217,7 @@ export default function CreatePresupuestoForm({ initialData = null }) {
     setItems(newItems);
   };
 
-  const addItem = (producto) => {
-    if (!producto) {
-        // Permitir añadir un item manual vacío para que el usuario lo rellene
-        setItems(prev => [...prev, { plantilladId: '', description: '', quantity: 1, unitPrice: 0, productId: null }]);
-        return;
-    }
-
+  const addItemFromSearch = (producto) => { // Función para añadir desde la búsqueda
     const precioUnitarioRedondeado = parseFloat(producto.precioUnitario.toFixed(2));
 
     setItems(prev => [...prev, { 
@@ -199,6 +232,17 @@ export default function CreatePresupuestoForm({ initialData = null }) {
     setFiltroMaterialId('');
     setProductoBusqueda('');
   };
+  
+  const handleCreatedManualProduct = (newProductData) => {
+    setItems(prev => [...prev, {
+        description: newProductData.description,
+        quantity: parseInt(newProductData.quantity) || 1,
+        unitPrice: parseFloat(newProductData.unitPrice) || 0,
+        productId: null, // Es manual, no tiene ID de plantilla
+    }]);
+    setModalState(null); // Cerrar modal
+  };
+
 
   const removeItem = (index) => {
     const newItems = items.filter((_, i) => i !== index);
@@ -234,15 +278,23 @@ export default function CreatePresupuestoForm({ initialData = null }) {
         setIsLoading(false);
         return;
     }
+    
+    // Nueva validación de ítems
+    if (items.filter(i => (i.description || '').trim() === '' || (i.quantity || 0) <= 0 || (i.unitPrice || 0) <= 0).length > 0) {
+        setError('Todos los productos deben tener descripción, cantidad y precio unitario válidos (> 0).'); // <-- Texto actualizado
+        setIsLoading(false);
+        return;
+    }
 
     const { subtotal: finalSubtotal, tax: finalTax, total: finalTotal } = calculateTotals();
     
     const quoteData = {
       clienteId,
       items: items.map(item => ({
-        ...item,
-        productId: item.productId || null,
-        unitPrice: parseFloat((item.unitPrice || 0).toFixed(2)), 
+        description: (item.description || '').trim(), // Asegurar que la descripción no es vacía
+        quantity: item.quantity,
+        unitPrice: parseFloat((item.unitPrice || 0).toFixed(2)),
+        productId: item.productId || null, 
       })),
       notes,
       subtotal: finalSubtotal,
@@ -335,13 +387,13 @@ export default function CreatePresupuestoForm({ initialData = null }) {
         </div>
       </div>
 
-      {/* DETALLE DE ITEMS */}
+      {/* DETALLE DE PRODUCTOS */} {/* <-- RENOMBRADO */}
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">Items</h2>
-            <button type="button" onClick={() => addItem(null)} className="btn btn-primary btn-sm">
-              <Plus className="w-4 h-4" /> Añadir Item Manual
+            <h2 className="card-title">Productos</h2> {/* <-- RENOMBRADO */}
+            <button type="button" onClick={() => setModalState('PRODUCTO_MANUAL')} className="btn btn-primary btn-sm"> {/* <-- MODIFICADO HANDLER */}
+              <Plus className="w-4 h-4" /> Crear y Añadir Producto Manual {/* <-- RENOMBRADO */}
             </button>
           </div>
           
@@ -356,7 +408,6 @@ export default function CreatePresupuestoForm({ initialData = null }) {
                 <th></th>
               </tr></thead>
               <tbody>
-                {/* CORREGIDO: Usar 'prodError' en lugar de 'plantillasError' */}
                 {prodError && <tr><td colSpan="6" className="text-red-500">Error al cargar productos/plantillas.</td></tr>}
                 {items.map((item, index) => (
                   <tr key={index}>
@@ -372,9 +423,10 @@ export default function CreatePresupuestoForm({ initialData = null }) {
                         ))}
                       </select>
                     </td>
-                    <td><input type="text" value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} className="input input-bordered input-sm w-full" /></td>
-                    <td><input type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)} className="input input-bordered input-sm w-20" /></td>
-                    <td><input type="number" step="0.01" value={item.unitPrice} onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)} className="input input-bordered input-sm w-24" /></td>
+                    {/* Campos de texto y número */}
+                    <td><input type="text" value={item.description || ''} onChange={(e) => handleItemChange(index, 'description', e.target.value)} placeholder="Descripción detallada" className="input input-bordered input-sm w-full" required /></td>
+                    <td><input type="number" value={item.quantity || ''} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} placeholder="0" className="input input-bordered input-sm w-20" required /></td>
+                    <td><input type="number" step="0.01" value={item.unitPrice || ''} onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)} placeholder="0.00" className="input input-bordered input-sm w-24" required /></td>
                     <td>{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} €</td>
                     <td>
                       <button type="button" onClick={() => removeItem(index)} className="btn btn-ghost btn-sm btn-circle">
@@ -403,7 +455,7 @@ export default function CreatePresupuestoForm({ initialData = null }) {
                         onChange={(e) => setFiltroFabricanteId(e.target.value)}
                       >
                         <option value="">Todos</option>
-                        <optgroup label="Clientes Propietarios">
+                        <optgroup label="Clientes"> {/* <-- RENOMBRADO */}
                           {clientes?.filter(c => todosProductos.some(p => p.clienteId === c.id))
                               .map(c => <option key={`cli-${c.id}`} value={c.id}>Cliente: {c.nombre}</option>)}
                         </optgroup>
@@ -454,7 +506,7 @@ export default function CreatePresupuestoForm({ initialData = null }) {
                               <button 
                                   key={p.id} 
                                   type="button" 
-                                  onClick={() => addItem(p)} 
+                                  onClick={() => addItemFromSearch(p)} 
                                   className="btn btn-sm btn-block justify-start hover:bg-base-300"
                               >
                                   <Plus className="w-4 h-4 mr-2" />
@@ -521,6 +573,7 @@ export default function CreatePresupuestoForm({ initialData = null }) {
         cacheKey="/api/clientes"
         fields={[
           { name: 'nombre', placeholder: 'Nombre' },
+          { name: 'categoria', placeholder: 'Categoría (Ej: FABRICANTE)', required: false },
           { name: 'email', placeholder: 'Email', required: false },
           { name: 'direccion', placeholder: 'Dirección', required: false },
           { name: 'telefono', placeholder: 'Teléfono', required: false }
@@ -556,6 +609,24 @@ export default function CreatePresupuestoForm({ initialData = null }) {
         cacheKey="/api/materiales"
         fields={[{ name: 'nombre', placeholder: 'Nombre del Material' }]}
       />
+    )}
+    
+    {/* MODAL PARA CREACIÓN/ADICIÓN DE PRODUCTO MANUAL */}
+    {modalState === 'PRODUCTO_MANUAL' && (
+        <BaseQuickCreateModal
+            isOpen={true}
+            onClose={() => setModalState(null)}
+            onCreated={handleCreatedManualProduct}
+            title="Producto Manual"
+            isManualProduct={true} // Marca para lógica de no-fetch
+            endpoint="/api/no-op" // Dummy endpoint
+            cacheKey="/api/productos"
+            fields={[
+                { name: 'description', placeholder: 'Descripción Detallada', required: true },
+                { name: 'quantity', placeholder: 'Cantidad', type: 'number', min: '1', required: true },
+                { name: 'unitPrice', placeholder: 'Precio Unitario (€)', type: 'number', step: '0.01', min: '0.01', required: true }
+            ]}
+        />
     )}
     </>
   );

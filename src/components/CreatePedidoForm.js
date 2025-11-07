@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, Calculator } from 'lucide-react'; // Corregido a Calculator
+import { Plus, Trash2, Save, Calculator } from 'lucide-react'; // Corregido: Calculate -> Calculator
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -54,21 +54,33 @@ export default function CreatePedidoForm() {
     }
     setIsLoading(true);
     try {
+      // Formatear items para la API: solo necesita productId y quantity para recalcular
+      const itemsToCalculate = items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        description: item.description, // Incluir para que la API lo devuelva
+        unitPrice: item.unitPrice,     // Incluir el precio actual como fallback
+      }));
+      
       const res = await fetch('/api/pricing/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteId, items }),
+        body: JSON.stringify({ clienteId, items: itemsToCalculate }), // Usamos itemsToCalculate
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || "Error al recalcular precios");
       }
       const calculatedItems = await res.json();
-      // Actualizamos los items con los precios nuevos
+      
+      // Actualizamos los items con los precios nuevos de la API
       setItems(calculatedItems.map(item => ({
+        // Mantener la estructura interna del formulario, solo actualizar unitPrice y description si viene de la API
         ...item,
-        unitPrice: item.unitPrice
+        plantilladId: item.productId, // Mapeo para el selector (aunque se recomienda usar productId directamente)
+        unitPrice: item.unitPrice,
       })));
+      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -95,7 +107,12 @@ export default function CreatePedidoForm() {
     const { subtotal, tax, total } = calculateTotals();
     const orderData = {
       clienteId,
-      items,
+      items: items.map(item => ({
+        // La API de Pedidos espera: description, quantity, unitPrice, pesoUnitario, productId
+        ...item,
+        description: item.description || '',
+        pesoUnitario: 0, // Se asume 0 para pedidos directos sin cálculo de peso.
+      })),
       notes,
       subtotal,
       tax,
@@ -193,7 +210,7 @@ export default function CreatePedidoForm() {
                     <td>{(item.quantity * item.unitPrice).toFixed(2)} €</td>
                     <td>
                       <button type="button" onClick={() => removeItem(index)} className="btn btn-ghost btn-sm btn-circle">
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>

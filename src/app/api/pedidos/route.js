@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
 /**
  * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
@@ -56,14 +55,13 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { clienteId, items, notas, estado } = data; // Totales se recalculan aquí
+    const { clienteId, items, notas, subtotal, tax, total, estado } = data;
 
     if (!clienteId || !items || items.length === 0) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
     }
 
     const newOrderNumber = await getNextPedidoNumber();
-    const recalculatedTotals = await calculateTotalsBackend(items);
 
     const newOrder = await db.pedido.create({
       data: {
@@ -73,9 +71,9 @@ export async function POST(request) {
         estado: estado || 'Pendiente',
         clienteId: clienteId,
         notas: notas,
-        subtotal: recalculatedTotals.subtotal,
-        tax: recalculatedTotals.tax,
-        total: recalculatedTotals.total,
+        subtotal: subtotal,
+        tax: tax,
+        total: total,
         items: {
           create: items.map(item => ({
             descripcion: item.description,
@@ -88,7 +86,18 @@ export async function POST(request) {
       },
     });
 
-    return NextResponse.json(newOrder, { status: 201 });
+    // --- CORRECCIÓN: Volver a buscar el pedido para incluir las relaciones 'cliente' e 'items' ---
+    const populatedOrder = await db.pedido.findUnique({
+      where: { id: newOrder.id },
+      include: {
+        cliente: true,
+        items: true,
+      },
+    });
+
+    return NextResponse.json(populatedOrder, { status: 201 });
+    // ------------------------------------------------------------------------------------------
+
   } catch (error) {
     console.error('Error al crear el pedido:', error);
     return NextResponse.json({ message: 'Error interno al guardar el nuevo pedido.' }, { status: 500 });

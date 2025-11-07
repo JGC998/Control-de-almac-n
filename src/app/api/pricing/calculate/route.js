@@ -29,12 +29,7 @@ export async function POST(request) {
         continue;
       }
       
-      // NECESARIO: Incluir Material para usar su nombre como Categoría
-      const producto = await db.producto.findUnique({ 
-        where: { id: item.productId }, 
-        include: { material: true } 
-      });
-
+      const producto = await db.producto.findUnique({ where: { id: item.productId } });
       if (!producto) {
         calculatedItems.push({ ...item, unitPrice: item.unitPrice || 0, finalPrice: item.unitPrice || 0, error: 'Producto no encontrado' });
         continue;
@@ -48,33 +43,30 @@ export async function POST(request) {
       if (precioEspecial) {
         precioFinal = precioEspecial;
       } else {
-        // 2. Lógica de Márgenes (si el costoUnitario está definido)
-        if (producto.costoUnitario && producto.costoUnitario > 0) {
+        // 2. Lógica de Márgenes (si el costo está definido)
+        if (producto.costoUnitario && producto.costoUnitario > 0) { // <-- CAMBIADO: usar costoUnitario
             const margenGeneral = margenes.find(m => m.tipo === 'General')?.valor || 1.3; // 30% por defecto
-            
-            // Usamos producto.material.nombre como categoría
-            const margenCategoria = margenes.find(m => m.tipo === 'Categoria' && m.categoria === producto.material?.nombre)?.valor;
+            const margenCategoria = margenes.find(m => m.tipo === 'Categoria' && m.categoria === producto.categoria)?.valor;
             
             const margenAplicar = margenCategoria || margenGeneral;
-            // Usamos costoUnitario
-            precioFinal = producto.costoUnitario * margenAplicar;
+            precioFinal = producto.costoUnitario * margenAplicar; // <-- CAMBIADO: usar costoUnitario
         }
         // Si no hay costo, el precioFinal sigue siendo el 'precioUnitario' base
 
         // 3. Lógica de Descuentos
         let descuentoAplicado = 0;
 
-        // Descuento por cliente (Tier)
-        if (cliente?.tier) {
-            const descuentoCliente = descuentos.find(d => d.tipo === 'cliente' && d.tierCliente === cliente.tier)?.descuento || 0;
+        // Descuento por cliente (Tier -> AHORA CATEGORIA)
+        if (cliente?.categoria) { // <-- CAMBIADO: tier -> categoria
+            const descuentoCliente = descuentos.find(d => d.tipo === 'cliente' && d.tierCliente === cliente.categoria)?.descuento || 0; // Se compara con tierCliente
             if (descuentoCliente > descuentoAplicado) {
                 descuentoAplicado = descuentoCliente;
             }
         }
         
-        // Descuento por categoría (Usando Material.nombre)
-        if (producto.material?.nombre) {
-            const descuentoCategoria = descuentos.find(d => d.tipo === 'categoria' && d.categoria === producto.material.nombre)?.descuento || 0;
+        // Descuento por categoría
+        if (producto.categoria) {
+            const descuentoCategoria = descuentos.find(d => d.tipo === 'categoria' && d.categoria === producto.categoria)?.descuento || 0;
             if (descuentoCategoria > descuentoAplicado) {
                 descuentoAplicado = descuentoCategoria;
             }
@@ -85,7 +77,7 @@ export async function POST(request) {
         if (descuentoVolumen && descuentoVolumen.tiers) {
             const tierAplicable = descuentoVolumen.tiers
                 .filter(t => item.quantity >= t.cantidadMinima)
-                .sort((a, b) => b.cantidadMinima - a.cantidadMinima)[0]; 
+                .sort((a, b) => b.cantidadMinima - a.cantidadMinima)[0]; // Obtener el tier más alto
                 
             if (tierAplicable && tierAplicable.descuento > descuentoAplicado) {
                 descuentoAplicado = tierAplicable.descuento;

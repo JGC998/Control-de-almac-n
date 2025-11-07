@@ -7,7 +7,7 @@ import Link from 'next/link';
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function GestionClientes() {
-  const [formData, setFormData] = useState({ id: null, nombre: '', email: '', direccion: '', telefono: '' });
+  const [formData, setFormData] = useState({ id: null, nombre: '', email: '', direccion: '', telefono: '', categoria: '' }); // <-- AÑADIDO: categoria
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState(null);
 
@@ -15,9 +15,9 @@ export default function GestionClientes() {
 
   const openModal = (cliente = null) => {
     if (cliente) {
-      setFormData({ id: cliente.id, nombre: cliente.nombre, email: cliente.email || '', direccion: cliente.direccion || '', telefono: cliente.telefono || '' });
+      setFormData({ id: cliente.id, nombre: cliente.nombre, email: cliente.email || '', direccion: cliente.direccion || '', telefono: cliente.telefono || '', categoria: cliente.categoria || '' }); // <-- AÑADIDO: categoria
     } else {
-      setFormData({ id: null, nombre: '', email: '', direccion: '', telefono: '' });
+      setFormData({ id: null, nombre: '', email: '', direccion: '', telefono: '', categoria: '' }); // <-- AÑADIDO: categoria
     }
     setError(null);
     setIsModalOpen(true);
@@ -89,6 +89,7 @@ export default function GestionClientes() {
           <thead>
             <tr>
               <th>Nombre</th>
+              <th>Categoría</th> {/* <-- NUEVA COLUMNA */}
               <th>Email</th>
               <th>Teléfono</th>
               <th>Acciones</th>
@@ -102,6 +103,7 @@ export default function GestionClientes() {
                     {cliente.nombre}
                   </Link>
                 </td>
+                <td><span className="badge badge-outline">{cliente.categoria || 'NORMAL'}</span></td> {/* <-- NUEVA CELDA */}
                 <td>{cliente.email}</td>
                 <td>{cliente.telefono}</td>
                 <td className="flex gap-2">
@@ -125,6 +127,16 @@ export default function GestionClientes() {
             <h3 className="font-bold text-lg">{formData.id ? 'Editar Cliente' : 'Nuevo Cliente'}</h3>
             <form onSubmit={handleSubmit} className="py-4 space-y-4">
               <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Nombre" className="input input-bordered w-full" required />
+              
+              {/* Selector de Categoría (NUEVO) */}
+              <select name="categoria" value={formData.categoria} onChange={handleChange} className="select select-bordered w-full">
+                <option value="">Selecciona Categoría</option>
+                <option value="FABRICANTE">FABRICANTE</option>
+                <option value="INTERMEDIARIO">INTERMEDIARIO</option>
+                <option value="CLIENTE FINAL">CLIENTE FINAL</option>
+                <option value="NORMAL">NORMAL</option>
+              </select>
+
               <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="input input-bordered w-full" />
               <input type="text" name="direccion" value={formData.direccion} onChange={handleChange} placeholder="Dirección" className="input input-bordered w-full" />
               <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} placeholder="Teléfono" className="input input-bordered w-full" />

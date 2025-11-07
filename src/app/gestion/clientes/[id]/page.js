@@ -3,7 +3,7 @@ import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin } from 'lucide-react';
+import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag } from 'lucide-react'; // <-- AÑADIDO: Tag
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -80,7 +80,8 @@ export default function ClienteDetalle() {
       </div>
 
       {/* Tarjetas de Información */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6"> {/* <-- CAMBIADO: 4 COLUMNAS */}
+        <InfoCard title="Categoría" value={cliente.categoria || 'NORMAL'} icon={<Tag />} /> {/* <-- NUEVA TARJETA */}
         <InfoCard title="Email" value={cliente.email} icon={<Mail />} />
         <InfoCard title="Teléfono" value={cliente.telefono} icon={<Phone />} />
         <InfoCard title="Dirección" value={cliente.direccion} icon={<MapPin />} />

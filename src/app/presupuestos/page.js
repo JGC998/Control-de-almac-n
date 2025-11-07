@@ -9,7 +9,7 @@ export default async function PresupuestosPage() {
   const allPresupuestos = await db.presupuesto.findMany({
     include: {
       cliente: {
-        select: { nombre: true },
+        select: { nombre: true, categoria: true }, // <-- CORREGIDO: tier -> categoria
       },
     },
     orderBy: { fechaCreacion: 'desc' },
@@ -52,6 +52,7 @@ export default async function PresupuestosPage() {
             <tr>
               <th>Número</th>
               <th>Cliente</th>
+              <th>Categoría</th> {/* <-- RENOMBRADO: Tier -> Categoría */}
               <th>Fecha</th>
               <th>Total</th>
               <th>Estado</th>
@@ -67,6 +68,9 @@ export default async function PresupuestosPage() {
                   </Link>
                 </td>
                 <td>{quote.cliente?.nombre || 'N/A'}</td>
+                <td> {/* <-- USA categoria */}
+                    <span className="badge badge-outline">{quote.cliente?.categoria || 'NORMAL'}</span>
+                </td>
                 <td>{new Date(quote.fechaCreacion).toLocaleDateString()}</td>
                 <td>{quote.total.toFixed(2)} €</td>
                 <td>
@@ -83,7 +87,7 @@ export default async function PresupuestosPage() {
             ))}
             {presupuestos.length === 0 && (
               <tr>
-                <td colSpan="6" className="text-center">No hay presupuestos creados.</td>
+                <td colSpan="7" className="text-center">No hay presupuestos creados.</td>
               </tr>
             )}
           </tbody>

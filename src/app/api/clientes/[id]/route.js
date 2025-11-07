@@ -32,6 +32,7 @@ export async function PUT(request, { params: paramsPromise }) {
         email: data.email,
         direccion: data.direccion,
         telefono: data.telefono,
+        categoria: data.categoria, // <-- CAMBIADO: tier -> categoria
       },
     });
     return NextResponse.json(updatedCliente);

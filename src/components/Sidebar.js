@@ -1,19 +1,18 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator, Users, Settings, Layers } from 'lucide-react'; // Añadido 'Layers'
+import { Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator, Users, Settings } from 'lucide-react';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: Home },
   { href: '/presupuestos', label: 'Presupuestos', icon: FileText },
-  { href: '/pedidos', label: 'Pedidos Cliente', icon: Package },
+  { href: '/pedidos', label: 'Pedidos Cliente', icon: Package }, // Este es el enlace correcto
   { href: '/proveedores', label: 'Pedidos Proveedor', icon: Truck },
   { href: '/almacen', label: 'Almacén', icon: Warehouse },
   { href: '/calculadora', label: 'Calculadora', icon: Calculator },
   { href: '/tarifas', label: 'Tarifas', icon: DollarSign },
-  { href: '/gestion/clientes', label: 'Gestión Clientes', icon: Users },
+  { href: '/gestion/clientes', label: 'Gestión Clientes', icon: Users }, // Este es /gestion/clientes
   { href: '/gestion/productos', label: 'Gestión Productos', icon: Package },
-  { href: '/gestion/catalogos', label: 'Gestión Catálogos', icon: Layers }, // <-- ENLACE REQUERIDO
   { href: '/configuracion', label: 'Configuración', icon: Settings },
 ];
 

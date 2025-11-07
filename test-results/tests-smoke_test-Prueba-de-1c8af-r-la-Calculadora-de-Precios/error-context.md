@@ -1,0 +1,156 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - banner [ref=e4]:
+        - generic [ref=e9]:
+          - textbox "Buscar cliente, pedido..." [ref=e10]
+          - button [ref=e11] [cursor=pointer]:
+            - img [ref=e12]
+      - main [ref=e15]:
+        - generic [ref=e16]:
+          - heading "Simulador de Cálculo" [level=1] [ref=e17]:
+            - img [ref=e18]
+            - text: Simulador de Cálculo
+          - generic [ref=e20]:
+            - generic [ref=e21]:
+              - generic [ref=e23]:
+                - heading "Añadir Item" [level=2] [ref=e24]
+                - generic [ref=e25]:
+                  - generic [ref=e27]: Cliente (Requerido para precios)
+                  - combobox "Cliente (Requerido para precios)" [ref=e28]:
+                    - option "Selecciona un cliente"
+                    - option "Industrias Zeta" [selected]
+                    - option "Distribuciones Alfa"
+                    - option "Taller Mecánico Torres"
+                    - option "Ferretería García S.L."
+                    - option "Construcciones Rivas"
+                    - option "Cliente E2E 1762535460748"
+                    - option "Cliente de Prueba 1762535460745"
+                    - option "Cliente de Prueba 1762535685247"
+                    - option "Cliente E2E 1762535685249"
+                    - option "Cliente de Prueba 1762535875976"
+                    - option "Cliente E2E 1762535875991"
+                - generic [ref=e29]:
+                  - generic [ref=e30]:
+                    - generic [ref=e32]: Material
+                    - combobox "Material" [ref=e33]:
+                      - option "Selecciona material" [selected]
+                      - option "ACERO"
+                      - option "FIELTRO"
+                      - option "GOMA"
+                      - option "PVC"
+                  - generic [ref=e34]:
+                    - generic [ref=e36]: Producto (Plantilla)
+                    - combobox "Producto (Plantilla)" [disabled] [ref=e37]:
+                      - option "Selecciona producto" [selected]
+                - generic [ref=e38]:
+                  - generic [ref=e39]:
+                    - generic [ref=e41]: Unidades
+                    - spinbutton "Unidades" [disabled] [ref=e42]: "1"
+                  - generic [ref=e43]:
+                    - generic [ref=e45]: Ancho (mm)
+                    - spinbutton "Ancho (mm)" [disabled] [ref=e46]: "0"
+                  - generic [ref=e47]:
+                    - generic [ref=e49]: Largo (mm)
+                    - spinbutton "Largo (mm)" [disabled] [ref=e50]: "0"
+                - generic [ref=e51]:
+                  - button "Añadir Item al Cálculo" [disabled]:
+                    - img
+                    - text: Añadir Item al Cálculo
+              - generic [ref=e53]:
+                - heading "Items Agregados" [level=2] [ref=e54]
+                - table [ref=e56]:
+                  - rowgroup [ref=e57]:
+                    - row "Descripción Medidas (mm) Unidades P. Unitario P. Total Peso Total" [ref=e58]:
+                      - cell "Descripción" [ref=e59]
+                      - cell "Medidas (mm)" [ref=e60]
+                      - cell "Unidades" [ref=e61]
+                      - cell "P. Unitario" [ref=e62]
+                      - cell "P. Total" [ref=e63]
+                      - cell "Peso Total" [ref=e64]
+                      - cell [ref=e65]
+                  - rowgroup [ref=e66]:
+                    - row "Banda PVC 3mm Reforzada 500 x 1000 1 104.00 € 104.00 € 0.00 kg" [ref=e67]:
+                      - cell "Banda PVC 3mm Reforzada" [ref=e68]
+                      - cell "500 x 1000" [ref=e69]
+                      - cell "1" [ref=e70]
+                      - cell "104.00 €" [ref=e71]
+                      - cell "104.00 €" [ref=e72]
+                      - cell "0.00 kg" [ref=e73]
+                      - cell [ref=e74]:
+                        - button [ref=e75] [cursor=pointer]:
+                          - img [ref=e76]
+            - generic [ref=e80]:
+              - heading "Total General" [level=2] [ref=e81]
+              - generic [ref=e82]:
+                - generic [ref=e83]:
+                  - generic [ref=e84]: Precio Total General
+                  - generic [ref=e85]: 104.00 €
+                  - generic [ref=e86]: Sin IVA
+                - generic [ref=e87]:
+                  - generic [ref=e88]: Peso Total General
+                  - generic [ref=e89]: 0.00 kg
+                  - generic [ref=e90]: Aproximado
+    - generic [ref=e91]:
+      - generic "close sidebar"
+      - generic [ref=e92]:
+        - link "CRM Taller" [ref=e93] [cursor=pointer]:
+          - /url: /
+        - list [ref=e94]:
+          - listitem [ref=e95]:
+            - link "Dashboard" [ref=e96] [cursor=pointer]:
+              - /url: /
+              - img [ref=e97]
+              - text: Dashboard
+          - listitem [ref=e100]:
+            - link "Presupuestos" [ref=e101] [cursor=pointer]:
+              - /url: /presupuestos
+              - img [ref=e102]
+              - text: Presupuestos
+          - listitem [ref=e105]:
+            - link "Pedidos Cliente" [ref=e106] [cursor=pointer]:
+              - /url: /pedidos
+              - img [ref=e107]
+              - text: Pedidos Cliente
+          - listitem [ref=e111]:
+            - link "Pedidos Proveedor" [ref=e112] [cursor=pointer]:
+              - /url: /proveedores
+              - img [ref=e113]
+              - text: Pedidos Proveedor
+          - listitem [ref=e118]:
+            - link "Almacén" [ref=e119] [cursor=pointer]:
+              - /url: /almacen
+              - img [ref=e120]
+              - text: Almacén
+          - listitem [ref=e123]:
+            - link "Calculadora" [ref=e124] [cursor=pointer]:
+              - /url: /calculadora
+              - img [ref=e125]
+              - text: Calculadora
+          - listitem [ref=e127]:
+            - link "Tarifas" [ref=e128] [cursor=pointer]:
+              - /url: /tarifas
+              - img [ref=e129]
+              - text: Tarifas
+          - listitem [ref=e131]:
+            - link "Gestión Clientes" [ref=e132] [cursor=pointer]:
+              - /url: /gestion/clientes
+              - img [ref=e133]
+              - text: Gestión Clientes
+          - listitem [ref=e138]:
+            - link "Gestión Productos" [ref=e139] [cursor=pointer]:
+              - /url: /gestion/productos
+              - img [ref=e140]
+              - text: Gestión Productos
+          - listitem [ref=e144]:
+            - link "Configuración" [ref=e145] [cursor=pointer]:
+              - /url: /configuracion
+              - img [ref=e146]
+              - text: Configuración
+  - button "Open Next.js Dev Tools" [ref=e154] [cursor=pointer]:
+    - img [ref=e155]
+  - alert [ref=e158]
+```

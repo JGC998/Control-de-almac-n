@@ -116,7 +116,7 @@ async function main() {
         email: c.email,
         direccion: c.direccion,
         telefono: c.telefono,
-        tier: c.tier,
+        categoria: c.categoria, // <-- CORREGIDO: tier -> categoria
       },
       create: {
         id: c.id, // Usamos el ID antiguo
@@ -124,7 +124,7 @@ async function main() {
         email: c.email,
         direccion: c.direccion,
         telefono: c.telefono,
-        tier: c.tier,
+        categoria: c.categoria, // <-- CORREGIDO: tier -> categoria
       },
     });
   }

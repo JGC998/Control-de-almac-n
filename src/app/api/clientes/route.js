@@ -23,6 +23,7 @@ export async function POST(request) {
         email: data.email,
         direccion: data.direccion,
         telefono: data.telefono,
+        categoria: data.categoria, // <-- CAMBIADO: tier -> categoria
       },
     });
     

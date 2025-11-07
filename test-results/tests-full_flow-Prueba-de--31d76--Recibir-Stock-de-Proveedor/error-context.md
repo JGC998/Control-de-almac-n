@@ -1,0 +1,106 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [active]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - navigation [ref=e7]:
+            - button "previous" [disabled] [ref=e8]:
+              - img "previous" [ref=e9]
+            - generic [ref=e11]:
+              - generic [ref=e12]: 1/
+              - text: "1"
+            - button "next" [disabled] [ref=e13]:
+              - img "next" [ref=e14]
+          - img
+        - generic [ref=e16]:
+          - link "Next.js 16.0.0 (stale) Turbopack" [ref=e17] [cursor=pointer]:
+            - /url: https://nextjs.org/docs/messages/version-staleness
+            - img [ref=e18]
+            - generic "There is a newer version (16.0.1) available, upgrade recommended!" [ref=e20]: Next.js 16.0.0 (stale)
+            - generic [ref=e21]: Turbopack
+          - img
+      - dialog "Runtime TypeError" [ref=e23]:
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e30]: Runtime TypeError
+              - generic [ref=e31]:
+                - button "Copy Error Info" [ref=e32] [cursor=pointer]:
+                  - img [ref=e33]
+                - button "No related documentation found" [disabled] [ref=e35]:
+                  - img [ref=e36]
+                - link "Learn more about enabling Node.js inspector for server code with Chrome DevTools" [ref=e38] [cursor=pointer]:
+                  - /url: https://nextjs.org/docs/app/building-your-application/configuring/debugging#server-side-code
+                  - img [ref=e39]
+            - generic [ref=e48]: Cannot read properties of undefined (reading 'toLowerCase')
+          - generic [ref=e49]:
+            - generic [ref=e50]:
+              - paragraph [ref=e52]:
+                - img [ref=e54]
+                - generic [ref=e56]: src/components/PedidoProveedorForm.js (505:36) @ <unknown>
+                - button "Open in editor" [ref=e57] [cursor=pointer]:
+                  - img [ref=e59]
+              - generic [ref=e62]:
+                - generic [ref=e63]: 503 | // Filtrar referencias disponibles en tiempo real
+                - generic [ref=e64]: 504 | const filteredRefs = referencias?.filter(r =>
+                - generic [ref=e65]: "> 505 | r.nombre.toLowerCase().includes(bobina.referenciaBusqueda?.toLowerCase() || '')"
+                - generic [ref=e66]: "| ^"
+                - generic [ref=e67]: 506 | ).slice(0, 5) || [];
+                - generic [ref=e68]: 507 |
+                - generic [ref=e69]: 508 | return (
+            - generic [ref=e70]:
+              - generic [ref=e71]:
+                - paragraph [ref=e72]:
+                  - text: Call Stack
+                  - generic [ref=e73]: "19"
+                - button "Show 13 ignore-listed frame(s)" [ref=e74] [cursor=pointer]:
+                  - text: Show 13 ignore-listed frame(s)
+                  - img [ref=e75]
+              - generic [ref=e77]:
+                - generic [ref=e78]:
+                  - text: <unknown>
+                  - button "Open <unknown> in editor" [ref=e79] [cursor=pointer]:
+                    - img [ref=e80]
+                - text: src/components/PedidoProveedorForm.js (505:36)
+              - generic [ref=e82]:
+                - generic [ref=e83]: Array.filter
+                - text: <anonymous>
+              - generic [ref=e84]:
+                - generic [ref=e85]:
+                  - text: <unknown>
+                  - button "Open <unknown> in editor" [ref=e86] [cursor=pointer]:
+                    - img [ref=e87]
+                - text: src/components/PedidoProveedorForm.js (504:57)
+              - generic [ref=e89]:
+                - generic [ref=e90]: Array.map
+                - text: <anonymous>
+              - generic [ref=e91]:
+                - generic [ref=e92]:
+                  - text: PedidoProveedorForm
+                  - button "Open PedidoProveedorForm in editor" [ref=e93] [cursor=pointer]:
+                    - img [ref=e94]
+                - text: src/components/PedidoProveedorForm.js (502:37)
+              - generic [ref=e96]:
+                - generic [ref=e97]:
+                  - text: NuevoPedidoNacionalPage
+                  - button "Open NuevoPedidoNacionalPage in editor" [ref=e98] [cursor=pointer]:
+                    - img [ref=e99]
+                - text: src/app/proveedores/nuevo-nacional/page.js (11:7)
+        - generic [ref=e101]: "1"
+        - generic [ref=e102]: "2"
+    - generic [ref=e107] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e108]:
+        - img [ref=e109]
+      - generic [ref=e112]:
+        - button "Open issues overlay" [ref=e113]:
+          - generic [ref=e114]:
+            - generic [ref=e115]: "0"
+            - generic [ref=e116]: "1"
+          - generic [ref=e117]: Issue
+        - button "Collapse issues badge" [ref=e118]:
+          - img [ref=e119]
+  - 'heading "Application error: a client-side exception has occurred while loading localhost (see the browser console for more information)." [level=2] [ref=e123]'
+```

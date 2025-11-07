@@ -107,7 +107,8 @@ export default function PedidoDetalle() {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold">Pedido {order.numero}</h1>
-            <p className="text-gray-500">Fecha: {new Date(order.fechaCreacion).toLocaleDateString()}</p>
+            {/* CORRECCIÓN: Comprobación de existencia antes de formatear la fecha */}
+            <p className="text-gray-500">Fecha: {order.fechaCreacion ? new Date(order.fechaCreacion).toLocaleDateString() : 'N/A'}</p>
              <div className="dropdown dropdown-hover mt-2">
                 <div tabIndex={0} role="button" className={`badge ${order.estado === 'Completado' ? 'badge-success' : (order.estado === 'Enviado' ? 'badge-info' : 'badge-warning')}`}>
                     {order.estado}
@@ -120,9 +121,10 @@ export default function PedidoDetalle() {
             </div>
           </div>
           <div className="text-right">
-            <h2 className="text-xl font-bold">{order.cliente.nombre}</h2>
-            <p>{order.cliente.direccion}</p>
-            <p>{order.cliente.email}</p>
+            {/* Se mantiene el encadenamiento opcional para evitar TypeError si el cliente es nulo */}
+            <h2 className="text-xl font-bold">{order.cliente?.nombre}</h2>
+            <p>{order.cliente?.direccion}</p>
+            <p>{order.cliente?.email}</p>
           </div>
         </div>
 
@@ -140,12 +142,13 @@ export default function PedidoDetalle() {
               </tr>
             </thead>
             <tbody>
-              {order.items.map((item, index) => (
+              {/* Se mantiene el fallback a [] para evitar TypeError */}
+              {(order.items || []).map((item, index) => (
                 <tr key={index}>
                   <td className="font-medium">{item.descripcion}</td>
                   <td>{item.quantity}</td>
-                  <td>{item.unitPrice.toFixed(2)} €</td>
-                  <td>{(item.quantity * item.unitPrice).toFixed(2)} €</td>
+                  <td>{(item.unitPrice || 0).toFixed(2)} €</td>
+                  <td>{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} €</td>
                 </tr>
               ))}
             </tbody>
@@ -155,9 +158,10 @@ export default function PedidoDetalle() {
         {/* Totales */}
         <div className="flex justify-end mt-6">
           <div className="w-full max-w-xs space-y-2">
-            <div className="flex justify-between"><span>Subtotal</span> <span>{subtotal.toFixed(2)} €</span></div>
-            <div className="flex justify-between"><span>IVA (21%)</span> <span>{tax.toFixed(2)} €</span></div>
-            <div className="flex justify-between font-bold text-lg"><span>Total</span> <span>{total.toFixed(2)} €</span></div>
+            {/* Se mantiene el fallback a 0 para evitar TypeError */}
+            <div className="flex justify-between"><span>Subtotal</span> <span>{(subtotal || 0).toFixed(2)} €</span></div>
+            <div className="flex justify-between"><span>IVA (21%)</span> <span>{(tax || 0).toFixed(2)} €</span></div>
+            <div className="flex justify-between font-bold text-lg"><span>Total</span> <span>{(total || 0).toFixed(2)} €</span></div>
           </div>
         </div>
         

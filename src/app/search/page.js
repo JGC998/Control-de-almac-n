@@ -3,6 +3,7 @@ import { useSearchParams, notFound } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { User, Package, FileText } from 'lucide-react';
+import React, { Suspense } from 'react'; // Importar Suspense
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -45,7 +46,10 @@ const ResultItem = ({ item }) => {
   );
 };
 
-export default function SearchPage() {
+// ---
+// 1. Contenido principal movido a un componente interno
+// ---
+function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
 
@@ -78,5 +82,16 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ---
+// 2. El export default ahora es un wrapper con Suspense
+// ---
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-64"><span className="loading loading-spinner loading-lg"></span></div>}>
+      <SearchContent />
+    </Suspense>
   );
 }

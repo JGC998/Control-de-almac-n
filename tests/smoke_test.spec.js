@@ -38,26 +38,66 @@ test.describe('Prueba de Flujo Principal (Smoke Test)', () => {
     // 1. Ir a la página de la Calculadora
     await page.goto(`${URL_BASE}/calculadora`);
 
-    // 2. Esperar a que carguen los selectores (los combobox)
-    // CORRECCIÓN: Buscamos los 'combobox' (elementos <select>) en lugar del texto de la opción.
-    const clienteSelector = page.getByRole('combobox').first();
-    const productoSelector = page.getByRole('combobox').last();
+    // ---
+    // CORRECCIÓN DE SELECTOR:
+    // Usamos 'getByLabel' que es más robusto que el selector de atributos.
+    // ---
+    const clienteSelector = page.getByLabel('Cliente (Requerido para precios)');
+    const materialSelector = page.getByLabel('Material');
+    const productoSelector = page.getByLabel('Producto (Plantilla)');
     
+    // ---
+    // CORRECCIÓN DE ESPERA:
+    // Esperamos a que la opción esté "adjunta" (en el DOM), no "visible".
+    // ---
+    await expect(page.getByRole('option', { name: 'Industrias Zeta' })).toBeAttached({ timeout: 10000 });
     await expect(clienteSelector).toBeVisible();
-    await expect(productoSelector).toBeVisible();
 
     // 3. Seleccionar el primer cliente (índice 1 para saltar "Selecciona...")
     await clienteSelector.selectOption({ index: 1 });
     
-    // 4. Seleccionar el primer producto
-    await productoSelector.selectOption({ index: 1 });
+    // 4. Seleccionar el material "PVC" por su etiqueta (label)
+    await expect(page.getByRole('option', { name: 'PVC' })).toBeAttached({ timeout: 10000 });
+    await expect(materialSelector).toBeEnabled();
+    // ---
+    // CORRECCIÓN DE LÓGICA:
+    // Seleccionamos por etiqueta 'PVC' en lugar de índice 1 (que era 'FIELTRO')
+    // ---
+    await materialSelector.selectOption({ label: 'PVC' }); 
 
-    // 5. Clic en "Calcular Precios"
-    await page.getByRole('button', { name: 'Calcular Precios' }).click();
+    // 5. Seleccionar el primer producto
+    // ---
+    // CORRECCIÓN DE AMBIGÜEDAD (Strict Mode):
+    // Eliminamos la comprobación ambigua y seleccionamos por la etiqueta exacta.
+    // ---
+    await expect(productoSelector).toBeEnabled();
+    await productoSelector.selectOption({ label: 'Banda PVC 3mm Reforzada' }); 
 
-    // 6. Verificar que la tabla de resultados aparece
-    await expect(page.getByRole('heading', { name: 'Resultados' })).toBeVisible();
-    await expect(page.getByText('Precio Unit. Calculado')).toBeVisible();
+    // 6. Clic en "Añadir Item al Cálculo"
+    const addButton = page.getByRole('button', { name: 'Añadir Item al Cálculo' });
+    await addButton.click();
+
+    // ---
+    // CORRECCIÓN DE ASINCRONÍA:
+    // Esperamos a que el botón se vuelva a habilitar, lo que significa
+    // que la llamada a la API 'handleAddItem' ha terminado.
+    // ---
+    await expect(addButton).toBeEnabled({ timeout: 10000 });
+    
+    // 7. Verificar que la tabla de resultados se actualiza
+    await expect(page.getByRole('heading', { name: 'Items Agregados' })).toBeVisible();
+    await expect(page.getByText('Precio Total General')).toBeVisible();
+    
+    // ---
+    // CORRECCIÓN DE ASERCIÓN:
+    // Ahora que /api/precios funciona, verificamos tanto el precio como el peso.
+    // ---
+    const precioTotalRegex = new RegExp('[1-9][0-9]*\\.[0-9]{2} €');
+    const pesoTotalRegex = new RegExp('[0-9]*\\.[0-9]{2} kg'); // Permitir 0.00 si el cálculo de peso es 0, pero debe existir
+    
+    await expect(page.getByText(precioTotalRegex).first()).toBeVisible({ timeout: 10000 });
+    // Verificamos que el peso total también se renderiza
+    await expect(page.getByText(pesoTotalRegex).first()).toBeVisible({ timeout: 10000 });
 
     console.log('\nÉXITO: Calculadora de precios funciona.\n');
   });
