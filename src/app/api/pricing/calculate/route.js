@@ -13,10 +13,35 @@ export async function POST(request) {
     // 1. Obtener todas las reglas de precios de la BD en paralelo
     const [cliente, margenes, descuentos, preciosEspeciales] = await db.$transaction([
       db.cliente.findUnique({ where: { id: clienteId } }),
-      db.reglaMargen.findMany(),
+      db.reglaMargen.findMany(), // Obtener todas las reglas de margen
       db.reglaDescuento.findMany({ include: { tiers: true } }),
       db.precioEspecial.findMany({ where: { clienteId: clienteId } }),
     ]);
+
+    // --- LÓGICA DE MARGEN POR TIER (Fijo + Porcentaje) ---
+    
+    // Mapeo del Tier del Cliente a la Base de Margen
+    let marginBaseKey = 'FABRICANTE'; // Valor por defecto (margen más bajo)
+
+    if (cliente?.tier === 'GOLD') {
+        marginBaseKey = 'CLIENTE_FINAL'; // Mayor precio
+    } else if (cliente?.tier === 'SILVER') {
+        marginBaseKey = 'INTERMEDIARIO'; // Precio medio
+    } else { // Incluye 'NORMAL' y otros
+        marginBaseKey = 'FABRICANTE'; 
+    }
+
+    const applicableMargin = margenes.find(m => m.base === marginBaseKey);
+
+    // Valores por defecto si la regla no existe en la base de datos
+    const DEFAULT_MULTIPLIER = 1.3; 
+    const DEFAULT_GASTO_FIJO = 0;
+    
+    // Si no se encuentra la regla, usar los valores por defecto
+    const MARGIN_MULTIPLIER = applicableMargin?.multiplicador || DEFAULT_MULTIPLIER;
+    const MARGIN_GASTO_FIJO = applicableMargin?.gastoFijo || DEFAULT_GASTO_FIJO;
+    
+    // --- FIN LÓGICA DE MARGEN ---
 
     const preciosEspecialesMap = new Map(preciosEspeciales.map(p => [p.productoId, p.precio]));
 
@@ -25,51 +50,49 @@ export async function POST(request) {
     // 2. Procesar cada item
     for (const item of items) {
       if (!item.productId) {
-        calculatedItems.push({ ...item, unitPrice: item.unitPrice || 0, finalPrice: item.unitPrice || 0 });
+        // Para items manuales, usa el precio provisto por el usuario
+        calculatedItems.push({ ...item, unitPrice: item.unitPrice || 0 });
         continue;
       }
       
+      // Obtener el producto, incluyendo el costo unitario
       const producto = await db.producto.findUnique({ where: { id: item.productId } });
       if (!producto) {
-        calculatedItems.push({ ...item, unitPrice: item.unitPrice || 0, finalPrice: item.unitPrice || 0, error: 'Producto no encontrado' });
+        calculatedItems.push({ ...item, unitPrice: item.unitPrice || 0, error: 'Producto no encontrado' });
         continue;
       }
 
       let precioFinal = producto.precioUnitario; // Precio base del catálogo
+      let baseCost = producto.costoUnitario; 
 
-      // LÓGICA DE PRECIOS
       // 1. Precio Especial (Máxima prioridad)
       const precioEspecial = preciosEspecialesMap.get(producto.id);
       if (precioEspecial) {
         precioFinal = precioEspecial;
       } else {
-        // 2. Lógica de Márgenes (si el costo está definido)
-        if (producto.costoUnitario && producto.costoUnitario > 0) { // <-- CAMBIADO: usar costoUnitario
-            const margenGeneral = margenes.find(m => m.tipo === 'General')?.valor || 1.3; // 30% por defecto
-            const margenCategoria = margenes.find(m => m.tipo === 'Categoria' && m.categoria === producto.categoria)?.valor;
-            
-            const margenAplicar = margenCategoria || margenGeneral;
-            precioFinal = producto.costoUnitario * margenAplicar; // <-- CAMBIADO: usar costoUnitario
-        }
-        // Si no hay costo, el precioFinal sigue siendo el 'precioUnitario' base
-
-        // 3. Lógica de Descuentos
+        
+        // 2. Lógica de Márgenes (Solo si el costo unitario está definido)
+        if (baseCost && baseCost > 0) {
+            // Aplicar Nueva Fórmula de Margen: (Costo * Multiplicador) + Gasto Fijo
+            precioFinal = (baseCost * MARGIN_MULTIPLIER) + MARGIN_GASTO_FIJO;
+        } 
+        // Si no hay costo, precioFinal sigue siendo el 'precioUnitario' base
+        
+        // 3. Lógica de Descuentos (Aplica sobre el precio resultante del margen)
         let descuentoAplicado = 0;
 
-        // Descuento por cliente (Tier -> AHORA CATEGORIA)
-        if (cliente?.categoria) { // <-- CAMBIADO: tier -> categoria
-            const descuentoCliente = descuentos.find(d => d.tipo === 'cliente' && d.tierCliente === cliente.categoria)?.descuento || 0; // Se compara con tierCliente
-            if (descuentoCliente > descuentoAplicado) {
-                descuentoAplicado = descuentoCliente;
-            }
+        // Se deben revisar todos los tipos de descuento y aplicar el mejor (el mayor 'descuentoAplicado')
+        
+        // Descuento por cliente (Tier)
+        const descuentoCliente = descuentos.find(d => d.tipo === 'cliente' && d.tierCliente === cliente?.tier)?.descuento || 0;
+        if (descuentoCliente > descuentoAplicado) {
+             descuentoAplicado = descuentoCliente;
         }
         
-        // Descuento por categoría
-        if (producto.categoria) {
-            const descuentoCategoria = descuentos.find(d => d.tipo === 'categoria' && d.categoria === producto.categoria)?.descuento || 0;
-            if (descuentoCategoria > descuentoAplicado) {
-                descuentoAplicado = descuentoCategoria;
-            }
+        // Descuento por categoría (asumiendo que materialId es la categoría)
+        const descuentoCategoria = descuentos.find(d => d.tipo === 'categoria' && d.categoria === producto.materialId)?.descuento || 0;
+        if (descuentoCategoria > descuentoAplicado) {
+             descuentoAplicado = descuentoCategoria;
         }
 
         // Descuento por volumen
@@ -77,7 +100,7 @@ export async function POST(request) {
         if (descuentoVolumen && descuentoVolumen.tiers) {
             const tierAplicable = descuentoVolumen.tiers
                 .filter(t => item.quantity >= t.cantidadMinima)
-                .sort((a, b) => b.cantidadMinima - a.cantidadMinima)[0]; // Obtener el tier más alto
+                .sort((a, b) => b.cantidadMinima - a.cantidadMinima)[0]; 
                 
             if (tierAplicable && tierAplicable.descuento > descuentoAplicado) {
                 descuentoAplicado = tierAplicable.descuento;

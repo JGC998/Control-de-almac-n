@@ -1,23 +1,20 @@
 [
   {
-    "descripcion": "Fabricante",
-    "tipo": "General",
-    "categoria": "General",
-    "valor": 1.5,
-    "id": "89631133-82b7-4047-915c-66ff6de4351e"
+    "base": "FABRICANTE",
+    "descripcion": "Tarifa Base (10% fijo + 50% variable)",
+    "multiplicador": 1.5,
+    "gastoFijo": 10.00
   },
   {
-    "descripcion": "Intermediario",
-    "tipo": "General",
-    "categoria": "General",
-    "valor": 1.7,
-    "id": "c873552f-89d3-4cf9-934e-479036c4b224"
+    "base": "INTERMEDIARIO",
+    "descripcion": "Tarifa Intermediario (5% fijo + 70% variable)",
+    "multiplicador": 1.7,
+    "gastoFijo": 5.00
   },
   {
-    "descripcion": "Cliente Final",
-    "tipo": "General",
-    "categoria": "General",
-    "valor": 1.9,
-    "id": "e0273969-eaf9-4ddb-b0ad-5542984054b8"
+    "base": "CLIENTE_FINAL",
+    "descripcion": "Tarifa Cliente Final (Margen Máximo)",
+    "multiplicador": 1.9,
+    "gastoFijo": 0.00
   }
 ]

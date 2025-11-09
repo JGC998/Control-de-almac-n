@@ -15,7 +15,7 @@ model Cliente {
   email        String?
   direccion    String?
   telefono     String?
-  categoria    String? // <-- CAMBIADO: tier -> categoria
+  tier         String?
   pedidos      Pedido[]
   presupuestos Presupuesto[]
   precios      PrecioEspecial[]
@@ -40,8 +40,7 @@ model Producto {
   
   // RELACIONES
   cliente   Cliente? @relation(fields: [clienteId], references: [id])
-  clienteId String?
-  // Fabricante/Cliente propietario del diseño
+  clienteId String? // Fabricante/Cliente propietario del diseño
 
   fabricante   Fabricante? @relation(fields: [fabricanteId], references: [id])
   fabricanteId String?
@@ -214,21 +213,26 @@ model TarifaMaterial {
 
 model ReferenciaBobina {
   id           String @id @default(uuid())
-  referencia   String @unique @map("nombre")
+  referencia   String @map("nombre")
   ancho        Float?
   lonas        Int?
   pesoPorMetroLineal Float?
-  bobinas BobinaPedido[]
+  bobinas      BobinaPedido[]
   
+  @@unique([referencia, ancho, lonas]) 
   @@map("ReferenciaBobina")
 }
 
 model ReglaMargen {
-  id          String  @id @default(uuid())
-  descripcion String
-  tipo        String
-  categoria   String?
-  valor       Float
+  id              String  @id @default(uuid())
+  base            String  @unique // FABRICANTE, INTERMEDIARIO, CLIENTE_FINAL (nueva clave única para el tipo de margen)
+  multiplicador   Float   // Multiplicador (ej. 1.5)
+  gastoFijo       Float?  // Gasto Fijo (€)
+  
+  // Campos antiguos renombrados/reutilizados
+  descripcion     String // Título descriptivo (ej. "Tarifa Base para Fabricante")
+  tipo            String? @default("General")
+  categoria       String? @map("tipo_categoria") // Reutilizado para posibles márgenes por categoría
 }
 
 model ReglaDescuento {
@@ -236,7 +240,7 @@ model ReglaDescuento {
   descripcion String
   tipo        String
   categoria   String?
-  tierCliente String? // MANTENEMOS ESTE NOMBRE POR AHORA PARA LA LÓGICA DE PRECIOS EXISTENTE
+  tierCliente String?
   descuento   Float
   fechaInicio DateTime?
   fechaFin    DateTime?

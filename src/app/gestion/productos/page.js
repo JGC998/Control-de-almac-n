@@ -125,25 +125,22 @@ export default function GestionProductos() {
 
       <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
         <table className="table w-full">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Ref. Fab.</th> {/* CAMBIADO: Columna para referenciaFabricante */}
-              <th>Material</th>
-              <th>P. Unitario</th>
-              <th>Costo Unit.</th> {/* NUEVO: Columna Costo Unitario */}
-              <th>Acciones</th>
-            </tr>
-          </thead>
+          {/* CORRECCIÓN DE HIDRATACIÓN: Compactar el thead y tbody */}
+          <thead><tr>
+            <th>Nombre</th>
+            <th>Ref. Fab.</th>
+            <th>Material</th>
+            <th>P. Unitario</th>
+            <th>Costo Unit.</th>
+            <th>Acciones</th>
+          </tr></thead>
           <tbody>
             {Array.isArray(productos) && productos.map((p) => (
               <tr key={p.id} className="hover">
                 <td className="font-bold">{p.nombre}</td>
-                {/* CAMBIADO: Usa referenciaFabricante */}
                 <td>{p.referenciaFabricante || 'N/A'}</td> 
                 <td>{p.material?.nombre || 'N/A'}</td>
                 <td>{p.precioUnitario.toFixed(2)} €</td>
-                {/* NUEVO: Muestra costoUnitario */}
                 <td>{p.costoUnitario ? p.costoUnitario.toFixed(2) + ' €' : 'N/A'}</td> 
                 <td className="flex gap-2">
                   <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info">
@@ -169,37 +166,15 @@ export default function GestionProductos() {
               {/* CAMBIADO: Usa 'modelo' que mapearemos a 'referenciaFabricante' */}
               <input type="text" name="modelo" value={formData.modelo} onChange={handleChange} placeholder="Referencia Fabricante" className="input input-bordered w-full" />
               
-              {/* --- CORRECCIÓN DE ACCESIBILIDAD --- */}
-              <label className="form-control w-full">
-                <div className="label"><span className="label-text">Fabricante</span></div>
-                <select 
-                  name="fabricante" 
-                  id="fabricante-select" // ID añadido
-                  value={formData.fabricante} 
-                  onChange={handleSelectChange} 
-                  className="select select-bordered w-full" 
-                  required
-                >
-                  <option value="">Selecciona Fabricante</option>
-                  {fabricantes?.map(f => <option key={f.id} value={f.nombre}>{f.nombre}</option>)}
-                </select>
-              </label>
+              <select name="fabricante" value={formData.fabricante} onChange={handleSelectChange} className="select select-bordered w-full" required>
+                <option value="">Selecciona Fabricante</option>
+                {fabricantes?.map(f => <option key={f.id} value={f.nombre}>{f.nombre}</option>)}
+              </select>
               
-              <label className="form-control w-full">
-                <div className="label"><span className="label-text">Material</span></div>
-                <select 
-                  name="material" 
-                  id="material-select" // ID añadido
-                  value={formData.material} 
-                  onChange={handleSelectChange} 
-                  className="select select-bordered w-full" 
-                  required
-                >
-                  <option value="">Selecciona Material</option>
-                  {materiales?.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
-                </select>
-              </label>
-              {/* --- FIN CORRECCIÓN --- */}
+              <select name="material" value={formData.material} onChange={handleSelectChange} className="select select-bordered w-full" required>
+                <option value="">Selecciona Material</option>
+                {materiales?.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+              </select>
               
               {/* NUEVO CAMPO: Costo Unitario */}
               <input type="number" step="0.01" name="costo" value={formData.costo} onChange={handleChange} placeholder="Costo Unitario (€)" className="input input-bordered w-full" />

@@ -1,124 +1,159 @@
 "use client";
 import React, { useState } from 'react';
-import useSWR, { mutate } from 'swr';
-import { Settings, PlusCircle, Trash2, Edit, DollarSign } from 'lucide-react';
-import Link from 'next/link'; // Importar Link
+import { Settings } from 'lucide-react';
+import DataManagerTable from '@/components/DataManagerTable';
+import RuleEditorModal from '@/components/RuleEditorModal'; // Importar modal especializado
+import { mutate } from 'swr'; // Necesario para mutar la lista de descuentos
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
+// Definiciones de campos para cada modelo
+const TarifaMaterialFields = [
+  { key: 'material', label: 'Material', type: 'text' },
+  { key: 'espesor', label: 'Espesor (mm)', type: 'float' },
+  { key: 'precio', label: 'Precio (€/m²)', type: 'float' },
+  { key: 'peso', label: 'Peso (kg/m²)', type: 'float' },
+];
 
-const ReferenciasManager = () => {
-  const [nombre, setNombre] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [error, setError] = useState(null);
+const ReferenciaBobinaFields = [
+  { key: 'referencia', label: 'Nombre/Referencia', type: 'text' }, 
+  { key: 'ancho', label: 'Ancho (mm)', type: 'number' },
+  { key: 'lonas', label: 'Lonas', type: 'number' },
+  { key: 'pesoPorMetroLineal', label: 'Peso/m lineal (kg)', type: 'float' },
+];
 
-  const { data: referencias, error: refError, isLoading } = useSWR('/api/configuracion/referencias', fetcher);
+const MaterialesFields = [
+  { key: 'nombre', label: 'Nombre del Material', type: 'text' },
+];
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const res = await fetch('/api/configuracion/referencias', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre, descripcion }),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || 'Error al crear la referencia');
-      }
-      setNombre('');
-      setDescripcion('');
-      mutate('/api/configuracion/referencias');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+// CAMPOS DE MARGENES
+const MargenesFields = [
+  { key: 'base', label: 'Tipo de Tarifa', type: 'text' },
+  { key: 'descripcion', label: 'Descripción', type: 'text' },
+  { key: 'multiplicador', label: 'Multiplicador (ej. 1.5)', type: 'float' },
+  { key: 'gastoFijo', label: 'Gasto Fijo (€)', type: 'float' },
+];
 
-  // (Faltaría lógica de Borrar/Editar, pero esto es un inicio)
-
-  return (
-    <div className="card bg-base-100 shadow-xl">
-      <div className="card-body">
-        <h2 className="card-title">Gestionar Referencias de Bobina</h2>
-        
-        <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
-          <input 
-            type="text" 
-            placeholder="Nombre Ref. (ej: GOMA_NEGRA)" 
-            className="input input-bordered w-full"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            required
-          />
-          <input 
-            type="text" 
-            placeholder="Descripción (opcional)" 
-            className="input input-bordered w-full"
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-          />
-          <button type="submit" className="btn btn-primary">
-            <PlusCircle className="w-4 h-4" /> Añadir
-          </button>
-        </form>
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        
-        <div className="overflow-x-auto max-h-60">
-          <table className="table table-sm w-full">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Descripción</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && <tr><td colSpan="3"><span className="loading loading-spinner"></span></td></tr>}
-              {refError && <tr><td colSpan="3" className="text-red-500">Error al cargar datos.</td></tr>}
-              {referencias?.map(ref => (
-                <tr key={ref.id} className="hover">
-                  <td className="font-bold">{ref.nombre}</td>
-                  <td>{ref.descripcion}</td>
-                  <td className="flex gap-2">
-                    <button className="btn btn-sm btn-outline btn-info" disabled><Edit className="w-4 h-4" /></button>
-                    <button className="btn btn-sm btn-outline btn-error" disabled><Trash2 className="w-4 h-4" /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- AÑADIDO: Tarjeta para enlazar a la gestión de precios ---
-const PreciosManagerCard = () => (
-  <div className="card bg-base-100 shadow-xl">
-    <div className="card-body">
-      <h2 className="card-title">Reglas de Precios</h2>
-      <p>Gestionar los márgenes, descuentos y precios especiales que usa la API.</p>
-      <div className="card-actions justify-end">
-        <Link href="/configuracion/precios" className="btn btn-primary">
-          <DollarSign className="w-4 h-4" /> Ir a Gestión de Precios
-        </Link>
-      </div>
-    </div>
-  </div>
-);
+// CAMPOS DE DESCUENTOS (Solo se usan para la tabla de visualización)
+const DescuentosFields = [
+  { key: 'descripcion', label: 'Descripción', type: 'text' },
+  { key: 'tipo', label: 'Tipo', type: 'text' },
+  { key: 'descuento', label: 'Descuento (%)', type: 'float' }, // Descuento base (no para volumen)
+  { key: 'tierCliente', label: 'Tier Cliente', type: 'text' },
+];
 
 
 export default function ConfiguracionPage() {
+  const [activeTab, setActiveTab] = useState('tarifas'); 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState(null);
+  const [modalApiError, setModalApiError] = useState(null);
+  
+  // Custom Handler para abrir el modal especializado (Descuentos)
+  const handleOpenCustomModal = (record) => {
+    setEditingRule(record);
+    setModalApiError(null);
+    setIsModalOpen(true);
+  };
+  
+  // Custom Handler para el guardado de Descuentos
+  const handleSaveDiscount = async (ruleData) => {
+    const isNew = !ruleData.id;
+    const endpoint = '/api/pricing/descuentos';
+    const url = isNew ? endpoint : `/api/pricing/descuentos/${ruleData.id}`;
+    const method = isNew ? 'POST' : 'PUT';
+    
+    setModalApiError(null);
+
+    try {
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ruleData),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al guardar la regla de descuento');
+      }
+      
+      mutate(endpoint); 
+      setIsModalOpen(false);
+
+    } catch (err) {
+      setModalApiError(err.message);
+    }
+  };
+
+
+  const tabs = [
+    { id: 'tarifas', label: 'Tarifas Base', apiEndpoint: "/api/precios", fields: TarifaMaterialFields },
+    { id: 'referencias', label: 'Ref. Bobina', apiEndpoint: "/api/configuracion/referencias", fields: ReferenciaBobinaFields }, 
+    { id: 'materiales', label: 'Materiales', apiEndpoint: "/api/materiales", fields: MaterialesFields },
+    { id: 'descuentos', label: 'Descuentos', apiEndpoint: "/api/pricing/descuentos", fields: DescuentosFields, isCustom: true }, // Marcamos como custom
+    { id: 'margenes', label: 'Márgenes', apiEndpoint: "/api/pricing/margenes", fields: MargenesFields },
+  ];
+
+  // Componente que decide qué renderizar basado en la pestaña activa
+  const renderTabComponent = (tab) => {
+      if (tab.id === 'descuentos') {
+          return <DataManagerTable 
+            apiEndpoint={tab.apiEndpoint} 
+            modelName={tab.label} 
+            fields={tab.fields}
+            idField="id"
+            onOpenCustomModal={handleOpenCustomModal}
+            useCustomModal={true}
+          />;
+      }
+      
+      // Renderizar DataManagerTable genérico para el resto
+      return <DataManagerTable 
+          apiEndpoint={tab.apiEndpoint} 
+          modelName={tab.label} 
+          fields={tab.fields}
+          idField="id"
+      />;
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 flex items-center"><Settings className="mr-2" /> Configuración</h1>
-      
-      <div className="space-y-6">
-        <PreciosManagerCard /> {/* <-- AÑADIDO */}
-        <ReferenciasManager />
-        {/* Aquí se podrían añadir más componentes de configuración */}
+      <h1 className="text-3xl font-bold mb-6 flex items-center">
+        <Settings className="mr-2" /> Configuración Central de Datos
+      </h1>
+
+      {/* Navegación de Pestañas (Tabs) */}
+      <div role="tablist" className="tabs tabs-boxed">
+        {tabs.map(tab => (
+          <a
+            key={tab.id}
+            role="tab"
+            className={`tab ${activeTab === tab.id ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </a>
+        ))}
       </div>
+
+      {/* Contenido de la Pestaña Activa */}
+      <div className="mt-4 bg-base-100 shadow-xl rounded-box">
+        {tabs.map(tab => activeTab === tab.id ? (
+             <div key={tab.id}>
+                {renderTabComponent(tab)}
+             </div>
+        ) : null)}
+      </div>
+      
+      {/* Modal Especializado para Descuentos */}
+      {isModalOpen && (
+        <RuleEditorModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleSaveDiscount}
+          rule={editingRule}
+          ruleType="descuentos" 
+          apiError={modalApiError} 
+        />
+      )}
+
     </div>
   );
 }

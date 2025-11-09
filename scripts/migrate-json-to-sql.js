@@ -36,7 +36,7 @@ async function main() {
   await db.stock.deleteMany();
   await db.bobinaPedido.deleteMany();
   await db.pedidoProveedor.deleteMany();
-  await db.referenciaBobina.deleteMany(); // Nueva tabla
+  await db.referenciaBobina.deleteMany(); 
   await db.precioEspecial.deleteMany();
   await db.descuentoTier.deleteMany();
   await db.reglaDescuento.deleteMany();
@@ -60,7 +60,7 @@ async function main() {
   const fabricantesData = await readJson('fabricantes.json');
   for (const f of fabricantesData) {
     await db.fabricante.upsert({
-      where: { nombre: f.nombre }, // Usa un campo único
+      where: { nombre: f.nombre }, 
       update: { nombre: f.nombre },
       create: { nombre: f.nombre },
     });
@@ -89,7 +89,6 @@ async function main() {
   }
   console.log(`- ${proveedoresData.length} proveedores procesados.`);
 
-  // Mantenemos la lógica de Tarifas y Config ya que no deben ser eliminadas por el script
   
   console.log('Migrando Notas...');
   const notasData = await readJson('notas.json');
@@ -103,6 +102,28 @@ async function main() {
   }
   console.log(`- ${notasData.length} notas procesadas.`);
 
+  // --- MIGRACIÓN DE REGLAS DE MARGEN ---
+  console.log('Migrando Reglas de Margen...');
+  const margenesData = await readJson('margenes.json');
+  let margenesMigrados = 0;
+  for (const m of margenesData) {
+    const multiplicadorFloat = parseFloat(m.multiplicador) || 1.0;
+    const gastoFijoFloat = parseFloat(m.gastoFijo) || 0;
+    
+    await db.reglaMargen.create({ 
+      data: {
+        base: m.base,
+        descripcion: m.descripcion,
+        multiplicador: multiplicadorFloat,
+        gastoFijo: gastoFijoFloat,
+        tipo: m.tipo || 'General',
+        // ELIMINADO EL CAMPO 'valor'
+      }
+    }).then(() => margenesMigrados++);
+  }
+  console.log(`- ${margenesMigrados} reglas de margen procesadas.`);
+  
+  // --- FIN MIGRACIÓN DE REGLAS DE MARGEN ---
 
   // --- 2. Migrar Modelos Relacionales (Requiere Mapeo) ---
 
@@ -116,15 +137,15 @@ async function main() {
         email: c.email,
         direccion: c.direccion,
         telefono: c.telefono,
-        categoria: c.categoria, // <-- CORREGIDO: tier -> categoria
+        tier: c.tier, 
       },
       create: {
-        id: c.id, // Usamos el ID antiguo
+        id: c.id, 
         nombre: c.nombre,
         email: c.email,
         direccion: c.direccion,
         telefono: c.telefono,
-        categoria: c.categoria, // <-- CORREGIDO: tier -> categoria
+        tier: c.tier, 
       },
     });
   }
@@ -136,7 +157,7 @@ async function main() {
   const materialesDB = await db.material.findMany();
 
   const clienteNombreMap = new Map(clientesDB.map(c => [c.nombre, c.id]));
-  const clienteIdMap = new Map(clientesDB.map(c => [c.id, c.id])); // ID Antiguo -> Nuevo ID
+  const clienteIdMap = new Map(clientesDB.map(c => [c.id, c.id])); 
   const fabricanteMap = new Map(fabricantesDB.map(f => [f.nombre, f.id]));
   const materialMap = new Map(materialesDB.map(m => [m.nombre, m.id]));
 
@@ -147,26 +168,27 @@ async function main() {
   let productosMigrados = 0;
   for (const p of productosData) {
     const fabricanteNombre = p.nombre.split(' - ')[0];
-    const fabricanteId = fabricanteMap.get(fabricanteNombre);
+    const fabricanteId = fabricanteMap.get(p.fabricante); 
     const materialId = materialMap.get(p.material);
     
     await db.producto.upsert({
       where: { id: p.id },
-      update: {},
+      update: {
+          // Si es necesario actualizar algo, iría aquí
+      },
       create: {
         id: p.id,
         nombre: p.nombre,
-        // ACTUALIZADO: 'modelo' -> 'referenciaFabricante'
         referenciaFabricante: p.modelo || p.nombre.split(' - ')[1],
         espesor: parseFloat(p.espesor) || 0,
         largo: parseFloat(p.largo) || 0,
         ancho: parseFloat(p.ancho) || 0,
         precioUnitario: parseFloat(p.precioUnitario) || 0,
         pesoUnitario: parseFloat(p.pesoUnitario) || 0,
-        // ACTUALIZADO: 'costo' -> 'costoUnitario'
         costoUnitario: parseFloat(p.costo) || 0,
         fabricanteId: fabricanteId,
         materialId: materialId,
+        clienteId: p.clienteId || null,
       },
     });
     productosMigrados++;
@@ -179,14 +201,26 @@ async function main() {
   console.log('Migrando Referencias Bobina...');
   const refBobinaData = await readJson('referenciasBobina.json');
   for (const r of refBobinaData) {
+    const an = parseFloat(r.ancho) || 0;
+    const ln = parseInt(r.lonas) || 0;
+    const pw = parseFloat(r.pesoPorMetroLineal) || 0;
+
     await db.referenciaBobina.upsert({
-      where: { referencia: r.referencia },
-      update: {},
+      where: { 
+        referencia_ancho_lonas: {
+          referencia: r.referencia,
+          ancho: an,
+          lonas: ln,
+        },
+      },
+      update: {
+          pesoPorMetroLineal: pw,
+      },
       create: {
         referencia: r.referencia,
-        ancho: parseFloat(r.ancho) || 0,
-        lonas: parseInt(r.lonas) || 0,
-        pesoPorMetroLineal: parseFloat(r.pesoPorMetroLineal) || 0,
+        ancho: an,
+        lonas: ln,
+        pesoPorMetroLineal: pw,
       }
     });
   }
@@ -282,9 +316,6 @@ async function main() {
   }
   console.log(`- ${pedidosMigrados} pedidos procesados.`);
   
-  // Faltan migraciones de PedidoProveedor, Stock y Movimientos, que el usuario puede rellenar manualmente
-  // o con un script de prueba dedicado.
-
   console.log('¡Migración de datos completada!');
 }
 
