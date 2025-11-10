@@ -160,8 +160,8 @@ model MovimientoStock {
   cantidad   Float
   fecha      DateTime @default(now())
   referencia String?
-  stockItem Stock  @relation(fields: [stockId], references: [id])
-  stockId   String
+  stockItem Stock? @relation(fields: [stockId], references: [id], onDelete: SetNull)
+  stockId   String?
 }
 
 model PedidoProveedor {

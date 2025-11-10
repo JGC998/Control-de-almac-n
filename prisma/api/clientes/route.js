@@ -23,7 +23,7 @@ export async function POST(request) {
         email: data.email,
         direccion: data.direccion,
         telefono: data.telefono,
-        categoria: data.categoria, // <-- CAMBIADO: tier -> categoria
+        tier: data.categoria, // <-- CORRECCIÓN CLAVE: Mapear 'categoria' del frontend a 'tier' de Prisma
       },
     });
     
