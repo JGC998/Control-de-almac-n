@@ -1,12 +1,3 @@
-#!/bin/bash
-
-# Rutas
-NEW_SEEDER_PATH="scripts/clean-seeder.js"
-
-echo "--- 1. INYECTANDO SQL FINAL ADAPTADO A ESTRUCTURA CORRUPTA ---"
-echo "Insertando 'valor' en la columna antigua 'multiplicador' (y omitiendo 'categoria')."
-
-cat > $NEW_SEEDER_PATH <<'EOF'
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid'); 
 
@@ -135,14 +126,3 @@ main()
     await db.$disconnect();
     console.log("Desconectado de la base de datos. SEEDING FINALIZADO.");
   });
-EOF
-
-echo "--- 2. EJECUCIÓN DE RECONSTRUCCIÓN FINAL ---"
-
-# 2.1. REINICIO FORZADO DE LA BASE DE DATOS Y APLICACIÓN DE MIGRACIONES
-npx prisma migrate reset --force
-
-# 2.2. EJECUTAR SCRIPT DE SEEDING
-node $NEW_SEEDER_PATH
-
-echo "--- FIN DE LA OPERACIÓN ---"

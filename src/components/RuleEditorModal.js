@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import useSWR from 'swr'; // Para cargar clientes y productos
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
+// Tiers definidos por el negocio
+const TIER_OPTIONS = ['FABRICANTE', 'INTERMEDIARIO', 'CLIENTE FINAL']; 
 
 // Componente de formulario dinámico para editar una regla
 export default function RuleEditorModal({ isOpen, onClose, onSave, rule, ruleType, apiError }) {
@@ -22,13 +24,7 @@ export default function RuleEditorModal({ isOpen, onClose, onSave, rule, ruleTyp
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        
-        // Lógica de reseteo para asegurar consistencia
-        if (name === 'tipo' && value !== 'categoria') {
-             setFormData(prev => ({ ...prev, [name]: value, categoria: null }));
-        } else {
-             setFormData(prev => ({ ...prev, [name]: value }));
-        }
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleTierChange = (index, key, value) => {
@@ -48,29 +44,21 @@ export default function RuleEditorModal({ isOpen, onClose, onSave, rule, ruleTyp
                 return (
                     <>
                         <InputField name="descripcion" label="Descripción" value={formData.descripcion} onChange={handleChange} />
+                        <InputField name="valor" label="Valor (ej. 1.5 para 50% de margen)" type="number" step="0.01" value={formData.valor} onChange={handleChange} />
+                        <InputField name="tipo" label="Tipo (ej. General, Categoria, Cliente)" value={formData.tipo} onChange={handleChange} />
                         
-                        {/* Tipo de Regla (Select en lugar de Input libre) */}
-                        <label className="form-control w-full">
-                          <div className="label"><span className="label-text">Tipo de Regla de Margen</span></div>
-                          <select name="tipo" value={formData.tipo || 'General'} onChange={handleChange} className="select select-bordered" required>
-                            <option value="General">General (Aplica a todo)</option>
-                            <option value="Categoria">Por Categoría (Material, Cliente, Fabricante, etc.)</option>
-                          </select>
-                        </label>
+                        {formData.tipo === 'Categoria' && <InputField name="categoria" label="Categoría" value={formData.categoria} onChange={handleChange} />}
                         
-                        {/* Campo de Categoría (Condicional) */}
-                        {formData.tipo === 'Categoria' && (
-                            <InputField 
-                                name="categoria" 
-                                label="Nombre de Categoría/Target (ej: PVC, GOLD, FABRICANTE)" 
-                                value={formData.categoria} 
-                                onChange={handleChange} 
-                                required={true}
-                            />
+                        {/* Selector de Tier de Cliente para Márgenes */}
+                        {formData.tipo === 'Cliente' && (
+                          <label className="form-control w-full">
+                            <div className="label"><span className="label-text">Tier de Cliente</span></div>
+                            <select name="tierCliente" value={formData.tierCliente || ''} onChange={handleChange} className="select select-bordered" required>
+                              <option value="">Selecciona Tier</option>
+                              {TIER_OPTIONS.map(tier => <option key={tier} value={tier}>{tier}</option>)}
+                            </select>
+                          </label>
                         )}
-
-                        <InputField name="valor" label="Multiplicador (ej. 1.5 para 50% de margen)" type="number" step="0.01" value={formData.valor} onChange={handleChange} />
-                        <InputField name="gastoFijo" label="Gasto Fijo (€) (Costo fijo adicional por unidad)" type="number" step="0.01" value={formData.gastoFijo} onChange={handleChange} />
                     </>
                 );
             case 'discounts':
@@ -80,7 +68,7 @@ export default function RuleEditorModal({ isOpen, onClose, onSave, rule, ruleTyp
                         <InputField name="tipo" label="Tipo (ej. categoria, volumen, cliente)" value={formData.tipo} onChange={handleChange} />
                         <InputField name="descuento" label="Descuento (ej. 0.1 para 10%)" type="number" step="0.01" value={formData.descuento} onChange={handleChange} />
                         {formData.tipo === 'categoria' && <InputField name="categoria" label="Categoría" value={formData.categoria} onChange={handleChange} />}
-                        {formData.tipo === 'cliente' && <InputField name="tierCliente" label="Tier de Cliente (ej. GOLD)" value={formData.tierCliente} onChange={handleChange} />}
+                        {formData.tipo === 'cliente' && <InputField name="tierCliente" label="Tier de Cliente (ej. FABRICANTE)" value={formData.tierCliente} onChange={handleChange} />}
                         {formData.tipo === 'volumen' && (
                             <div>
                                 <h4 className="font-bold mt-4">Tiers de Volumen</h4>
@@ -144,9 +132,9 @@ export default function RuleEditorModal({ isOpen, onClose, onSave, rule, ruleTyp
 }
 
 // Pequeño componente para simplificar los campos del formulario
-const InputField = ({ name, label, value, onChange, type = 'text', step = 'any', required = false }) => (
+const InputField = ({ name, label, value, onChange, type = 'text', step = 'any' }) => (
     <div className="form-control">
         <label className="label"><span className="label-text">{label}</span></label>
-        <input name={name} type={type} value={value || ''} onChange={onChange} className="input input-bordered" step={step} required={required} />
+        <input name={name} type={type} value={value || ''} onChange={onChange} className="input input-bordered" step={step} />
     </div>
 );

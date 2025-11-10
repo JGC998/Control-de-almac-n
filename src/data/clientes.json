@@ -1,7 +1,7 @@
 [
-  { "id": "cli-001", "nombre": "Industrias Zeta", "email": "contacto@zeta.com", "telefono": "111222333", "categoria": "FABRICANTE" },
-  { "id": "cli-002", "nombre": "Distribuciones Alfa", "email": "ventas@alfa.net", "telefono": "444555666", "categoria": "INTERMEDIARIO" },
-  { "id": "cli-003", "nombre": "Taller Mecánico Torres", "email": "torres@taller.es", "telefono": "666777888", "categoria": "CLIENTE FINAL" },
-  { "id": "cli-004", "nombre": "Ferretería García S.L.", "email": "ferreteria@garcia.com", "telefono": "999000111", "categoria": "INTERMEDIARIO" },
-  { "id": "cli-005", "nombre": "Construcciones Rivas", "email": "rivas@const.es", "telefono": "555444333", "categoria": "CLIENTE FINAL" }
+  { "id": "cli-001", "nombre": "Industrias Zeta", "email": "contacto@zeta.com", "telefono": "111222333", "tier": "FABRICANTE" },
+  { "id": "cli-002", "nombre": "Distribuciones Alfa", "email": "ventas@alfa.net", "telefono": "444555666", "tier": "INTERMEDIARIO" },
+  { "id": "cli-003", "nombre": "Taller Mecánico Torres", "email": "torres@taller.es", "telefono": "666777888", "tier": "CLIENTE FINAL" },
+  { "id": "cli-004", "nombre": "Ferretería García S.L.", "email": "ferreteria@garcia.com", "telefono": "999000111", "tier": "INTERMEDIARIO" },
+  { "id": "cli-005", "nombre": "Construcciones Rivas", "email": "rivas@const.es", "telefono": "555444333", "tier": "FABRICANTE" }
 ]
