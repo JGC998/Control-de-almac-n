@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-// Función central de cálculo (Ahora usa materialId para la búsqueda)
+// Función central de cálculo (Ahora calcula precio y asume dimensiones en metros)
 async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     if (!materialId || !espesor || !largo || !ancho || largo <= 0 || ancho <= 0) {
-        return { costo: 0, peso: 0 };
+        return { costo: 0, peso: 0, precio: 0 };
     }
 
     // 1. Obtener el nombre del material para buscar la tarifa
@@ -14,29 +14,35 @@ async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     });
 
     if (!material) {
-        return { costo: 0, peso: 0 };
+        return { costo: 0, peso: 0, precio: 0 };
     }
 
-    // 2. Buscar la TarifaMaterial usando el ID del material (clave única compuesta)
+    // 2. Buscar la TarifaMaterial usando el nombre del material
     const tarifa = await db.tarifaMaterial.findUnique({
         where: { 
-            materialId_espesor: { 
-                materialId: materialId,
+            material_espesor: { 
+                material: material.nombre,
                 espesor: espesor
             }
         },
     });
 
     if (!tarifa || tarifa.precio <= 0) {
-        return { costo: 0, peso: 0 };
+        return { costo: 0, peso: 0, precio: 0 };
     }
 
-    // 3. Aplicar las fórmulas de cálculo (Ancho y Largo están en mm)
-    const areaM2 = (ancho / 1000) * (largo / 1000);
-    const costo = areaM2 * tarifa.precio; // Costo = Área * Precio Tarifa (€/m²)
-    const peso = areaM2 * tarifa.peso;     // Peso = Área * Peso Tarifa (kg/m²)
+    // 3. Aplicar las fórmulas de cálculo (Dimensiones en Metros)
+    const areaM2 = parseFloat(ancho) * parseFloat(largo);
+    
+    const costo = areaM2 * tarifa.precio; 
+    const peso = areaM2 * tarifa.peso;     
+    const precio = costo; // Precio Unitario base es igual al costo de la materia prima (sin margen)
 
-    return { costo: parseFloat(costo.toFixed(2)), peso: parseFloat(peso.toFixed(2)) };
+    return { 
+        costo: parseFloat(costo.toFixed(2)), 
+        peso: parseFloat(peso.toFixed(2)),
+        precio: parseFloat(precio.toFixed(2))
+    };
 }
 
 // GET /api/productos - Obtiene todos los productos
@@ -86,23 +92,28 @@ export async function POST(request) {
       return NextResponse.json({ message: `Material "${data.material}" no encontrado.` }, { status: 400 });
     }
     
-    // 2. Calcular Costo Unitario y Peso Unitario
-    const { costo: calculatedCosto, peso: calculatedPeso } = await calculateCostAndWeight(
-        material.id, // Usar ID de Material
+    // 2. Calcular Costo Unitario, Peso Unitario y Precio Unitario
+    const { costo: calculatedCosto, peso: calculatedPeso, precio: calculatedPrecio } = await calculateCostAndWeight(
+        material.id, 
         parseFloat(data.espesor), 
         parseFloat(data.largo), 
         parseFloat(data.ancho)
     );
 
+    // 3. Generar el nombre del producto: (Referencia fabricante + Material + Fabricante)
+    const newNombre = `${data.modelo} - ${material.nombre} - ${fabricante.nombre}`;
+
+
     const nuevoProducto = await db.producto.create({
       data: {
-        nombre: data.nombre,
+        nombre: newNombre, 
         referenciaFabricante: data.modelo,
         espesor: parseFloat(data.espesor) || 0,
         largo: parseFloat(data.largo) || 0,
         ancho: parseFloat(data.ancho) || 0,
-        precioUnitario: parseFloat(data.precioUnitario),
-        pesoUnitario: calculatedPeso, 
+        // Usar los valores calculados
+        precioUnitario: calculatedPrecio || 0, 
+        pesoUnitario: calculatedPeso || 0, 
         costoUnitario: calculatedCosto, 
         fabricanteId: fabricante.id, 
         materialId: material.id,

@@ -25,13 +25,15 @@ export async function GET() {
 export async function POST(request) {
   const data = await request.json();
   try {
-    if (!data.referencia) {
+    // CORRECCIÓN: Usar data.nombre (lo que envía el formulario)
+    if (!data.nombre) {
       return NextResponse.json({ error: 'El nombre de la Referencia de Bobina es requerido.' }, { status: 400 });
     }
 
     const newRef = await db.referenciaBobina.create({
       data: {
-        referencia: data.referencia, 
+        // MAPEAR: 'nombre' del form a 'referencia' del modelo
+        referencia: data.nombre, 
         ancho: getSafeNumber(data.ancho),
         lonas: getSafeNumber(data.lonas),
         pesoPorMetroLineal: getSafeNumber(data.pesoPorMetroLineal),

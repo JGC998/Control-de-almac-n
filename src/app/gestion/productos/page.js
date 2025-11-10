@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
 import { PlusCircle, Edit, Trash2, Package } from 'lucide-react';
 
@@ -7,8 +7,8 @@ const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function GestionProductos() {
   const [formData, setFormData] = useState({ 
-    id: null, nombre: '', modelo: '', espesor: 0, largo: 0, ancho: 0, 
-    precioUnitario: 0, pesoUnitario: 0, costo: 0, // <-- AÑADIDO: 'costo' temporal (mapea a costoUnitario)
+    id: null, nombre: '', modelo: '', espesor: '', largo: '', ancho: '', 
+    precioUnitario: '', pesoUnitario: '', costo: '',
     fabricante: '', material: '' 
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,27 +17,63 @@ export default function GestionProductos() {
   const { data: productos, error: productosError, isLoading: productosLoading } = useSWR('/api/productos', fetcher);
   const { data: fabricantes, error: fabError, isLoading: fabLoading } = useSWR('/api/fabricantes', fetcher);
   const { data: materiales, error: matError, isLoading: matLoading } = useSWR('/api/materiales', fetcher);
+  const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios', fetcher);
 
-  const isLoading = productosLoading || fabLoading || matLoading;
+  const isLoading = productosLoading || fabLoading || matLoading || tarifasLoading;
+  
+  // Lógica para obtener espesores disponibles según el material
+  const availableEspesores = useMemo(() => {
+    if (!tarifas || !formData.material) return [];
+    
+    const espesores = tarifas
+      .filter(t => t.material === formData.material)
+      .map(t => String(t.espesor));
+    
+    return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
+  }, [tarifas, formData.material]);
+  
+  // Limpiar espesor al cambiar el material
+  useEffect(() => {
+      setFormData(prev => ({ ...prev, espesor: '' }));
+  }, [formData.material]);
+
+  // Función para formatear las dimensiones de mm (DB) a metros (Formulario)
+  const formatDimension = (value) => {
+    if (value !== null && value !== undefined) {
+        // Asumimos que los valores de DB son grandes (mm) y los convertimos a metros.
+        // Si el valor es una string que no se puede parsear, devolvemos ''.
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue) && numValue > 0) {
+            // Dividir por 1000 para pasar de mm a m, y limitar a 2 decimales para la visualización
+            return (numValue / 1000).toFixed(2); 
+        }
+    }
+    return '';
+  };
+
 
   const openModal = (producto = null) => {
     if (producto) {
       setFormData({ 
         id: producto.id, nombre: producto.nombre, 
-        // MAPEADO: 'referenciaFabricante' de DB se lee en 'modelo' para el form
         modelo: producto.referenciaFabricante || '', 
-        espesor: producto.espesor || 0, largo: producto.largo || 0, ancho: producto.ancho || 0, 
-        precioUnitario: producto.precioUnitario || 0, 
-        pesoUnitario: producto.pesoUnitario || 0, 
-        // MAPEADO: 'costoUnitario' de DB se lee en 'costo' para el form
-        costo: producto.costoUnitario || 0, 
+        espesor: String(producto.espesor) || '', 
+        // --- CORRECCIÓN: Convertir mm de la DB a metros para el formulario ---
+        largo: formatDimension(producto.largo),     
+        ancho: formatDimension(producto.ancho),     
+        // --- FIN CORRECCIÓN ---
+        precioUnitario: producto.precioUnitario || '',     
+        pesoUnitario: producto.pesoUnitario || '',     
+        costo: producto.costoUnitario || '',           
         fabricante: producto.fabricante?.nombre || '', 
         material: producto.material?.nombre || ''
       });
     } else {
       setFormData({ 
-        id: null, nombre: '', modelo: '', espesor: 0, largo: 0, ancho: 0, 
-        precioUnitario: 0, pesoUnitario: 0, costo: 0, 
+        id: null, nombre: '', modelo: '', 
+        espesor: '', largo: '', ancho: '', 
+        precioUnitario: '', pesoUnitario: '', 
+        costo: '', 
         fabricante: '', material: '' 
       });
     }
@@ -66,17 +102,24 @@ export default function GestionProductos() {
     const url = formData.id ? `/api/productos/${formData.id}` : '/api/productos';
     const method = formData.id ? 'PUT' : 'POST';
 
-    // Convertir a número y mapear 'modelo' a 'referenciaFabricante' (en la API)
+    // La API calculará precioUnitario, pesoUnitario y nombre. 
+    // Solo enviamos los datos necesarios.
     const dataToSend = {
       ...formData,
+      // Los valores de largo y ancho ahora se envían en metros (como los ingresó el usuario)
       espesor: parseFloat(formData.espesor),
       largo: parseFloat(formData.largo),
       ancho: parseFloat(formData.ancho),
-      precioUnitario: parseFloat(formData.precioUnitario),
-      pesoUnitario: parseFloat(formData.pesoUnitario),
-      costo: parseFloat(formData.costo), // <-- ENVIAMOS 'costo' (la API lo mapea a costoUnitario)
-      modelo: formData.modelo, // <-- ENVIAMOS 'modelo' (la API lo mapea a referenciaFabricante)
+      // No enviamos precioUnitario, pesoUnitario ni nombre, se calculan en backend
+      precioUnitario: 0, 
+      pesoUnitario: 0, 
+      costo: parseFloat(formData.costo) || 0,
+      modelo: formData.modelo, 
     };
+    
+    if (!formData.id && !dataToSend.costo) {
+      dataToSend.costo = 0; 
+    }
 
     try {
       const res = await fetch(url, {
@@ -90,7 +133,7 @@ export default function GestionProductos() {
         throw new Error(errData.message || 'Error al guardar el producto');
       }
 
-      mutate('/api/productos'); // Revalida el cache
+      mutate('/api/productos'); 
       closeModal();
     } catch (err) {
       setError(err.message);
@@ -113,7 +156,7 @@ export default function GestionProductos() {
   };
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-  if (productosError || fabError || matError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
+  if (productosError || fabError || matError || tarifasError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
 
   return (
     <div className="container mx-auto p-4">
@@ -125,7 +168,6 @@ export default function GestionProductos() {
 
       <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
         <table className="table w-full">
-          {/* CORRECCIÓN DE HIDRATACIÓN: Compactar el thead y tbody */}
           <thead><tr>
             <th>Nombre</th>
             <th>Ref. Fab.</th>
@@ -162,9 +204,8 @@ export default function GestionProductos() {
           <div className="modal-box w-11/12 max-w-3xl">
             <h3 className="font-bold text-lg">{formData.id ? 'Editar Producto' : 'Nuevo Producto'}</h3>
             <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Nombre" className="input input-bordered w-full md:col-span-2" required />
-              {/* CAMBIADO: Usa 'modelo' que mapearemos a 'referenciaFabricante' */}
-              <input type="text" name="modelo" value={formData.modelo} onChange={handleChange} placeholder="Referencia Fabricante" className="input input-bordered w-full" />
+              <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Nombre (Se autocompletará)" className="input input-bordered w-full md:col-span-2" disabled />
+              <input type="text" name="modelo" value={formData.modelo} onChange={handleChange} placeholder="Referencia Fabricante" className="input input-bordered w-full" required />
               
               <select name="fabricante" value={formData.fabricante} onChange={handleSelectChange} className="select select-bordered w-full" required>
                 <option value="">Selecciona Fabricante</option>
@@ -176,19 +217,36 @@ export default function GestionProductos() {
                 {materiales?.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
               </select>
               
-              {/* NUEVO CAMPO: Costo Unitario */}
-              <input type="number" step="0.01" name="costo" value={formData.costo} onChange={handleChange} placeholder="Costo Unitario (€)" className="input input-bordered w-full" />
-              <input type="number" step="0.01" name="precioUnitario" value={formData.precioUnitario} onChange={handleChange} placeholder="Precio Unitario (€)" className="input input-bordered w-full" />
-              <input type="number" step="0.01" name="pesoUnitario" value={formData.pesoUnitario} onChange={handleChange} placeholder="Peso Unitario (kg)" className="input input-bordered w-full" />
-              <input type="number" step="0.01" name="espesor" value={formData.espesor} onChange={handleChange} placeholder="Espesor (mm)" className="input input-bordered w-full" />
-              <input type="number" step="0.01" name="largo" value={formData.largo} onChange={handleChange} placeholder="Largo (m)" className="input input-bordered w-full" />
-              <input type="number" step="0.01" name="ancho" value={formData.ancho} onChange={handleChange} placeholder="Ancho (m)" className="input input-bordered w-full" />
+              <label className="form-control w-full">
+                  <div className="label"><span className="label-text">Espesor (mm)</span></div>
+                  <select 
+                    name="espesor" 
+                    value={formData.espesor} 
+                    onChange={handleSelectChange} 
+                    className="select select-bordered w-full" 
+                    disabled={!formData.material}
+                    required
+                  >
+                      <option value="">Selecciona Espesor</option>
+                      {availableEspesores.map(e => (
+                        <option key={e} value={e}>{e} mm</option>
+                      ))}
+                  </select>
+              </label>
               
+              <input type="number" step="0.01" name="largo" value={formData.largo} onChange={handleChange} placeholder="Largo (m)" className="input input-bordered w-full" required />
+              <input type="number" step="0.01" name="ancho" value={formData.ancho} onChange={handleChange} placeholder="Ancho (m)" className="input input-bordered w-full" required />
+              
+              {/* Campos ocultos para la API, no mostrados al usuario */}
+              <input type="hidden" name="precioUnitario" value={formData.precioUnitario} />
+              <input type="hidden" name="pesoUnitario" value={formData.pesoUnitario} />
+              <input type="hidden" name="costo" value={formData.costo} />
+
               {error && <p className="text-red-500 text-sm md:col-span-2">{error}</p>}
               
               <div className="modal-action md:col-span-2">
                 <button type="button" onClick={closeModal} className="btn">Cancelar</button>
-                <button type="submit" className="btn btn-primary">Guardar</button>
+                <button type="submit" className="btn btn-primary" disabled={tarifasLoading}>Guardar</button>
               </div>
             </form>
           </div>
