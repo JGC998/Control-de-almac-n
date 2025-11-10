@@ -1,344 +1,155 @@
 #!/bin/bash
-#
-# Script: Corrige el error de Prisma removiendo el campo 'valor' del seeder y re-ejecuta la siembra.
-#
 set -e
 
-echo "--- 1/2. Corrigiendo scripts/migrate-json-to-sql.js: Eliminando la asignación de 'valor' ---"
-cat > scripts/migrate-json-to-sql.js <<'EOF'
-const { PrismaClient } = require('@prisma/client');
-const fs = require('fs/promises');
-const path = require('path');
+MARGINES_ROUTE_FILE="src/app/api/pricing/margenes/route.js"
+MARGINES_ID_ROUTE_FILE="src/app/api/pricing/margenes/[id]/route.js"
 
-// Inicializa el cliente de la base de datos
-const db = new PrismaClient();
-const dataDir = path.join(__dirname, '../src/data');
+echo "--- 1. Corrigiendo API POST /api/pricing/margenes: Mapeo de FABRICANTE y validación ---"
 
-/**
- * Lee un archivo JSON de forma segura, devolviendo un array vacío si no existe.
- */
-async function readJson(filename) {
+cat > "$MARGINES_ROUTE_FILE" <<'EOF'
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+
+// GET /api/pricing/margenes - Obtiene todas las reglas de margen
+export async function GET() {
   try {
-    const data = await fs.readFile(path.join(dataDir, filename), 'utf8');
-    return JSON.parse(data);
+    const data = await db.reglaMargen.findMany();
+    return NextResponse.json(data);
   } catch (error) {
-    if (error.code === 'ENOENT') {
-      console.warn(`Advertencia: No se encontró el archivo ${filename}, se omitirá.`);
-      return [];
-    }
-    throw error;
+    console.error('Error al obtener márgenes:', error);
+    return NextResponse.json({ message: 'Error al obtener márgenes' }, { status: 500 });
   }
 }
 
-/**
- * Función principal de migración
- */
-async function main() {
-  console.log('Iniciando migración de datos de JSON a SQLite...');
-  await db.$connect();
-  console.log('Conectado a la base de datos.');
-
-  // --- Limpieza de DB (MANTENEMOS Tarifas y Config) ---
-  console.log('Limpiando tablas (excepto Tarifas y Config)...');
-  await db.movimientoStock.deleteMany();
-  await db.stock.deleteMany();
-  await db.bobinaPedido.deleteMany();
-  await db.pedidoProveedor.deleteMany();
-  await db.referenciaBobina.deleteMany(); 
-  await db.precioEspecial.deleteMany();
-  await db.descuentoTier.deleteMany();
-  await db.reglaDescuento.deleteMany();
-  await db.reglaMargen.deleteMany();
-  await db.nota.deleteMany();
-  await db.pedidoItem.deleteMany();
-  await db.pedido.deleteMany();
-  await db.presupuestoItem.deleteMany();
-  await db.presupuesto.deleteMany();
-  await db.producto.deleteMany();
-  await db.cliente.deleteMany();
-  await db.material.deleteMany();
-  await db.fabricante.deleteMany();
-  await db.proveedor.deleteMany();
-  console.log('Limpieza completada.');
-  // ----------------------------------------------------
-  
-  // --- 1. Migrar Modelos Simples (Sin Relaciones) ---
-
-  console.log('Migrando Fabricantes...');
-  const fabricantesData = await readJson('fabricantes.json');
-  for (const f of fabricantesData) {
-    await db.fabricante.upsert({
-      where: { nombre: f.nombre }, 
-      update: { nombre: f.nombre },
-      create: { nombre: f.nombre },
-    });
-  }
-  console.log(`- ${fabricantesData.length} fabricantes procesados.`);
-
-  console.log('Migrando Materiales...');
-  const materialesData = await readJson('materiales.json');
-  for (const m of materialesData) {
-    await db.material.upsert({
-      where: { nombre: m.nombre },
-      update: { nombre: m.nombre },
-      create: { nombre: m.nombre },
-    });
-  }
-  console.log(`- ${materialesData.length} materiales procesados.`);
-  
-  console.log('Migrando Proveedores...');
-  const proveedoresData = await readJson('proveedores.json');
-  for (const p of proveedoresData) {
-    await db.proveedor.upsert({
-      where: { nombre: p.nombre },
-      update: { nombre: p.nombre, email: p.email, telefono: p.telefono, direccion: p.direccion },
-      create: { nombre: p.nombre, email: p.email, telefono: p.telefono, direccion: p.direccion },
-    });
-  }
-  console.log(`- ${proveedoresData.length} proveedores procesados.`);
-
-  
-  console.log('Migrando Notas...');
-  const notasData = await readJson('notas.json');
-  for (const n of notasData) {
-     await db.nota.create({
-        data: {
-            content: n.content,
-            fecha: n.fecha ? new Date(n.fecha) : undefined
-        }
-     });
-  }
-  console.log(`- ${notasData.length} notas procesadas.`);
-
-  // --- MIGRACIÓN DE REGLAS DE MARGEN ---
-  console.log('Migrando Reglas de Margen...');
-  const margenesData = await readJson('margenes.json');
-  let margenesMigrados = 0;
-  for (const m of margenesData) {
-    const multiplicadorFloat = parseFloat(m.multiplicador) || 1.0;
-    const gastoFijoFloat = parseFloat(m.gastoFijo) || 0;
+// POST /api/pricing/margenes - Crea una nueva regla de margen
+export async function POST(request) {
+  let receivedData;
+  try {
+    receivedData = await request.json(); // Leer los datos
     
-    await db.reglaMargen.create({ 
-      data: {
-        base: m.base,
-        descripcion: m.descripcion,
-        multiplicador: multiplicadorFloat,
-        gastoFijo: gastoFijoFloat,
-        tipo: m.tipo || 'General',
-        // ELIMINADO EL CAMPO 'valor'
-      }
-    }).then(() => margenesMigrados++);
-  }
-  console.log(`- ${margenesMigrados} reglas de margen procesadas.`);
-  
-  // --- FIN MIGRACIÓN DE REGLAS DE MARGEN ---
+    // 1. Normalizar y validar entradas del formulario
+    const descripcion = receivedData.descripcion?.trim();
+    let tipo = receivedData.tipo?.trim() || 'General'; // Usar General como fallback
+    const valorFloat = parseFloat(receivedData.valor);
+    const gastoFijoFloat = parseFloat(receivedData.gastoFijo) || 0;
 
-  // --- 2. Migrar Modelos Relacionales (Requiere Mapeo) ---
-
-  console.log('Migrando Clientes...');
-  const clientesData = await readJson('clientes.json');
-  for (const c of clientesData) {
-    await db.cliente.upsert({
-      where: { id: c.id },
-      update: {
-        nombre: c.nombre,
-        email: c.email,
-        direccion: c.direccion,
-        telefono: c.telefono,
-        tier: c.tier, 
-      },
-      create: {
-        id: c.id, 
-        nombre: c.nombre,
-        email: c.email,
-        direccion: c.direccion,
-        telefono: c.telefono,
-        tier: c.tier, 
-      },
-    });
-  }
-  console.log(`- ${clientesData.length} clientes procesados.`);
-
-  // --- 3. Crear Mapeos para Productos ---
-  const clientesDB = await db.cliente.findMany();
-  const fabricantesDB = await db.fabricante.findMany();
-  const materialesDB = await db.material.findMany();
-
-  const clienteNombreMap = new Map(clientesDB.map(c => [c.nombre, c.id]));
-  const clienteIdMap = new Map(clientesDB.map(c => [c.id, c.id])); 
-  const fabricanteMap = new Map(fabricantesDB.map(f => [f.nombre, f.id]));
-  const materialMap = new Map(materialesDB.map(m => [m.nombre, m.id]));
-
-  console.log('Mapeos de IDs creados.');
-
-  console.log('Migrando Productos (desde productos.json)...');
-  const productosData = await readJson('productos.json');
-  let productosMigrados = 0;
-  for (const p of productosData) {
-    const fabricanteNombre = p.nombre.split(' - ')[0];
-    const fabricanteId = fabricanteMap.get(p.fabricante); 
-    const materialId = materialMap.get(p.material);
-    
-    await db.producto.upsert({
-      where: { id: p.id },
-      update: {
-          // Si es necesario actualizar algo, iría aquí
-      },
-      create: {
-        id: p.id,
-        nombre: p.nombre,
-        referenciaFabricante: p.modelo || p.nombre.split(' - ')[1],
-        espesor: parseFloat(p.espesor) || 0,
-        largo: parseFloat(p.largo) || 0,
-        ancho: parseFloat(p.ancho) || 0,
-        precioUnitario: parseFloat(p.precioUnitario) || 0,
-        pesoUnitario: parseFloat(p.pesoUnitario) || 0,
-        costoUnitario: parseFloat(p.costo) || 0,
-        fabricanteId: fabricanteId,
-        materialId: materialId,
-        clienteId: p.clienteId || null,
-      },
-    });
-    productosMigrados++;
-  }
-  console.log(`- ${productosMigrados} productos procesados.`);
-
-  const productoIdMap = new Map(productosData.map(p => [p.id, p.id]));
-  
-  // --- Migración de Referencias Bobina ---
-  console.log('Migrando Referencias Bobina...');
-  const refBobinaData = await readJson('referenciasBobina.json');
-  for (const r of refBobinaData) {
-    const an = parseFloat(r.ancho) || 0;
-    const ln = parseInt(r.lonas) || 0;
-    const pw = parseFloat(r.pesoPorMetroLineal) || 0;
-
-    await db.referenciaBobina.upsert({
-      where: { 
-        referencia_ancho_lonas: {
-          referencia: r.referencia,
-          ancho: an,
-          lonas: ln,
-        },
-      },
-      update: {
-          pesoPorMetroLineal: pw,
-      },
-      create: {
-        referencia: r.referencia,
-        ancho: an,
-        lonas: ln,
-        pesoPorMetroLineal: pw,
-      }
-    });
-  }
-  console.log(`- ${refBobinaData.length} referencias de bobina procesadas.`);
-
-
-  console.log('Migrando Presupuestos...');
-  const presupuestosData = await readJson('presupuestos.json');
-  let presupuestosMigrados = 0;
-  for (const q of presupuestosData) {
-    const clienteId = clienteIdMap.get(q.clienteId);
-    if (!clienteId) {
-      console.warn(`- Omitiendo presupuesto ${q.id}: Cliente ${q.clienteId} no encontrado.`);
-      continue;
-    }
-
-    const numeroPresupuesto = q.numero || `PRE-${Date.now()}-${presupuestosMigrados}`;
-    
-    await db.presupuesto.upsert({
-      where: { numero: numeroPresupuesto },
-      update: {},
-      create: {
-        id: q.id, 
-        numero: numeroPresupuesto,
-        fechaCreacion: new Date(q.fechaCreacion || q.fecha),
-        estado: q.estado || 'Borrador',
-        notas: q.notes,
-        subtotal: parseFloat(q.subtotal) || 0,
-        tax: parseFloat(q.tax) || 0,
-        total: parseFloat(q.total) || 0,
-        clienteId: clienteId,
-        items: {
-          create: q.items.map(item => ({
-            description: item.description || item.nombre,
-            quantity: parseInt(item.quantity) || 0,
-            unitPrice: parseFloat(item.unitPrice || item.precio_unitario) || 0,
-            productoId: productoIdMap.get(item.productId || item.plantillaId),
-          })),
-        },
-      },
-    });
-    presupuestosMigrados++;
-  }
-  console.log(`- ${presupuestosMigrados} presupuestos procesados.`);
-
-  const presupuestoIdMap = new Map(presupuestosData.map(p => [p.id, p.id]));
-
-  console.log('Migrando Pedidos...');
-  const pedidosData = await readJson('pedidos.json');
-  let pedidosMigrados = 0;
-  for (const p of pedidosData) {
-    let clienteId = null;
-    if (p.clienteId) {
-      clienteId = clienteIdMap.get(p.clienteId);
-    } else if (p.cliente) {
-      clienteId = clienteNombreMap.get(p.cliente);
-    }
-
-    if (!clienteId) {
-      console.warn(`- Omitiendo pedido ${p.id}: Cliente ${p.clienteId || p.cliente} no encontrado.`);
-      continue;
+    if (!descripcion || isNaN(valorFloat)) {
+        return NextResponse.json({ message: 'La descripción y el multiplicador son obligatorios.' }, { status: 400 });
     }
     
-    const items = p.items || p.productos || [];
-    const numeroPedido = p.numero || p.id;
+    let categoria = receivedData.categoria?.trim() || null;
     
-    await db.pedido.upsert({
-      where: { numero: numeroPedido },
-      update: {},
-      create: {
-        id: p.id,
-        numero: numeroPedido,
-        fechaCreacion: new Date(p.fechaCreacion || p.fecha),
-        estado: p.estado || 'Activo',
-        notas: p.notas,
-        subtotal: parseFloat(p.subtotal) || 0,
-        tax: parseFloat(p.tax) || 0,
-        total: parseFloat(p.total) || items.reduce((acc, i) => acc + (i.precioUnitario * i.cantidad), 0) || 0,
-        clienteId: clienteId,
-        presupuestoId: presupuestoIdMap.get(p.presupuestoId), 
-        items: {
-          create: items.map(item => ({
-            descripcion: item.description || item.nombre || item.descripcion,
-            quantity: parseInt(item.quantity || item.cantidad) || 0,
-            unitPrice: parseFloat(item.unitPrice || item.precioUnitario || item.precio_unitario) || 0,
-            pesoUnitario: parseFloat(item.pesoUnitario) || 0,
-            productoId: productoIdMap.get(item.productId || item.plantillaId),
-          })),
-        },
-      },
+    // LÓGICA DE CORRECCIÓN: Si el usuario escribió una categoría donde va el 'tipo'
+    if (tipo.toUpperCase() !== 'GENERAL' && tipo.toUpperCase() !== 'CATEGORIA' && tipo.toUpperCase() !== 'CLIENTE') {
+         categoria = tipo; // Mover el valor del campo 'tipo' a 'categoria'
+         tipo = 'Categoria'; // Establecer el tipo real como 'Categoria'
+    }
+
+    // 2. Construir el objeto de inserción usando las CLAVES DE LA BASE DE DATOS
+    const createData = {
+      descripcion: descripcion,
+      tipo: tipo,
+      
+      // Clave: multiplicador (nombre de columna)
+      multiplicador: valorFloat, 
+      
+      gastoFijo: gastoFijoFloat,
+      
+      // Clave: tipo_categoria (nombre de columna)
+      tipo_categoria: categoria, 
+      
+      base: null, // Campo 'base' no usado
+    };
+
+    const nuevaRegla = await db.reglaMargen.create({
+      data: createData,
     });
-    pedidosMigrados++;
+
+    return NextResponse.json(nuevaRegla, { status: 201 });
+  } catch (error) {
+    console.error('Error al crear margen:', error);
+    if (error.code) {
+        return NextResponse.json({ message: `Error de BD (${error.code}): ${error.meta?.target || error.message}` }, { status: 500 });
+    }
+    // Devolvemos 400 si es un error de formato genérico no capturado
+    return NextResponse.json({ message: error.message || 'Error al guardar el registro.' }, { status: 400 });
   }
-  console.log(`- ${pedidosMigrados} pedidos procesados.`);
-  
-  console.log('¡Migración de datos completada!');
 }
-
-main()
-  .catch((e) => {
-    console.error('Error durante la migración:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await db.$disconnect();
-    console.log('Desconectado de la base de datos.');
-  });
 EOF
 
-echo "--- 2/2. Ejecutando la Recarga de Datos (Seeder) corregida ---"
-node scripts/migrate-json-to-sql.js
+echo "--- 2. Corrigiendo API PUT /api/pricing/margenes/[id]/route.js: Aplicando la misma lógica ---"
 
-echo "--- ✅ PROCESO DE INYECCIÓN DE DATOS COMPLETO. Por favor, reinicia el servidor de desarrollo y verifica las pestañas. ---"
+cat > "$MARGINES_ID_ROUTE_FILE" <<'EOF'
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+
+// PUT /api/pricing/margenes/[id] - Actualiza una regla de margen
+export async function PUT(request, { params }) {
+  try {
+    const { id } = params;
+    const data = await request.json();
+
+    let tipo = data.tipo?.trim() || 'General';
+    const valorFloat = parseFloat(data.valor);
+    const gastoFijoFloat = parseFloat(data.gastoFijo) || 0;
+    
+    let categoria = data.categoria?.trim() || null;
+    
+    // LÓGICA DE CORRECCIÓN para la edición
+    if (tipo.toUpperCase() !== 'GENERAL' && tipo.toUpperCase() !== 'CATEGORIA' && tipo.toUpperCase() !== 'CLIENTE') {
+         categoria = tipo; // Mover el valor del campo 'tipo' a 'categoria'
+         tipo = 'Categoria'; // Establecer el tipo real como 'Categoria'
+    }
+    
+    // Usamos las CLAVES DE LA BASE DE DATOS
+    const updateData = {
+      descripcion: data.descripcion?.trim(),
+      tipo: tipo,
+      
+      multiplicador: valorFloat, 
+      
+      gastoFijo: gastoFijoFloat,
+      tipo_categoria: categoria, 
+      base: data.base?.trim() || null, 
+    };
+    
+    const updatedRegla = await db.reglaMargen.update({
+      where: { id: id },
+      data: updateData,
+    });
+    return NextResponse.json(updatedRegla);
+  } catch (error) {
+    console.error('Error al actualizar margen:', error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Regla no encontrada' }, { status: 404 });
+    }
+    if (error.code) {
+        return NextResponse.json({ message: `Error de BD (${error.code}): ${error.meta?.target || error.message}` }, { status: 500 });
+    }
+    return NextResponse.json({ message: error.message || 'Error al actualizar margen' }, { status: 500 });
+  }
+}
+
+// DELETE /api/pricing/margenes/[id] - Elimina una regla de margen
+export async function DELETE(request, { params }) {
+  try {
+    const { id } = params;
+    await db.reglaMargen.delete({
+      where: { id: id },
+    });
+    return NextResponse.json({ message: 'Regla eliminada' }, { status: 200 });
+  } catch (error) {
+    console.error('Error al eliminar margen:', error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Regla no encontrada' }, { status: 404 });
+    }
+    return NextResponse.json({ message: 'Error al eliminar margen' }, { status: 500 });
+  }
+}
+EOF
+
+echo "--- ✅ Corregida la ambigüedad en la API y el error 400. ---"
+echo "El servidor ahora mapeará 'FABRICANTE' a una categoría correctamente."
+echo "--- ⚠️ ACCIÓN REQUERIDA: Prueba Final ---"
+echo "1. **Reinicie el servidor**."
+echo "2. Vuelva a Configuración -> Márgenes e intente crear la regla. Esto debería funcionar."

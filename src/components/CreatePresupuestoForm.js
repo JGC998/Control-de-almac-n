@@ -2,15 +2,84 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, UserPlus, X } from 'lucide-react'; 
-import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal"; // IMPORTACIÓN REFACTORIZADA
+import { Plus, Trash2, Save, UserPlus, X, Calculator } from 'lucide-react'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
+
+// --- Componente Modal para crear Cliente/Fabricante/Material (Unificado) ---
+const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoint, fields, cacheKey }) => {
+  const [formData, setFormData] = useState({});
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) {
+        setFormData(fields.reduce((acc, field) => ({ ...acc, [field.name]: '' }), {}));
+        setError(null);
+    }
+  }, [isOpen, fields]);
+
+  if (!isOpen) return null;
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || `Error al crear ${title}`);
+      }
+      const newItem = await res.json();
+      mutate(cacheKey);
+      onCreated(newItem); 
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div className="modal modal-open">
+      <div className="modal-box">
+        <h3 className="font-bold text-lg">Nuevo {title} Rápido</h3>
+        <form onSubmit={handleSubmit} className="py-4 space-y-4">
+          {fields.map(field => (
+            <input 
+              key={field.name}
+              type={field.type || 'text'} 
+              name={field.name} 
+              value={formData[field.name] || ''} 
+              onChange={handleChange} 
+              placeholder={field.placeholder} 
+              className="input input-bordered w-full" 
+              required={field.required !== false}
+            />
+          ))}
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          <div className="modal-action">
+            <button type="button" onClick={onClose} className="btn">Cancelar</button>
+            <button type="submit" className="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 
 export default function CreatePresupuestoForm({ initialData = null }) {
   const router = useRouter();
   const [clienteId, setClienteId] = useState(initialData?.clienteId || '');
-  const [clienteBusqueda, setClienteBusqueda] = useState(initialData?.cliente?.nombre || ''); 
+  const [clienteBusqueda, setClienteBusqueda] = useState(''); 
   const [items, setItems] = useState(initialData?.items || []);
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [error, setError] = useState(null);

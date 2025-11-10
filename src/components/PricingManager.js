@@ -11,7 +11,7 @@ const ruleConfig = {
     margins: {
         endpoint: '/api/pricing/margenes',
         title: 'Márgenes',
-        emptyRule: { descripcion: '', tipo: 'General', valor: 1.5 },
+        emptyRule: { descripcion: '', tipo: 'General', valor: 1.5, gastoFijo: 0 }, // MODIFICADO
     },
     discounts: {
         endpoint: '/api/pricing/descuentos',
@@ -116,7 +116,7 @@ export default function PricingManager() {
                   <td>{rule.descripcion || 'N/A'}</td>
                   <td>
                     {/* Detalles específicos por tipo */}
-                    {activeTab === 'margins' && `Valor: ${rule.valor}`}
+                    {activeTab === 'margins' && `Valor: ${rule.valor} (Fijo: ${rule.gastoFijo || 0}€)`}
                     {activeTab === 'discounts' && `Tipo: ${rule.tipo}, Desc: ${rule.descuento * 100}%`}
                     {activeTab === 'specialPrices' && `Cliente: ${rule.cliente?.nombre || rule.clienteId} | Prod: ${rule.producto?.nombre || rule.productoId} | Precio: ${rule.precio}€`}
                   </td>
