@@ -3,16 +3,16 @@ const { v4: uuidv4 } = require('uuid');
 
 const db = new PrismaClient();
 
-// --- DATOS INICIALES FINALIZADOS (Se usarán para mapeos) ---
+// --- DATOS INICIALES ---
 
 const CLIENTES_DATA = [
-  { id: "cli-001", nombre: "Aldama", email: "aldama@contacto.es", telefono: "111", tier: "FABRICANTE" },
-  { id: "cli-002", nombre: "Noli", email: "noli@contacto.es", telefono: "112", tier: "FABRICANTE" },
-  { id: "cli-003", nombre: "Agruiz", email: "agruiz@contacto.es", telefono: "113", tier: "FABRICANTE" },
-  { id: "cli-004", nombre: "Moresil", email: "moresil@contacto.es", telefono: "114", tier: "FABRICANTE" },
-  { id: "cli-005", nombre: "Ferreteria Ubetense", email: "ubetense@ferreteria.es", telefono: "225", tier: "INTERMEDIARIO" },
-  { id: "cli-006", nombre: "La Preferida", email: "preferida@contacto.es", telefono: "336", tier: "CLIENTE FINAL" },
-  { id: "cli-007", nombre: "Antonio Artugal", email: "antonio@contacto.es", telefono: "337", tier: "CLIENTE FINAL" },
+  { id: "cli-001", nombre: "Aldama", email: "aldama@contacto.es", telefono: "111", categoria: "FABRICANTE" }, 
+  { id: "cli-002", nombre: "Noli", email: "noli@contacto.es", telefono: "112", categoria: "FABRICANTE" }, 
+  { id: "cli-003", nombre: "Agruiz", email: "agruiz@contacto.es", telefono: "113", categoria: "FABRICANTE" }, 
+  { id: "cli-004", nombre: "Moresil", email: "moresil@contacto.es", telefono: "114", categoria: "FABRICANTE" }, 
+  { id: "cli-005", nombre: "Ferreteria Ubetense", email: "ubetense@ferreteria.es", telefono: "225", categoria: "INTERMEDIARIO" }, 
+  { id: "cli-006", nombre: "La Preferida", email: "preferida@contacto.es", telefono: "336", categoria: "CLIENTE FINAL" }, 
+  { id: "cli-007", nombre: "Antonio Artugal", email: "antonio@contacto.es", telefono: "337", categoria: "CLIENTE FINAL" }, 
 ];
 
 const FABRICANTES_DATA = [
@@ -41,17 +41,39 @@ const PRODUCTOS_DATA = [
 ];
 
 // *******************************************************************
-// * CORRECCIÓN FINAL: INSERCIÓN SQL CON COLUMNA 'multiplicador'      *
-// * Y 'gastoFijo' (ASUMIMOS QUE ESTAS SON LAS COLUMNAS REALES).     *
+// * DATOS DE TARIFA ACTUALIZADOS SEGÚN SOLICITUD DEL USUARIO        *
 // *******************************************************************
+const RAW_TARIFAS_DATA = [
+  // MATERIAL | ESPESOR | PRECIO | PESO
+  { material: 'FIELTRO', espesor: 10.0, precio: 30.00, peso: 8.00 },
+  { material: 'FIELTRO', espesor: 15.0, precio: 45.00, peso: 12.00 },
+  { material: 'GOMA', espesor: 8.0, precio: 36.00, peso: 14.40 },
+  { material: 'GOMA', espesor: 10.0, precio: 45.00, peso: 18.00 },
+  { material: 'GOMA', espesor: 12.0, precio: 54.00, peso: 21.60 },
+  { material: 'GOMA', espesor: 15.0, precio: 67.50, peso: 27.00 },
+  { material: 'GOMA BLANDA', espesor: 2.0, precio: 8.00, peso: 2.00 },
+  { material: 'GOMA BLANDA', espesor: 3.0, precio: 12.00, peso: 3.00 },
+  { material: 'GOMA BLANDA', espesor: 6.0, precio: 24.00, peso: 6.00 },
+  { material: 'GOMA CARAMELO', espesor: 6.0, precio: 36.00, peso: 7.20 },
+  { material: 'GOMA CARAMELO', espesor: 8.0, precio: 48.00, peso: 9.60 },
+  { material: 'GOMA CARAMELO', espesor: 10.0, precio: 60.00, peso: 12.00 },
+  { material: 'GOMA CARAMELO', espesor: 12.0, precio: 72.00, peso: 14.40 },
+  { material: 'GOMA VERDE', espesor: 8.0, precio: 44.00, peso: 12.80 },
+  { material: 'GOMA VERDE', espesor: 10.0, precio: 55.00, peso: 16.00 },
+  { material: 'GOMA VERDE', espesor: 12.0, precio: 66.00, peso: 19.20 },
+  { material: 'PVC', espesor: 2.0, precio: 16.00, peso: 2.80 },
+  { material: 'PVC', espesor: 3.0, precio: 24.00, peso: 4.20 },
+];
+
+// Corrección de Margenes para evitar error P2002
 const RAW_MARGENES_SQL = `
   INSERT INTO "ReglaMargen" 
     ("id", "base", "multiplicador", "gastoFijo", "descripcion", "tipo", "tipo_categoria", "tierCliente") 
   VALUES
-    ('mrg-fab', 1.0, 1.50, 0.00, 'Margen para Fabricantes', 'Cliente', '', 'FABRICANTE'),
-    ('mrg-int', 1.0, 1.75, 0.00, 'Margen para Intermediarios', 'Cliente', '', 'INTERMEDIARIO'),
-    ('mrg-fin', 1.0, 2.00, 0.00, 'Margen para Cliente Final', 'Cliente', '', 'CLIENTE FINAL'),
-    ('mrg-gen', 1.0, 1.40, 0.00, 'Margen General de Fallback', 'General', '', NULL);
+    ('mrg-fab', 'FABRICANTE', 1.50, 0.00, 'Margen para Fabricantes', 'Cliente', NULL, 'FABRICANTE'),
+    ('mrg-int', 'INTERMEDIARIO', 1.75, 0.00, 'Margen para Intermediarios', 'Cliente', NULL, 'INTERMEDIARIO'),
+    ('mrg-fin', 'CLIENTE_FINAL', 2.00, 0.00, 'Margen para Cliente Final', 'Cliente', NULL, 'CLIENTE FINAL'),
+    ('mrg-gen', 'GENERAL_FALLBACK', 1.40, 0.00, 'Margen General de Fallback', 'General', NULL, NULL);
 `;
 
 
@@ -67,6 +89,7 @@ async function main() {
     db.nota.deleteMany(), db.pedidoItem.deleteMany(), db.pedido.deleteMany(),
     db.presupuestoItem.deleteMany(), db.presupuesto.deleteMany(), db.producto.deleteMany(),
     db.cliente.deleteMany(), db.material.deleteMany(), db.fabricante.deleteMany(), db.proveedor.deleteMany(),
+    db.tarifaMaterial.deleteMany(), 
   ]);
   console.log('Limpieza inicial de tablas completada.');
 
@@ -77,13 +100,24 @@ async function main() {
   // --- 2. Inserción de modelos base (directa) ---
   for (const f of FABRICANTES_DATA) { await db.fabricante.create({ data: f }); }
   for (const m of MATERIALES_DATA) { await db.material.create({ data: m }); }
-  for (const c of CLIENTES_DATA) { await db.cliente.create({ data: c }); }
+  
+  for (const c of CLIENTES_DATA) { 
+      await db.cliente.create({ 
+          data: {
+              id: c.id,
+              nombre: c.nombre,
+              email: c.email,
+              direccion: c.direccion,
+              telefono: c.telefono,
+              tier: c.categoria 
+          }
+      }); 
+  }
   
   console.log(`- ${CLIENTES_DATA.length} clientes, ${FABRICANTES_DATA.length} fabricantes insertados.`);
   
   // --- 3. INSERCIÓN FORZADA DE REGLAS DE MARGEN VÍA SQL ---
   try {
-     // EJECUCIÓN DEL SQL CORREGIDO CON COLUMNAS ANTIGUAS
      await db.$executeRawUnsafe(RAW_MARGENES_SQL);
      console.log('✅ Reglas de Margen insertadas exitosamente vía SQL directo.');
   } catch (error) {
@@ -91,7 +125,22 @@ async function main() {
      throw error;
   }
  
-  // --- 4. Inserción de Productos ---
+  // --- 4. INSERCIÓN DE TARIFAS DE MATERIAL VÍA SQL ---
+  try {
+     const TARIFAS_SQL = RAW_TARIFAS_DATA.map(t => 
+       `('${uuidv4()}', '${t.material}', ${t.espesor}, ${t.precio}, ${t.peso})`
+     ).join(',\n');
+
+     const FINAL_TARIFAS_SQL = `INSERT INTO "TarifaMaterial" ("id", "material", "espesor", "precio", "peso") VALUES ${TARIFAS_SQL};`;
+
+     await db.$executeRawUnsafe(FINAL_TARIFAS_SQL);
+     console.log(`✅ ${RAW_TARIFAS_DATA.length} Tarifas de Material insertadas exitosamente vía SQL directo.`);
+  } catch (error) {
+     console.error('CRÍTICO: Fallo al insertar Tarifas de Material vía SQL.');
+     throw error;
+  }
+  
+  // --- 5. Inserción de Productos ---
   for (const p of PRODUCTOS_DATA) {
     await db.producto.create({
       data: {

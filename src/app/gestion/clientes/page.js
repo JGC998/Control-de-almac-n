@@ -7,7 +7,7 @@ import Link from 'next/link';
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function GestionClientes() {
-  const [formData, setFormData] = useState({ id: null, nombre: '', email: '', direccion: '', telefono: '', categoria: '' }); // <-- AÑADIDO: categoria
+  const [formData, setFormData] = useState({ id: null, nombre: '', email: '', direccion: '', telefono: '', categoria: '' });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState(null);
 
@@ -15,9 +15,9 @@ export default function GestionClientes() {
 
   const openModal = (cliente = null) => {
     if (cliente) {
-      setFormData({ id: cliente.id, nombre: cliente.nombre, email: cliente.email || '', direccion: cliente.direccion || '', telefono: cliente.telefono || '', categoria: cliente.categoria || '' }); // <-- AÑADIDO: categoria
+      setFormData({ id: cliente.id, nombre: cliente.nombre, email: cliente.email || '', direccion: cliente.direccion || '', telefono: cliente.telefono || '', categoria: cliente.categoria || '' });
     } else {
-      setFormData({ id: null, nombre: '', email: '', direccion: '', telefono: '', categoria: '' }); // <-- AÑADIDO: categoria
+      setFormData({ id: null, nombre: '', email: '', direccion: '', telefono: '', categoria: '' });
     }
     setError(null);
     setIsModalOpen(true);
@@ -51,7 +51,7 @@ export default function GestionClientes() {
         throw new Error(errData.message || 'Error al guardar el cliente');
       }
 
-      mutate('/api/clientes'); // Revalida el cache de SWR
+      mutate('/api/clientes');
       closeModal();
     } catch (err) {
       setError(err.message);
@@ -66,9 +66,9 @@ export default function GestionClientes() {
           const errData = await res.json();
           throw new Error(errData.message || 'Error al eliminar el cliente');
         }
-        mutate('/api/clientes'); // Revalida el cache
+        mutate('/api/clientes');
       } catch (err) {
-        alert(err.message); // Usar un modal sería mejor
+        alert(err.message);
       }
     }
   };
@@ -86,15 +86,13 @@ export default function GestionClientes() {
 
       <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
         <table className="table w-full">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Categoría</th> {/* <-- NUEVA COLUMNA */}
-              <th>Email</th>
-              <th>Teléfono</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th>Nombre</th>
+            <th>Categoría</th>
+            <th>Email</th>
+            <th>Teléfono</th>
+            <th>Acciones</th>
+          </tr></thead>
           <tbody>
             {clientes && clientes.map((cliente) => (
               <tr key={cliente.id} className="hover">
@@ -103,7 +101,7 @@ export default function GestionClientes() {
                     {cliente.nombre}
                   </Link>
                 </td>
-                <td><span className="badge badge-outline">{cliente.categoria || 'NORMAL'}</span></td> {/* <-- NUEVA CELDA */}
+                <td><span className="badge badge-outline">{cliente.categoria || 'NORMAL'}</span></td>
                 <td>{cliente.email}</td>
                 <td>{cliente.telefono}</td>
                 <td className="flex gap-2">
