@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, UserPlus, X, Calculator } from 'lucide-react'; 
+import { Plus, Trash2, Save, UserPlus, X, Calculator, DollarSign } from 'lucide-react'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-// --- Helper para calcular el precio de un solo item (Lógica duplicada para Presupuestos) ---
+// --- Helper para calcular el precio de un solo item (Lógica centralizada en API) ---
 const calculatePriceForSingleItem = async (clienteId, item) => {
     if (!clienteId || !item.productId || (item.quantity || 0) <= 0) {
         return item.unitPrice; 
@@ -17,7 +17,7 @@ const calculatePriceForSingleItem = async (clienteId, item) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                clienteId, 
+                clienteId, // El clienteId sigue siendo necesario para los Precios Especiales y Descuentos
                 items: [{
                     productId: item.productId,
                     quantity: item.quantity,
@@ -114,15 +114,19 @@ const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoint, fie
 
 export default function CreatePresupuestoForm({ initialData = null }) {
   const router = useRouter();
-  const [clienteId, setClienteId] = useState(initialData?.clienteId || '');
-  const [clienteBusqueda, setClienteBusqueda] = useState(''); 
+  // Mantenemos clienteId en el estado para el submit final, pero la selección es indirecta
+  const [clienteId, setClienteId] = useState(initialData?.clienteId || ''); 
+  // --- NUEVO ESTADO: Margen seleccionado ---
+  const [selectedMarginId, setSelectedMarginId] = useState('');
+  
+  const [clienteBusqueda, setClienteBusqueda] = useState(initialData?.cliente?.nombre || ''); 
   const [items, setItems] = useState(initialData?.items || []);
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   
   // Estados para Modals
-  const [modalState, setModalState] = useState(null); // 'CLIENTE', 'FABRICANTE', 'MATERIAL'
+  const [modalState, setModalState] = useState(null); 
 
   // Nuevos estados para filtros de producto
   const [filtroFabricanteId, setFiltroFabricanteId] = useState('');
@@ -135,6 +139,20 @@ export default function CreatePresupuestoForm({ initialData = null }) {
   const { data: materiales, error: matError } = useSWR('/api/materiales', fetcher);
   const { data: todosProductos, error: prodError } = useSWR('/api/productos', fetcher); 
   const { data: config } = useSWR('/api/config', fetcher);
+  
+  // NUEVO SWR: Margenes
+  const { data: margenes, error: margenesError } = useSWR('/api/pricing/margenes', fetcher);
+  
+  // Mapear ClienteId a Margen Predeterminado si existe initialData
+  useEffect(() => {
+    if (initialData && initialData.clienteId && margenes && clientes) {
+        const clienteActual = clientes.find(c => c.id === initialData.clienteId);
+        if (clienteActual?.tier) {
+             const marginMatch = margenes.find(m => m.tierCliente === clienteActual.tier);
+             if (marginMatch) setSelectedMarginId(marginMatch.id);
+        }
+    }
+  }, [initialData, margenes, clientes]);
 
   // Sincronizar estado si initialData cambia
   useEffect(() => {
@@ -142,16 +160,17 @@ export default function CreatePresupuestoForm({ initialData = null }) {
       setClienteId(initialData.clienteId || '');
       setItems(initialData.items || []);
       setNotes(initialData.notes || '');
-      if (initialData.cliente?.nombre) {
-        setClienteBusqueda(initialData.cliente.nombre);
-      }
+      // No actualizamos clienteBusqueda, ya que el selector principal ya no es el cliente.
     }
   }, [initialData]);
   
-  // --- Lógica de Filtros y Búsqueda ---
-  const filteredClients = clientes?.filter(c => 
-    c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase()) && c.id !== clienteId
-  ).slice(0, 5) || [];
+  // --- LÓGICA DE FILTROS Y BÚSQUEDA ---
+  // REINSERCIÓN CLAVE: Definición de filteredClients
+  const filteredClients = useMemo(() => {
+    return clientes?.filter(c => 
+      c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase()) && c.id !== clienteId
+    ).slice(0, 5) || [];
+  }, [clientes, clienteBusqueda, clienteId]);
   
   // Filtro de productos basado en la selección
   const filteredProducts = useMemo(() => {
@@ -160,7 +179,6 @@ export default function CreatePresupuestoForm({ initialData = null }) {
 
     if (filtroFabricanteId) {
         isFiltered = true;
-        // Filtra por ClienteId O FabricanteId
         products = products.filter(p => p.fabricanteId === filtroFabricanteId || p.clienteId === filtroFabricanteId);
     }
 
@@ -169,7 +187,6 @@ export default function CreatePresupuestoForm({ initialData = null }) {
         products = products.filter(p => p.materialId === filtroMaterialId);
     }
     
-    // Si no hay filtros seleccionados, o si hay filtros y además estamos buscando por nombre, aplicamos búsqueda
     if (productoBusqueda) {
         products = products.filter(p => p.nombre.toLowerCase().includes(productoBusqueda.toLowerCase()));
     }
@@ -179,26 +196,39 @@ export default function CreatePresupuestoForm({ initialData = null }) {
   }, [todosProductos, filtroFabricanteId, filtroMaterialId, productoBusqueda]);
 
 
-  // --- Handlers de Cliente ---
-  const handleSelectClient = (clientId, clientName) => {
-    setClienteId(clientId);
-    setClienteBusqueda(clientName);
-    // Recalcular precios inmediatamente después de seleccionar cliente
-    handleRecalculatePrices(clientId);
-  };
-  
-  const handleClearClient = () => {
-    setClienteId('');
-    setClienteBusqueda('');
+  // --- Handlers de Margen/Cliente ---
+  const handleMarginChange = (marginId) => {
+    setSelectedMarginId(marginId);
+    // Disparar recalculo si hay items
+    if (items.length > 0) {
+        handleRecalculatePrices();
+    }
   };
   
   // --- LÓGICA DE RECALCULO DE PRECIOS ---
 
-  const handleRecalculatePrices = async (targetClienteId = clienteId) => {
-    if (!targetClienteId) {
-      // No alertamos aquí para no molestar si se llama desde handleClienteChange con null
-      return;
+  const handleRecalculatePrices = async () => {
+    // Si no hay margen seleccionado o no hay items, no hacemos nada.
+    if (!selectedMarginId || items.length === 0) {
+        return;
     }
+    
+    // Obtenemos el clienteId del cliente con el mismo tier que el margen seleccionado.
+    const selectedMarginRule = margenes.find(m => m.id === selectedMarginId);
+    let tempClienteId = clienteId; // Usamos el clienteId existente para los descuentos especiales (si está seleccionado)
+    
+    // Si no hay cliente seleccionado, pero sí un margen, buscamos un cliente de ese tier (solo para descuentos)
+    if (!tempClienteId && selectedMarginRule?.tierCliente) {
+         const matchingClient = clientes.find(c => c.tier === selectedMarginRule.tierCliente);
+         tempClienteId = matchingClient ? matchingClient.id : null;
+    }
+
+    if (!tempClienteId) {
+        // Si no hay cliente real, el cálculo de descuentos complejos fallará, pero el margen funcionará.
+        tempClienteId = initialData?.clienteId || 'temp-id'; 
+    }
+
+
     setIsLoading(true);
     setError(null);
     try {
@@ -216,10 +246,11 @@ export default function CreatePresupuestoForm({ initialData = null }) {
         return;
       }
 
+      // La API usará el clienteId para buscar descuentos, pero aplicará la nueva fórmula.
       const res = await fetch('/api/pricing/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteId: targetClienteId, items: itemsToCalculate }),
+        body: JSON.stringify({ clienteId: tempClienteId, items: itemsToCalculate }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -228,9 +259,9 @@ export default function CreatePresupuestoForm({ initialData = null }) {
       const calculatedItems = await res.json();
       
       const updatedItems = items.map(item => {
-        // Buscamos la coincidencia por descripción (y cantidad, opcionalmente)
         const matchedItem = calculatedItems.find(calcItem => calcItem.description === item.description);
         if (matchedItem) {
+            // Solo actualizamos el precio unitario, el resto se mantiene
             return { ...item, unitPrice: matchedItem.unitPrice };
         }
         return item;
@@ -261,13 +292,6 @@ export default function CreatePresupuestoForm({ initialData = null }) {
           item.description = producto.nombre;
           item.productId = producto.id;
           item.unitPrice = parseFloat(producto.precioUnitario.toFixed(2)); 
-          
-          if (clienteId && (item.quantity || 0) > 0) {
-              // Recalcular el precio de inmediato si hay cliente y cantidad
-              newPrice = await calculatePriceForSingleItem(clienteId, { ...item, productId: producto.id });
-          } else {
-              newPrice = item.unitPrice;
-          }
         } else {
              item.productId = null;
              newPrice = 0;
@@ -278,9 +302,9 @@ export default function CreatePresupuestoForm({ initialData = null }) {
       item[field] = value;
     }
     
-    // Si se cambia la cantidad o el producto (implícitamente por plantilla), recalcular el precio.
-    if ((field === 'quantity' || field === 'productId') && item.productId && clienteId && (item.quantity || 0) > 0) {
-        newPrice = await calculatePriceForSingleItem(clienteId, item);
+    // Disparar recalculo al cambiar cantidad o producto (si hay un margen seleccionado)
+    if ((field === 'quantity' || field === 'productId') && item.productId && selectedMarginId) {
+        setTimeout(() => handleRecalculatePrices(), 100); 
     }
     
     item.unitPrice = newPrice;
@@ -289,7 +313,6 @@ export default function CreatePresupuestoForm({ initialData = null }) {
 
   const addItem = (producto) => {
     if (!producto) {
-        // Permitir añadir un item manual vacío para que el usuario lo rellene
         setItems(prev => [...prev, { plantilladId: '', description: '', quantity: 1, unitPrice: 0, productId: null }]);
         return;
     }
@@ -302,8 +325,12 @@ export default function CreatePresupuestoForm({ initialData = null }) {
         unitPrice: precioUnitarioRedondeado, 
         productId: producto.id 
     }]);
+    
+    // Disparar recalculo al añadir si ya hay un margen seleccionado
+    if (selectedMarginId) {
+        setTimeout(() => handleRecalculatePrices(), 100); 
+    }
 
-    // Limpiar filtros después de añadir
     setFiltroFabricanteId('');
     setFiltroMaterialId('');
     setProductoBusqueda('');
@@ -312,6 +339,10 @@ export default function CreatePresupuestoForm({ initialData = null }) {
   const removeItem = (index) => {
     const newItems = items.filter((_, i) => i !== index);
     setItems(newItems);
+    // Recalcular después de eliminar
+    if (selectedMarginId) {
+        setTimeout(() => handleRecalculatePrices(), 100); 
+    }
   };
 
   const calculateTotals = useCallback(() => {
@@ -337,12 +368,22 @@ export default function CreatePresupuestoForm({ initialData = null }) {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-
+    
+    // Validar que se ha seleccionado un margen y un cliente. 
+    // El cliente sigue siendo necesario para guardar la FK en la DB.
     if (!clienteId) {
-        setError('Debe seleccionar o crear un cliente.');
+        setError('Debe seleccionar un Cliente (para FK de la DB).');
         setIsLoading(false);
         return;
     }
+    if (!selectedMarginId) {
+        setError('Debe seleccionar una Regla de Margen/Tier para el precio.');
+        setIsLoading(false);
+        return;
+    }
+
+    // Aseguramos que los precios estén actualizados con el margen seleccionado
+    await handleRecalculatePrices(); 
 
     const { subtotal: finalSubtotal, tax: finalTax, total: finalTotal } = calculateTotals();
     
@@ -398,48 +439,71 @@ export default function CreatePresupuestoForm({ initialData = null }) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
-          <h2 className="card-title">Información del Cliente</h2>
+          <h2 className="card-title">Configuración de Precios y Cliente</h2>
           {clientesError && <div className="text-red-500">Error al cargar clientes.</div>}
-          
-          <div className="dropdown w-full">
-            <div className="input-group">
-                <input
-                    type="text"
-                    placeholder="Escribe para buscar un cliente existente..."
-                    value={clienteBusqueda}
-                    onChange={(e) => {
-                        setClienteBusqueda(e.target.value);
-                        if (e.target.value.length === 0) setClienteId('');
-                    }}
-                    className={`input input-bordered w-full ${clienteId ? 'border-success' : ''}`}
-                    tabIndex={0} 
-                    required
-                />
-                {clienteId && (
-                     <button type="button" onClick={handleClearClient} className="btn btn-ghost btn-square">
-                        <X className="w-4 h-4 text-error" />
+          {margenesError && <div className="text-red-500">Error al cargar márgenes.</div>}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* SELECCIÓN DE CLIENTE (Mantenido para FK y descuentos) */}
+            <div className="form-control w-full">
+                <label className="label"><span className="label-text">Cliente (Requerido para la DB)</span></label>
+                <div className="input-group">
+                    <input
+                        type="text"
+                        placeholder="Buscar cliente (solo para Precios Especiales)"
+                        value={clienteBusqueda}
+                        onChange={(e) => {
+                            setClienteBusqueda(e.target.value);
+                            if (e.target.value.length === 0) setClienteId('');
+                        }}
+                        className={`input input-bordered w-full ${clienteId ? 'border-success' : ''}`}
+                        tabIndex={0} 
+                        required
+                    />
+                    {clienteId && (
+                        <button type="button" onClick={() => { setClienteId(''); setClienteBusqueda(''); }} className="btn btn-ghost btn-square">
+                            <X className="w-4 h-4 text-error" />
+                        </button>
+                    )}
+                    <button type="button" onClick={() => setModalState('CLIENTE')} className="btn btn-primary">
+                        <UserPlus className="w-4 h-4" />
                     </button>
+                </div>
+                
+                {clienteBusqueda.length >= 2 && filteredClients.length > 0 && clienteId === '' && (
+                    <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-full">
+                        {filteredClients.map(cliente => (
+                            <li key={cliente.id} onClick={() => { setClienteId(cliente.id); setClienteBusqueda(cliente.nombre); }}>
+                                <a>{cliente.nombre}</a>
+                            </li>
+                        ))}
+                    </ul>
                 )}
-                 <button type="button" onClick={() => setModalState('CLIENTE')} className="btn btn-primary">
-                    <UserPlus className="w-4 h-4" />
-                </button>
+                {clienteId && <div className="text-sm mt-2 text-success font-semibold">Cliente ID: {clienteId} ({clienteBusqueda})</div>}
             </div>
             
-            {clienteBusqueda.length >= 2 && filteredClients.length > 0 && clienteId === '' && (
-                 <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-full">
-                    {filteredClients.map(cliente => (
-                        <li key={cliente.id} onClick={() => handleSelectClient(cliente.id, cliente.nombre)}>
-                            <a>{cliente.nombre}</a>
-                        </li>
-                    ))}
-                </ul>
-            )}
-            
-            {clienteId && (
-                <div className="text-sm mt-2 text-success font-semibold">
-                    Cliente: {clienteBusqueda}
-                </div>
-            )}
+            {/* NUEVO: SELECCIÓN DE MARGEN/TIER */}
+            <div className="form-control w-full">
+                <label className="label"><span className="label-text font-bold">Regla de Margen / Tier</span></label>
+                <select 
+                    className="select select-bordered w-full" 
+                    value={selectedMarginId} 
+                    onChange={(e) => handleMarginChange(e.target.value)} 
+                    required
+                >
+                    <option value="">Selecciona Margen</option>
+                    {margenes?.filter(m => m.base !== 'GENERAL_FALLBACK').map(m => {
+                      const tierText = m.tierCliente ? ` (${m.tierCliente})` : '';
+                      const gastoFijoText = m.gastoFijo ? ` + ${m.gastoFijo}€ Fijo` : '';
+                      return (
+                        <option key={m.id} value={m.id}>
+                            {m.descripcion}{tierText} (x{m.multiplicador}){gastoFijoText}
+                        </option>
+                      );
+                    })}
+                </select>
+            </div>
           </div>
         </div>
       </div>
@@ -465,7 +529,6 @@ export default function CreatePresupuestoForm({ initialData = null }) {
                 <th></th>
               </tr></thead>
               <tbody>
-                {/* CORREGIDO: Usar 'prodError' en lugar de 'plantillasError' */}
                 {prodError && <tr><td colSpan="6" className="text-red-500">Error al cargar productos/plantillas.</td></tr>}
                 {items.map((item, index) => (
                   <tr key={index}>
@@ -496,9 +559,9 @@ export default function CreatePresupuestoForm({ initialData = null }) {
             </table>
           </div>
           
-          {/* BOTÓN RECALCULAR AÑADIDO AQUÍ */}
-          <button type="button" onClick={() => handleRecalculatePrices()} className="btn btn-outline btn-accent btn-sm mt-4" disabled={isLoading || !clienteId}>
-             <Calculator className="w-4 h-4" /> Recalcular Precios (según cliente)
+          {/* BOTÓN RECALCULAR (Ahora solo es de respaldo) */}
+          <button type="button" onClick={() => handleRecalculatePrices()} className="btn btn-outline btn-accent btn-sm mt-4" disabled={isLoading || !selectedMarginId}>
+             <Calculator className="w-4 h-4" /> Recalcular Precios (Manual)
           </button>
           {/* FIN BOTÓN RECALCULAR */}
 
@@ -620,7 +683,7 @@ export default function CreatePresupuestoForm({ initialData = null }) {
 
       <div className="flex justify-end gap-4 mt-6">
         <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
-        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId}>
+        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || !selectedMarginId}>
           <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : (initialData ? "Actualizar Presupuesto" : "Guardar Presupuesto")}
         </button>
       </div>

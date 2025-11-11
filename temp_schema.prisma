@@ -46,9 +46,6 @@ model Producto {
   fabricanteId String?
   material     Material?   @relation(fields: [materialId], references: [id])
   materialId   String?
-  precioVentaFab Float?
-  precioVentaInt Float?
-  precioVentaFin Float?
   // Otros
   itemsPedido PedidoItem[]
   itemsPresup PresupuestoItem[]

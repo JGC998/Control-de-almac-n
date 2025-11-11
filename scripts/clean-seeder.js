@@ -33,6 +33,7 @@ const MATERIALES_DATA = [
 ];
 
 const PRODUCTOS_DATA = [
+  // Actualizamos Largo y Ancho a MM para que el cálculo sea correcto
   { id: "prod-001", nombre: "Banda PVC 3mm Blanca Vulcanizada", modelo: "PVC B3 Vulcanizado", espesor: 3.0, largo: 1000, ancho: 150, precioUnitario: 50.00, pesoUnitario: 1.5, costo: 25.00, material: "PVC", fabricante: "Esbelt" },
   { id: "prod-002", nombre: "Faldeta Aldama Goma", modelo: "FAldG", espesor: 10.0, largo: 600, ancho: 500, precioUnitario: 20.00, pesoUnitario: 10.0, costo: 10.00, material: "GOMA", fabricante: "Aldama" },
   { id: "prod-003", nombre: "Perfil Goma Caramelo 6mm", modelo: "GCM-P06", espesor: 6.0, largo: 50, ancho: 50, precioUnitario: 18.00, pesoUnitario: 0.5, costo: 12.00, material: "GOMA CARAMELO", fabricante: "Aldama" },
@@ -41,7 +42,7 @@ const PRODUCTOS_DATA = [
 ];
 
 const RAW_TARIFAS_DATA = [
-  // MATERIAL | ESPESOR | PRECIO | PESO
+  // ... (datos de tarifa sin cambios)
   { material: 'FIELTRO', espesor: 10.0, precio: 30.00, peso: 8.00 },
   { material: 'FIELTRO', espesor: 15.0, precio: 45.00, peso: 12.00 },
   { material: 'GOMA', espesor: 8.0, precio: 36.00, peso: 14.40 },
@@ -62,19 +63,22 @@ const RAW_TARIFAS_DATA = [
   { material: 'PVC', espesor: 3.0, precio: 24.00, peso: 4.20 },
 ];
 
+// --- CORRECCIÓN CLAVE: Nuevos valores de Gasto Fijo y ELIMINACIÓN DE FALLBACK ---
 const RAW_MARGENES_SQL = `
   INSERT INTO "ReglaMargen" 
     ("id", "base", "multiplicador", "gastoFijo", "descripcion", "tipo", "tipo_categoria", "tierCliente") 
   VALUES
-    ('mrg-fab', 'FABRICANTE', 1.50, 0.00, 'Margen para Fabricantes', 'Cliente', NULL, 'FABRICANTE'),
-    ('mrg-int', 'INTERMEDIARIO', 1.75, 0.00, 'Margen para Intermediarios', 'Cliente', NULL, 'INTERMEDIARIO'),
-    ('mrg-fin', 'CLIENTE_FINAL', 2.00, 0.00, 'Margen para Cliente Final', 'Cliente', NULL, 'CLIENTE FINAL'),
-    ('mrg-gen', 'GENERAL_FALLBACK', 1.40, 0.00, 'Margen General de Fallback', 'General', NULL, NULL);
+    ('mrg-fab', 'FABRICANTE', 1.40, 4.00, 'Margen para Fabricantes', 'Cliente', NULL, 'FABRICANTE'),
+    ('mrg-int', 'INTERMEDIARIO', 1.70, 7.00, 'Margen para Intermediarios', 'Cliente', NULL, 'INTERMEDIARIO'),
+    ('mrg-fin', 'CLIENTE_FINAL', 2.00, 9.00, 'Margen para Cliente Final', 'Cliente', NULL, 'CLIENTE FINAL');
+    -- Eliminado: GENERAL_FALLBACK
 `;
 
 const CONFIG_DATA = [
     { key: 'iva_rate', value: '0.21' },
 ];
+
+// ... (Resto de datos de prueba sin cambios)
 
 const PRESUPUESTOS_DATA = [
   { 

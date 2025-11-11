@@ -3,10 +3,11 @@ import React, { useState, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2, Save, Calculator } from 'lucide-react'; 
+import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal"; // Importación del modal base
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-// Helper para calcular el precio de un solo item
+// Helper para calcular el precio de un solo item (Lógica centralizada en API)
 const calculatePriceForSingleItem = async (clienteId, item) => {
     if (!clienteId || !item.productId || (item.quantity || 0) <= 0) {
         // Retorna el precio actual si no se puede calcular
@@ -46,19 +47,47 @@ const calculatePriceForSingleItem = async (clienteId, item) => {
 export default function CreatePedidoForm() {
   const router = useRouter();
   const [clienteId, setClienteId] = useState('');
+  const [clienteBusqueda, setClienteBusqueda] = useState(''); // Estado para la búsqueda
   const [items, setItems] = useState([{ plantilladId: '', description: '', quantity: 1, unitPrice: 0, productId: null }]);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Estados para Modals (Proveedor, Material)
+  const [modalState, setModalState] = useState(null); 
 
   const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
   const { data: plantillas, error: plantillasError } = useSWR('/api/plantillas', fetcher);
   // Cargar configuración (para IVA)
   const { data: config } = useSWR('/api/config', fetcher);
 
+  // --- Lógica de Búsqueda de Clientes ---
+  const filteredClients = clientes?.filter(c => 
+    c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase()) && c.id !== clienteId
+  ).slice(0, 5) || [];
+
+  const handleSelectClient = async (clientId, clientName) => {
+    setClienteId(clientId);
+    setClienteBusqueda(clientName);
+    // CORRECCIÓN: Llamada a Recalcular Precios al seleccionar cliente
+    await handleRecalculatePrices(clientId); 
+  };
+  
+  const handleClearClient = () => {
+    setClienteId('');
+    setClienteBusqueda('');
+  };
+  
+  const handleClienteCreado = async (nuevoCliente) => {
+    setClienteId(nuevoCliente.id);
+    setClienteBusqueda(nuevoCliente.nombre);
+    setModalState(null);
+    await handleRecalculatePrices(nuevoCliente.id);
+  };
+  // ------------------------------------
+
   const handleRecalculatePrices = async (targetClienteId = clienteId) => {
     if (!targetClienteId) {
-      alert("Por favor, selecciona un cliente primero.");
       return;
     }
     setIsLoading(true);
@@ -74,7 +103,6 @@ export default function CreatePedidoForm() {
                                 }));
                                 
       if (itemsToCalculate.length === 0) {
-        setError('No hay ítems válidos para recalcular.');
         setIsLoading(false);
         return;
       }
@@ -120,7 +148,7 @@ export default function CreatePedidoForm() {
         if (plantilla) {
           item.description = plantilla.nombre;
           item.productId = plantilla.id;
-          item.unitPrice = plantilla.precioUnitario; 
+          item.unitPrice = parseFloat(plantilla.precioUnitario.toFixed(2)); 
           
           if (clienteId && item.quantity > 0) {
               newPrice = await calculatePriceForSingleItem(clienteId, { ...item, productId: plantilla.id });
@@ -137,9 +165,9 @@ export default function CreatePedidoForm() {
       item[field] = value;
     }
     
-    // Si se cambia la cantidad con un producto y cliente, recalcular el precio.
-    if ((field === 'quantity') && item.productId && clienteId) {
-        newPrice = await calculatePriceForSingleItem(clienteId, item);
+    // Disparar recalculo al cambiar cantidad o producto
+    if ((field === 'quantity' || field === 'plantillaId') && item.productId && clienteId) {
+        setTimeout(() => handleRecalculatePrices(), 100); 
     }
     
     item.unitPrice = newPrice;
@@ -221,6 +249,7 @@ export default function CreatePedidoForm() {
       const savedOrder = await res.json();
 
       mutate('/api/pedidos');
+      // LÍNEA CORREGIDA (254): Eliminada la barra invertida antes de las comillas (`)
       router.push(`/pedidos/${savedOrder.id}`);
 
     } catch (err) {
@@ -231,22 +260,53 @@ export default function CreatePedidoForm() {
   };
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <h2 className="card-title">Información del Cliente</h2>
           {clientesError && <div className="text-red-500">Error al cargar clientes.</div>}
-          <select 
-            className="select select-bordered w-full" 
-            value={clienteId} 
-            onChange={(e) => handleClienteChange(e.target.value)} 
-            required
-          >
-            <option value="">Selecciona un cliente</option>
-            {clientes?.map(cliente => (
-              <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>
-            ))}
-          </select>
+          
+           <div className="dropdown w-full">
+            <div className="input-group">
+                <input
+                    type="text"
+                    placeholder="Escribe para buscar un cliente existente..."
+                    value={clienteBusqueda}
+                    onChange={(e) => {
+                        setClienteBusqueda(e.target.value);
+                        if (e.target.value.length === 0) setClienteId('');
+                    }}
+                    className={`input input-bordered w-full ${clienteId ? 'border-success' : ''}`}
+                    tabIndex={0} 
+                    required
+                />
+                {clienteId && (
+                     <button type="button" onClick={handleClearClient} className="btn btn-ghost btn-square">
+                        <X className="w-4 h-4 text-error" />
+                    </button>
+                )}
+                 <button type="button" onClick={() => setModalState('CLIENTE')} className="btn btn-primary">
+                    <Plus className="w-4 h-4" />
+                </button>
+            </div>
+            
+            {clienteBusqueda.length >= 2 && filteredClients.length > 0 && clienteId === '' && (
+                 <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-full">
+                    {filteredClients.map(cliente => (
+                        <li key={cliente.id} onClick={() => handleSelectClient(cliente.id, cliente.nombre)}>
+                            <a>{cliente.nombre}</a>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            
+            {clienteId && (
+                <div className="text-sm mt-2 text-success font-semibold">
+                    Cliente: {clienteBusqueda}
+                </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -279,7 +339,7 @@ export default function CreatePedidoForm() {
                       <select 
                         className="select select-bordered select-sm w-full max-w-xs" 
                         value={item.plantilladId || ''} 
-                        onChange={(e) => handleItemChange(index, 'plantillaId', e.target.value)}
+                        onChange={(e) => handleItemChange(index, 'plantillaId', e.target.value)} 
                       >
                         <option value="">Manual</option>
                         {plantillas?.map(p => (
@@ -302,7 +362,7 @@ export default function CreatePedidoForm() {
             </table>
           </div>
             <button type="button" onClick={() => handleRecalculatePrices()} className="btn btn-outline btn-accent btn-sm mt-4" disabled={isLoading || !clienteId}>
-                <Calculator className="w-4 h-4" /> Recalcular Precios (según cliente)
+                <Calculator className="w-4 h-4" /> Recalcular Precios (Manual)
             </button>
         </div>
       </div>
@@ -336,10 +396,29 @@ export default function CreatePedidoForm() {
 
       <div className="flex justify-end gap-4 mt-6">
         <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
-        <button type="submit" className="btn btn-primary" disabled={isLoading}>
+        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId}>
           <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : "Guardar Pedido"}
         </button>
       </div>
     </form>
+    
+    {/* Modal de Creación Rápida */}
+    {modalState === 'CLIENTE' && (
+      <BaseQuickCreateModal
+        isOpen={true}
+        onClose={() => setModalState(null)}
+        onCreated={handleClienteCreado}
+        title="Cliente"
+        endpoint="/api/clientes"
+        cacheKey="/api/clientes"
+        fields={[
+          { name: 'nombre', placeholder: 'Nombre' },
+          { name: 'email', placeholder: 'Email', required: false },
+          { name: 'direccion', placeholder: 'Dirección', required: false },
+          { name: 'telefono', placeholder: 'Teléfono', required: false }
+        ]}
+      />
+    )}
+    </>
   );
 }

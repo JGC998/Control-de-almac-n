@@ -1,11 +1,17 @@
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
+import Link from 'next/link'; // Importar Link
 import { PlusCircle, Edit, Trash2, Package } from 'lucide-react';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function GestionProductos() {
+  // --- ESTADOS DE FILTRO ---
+  const [filtroMaterial, setFiltroMaterial] = useState('');
+  const [filtroFabricante, setFiltroFabricante] = useState('');
+  const [busquedaNombre, setBusquedaNombre] = useState('');
+  
   const [formData, setFormData] = useState({ 
     id: null, nombre: '', modelo: '', espesor: '', largo: '', ancho: '', 
     precioUnitario: '', pesoUnitario: '', costo: '',
@@ -21,6 +27,27 @@ export default function GestionProductos() {
 
   const isLoading = productosLoading || fabLoading || matLoading || tarifasLoading;
   
+  // --- LÓGICA DE FILTRADO ---
+  const filteredProducts = useMemo(() => {
+    let currentProducts = productos || [];
+
+    if (filtroMaterial) {
+      currentProducts = currentProducts.filter(p => p.material?.nombre === filtroMaterial);
+    }
+    if (filtroFabricante) {
+      currentProducts = currentProducts.filter(p => p.fabricante?.nombre === filtroFabricante);
+    }
+    if (busquedaNombre) {
+      const lowerCaseQuery = busquedaNombre.toLowerCase();
+      currentProducts = currentProducts.filter(p => 
+        p.nombre.toLowerCase().includes(lowerCaseQuery) ||
+        p.referenciaFabricante?.toLowerCase().includes(lowerCaseQuery)
+      );
+    }
+
+    return currentProducts;
+  }, [productos, filtroMaterial, filtroFabricante, busquedaNombre]);
+
   // Lógica para obtener espesores disponibles según el material
   const availableEspesores = useMemo(() => {
     if (!tarifas || !formData.material) return [];
@@ -37,31 +64,14 @@ export default function GestionProductos() {
       setFormData(prev => ({ ...prev, espesor: '' }));
   }, [formData.material]);
 
-  // Función para formatear las dimensiones de mm (DB) a metros (Formulario)
-  const formatDimension = (value) => {
-    if (value !== null && value !== undefined) {
-        // Asumimos que los valores de DB son grandes (mm) y los convertimos a metros.
-        // Si el valor es una string que no se puede parsear, devolvemos ''.
-        const numValue = parseFloat(value);
-        if (!isNaN(numValue) && numValue > 0) {
-            // Dividir por 1000 para pasar de mm a m, y limitar a 2 decimales para la visualización
-            return (numValue / 1000).toFixed(2); 
-        }
-    }
-    return '';
-  };
-
-
   const openModal = (producto = null) => {
     if (producto) {
       setFormData({ 
         id: producto.id, nombre: producto.nombre, 
         modelo: producto.referenciaFabricante || '', 
         espesor: String(producto.espesor) || '', 
-        // --- CORRECCIÓN: Convertir mm de la DB a metros para el formulario ---
-        largo: formatDimension(producto.largo),     
-        ancho: formatDimension(producto.ancho),     
-        // --- FIN CORRECCIÓN ---
+        largo: producto.largo || '',     
+        ancho: producto.ancho || '',     
         precioUnitario: producto.precioUnitario || '',     
         pesoUnitario: producto.pesoUnitario || '',     
         costo: producto.costoUnitario || '',           
@@ -102,15 +112,11 @@ export default function GestionProductos() {
     const url = formData.id ? `/api/productos/${formData.id}` : '/api/productos';
     const method = formData.id ? 'PUT' : 'POST';
 
-    // La API calculará precioUnitario, pesoUnitario y nombre. 
-    // Solo enviamos los datos necesarios.
     const dataToSend = {
       ...formData,
-      // Los valores de largo y ancho ahora se envían en metros (como los ingresó el usuario)
       espesor: parseFloat(formData.espesor),
-      largo: parseFloat(formData.largo),
-      ancho: parseFloat(formData.ancho),
-      // No enviamos precioUnitario, pesoUnitario ni nombre, se calculan en backend
+      largo: parseFloat(formData.largo), 
+      ancho: parseFloat(formData.ancho), 
       precioUnitario: 0, 
       pesoUnitario: 0, 
       costo: parseFloat(formData.costo) || 0,
@@ -162,9 +168,45 @@ export default function GestionProductos() {
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 flex items-center"><Package className="mr-2" /> Gestión de Productos</h1>
       
-      <button onClick={() => openModal()} className="btn btn-primary mb-6">
-        <PlusCircle className="w-4 h-4" /> Nuevo Producto
-      </button>
+      <div className="flex justify-between items-center mb-6">
+        <button onClick={() => openModal()} className="btn btn-primary">
+          <PlusCircle className="w-4 h-4" /> Nuevo Producto
+        </button>
+      </div>
+
+      {/* --- SECCIÓN DE FILTROS --- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Filtro Material */}
+        <select 
+          value={filtroMaterial}
+          onChange={(e) => setFiltroMaterial(e.target.value)}
+          className="select select-bordered w-full"
+        >
+          <option value="">Filtrar por Material</option>
+          {materiales?.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+        </select>
+        
+        {/* Filtro Fabricante */}
+        <select 
+          value={filtroFabricante}
+          onChange={(e) => setFiltroFabricante(e.target.value)}
+          className="select select-bordered w-full"
+        >
+          <option value="">Filtrar por Fabricante</option>
+          {fabricantes?.map(f => <option key={f.id} value={f.nombre}>{f.nombre}</option>)}
+        </select>
+        
+        {/* Buscador por Nombre */}
+        <input
+          type="text"
+          placeholder="Buscar por nombre o referencia..."
+          value={busquedaNombre}
+          onChange={(e) => setBusquedaNombre(e.target.value)}
+          className="input input-bordered w-full"
+        />
+      </div>
+      {/* ------------------------------------- */}
+
 
       <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
         <table className="table w-full">
@@ -173,17 +215,22 @@ export default function GestionProductos() {
             <th>Ref. Fab.</th>
             <th>Material</th>
             <th>P. Unitario</th>
-            <th>Costo Unit.</th>
-            <th>Acciones</th>
+            <th>Acciones</th> 
           </tr></thead>
           <tbody>
-            {Array.isArray(productos) && productos.map((p) => (
+            {/* Usar filteredProducts en lugar de productos */}
+            {Array.isArray(filteredProducts) && filteredProducts.map((p) => (
               <tr key={p.id} className="hover">
-                <td className="font-bold">{p.nombre}</td>
+                {/* MODIFICACIÓN CLAVE: Convertir a Link */}
+                <td className="font-bold">
+                  <Link href={`/gestion/productos/${p.id}`} className="link link-primary">
+                      {p.nombre}
+                  </Link>
+                </td>
+                {/* FIN MODIFICACIÓN CLAVE */}
                 <td>{p.referenciaFabricante || 'N/A'}</td> 
                 <td>{p.material?.nombre || 'N/A'}</td>
                 <td>{p.precioUnitario.toFixed(2)} €</td>
-                <td>{p.costoUnitario ? p.costoUnitario.toFixed(2) + ' €' : 'N/A'}</td> 
                 <td className="flex gap-2">
                   <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info">
                     <Edit className="w-4 h-4" />
@@ -196,9 +243,12 @@ export default function GestionProductos() {
             ))}
           </tbody>
         </table>
+        {filteredProducts.length === 0 && !isLoading && (
+            <div className="text-center p-4 text-gray-500">No se encontraron productos que coincidan con los filtros.</div>
+        )}
       </div>
 
-      {/* Modal para Crear/Editar Producto */}
+      {/* Modal para Crear/Editar Producto (contenido completo omitido aquí) */}
       {isModalOpen && (
         <div className="modal modal-open">
           <div className="modal-box w-11/12 max-w-3xl">
@@ -234,10 +284,10 @@ export default function GestionProductos() {
                   </select>
               </label>
               
-              <input type="number" step="0.01" name="largo" value={formData.largo} onChange={handleChange} placeholder="Largo (m)" className="input input-bordered w-full" required />
-              <input type="number" step="0.01" name="ancho" value={formData.ancho} onChange={handleChange} placeholder="Ancho (m)" className="input input-bordered w-full" required />
+              <input type="number" step="1" name="largo" value={formData.largo} onChange={handleChange} placeholder="Largo (mm)" className="input input-bordered w-full" required />
+              <input type="number" step="1" name="ancho" value={formData.ancho} onChange={handleChange} placeholder="Ancho (mm)" className="input input-bordered w-full" required />
               
-              {/* Campos ocultos para la API, no mostrados al usuario */}
+              {/* Campos ocultos para la API */}
               <input type="hidden" name="precioUnitario" value={formData.precioUnitario} />
               <input type="hidden" name="pesoUnitario" value={formData.pesoUnitario} />
               <input type="hidden" name="costo" value={formData.costo} />

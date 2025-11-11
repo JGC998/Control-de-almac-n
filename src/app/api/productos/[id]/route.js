@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-// Función central de cálculo (Ahora calcula precio y asume dimensiones en metros)
+// Función central de cálculo (Ahora calcula precio y asume dimensiones en milímetros)
 async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     if (!materialId || !espesor || !largo || !ancho || largo <= 0 || ancho <= 0) {
         return { costo: 0, peso: 0, precio: 0 };
@@ -31,12 +31,16 @@ async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
         return { costo: 0, peso: 0, precio: 0 };
     }
 
-    // 3. Aplicar las fórmulas de cálculo (Dimensiones en Metros)
-    const areaM2 = parseFloat(ancho) * parseFloat(largo);
+    // 3. Aplicar las fórmulas de cálculo (Dimensiones EN MILÍMETROS, conversión a M²)
+    const largo_m = parseFloat(largo) / 1000;
+    const ancho_m = parseFloat(ancho) / 1000;
+    
+    // Área M2 = Largo(m) * Ancho(m)
+    const areaM2 = largo_m * ancho_m; 
     
     const costo = areaM2 * tarifa.precio; 
     const peso = areaM2 * tarifa.peso;     
-    const precio = costo; // Precio Unitario base es igual al costo de la materia prima (sin margen)
+    const precio = costo; // Precio Unitario base (sin margen)
 
     return { 
         costo: parseFloat(costo.toFixed(2)), 
@@ -47,7 +51,27 @@ async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
 
 
 // GET /api/productos/[id] - Obtiene un producto por su ID
-// ... (GET sin cambios)
+export async function GET(request, { params: paramsPromise }) {
+  try {
+    const { id } = await paramsPromise; 
+    const producto = await db.producto.findUnique({
+      where: { id: id },
+      include: {
+        fabricante: true,
+        material: true,
+        cliente: true,
+      },
+    });
+
+    if (!producto) {
+      return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
+    }
+    return NextResponse.json(producto);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Error al obtener producto' }, { status: 500 });
+  }
+}
 
 // PUT /api/productos/[id] - Actualiza un producto
 export async function PUT(request, { params: paramsPromise }) {
@@ -78,6 +102,7 @@ export async function PUT(request, { params: paramsPromise }) {
     } = await calculateCostAndWeight(
         material.id, // Usar ID de Material
         parseFloat(data.espesor), 
+        // PASAMOS MM
         parseFloat(data.largo), 
         parseFloat(data.ancho)
     );
@@ -91,6 +116,7 @@ export async function PUT(request, { params: paramsPromise }) {
         nombre: newNombre, 
         referenciaFabricante: data.modelo, 
         espesor: parseFloat(data.espesor) || 0,
+        // GUARDAMOS MM
         largo: parseFloat(data.largo) || 0,
         ancho: parseFloat(data.ancho) || 0,
         // Usar los valores calculados
