@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
-import CreatePresupuestoForm from "@/components/CreatePresupuestoForm";
+import ClientOrderForm from "@/components/ClientOrderForm";
 import { Edit } from "lucide-react";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
@@ -22,7 +22,7 @@ export default function EditarPresupuestoPage() {
         <Edit className="mr-2" />
         Editar Presupuesto ( {initialData?.numero} )
       </h1>
-      <CreatePresupuestoForm initialData={initialData} />
+      <ClientOrderForm formType="PRESUPUESTO" initialData={initialData} />
     </div>
   );
 }

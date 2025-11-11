@@ -10,13 +10,16 @@ const links = [
   { href: '/proveedores', label: 'Pedidos Proveedor', icon: Truck },
   { href: '/almacen', label: 'Almacén', icon: Warehouse },
   { href: '/calculadora', label: 'Calculadora', icon: Calculator },
-  { href: '/tarifas', label: 'Tarifas', icon: DollarSign },
+  { href: '/tarifas', label: 'Tarifas', icon: DollarSign }, 
+  
+  // Catálogos Maestros Aislados (Mantenemos la estructura de Gestión de Catálogos)
   { href: '/gestion/clientes', label: 'Gestión Clientes', icon: Users }, 
   { href: '/gestion/productos', label: 'Gestión Productos', icon: Package },
-  // NUEVOS ENLACES AISLADOS
+  { href: '/gestion/catalogos/proveedores', label: 'Gestión Proveedores', icon: Truck },
   { href: '/gestion/catalogos/materiales', label: 'Gestión Materiales', icon: Layers },
   { href: '/gestion/catalogos/fabricantes', label: 'Gestión Fabricantes', icon: Factory },
-  // ENLACE CONSOLIDADO DE CONFIGURACIÓN
+  
+  // Configuración Unificada (Reglas, Referencias, Tarifas Base)
   { href: '/configuracion', label: 'Configuración Reglas/Catálogos', icon: Settings },
 ];
 
@@ -25,9 +28,7 @@ export default function Sidebar() {
   
   // Función auxiliar para manejar el estado activo de los enlaces anidados
   const isLinkActive = (href) => {
-    // Si la ruta es la raíz del enlace (ej: /gestion/catalogos), es activa.
     if (pathname === href) return true;
-    // Si la ruta comienza con el enlace y no es el home (/)
     if (href !== '/' && pathname.startsWith(href)) return true;
     return false;
   }

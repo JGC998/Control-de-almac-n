@@ -1,12 +1,3 @@
-#!/bin/bash
-
-# --- Ruta del archivo del Componente ---
-COMPONENT_FILE="src/components/ClientOrderForm.js"
-
-echo "--- 🛠️ FIX FINAL: Restaurando lógica de cálculo y añadiendo DEBUGGING en $COMPONENT_FILE ---"
-
-# Sobrescribir el archivo completo con la versión funcional, lógica completa y logs de depuración.
-cat > "$COMPONENT_FILE" << 'CLIENT_ORDER_FORM_JS'
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -768,8 +759,3 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     </>
   );
 }
-CLIENT_ORDER_FORM_JS
-
-echo "✅ Archivo $COMPONENT_FILE reconstruido con definición de calculateTotals restaurada."
-echo "--- 🎉 ¡ACTUALIZACIÓN FINALIZADA! ---"
-echo "Por favor, **reinicia tu servidor Next.js** para verificar que el formulario unificado funciona sin errores de cálculo."

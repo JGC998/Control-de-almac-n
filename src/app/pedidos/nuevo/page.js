@@ -1,4 +1,4 @@
-import CreatePedidoForm from "@/components/CreatePedidoForm";
+import ClientOrderForm from "@/components/ClientOrderForm";
 import { Package } from "lucide-react";
 
 export default function NuevoPedidoPage() {
@@ -8,8 +8,8 @@ export default function NuevoPedidoPage() {
         <Package className="mr-2" />
         Crear Nuevo Pedido
       </h1>
-      {/* Este componente ya incluye toda la lógica de formularios y la barra de navegación */}
-      <CreatePedidoForm />
+      {/* Pasar formType="PEDIDO" para ocultar la selección de margen */}
+      <ClientOrderForm formType="PEDIDO" />
     </div>
   );
 }

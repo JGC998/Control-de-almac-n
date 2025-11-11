@@ -95,7 +95,7 @@ export default function ConfiguracionPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* === SECCIÓN DE REGLAS DE PRECIO (Modularizada) === */}
+        {/* === SECCIÓN DE REGLAS DE PRECIO === */}
         <h2 className="lg:col-span-2 text-2xl font-bold flex items-center mb-2 mt-4 text-primary"><DollarSign className="mr-2" /> Reglas de Precio y Márgenes</h2>
         
         {/* 1. Márgenes */}
@@ -111,10 +111,13 @@ export default function ConfiguracionPage() {
           ]}
         />
         
-        {/* 2. Descuentos (Usa el Manager Custom) */}
+        {/* 2. Descuentos (OCULTADO) */}
+        {/*
         <CustomDiscountManager />
+        */}
         
-        {/* 3. Precios Especiales */}
+        {/* 3. Precios Especiales (OCULTADO) */}
+        {/*
         <CatalogManager
           title="Precios Especiales"
           endpoint="/api/pricing/especiales"
@@ -126,8 +129,9 @@ export default function ConfiguracionPage() {
             { key: 'precio', label: 'Precio (€)' },
           ]}
         />
+        */}
         
-        {/* === SECCIÓN DE CATÁLOGOS BASE (Movidos de /gestion/catalogos) === */}
+        {/* === SECCIÓN DE CATÁLOGOS BASE === */}
         <h2 className="lg:col-span-2 text-2xl font-bold flex items-center mb-2 mt-6 text-primary"><Layers className="mr-2" /> Catálogos de Inventario</h2>
 
         {/* 4. Referencias Bobina */}

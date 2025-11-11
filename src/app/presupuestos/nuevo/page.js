@@ -1,4 +1,4 @@
-import CreatePresupuestoForm from "@/components/CreatePresupuestoForm";
+import ClientOrderForm from "@/components/ClientOrderForm";
 import { FilePlus } from "lucide-react";
 
 export default function NuevoPresupuestoPage() {
@@ -8,7 +8,7 @@ export default function NuevoPresupuestoPage() {
         <FilePlus className="mr-2" />
         Crear Nuevo Presupuesto
       </h1>
-      <CreatePresupuestoForm />
+      <ClientOrderForm formType="PRESUPUESTO" />
     </div>
   );
 }

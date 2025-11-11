@@ -3,10 +3,6 @@ import { db } from '@/lib/db';
 
 export async function GET() {
   try {
-    // Las nuevas queries necesitan que el modelo Stock tenga un campo stockMinimo
-    // y que los modelos PedidoProveedor y PedidoProveedorData estén definidos.
-    // Usamos nombres de modelos genéricos para la API.
-    
     // Ejecutar todas las consultas en paralelo
     const [
       totalPedidos, 
@@ -14,15 +10,16 @@ export async function GET() {
       pedidosProveedorPorLlegarCount,
       productosBajoStock,
       movimientosRecientes
+      // Se eliminan las agregaciones de valor monetario
     ] = await db.$transaction([
-      // 1. Total Pedidos
+      // 1. Total Pedidos de Cliente
       db.pedido.count(),
       
       // 2. Total Presupuestos
       db.presupuesto.count(),
       
       // 3. Pedidos Proveedor por llegar (Estado: NO 'Recibido')
-      db.pedidoProveedor.count({ // Usamos PedidoProveedor
+      db.pedidoProveedor.count({ 
         where: {
           estado: {
             not: 'Recibido'
@@ -31,13 +28,8 @@ export async function GET() {
       }),
       
       // 4. Productos Bajo Stock (Stock < Stock Mínimo)
-      db.stock.findMany({ // Usamos el modelo Stock para el inventario
+      db.stock.findMany({ 
         where: {
-          // Asumimos que la comparación es implícita o que el frontend manejará la lógica
-          // Como la comparación directa no es estándar en el where de Prisma, 
-          // simplemente traemos los que están bajo un umbral bajo (ej. 50m) 
-          // o basamos la comparación en un campo existente (metrosDisponibles).
-          // Para esta corrección, nos enfocaremos en los que tienen poco stock.
           metrosDisponibles: {
               lt: 100 // Simulación: menos de 100 metros disponibles
           },
@@ -71,9 +63,11 @@ export async function GET() {
           }
         },
         take: 10, 
-      })
+      }),
+      // Eliminadas las queries de sumPendingOrders y sumDraftQuotes
     ]);
 
+    // Solo se utilizan los tres KPIs originales basados en conteo.
     const kpiData = [
       {
         title: "Total Pedidos Cliente",
@@ -91,13 +85,12 @@ export async function GET() {
         title: "Pedidos Proveedor Pendientes",
         value: pedidosProveedorPorLlegarCount,
         icon: "Truck",
-        href: "/proveedores", // Enlace a Pedidos Proveedor
+        href: "/proveedores", 
       },
     ];
 
     return NextResponse.json({
-      kpiData,
-      // Renombramos la key para coincidir con el componente NivelesStock
+      kpiData: kpiData,
       nivelesStock: productosBajoStock.map(item => ({ 
           id: item.id, 
           material: item.material, 
@@ -107,7 +100,6 @@ export async function GET() {
       })),
       movimientosRecientes: movimientosRecientes.map(mov => ({ 
           ...mov, 
-          // Añadimos el material del stock para la tabla de movimientos
           materialNombre: mov.stockItem?.material 
       })),
     });
