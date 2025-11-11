@@ -151,16 +151,19 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   
   const isDataLoading = !clientes || !fabricantes || !materiales || !todosProductos; 
 
-  // Efecto para mapear el margen si es un presupuesto existente
+  // Efecto para mapear el margen al cargar (si es edición de presupuesto o pedido existente)
   useEffect(() => {
-    if (isQuote && initialData && initialData.clienteId && margenes && clientes) {
+    if (initialData && initialData.clienteId && margenes && clientes) {
         const clienteActual = clientes.find(c => c.id === initialData.clienteId);
         if (clienteActual?.tier) {
-             const marginMatch = margenes?.find(m => m.tierCliente === clienteActual.tier);
-             if (marginMatch) setSelectedMarginId(marginMatch.id);
+            const marginMatch = margenes?.find(m => m.tierCliente === clienteActual.tier);
+            if (marginMatch) {
+                setSelectedMarginId(marginMatch.id);
+            }
         }
     }
-  }, [initialData, margenes, clientes, isQuote]);
+  }, [initialData, margenes, clientes]);
+  // FIN Mapeo inicial de margen
 
   // Recalcular Stock cada vez que los ítems cambian
   useEffect(() => {
@@ -265,7 +268,10 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   const handleSelectClient = async (clientId, clientName) => {
     setClienteId(clientId);
     setClienteBusqueda(clientName);
-    await handleRecalculatePrices(clientId); 
+    // Se mantiene la llamada completa para recalcular todos los ítems si ya hay alguno.
+    if (items.length > 0) {
+        await handleRecalculatePrices(clientId, selectedMarginId); 
+    } 
   };
   
   const handleClearClient = () => {
@@ -277,30 +283,29 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     setClienteId(nuevoCliente.id);
     setClienteBusqueda(nuevoCliente.nombre);
     setModalState(null);
-    await handleRecalculatePrices(nuevoCliente.id);
-  };
-
-  const handleMarginChange = (marginId) => {
-    setSelectedMarginId(marginId);
-    if (items.length > 0) {
-        handleRecalculatePrices();
+     if (items.length > 0) {
+        await handleRecalculatePrices(nuevoCliente.id, selectedMarginId);
     }
   };
   
-  // --- FUNCIÓN DE RECALCULAR COMPLETA ---
-  const handleRecalculatePrices = useCallback(async (targetClienteId = clienteId) => {
-    if (isQuote && !selectedMarginId || items.length === 0) {
+  // MODIFICADO: Llama al recálculo siempre que cambie el margen Y haya un cliente/items.
+  const handleMarginChange = (marginId) => {
+    setSelectedMarginId(marginId);
+    if (items.length > 0 && clienteId) {
+        handleRecalculatePrices(clienteId, marginId); // MODIFICADO: Pasa el nuevo ID directamente
+    }
+  };
+  
+  // --- FUNCIÓN DE RECALCULAR COMPLETA (para el botón manual y cambio de cliente/margen) ---
+  const handleRecalculatePrices = useCallback(async (targetClienteId = clienteId, targetMarginId = selectedMarginId) => {
+    
+    // Si no hay margen seleccionado, NO se calcula el margen/descuento.
+    if (!targetMarginId || items.length === 0) {
         return;
     }
     
-    const selectedMarginRule = margenes?.find(m => m.id === selectedMarginId);
     let tempClienteId = targetClienteId; 
     
-    if (isQuote && !tempClienteId && selectedMarginRule?.tierCliente) {
-         const matchingClient = clientes?.find(c => c.tier === selectedMarginRule.tierCliente);
-         tempClienteId = matchingClient ? matchingClient.id : null;
-    }
-
     if (!tempClienteId) {
         tempClienteId = initialData?.clienteId || 'temp-id'; 
     }
@@ -314,7 +319,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                                   productId: item.productId,
                                   quantity: item.quantity,
                                   unitPrice: item.unitPrice,
-                                  description: item.description
+                                  description: item.description,
+                                  selectedMarginId: targetMarginId, // USA targetMarginId
                                 }));
                                 
       if (itemsToCalculate.length === 0) {
@@ -325,17 +331,25 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       const res = await fetch('/api/pricing/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteId: tempClienteId, items: itemsToCalculate }),
+        body: JSON.stringify({ 
+            clienteId: tempClienteId, 
+            items: itemsToCalculate,
+            selectedMarginId: targetMarginId // USA targetMarginId
+        }),
       });
+      
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || "Error al recalcular precios");
       }
+      
       const calculatedItems = await res.json();
       
       const updatedItems = items.map(item => {
+        // Match por descripción es más seguro si hay items manuales.
         const matchedItem = calculatedItems.find(calcItem => calcItem.description === item.description);
         if (matchedItem) {
+            // Solo actualizamos el precio, mantenemos todo lo demás
             return { ...item, unitPrice: matchedItem.unitPrice };
         }
         return item;
@@ -349,54 +363,84 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     } finally {
       setIsLoading(false);
     }
-  }, [items, clienteId, isQuote, selectedMarginId, margenes, clientes, initialData]);
+  }, [items, clienteId, selectedMarginId, initialData]);
   // --- FIN FUNCIÓN DE RECALCULAR COMPLETA ---
 
 
   const handleItemChange = async (index, field, value) => {
-    const newItems = items.map((item, i) => (i === index ? { ...item } : item));
+    // Es crucial crear una copia profunda del array para la inmutabilidad de React
+    const newItems = items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
     const item = newItems[index];
     
-    let newPrice = item.unitPrice;
-
+    // Si cambia la descripción, se borra el ID del producto y se activa la búsqueda
     if (field === 'description') {
-        item.description = value;
         item.productId = null; 
         setSearchQuery(value); 
         setActiveItemIndex(index);
-    } else if (field === 'unitPrice') {
-      newPrice = parseFloat(parseFloat(value).toFixed(2)) || 0;
-    } else {
-      item[field] = value;
-    }
+    } 
     
-    if (field === 'quantity' && item.productId && clienteId) {
-        setTimeout(() => handleRecalculatePrices(), 100); 
-    }
-    
-    item.unitPrice = newPrice;
     setItems(newItems);
   };
   
-  // Nueva función para seleccionar un producto del buscador
-  const handleSelectProduct = (product, index) => {
-      const newItems = items.map((item, i) => (i === index ? { ...item } : item));
-      const item = newItems[index];
+  // Nueva función para seleccionar un producto del buscador (MODIFICADA)
+  const handleSelectProduct = async (product, index) => {
+      // 1. Crear un objeto temporal con el producto base seleccionado y la cantidad actual
+      const tempItem = {
+          description: product.nombre,
+          productId: product.id,
+          // El unitPrice es el costo base del producto antes de aplicar reglas
+          unitPrice: parseFloat(product.precioUnitario.toFixed(2)), 
+          quantity: items[index].quantity || 1, // Mantener la cantidad actual
+      };
       
-      item.description = product.nombre;
-      item.productId = product.id;
-      item.unitPrice = parseFloat(product.precioUnitario.toFixed(2)); 
+      let calculatedPrice = tempItem.unitPrice;
       
+      const tempClienteId = clienteId || initialData?.clienteId || 'temp-id'; 
+      
+      // Solo se calcula el precio si hay un cliente y un margen seleccionado.
+      if (tempClienteId && selectedMarginId) {
+          setIsLoading(true); 
+          try {
+              // Llamamos a la API con la información de un solo item
+              const res = await fetch('/api/pricing/calculate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                      clienteId: tempClienteId, 
+                      items: [tempItem], // Solo calculamos este item
+                      selectedMarginId: selectedMarginId // CLAVE: Pasar el margen al backend
+                  }),
+              });
+
+              if (res.ok) {
+                  const [calculatedItem] = await res.json();
+                  calculatedPrice = calculatedItem.unitPrice; // Precio con margen/descuento
+              }
+          } catch (e) {
+              console.error("Error during instant price calculation:", e);
+          } finally {
+              setIsLoading(false);
+          }
+      }
+
+      // 3. Crear el nuevo array de items con el precio final calculado
+      const newItems = items.map((item, i) => {
+          if (i === index) {
+              return { 
+                  ...item, 
+                  description: tempItem.description,
+                  productId: tempItem.productId,
+                  unitPrice: calculatedPrice, // Usar el precio FINAL calculado
+                  id: item.id // MUY IMPORTANTE: MANTENER EL ID ORIGINAL
+              };
+          }
+          return item;
+      });
+      
+      // 4. Actualizar el estado en un solo paso
       setItems(newItems);
       setSearchQuery(''); 
       setActiveItemIndex(null); 
-      
-      // FIX CRÍTICO: Forzar nuevo ID para triggerear re-render y evitar el parpadeo
-      item.id = Date.now() + Math.random(); 
-      
-      if (clienteId) {
-          setTimeout(() => handleRecalculatePrices(), 100); 
-      }
   };
 
 
@@ -455,12 +499,12 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         return;
     }
     
-    if (isQuote && !selectedMarginId) {
-        setError('Debe seleccionar una Regla de Margen/Tier para el precio (solo para presupuestos).');
-        setIsLoading(false);
-        return;
+    // Ahora, el margen se requiere siempre (tanto en Presupuesto como en Pedido)
+    if (!selectedMarginId) { 
+         setError('Debe seleccionar una Regla de Margen/Tier para el precio.');
+         setIsLoading(false);
+         return;
     }
-
 
     const orderData = {
       clienteId,
@@ -514,7 +558,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           <h2 className="card-title">Información del Cliente</h2>
           {clientesError && <div className="text-red-500">Error al cargar clientes.</div>}
           
-          <div className={`grid gap-4 ${isQuote ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+          {/* MODIFICADO: Ahora siempre 2 columnas */}
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
              
             {/* SELECCIÓN DE CLIENTE */}
             <div className="form-control w-full">
@@ -559,30 +604,28 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                 )}
             </div>
             
-            {/* SELECCIÓN DE MARGEN/TIER (Solo para Presupuestos) */}
-            {isQuote && (
-                <div className="form-control w-full">
-                    <label className="label"><span className="label-text font-bold">Regla de Margen / Tier</span></label>
-                    <select 
-                        className="select select-bordered w-full" 
-                        value={selectedMarginId} 
-                        onChange={(e) => handleMarginChange(e.target.value)} 
-                        required
-                    >
-                        <option value="">Selecciona Margen</option>
-                        {margenesError && <option disabled>Error al cargar márgenes</option>}
-                        {margenes?.filter(m => m.base !== 'GENERAL_FALLBACK').map(m => {
-                          const tierText = m.tierCliente ? ` (${m.tierCliente})` : '';
-                          const gastoFijoText = m.gastoFijo ? ` + ${m.gastoFijo}€ Fijo` : '';
-                          return (
-                            <option key={m.id} value={m.id}>
-                                {m.descripcion}{tierText} (x{m.multiplicador}){gastoFijoText}
-                            </option>
-                          );
-                        })}
-                    </select>
-                </div>
-            )}
+            {/* SELECCIÓN DE MARGEN/TIER (YA NO ES CONDICIONAL) */}
+            <div className="form-control w-full">
+                <label className="label"><span className="label-text font-bold">Regla de Margen / Tier</span></label>
+                <select 
+                    className="select select-bordered w-full" 
+                    value={selectedMarginId} 
+                    onChange={(e) => handleMarginChange(e.target.value)} 
+                    required
+                >
+                    <option value="">Selecciona Margen</option>
+                    {margenesError && <option disabled>Error al cargar márgenes</option>}
+                    {margenes?.filter(m => m.base !== 'GENERAL_FALLBACK').map(m => {
+                      const tierText = m.tierCliente ? ` (${m.tierCliente})` : '';
+                      const gastoFijoText = m.gastoFijo ? ` + ${m.gastoFijo}€ Fijo` : '';
+                      return (
+                        <option key={m.id} value={m.id}>
+                            {m.descripcion}{tierText} (x{m.multiplicador}){gastoFijoText}
+                        </option>
+                      );
+                    })}
+                </select>
+            </div>
           </div>
         </div>
       </div>
@@ -713,7 +756,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
 
       <div className="flex justify-end gap-4 mt-6">
         <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
-        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || (isQuote && !selectedMarginId)}>
+        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || !selectedMarginId}>
           <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : (isQuote ? (initialData ? "Actualizar Presupuesto" : "Guardar Presupuesto") : "Guardar Pedido")}
         </button>
       </div>
