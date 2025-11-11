@@ -4,16 +4,18 @@ import { db } from '@/lib/db';
 // PUT /api/pricing/margenes/[id] - Actualiza una regla de margen
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    // FIX CRÍTICO: Usamos await para desestructurar 'id'
+    const { id } = await params; 
     const data = await request.json();
-    const { descripcion, tipo, valor, categoria, tierCliente } = data; // Añadido tierCliente
+    // Usamos 'multiplicador' y 'gastoFijo'
+    const { descripcion, tipo, multiplicador, categoria, tierCliente, gastoFijo } = data; 
 
-    const parsedValor = parseFloat(valor);
+    const parsedMultiplicador = parseFloat(multiplicador);
 
     // Validación de datos
-    if (!descripcion || !tipo || isNaN(parsedValor) || parsedValor <= 0) {
+    if (!descripcion || !tipo || isNaN(parsedMultiplicador) || parsedMultiplicador <= 0) {
       return NextResponse.json(
-        { message: 'Datos de margen incompletos o inválidos.' }, 
+        { message: 'Datos de margen incompletos o inválidos. Se requiere descripción, tipo y un multiplicador numérico positivo.' }, 
         { status: 400 }
       );
     }
@@ -23,9 +25,10 @@ export async function PUT(request, { params }) {
       data: {
         descripcion: descripcion,
         tipo: tipo,
+        multiplicador: parsedMultiplicador,
+        gastoFijo: parseFloat(gastoFijo) || 0,
         categoria: categoria,
-        valor: parsedValor,
-        tierCliente: tierCliente, // Guardar el nuevo campo
+        tierCliente: tierCliente, 
       },
     });
 
@@ -35,6 +38,9 @@ export async function PUT(request, { params }) {
     if (error.code === 'P2025') {
         return NextResponse.json({ message: 'Regla de margen no encontrada' }, { status: 404 });
     }
+    if (error.code === 'P2002') { 
+      return NextResponse.json({ message: 'Ya existe una regla con este identificador base' }, { status: 409 });
+    }
     return NextResponse.json({ message: 'Error al actualizar margen' }, { status: 500 });
   }
 }
@@ -42,7 +48,8 @@ export async function PUT(request, { params }) {
 // DELETE /api/pricing/margenes/[id] - Elimina una regla de margen
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    // FIX CRÍTICO: Usamos await para desestructurar 'id'
+    const { id } = await params;
 
     await db.reglaMargen.delete({
       where: { id: id },

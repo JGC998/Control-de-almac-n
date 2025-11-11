@@ -1,68 +1,18 @@
 "use client";
-import React, { useState } from 'react';
-import { Settings } from 'lucide-react';
-import DataManagerTable from '@/components/DataManagerTable';
-import RuleEditorModal from '@/components/RuleEditorModal'; // Importar modal especializado
-import { mutate } from 'swr'; // Necesario para mutar la lista de descuentos
+import React from 'react';
+import { Settings, DollarSign, Layers } from 'lucide-react';
+import CatalogManager from '@/components/CatalogManager';
+import { mutate } from 'swr';
+import RuleEditorModal from '@/components/RuleEditorModal'; 
+import { useState } from 'react';
 
-// Definiciones de campos para cada modelo
-const TarifaMaterialFields = [
-  { key: 'material', label: 'Material', type: 'text' },
-  { key: 'espesor', label: 'Espesor (mm)', type: 'float' },
-  { key: 'precio', label: 'Precio (€/m²)', type: 'float' },
-  { key: 'peso', label: 'Peso (kg/m²)', type: 'float' },
-];
-
-const ReferenciaBobinaFields = [
-  { key: 'referencia', label: 'Nombre/Referencia', type: 'text' }, 
-  { key: 'ancho', label: 'Ancho (mm)', type: 'number' },
-  { key: 'lonas', label: 'Lonas', type: 'number' },
-  { key: 'pesoPorMetroLineal', label: 'Peso/m lineal (kg)', type: 'float' },
-];
-
-const MaterialesFields = [
-  { key: 'nombre', label: 'Nombre del Material', type: 'text' },
-];
-
-// CAMPOS DE MARGENES
-const MargenesFields = [
-  { key: 'base', label: 'Tipo de Tarifa', type: 'text' },
-  { key: 'descripcion', label: 'Descripción', type: 'text' },
-  { key: 'multiplicador', label: 'Multiplicador (ej. 1.5)', type: 'float' },
-  { key: 'gastoFijo', label: 'Gasto Fijo (€)', type: 'float' },
-];
-
-// CAMPOS DE DESCUENTOS (Solo se usan para la tabla de visualización)
-const DescuentosFields = [
-  { key: 'descripcion', label: 'Descripción', type: 'text' },
-  { key: 'tipo', label: 'Tipo', type: 'text' },
-  { key: 'descuento', label: 'Descuento (%)', type: 'float' }, // Descuento base (no para volumen)
-  { key: 'tierCliente', label: 'Tier Cliente', type: 'text' },
-];
-
-
-export default function ConfiguracionPage() {
-  const [activeTab, setActiveTab] = useState('tarifas'); 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState(null);
-  const [modalApiError, setModalApiError] = useState(null);
-  
-  // Custom Handler para abrir el modal especializado (Descuentos)
-  const handleOpenCustomModal = (record) => {
-    setEditingRule(record);
-    setModalApiError(null);
-    setIsModalOpen(true);
-  };
-  
-  // Custom Handler para el guardado de Descuentos
-  const handleSaveDiscount = async (ruleData) => {
-    const isNew = !ruleData.id;
+// Lógica de Descuentos (Necesita Modal Especializado)
+// Esta es la única que requiere un manejo especial debido a los tiers anidados.
+const handleSaveDiscount = async (ruleData, isNew) => {
     const endpoint = '/api/pricing/descuentos';
     const url = isNew ? endpoint : `/api/pricing/descuentos/${ruleData.id}`;
     const method = isNew ? 'POST' : 'PUT';
     
-    setModalApiError(null);
-
     try {
       const res = await fetch(url, {
         method: method,
@@ -75,85 +25,138 @@ export default function ConfiguracionPage() {
       }
       
       mutate(endpoint); 
-      setIsModalOpen(false);
-
+      return true; // Éxito
     } catch (err) {
-      setModalApiError(err.message);
+      throw err;
     }
-  };
+};
+
+const CustomDiscountManager = () => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingRule, setEditingRule] = useState(null);
+    const [modalApiError, setModalApiError] = useState(null);
+    
+    // Función de apertura que pre-carga los tiers (si existen)
+    const handleOpenModal = (record = null) => {
+        setEditingRule(record || { descripcion: '', tipo: 'categoria', descuento: 0.1, categoria: '', tiers: [] });
+        setModalApiError(null);
+        setIsModalOpen(true);
+    };
+
+    const handleSave = async (ruleData) => {
+        setModalApiError(null);
+        try {
+            const isNew = !ruleData.id;
+            await handleSaveDiscount(ruleData, isNew);
+            setIsModalOpen(false);
+        } catch (err) {
+            setModalApiError(err.message);
+        }
+    }
+
+    return (
+        <>
+            <CatalogManager
+                title="Reglas de Descuento"
+                endpoint="/api/pricing/descuentos"
+                initialForm={{ descripcion: '', tipo: '', descuento: 0 }}
+                columns={[
+                    { key: 'descripcion', label: 'Descripción' },
+                    { key: 'tipo', label: 'Tipo' },
+                    { key: 'descuento', label: 'Descuento Base' },
+                ]}
+                // Pasa los handlers custom
+                onOpenCustomModal={handleOpenModal}
+                useCustomModal={true}
+            />
+            
+            {isModalOpen && (
+                <RuleEditorModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onSave={handleSave}
+                    rule={editingRule}
+                    ruleType="discounts" 
+                    apiError={modalApiError} 
+                />
+            )}
+        </>
+    );
+};
 
 
-  const tabs = [
-    { id: 'tarifas', label: 'Tarifas Base', apiEndpoint: "/api/precios", fields: TarifaMaterialFields },
-    { id: 'referencias', label: 'Ref. Bobina', apiEndpoint: "/api/configuracion/referencias", fields: ReferenciaBobinaFields }, 
-    { id: 'materiales', label: 'Materiales', apiEndpoint: "/api/materiales", fields: MaterialesFields },
-    { id: 'descuentos', label: 'Descuentos', apiEndpoint: "/api/pricing/descuentos", fields: DescuentosFields, isCustom: true }, // Marcamos como custom
-    { id: 'margenes', label: 'Márgenes', apiEndpoint: "/api/pricing/margenes", fields: MargenesFields },
-  ];
-
-  // Componente que decide qué renderizar basado en la pestaña activa
-  const renderTabComponent = (tab) => {
-      if (tab.id === 'descuentos') {
-          return <DataManagerTable 
-            apiEndpoint={tab.apiEndpoint} 
-            modelName={tab.label} 
-            fields={tab.fields}
-            idField="id"
-            onOpenCustomModal={handleOpenCustomModal}
-            useCustomModal={true}
-          />;
-      }
-      
-      // Renderizar DataManagerTable genérico para el resto
-      return <DataManagerTable 
-          apiEndpoint={tab.apiEndpoint} 
-          modelName={tab.label} 
-          fields={tab.fields}
-          idField="id"
-      />;
-  }
-
+export default function ConfiguracionPage() {
+    
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 flex items-center">
-        <Settings className="mr-2" /> Configuración Central de Datos
+        <Settings className="mr-2" /> Gestión de Reglas y Catálogos
       </h1>
 
-      {/* Navegación de Pestañas (Tabs) */}
-      <div role="tablist" className="tabs tabs-boxed">
-        {tabs.map(tab => (
-          <a
-            key={tab.id}
-            role="tab"
-            className={`tab ${activeTab === tab.id ? 'tab-active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </a>
-        ))}
-      </div>
-
-      {/* Contenido de la Pestaña Activa */}
-      <div className="mt-4 bg-base-100 shadow-xl rounded-box">
-        {tabs.map(tab => activeTab === tab.id ? (
-             <div key={tab.id}>
-                {renderTabComponent(tab)}
-             </div>
-        ) : null)}
-      </div>
-      
-      {/* Modal Especializado para Descuentos */}
-      {isModalOpen && (
-        <RuleEditorModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSave={handleSaveDiscount}
-          rule={editingRule}
-          ruleType="descuentos" 
-          apiError={modalApiError} 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* === SECCIÓN DE REGLAS DE PRECIO (Modularizada) === */}
+        <h2 className="lg:col-span-2 text-2xl font-bold flex items-center mb-2 mt-4 text-primary"><DollarSign className="mr-2" /> Reglas de Precio y Márgenes</h2>
+        
+        {/* 1. Márgenes */}
+        <CatalogManager
+          title="Reglas de Margen"
+          endpoint="/api/pricing/margenes"
+          initialForm={{ descripcion: '', base: '', multiplicador: 1.0, gastoFijo: 0.0, tipo: 'General', tierCliente: '' }}
+          columns={[
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'base', label: 'Base' },
+            { key: 'multiplicador', label: 'Multiplicador' },
+            { key: 'gastoFijo', label: 'Gasto Fijo (€)' },
+          ]}
         />
-      )}
+        
+        {/* 2. Descuentos (Usa el Manager Custom) */}
+        <CustomDiscountManager />
+        
+        {/* 3. Precios Especiales */}
+        <CatalogManager
+          title="Precios Especiales"
+          endpoint="/api/pricing/especiales"
+          initialForm={{ descripcion: '', clienteId: '', productoId: '', precio: 0 }}
+          columns={[
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'cliente.nombre', label: 'Cliente' },
+            { key: 'producto.nombre', label: 'Producto' },
+            { key: 'precio', label: 'Precio (€)' },
+          ]}
+        />
+        
+        {/* === SECCIÓN DE CATÁLOGOS BASE (Movidos de /gestion/catalogos) === */}
+        <h2 className="lg:col-span-2 text-2xl font-bold flex items-center mb-2 mt-6 text-primary"><Layers className="mr-2" /> Catálogos de Inventario</h2>
 
+        {/* 4. Referencias Bobina */}
+        <CatalogManager
+          title="Referencias de Bobina"
+          endpoint="/api/configuracion/referencias"
+          initialForm={{ nombre: '', ancho: '', lonas: '', pesoPorMetroLineal: '' }}
+          columns={[
+            { key: 'referencia', label: 'Referencia' },
+            { key: 'ancho', label: 'Ancho (mm)' },
+            { key: 'lonas', label: 'Lonas' },
+            { key: 'pesoPorMetroLineal', label: 'Peso (kg/m)' },
+          ]}
+        />
+
+        {/* 5. Tarifas Material */}
+        <CatalogManager
+          title="Tarifas de Material"
+          endpoint="/api/precios"
+          initialForm={{ material: '', espesor: '', precio: '', peso: '' }}
+          columns={[
+            { key: 'material', label: 'Material' },
+            { key: 'espesor', label: 'Espesor (mm)' },
+            { key: 'precio', label: 'Precio (€/m²)' },
+            { key: 'peso', label: 'Peso (kg/m²)' },
+          ]}
+        />
+        
+      </div>
     </div>
   );
 }

@@ -21,6 +21,7 @@ export default function ProductoDetallePage() {
   const params = useParams();
   const { id } = params;
 
+  // El endpoint ahora devuelve 'tarifaPrecioM2'
   const { data: producto, error, isLoading } = useSWR(id ? `/api/productos/${id}` : null, fetcher);
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
@@ -36,7 +37,7 @@ export default function ProductoDetallePage() {
     return value;
   };
   
-  // Nota: El Costo Unitario (Antiguo) se ha eliminado conceptualmente del flujo de trabajo.
+  // producto.precioUnitario ahora es el COSTO TOTAL DE LA PIEZA (Materia Prima)
 
   return (
     <div className="container mx-auto p-4">
@@ -53,7 +54,7 @@ export default function ProductoDetallePage() {
           </div>
         </div>
 
-        <div className="divider">Detalles Técnicos y de Precios Base</div>
+        <div className="divider">Detalles Técnicos y de Costo</div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {/* Fila 1: Origen */}
@@ -62,14 +63,27 @@ export default function ProductoDetallePage() {
           
           {/* Fila 2: Dimensiones */}
           <InfoCard title="Espesor" value={producto.espesor || 'N/A'} unit="mm" icon={Ruler} />
-          {/* CORRECCIÓN CLAVE: Uso de formatValue para prevenir TypeError */}
           <InfoCard title="Peso Unitario" value={formatValue(producto.pesoUnitario, '0.00')} unit="kg" icon={MinusCircle} />
           
           {/* Fila 3: Base Price (Materia Prima Cost) */}
           <InfoCard title="Largo" value={producto.largo || 'N/A'} unit="mm" icon={Ruler} />
           <InfoCard title="Ancho" value={producto.ancho || 'N/A'} unit="mm" icon={Ruler} />
-          <InfoCard title="Precio Base (Materia Prima)" value={formatValue(producto.precioUnitario, '0.00')} unit="€" icon={DollarSign} />
-          <InfoCard title="Costo Unitario (Legacy)" value={producto.costoUnitario > 0 ? producto.costoUnitario.toFixed(2) + ' €' : 'N/A'} icon={DollarSign} />
+          
+          {/* NUEVO CAMPO: Precio de Tarifa por m2 (Obtenido del backend) */}
+          <InfoCard 
+            title="Precio Tarifa (€/m²)" 
+            value={formatValue(producto.tarifaPrecioM2)} 
+            unit="€" 
+            icon={DollarSign} 
+          />
+          
+          {/* ACTUALIZADO: Muestra el costo total de la pieza calculado */}
+          <InfoCard 
+            title="Costo Total Pieza" 
+            value={formatValue(producto.precioUnitario, '0.00')} 
+            unit="€" 
+            icon={DollarSign} 
+          />
         </div>
         
         <div className="divider">Precios de Venta (Pre-calculados por Tier)</div>

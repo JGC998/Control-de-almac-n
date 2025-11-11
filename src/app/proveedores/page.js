@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit, Anchor, Eye } from 'lucide-react';
+import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit, Anchor, Eye, Trash2 } from 'lucide-react';
 import Link from 'next/link'; 
 import PedidoProveedorDetalleModal from '@/components/PedidoProveedorDetalleModal'; // Importar el nuevo modal
 
@@ -49,6 +49,23 @@ export default function ProveedoresPage() {
      }
   };
 
+  const handleDeletePedido = async (pedidoId) => {
+    if (!confirm('¿Estás seguro de que quieres ELIMINAR este pedido? Si el pedido está "Recibido", debe primero revertir el stock manualmente.')) {
+        return;
+    }
+    try {
+        const res = await fetch(`/api/pedidos-proveedores-data/${pedidoId}`, { method: 'DELETE' });
+        if (!res.ok) {
+             const errData = await res.json();
+             throw new Error(errData.message || 'Error al eliminar el pedido.');
+        }
+        mutate('/api/pedidos-proveedores-data');
+    } catch (err) {
+        alert(err.message);
+    }
+  };
+
+
   const pedidosFiltrados = pedidos?.filter(p => p.tipo === activeTab) || [];
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
@@ -87,6 +104,8 @@ export default function ProveedoresPage() {
           )}
           {pedidosFiltrados.map(pedido => {
             const trackingUrl = getTrackingUrl(pedido.naviera, pedido.numeroContenedor);
+            const isRecibido = pedido.estado === 'Recibido';
+
             return (
               <div key={pedido.id} className="card bg-base-200 shadow-md">
                 <div className="card-body">
@@ -100,7 +119,7 @@ export default function ProveedoresPage() {
                           ETA: {new Date(pedido.fechaLlegadaEstimada).toLocaleDateString()}
                         </p>
                       )}
-                      <span className={`badge ${pedido.estado === 'Recibido' ? 'badge-success' : 'badge-warning'}`}>{pedido.estado}</span>
+                      <span className={`badge ${isRecibido ? 'badge-success' : 'badge-warning'}`}>{pedido.estado}</span>
                       {pedido.numeroContenedor && (
                          <span className="badge badge-outline ml-2">{pedido.numeroContenedor} ({pedido.naviera})</span>
                       )}
@@ -112,22 +131,30 @@ export default function ProveedoresPage() {
                       </button>
                       
                       {/* Botón de Rastrear */}
-                      {trackingUrl && pedido.tipo === 'IMPORTACION' && pedido.estado === 'Pendiente' && (
+                      {trackingUrl && pedido.tipo === 'IMPORTACION' && !isRecibido && (
                         <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary btn-outline">
                           <Anchor className="w-4 h-4" /> Rastrear
                         </a>
                       )}
                       
-                      {pedido.estado === 'Pendiente' && (
+                      {!isRecibido && (
                         <>
+                          {/* Botón Editar */}
                           <Link href={`/proveedores/${pedido.id}/editar`} className="btn btn-sm btn-info btn-outline">
                             <Edit className="w-4 h-4" /> Editar
                           </Link>
+                          
+                          {/* Botón Recibido */}
                           <button onClick={() => handleReceiveOrder(pedido.id)} className="btn btn-sm btn-success">
                             <CheckSquare className="w-4 h-4" /> Marcar como Recibido
                           </button>
                         </>
                       )}
+                      
+                      {/* Botón Eliminar (Visible siempre, pero la API restringe si está 'Recibido') */}
+                      <button onClick={() => handleDeletePedido(pedido.id)} className="btn btn-sm btn-error btn-outline">
+                        <Trash2 className="w-4 h-4" /> Eliminar
+                      </button>
                     </div>
                   </div>
                   

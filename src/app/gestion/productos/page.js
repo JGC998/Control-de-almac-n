@@ -161,6 +161,15 @@ export default function GestionProductos() {
     }
   };
 
+  // Función para calcular y formatear el margen
+  const calculateMargin = (precioVentaFab, precioUnitario) => {
+      // precioUnitario es el Costo Total Pieza (Precio Base)
+      if (precioUnitario > 0 && precioVentaFab !== null && precioVentaFab !== undefined) {
+          return (((precioVentaFab / precioUnitario) - 1) * 100).toFixed(1);
+      }
+      return 'N/A';
+  };
+  
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (productosError || fabError || matError || tarifasError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
 
@@ -210,37 +219,38 @@ export default function GestionProductos() {
 
       <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
         <table className="table w-full">
-          <thead><tr>
-            <th>Nombre</th>
-            <th>Ref. Fab.</th>
-            <th>Material</th>
-            <th>P. Unitario</th>
-            <th>Acciones</th> 
-          </tr></thead>
+          <thead>
+            {/* CORRECCIÓN: Títulos de la tabla en una sola línea para evitar el nodo de texto */}
+            <tr><th>Nombre</th><th>Ref. Fab.</th><th>Material</th><th>P. Unitario</th><th>Margen Fab. (%)</th><th>Acciones</th></tr>
+          </thead>
           <tbody>
             {/* Usar filteredProducts en lugar de productos */}
-            {Array.isArray(filteredProducts) && filteredProducts.map((p) => (
-              <tr key={p.id} className="hover">
-                {/* MODIFICACIÓN CLAVE: Convertir a Link */}
-                <td className="font-bold">
-                  <Link href={`/gestion/productos/${p.id}`} className="link link-primary">
-                      {p.nombre}
-                  </Link>
-                </td>
-                {/* FIN MODIFICACIÓN CLAVE */}
-                <td>{p.referenciaFabricante || 'N/A'}</td> 
-                <td>{p.material?.nombre || 'N/A'}</td>
-                <td>{p.precioUnitario.toFixed(2)} €</td>
-                <td className="flex gap-2">
-                  <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-outline btn-error">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {Array.isArray(filteredProducts) && filteredProducts.map((p) => {
+              const margenFab = calculateMargin(p.precioVentaFab, p.precioUnitario);
+              const margenClass = margenFab !== 'N/A' && parseFloat(margenFab) > 0 ? 'text-success' : (margenFab !== 'N/A' && parseFloat(margenFab) < 0 ? 'text-error' : 'text-warning');
+
+              return (
+                <tr key={p.id} className="hover">
+                  <td className="font-bold">
+                    <Link href={`/gestion/productos/${p.id}`} className="link link-primary">
+                        {p.nombre}
+                    </Link>
+                  </td>
+                  <td>{p.referenciaFabricante || 'N/A'}</td> 
+                  <td>{p.material?.nombre || 'N/A'}</td>
+                  <td>{p.precioUnitario.toFixed(2)} €</td>
+                  <td className={`font-bold ${margenClass}`}>{margenFab} %</td> {/* VALOR DEL MARGEN */}
+                  <td className="flex gap-2">
+                    <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-outline btn-error">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {filteredProducts.length === 0 && !isLoading && (

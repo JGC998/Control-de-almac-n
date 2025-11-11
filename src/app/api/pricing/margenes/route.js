@@ -15,30 +15,36 @@ export async function GET() {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { descripcion, tipo, valor, categoria, tierCliente } = data; // Añadido tierCliente
+    // Ahora esperamos 'multiplicador' y 'gastoFijo'
+    const { descripcion, tipo, multiplicador, categoria, tierCliente, base, gastoFijo } = data;
 
-    const parsedValor = parseFloat(valor);
+    const parsedMultiplicador = parseFloat(multiplicador);
 
     // Validación explícita de campos obligatorios
-    if (!descripcion || !tipo || isNaN(parsedValor) || parsedValor <= 0) {
+    if (!descripcion || !tipo || isNaN(parsedMultiplicador) || parsedMultiplicador <= 0) {
       return NextResponse.json(
-        { message: 'Datos de margen incompletos o inválidos. Se requiere descripción, tipo y un valor numérico positivo.' }, 
+        { message: 'Datos de margen incompletos o inválidos. Se requiere descripción, tipo y un multiplicador numérico positivo.' }, 
         { status: 400 }
       );
     }
-
+    
     const nuevaRegla = await db.reglaMargen.create({
       data: {
         descripcion: descripcion,
         tipo: tipo,
+        base: base || descripcion, // Si no se proporciona base, usa la descripción
+        multiplicador: parsedMultiplicador,
+        gastoFijo: parseFloat(gastoFijo) || 0,
         categoria: categoria,
-        valor: parsedValor,
-        tierCliente: tierCliente, // Guardar el nuevo campo
+        tierCliente: tierCliente, 
       },
     });
     return NextResponse.json(nuevaRegla, { status: 201 });
   } catch (error) {
     console.error(error);
+    if (error.code === 'P2002') { 
+        return NextResponse.json({ message: 'Ya existe una regla con este identificador base' }, { status: 409 });
+    }
     return NextResponse.json({ message: 'Error al crear margen' }, { status: 500 });
   }
 }

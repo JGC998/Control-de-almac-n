@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 // Función central de cálculo (Ahora calcula precio y asume dimensiones en milímetros)
 async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     if (!materialId || !espesor || !largo || !ancho || largo <= 0 || ancho <= 0) {
-        return { costo: 0, peso: 0, precio: 0 };
+        return { costo: 0, peso: 0, precio: 0, tarifaPrecioM2: null };
     }
 
     // 1. Obtener el nombre del material para buscar la tarifa
@@ -14,7 +14,7 @@ async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     });
 
     if (!material) {
-        return { costo: 0, peso: 0, precio: 0 };
+        return { costo: 0, peso: 0, precio: 0, tarifaPrecioM2: null };
     }
 
     // 2. Buscar la TarifaMaterial usando el nombre del material
@@ -28,7 +28,7 @@ async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     });
 
     if (!tarifa || tarifa.precio <= 0) {
-        return { costo: 0, peso: 0, precio: 0 };
+        return { costo: 0, peso: 0, precio: 0, tarifaPrecioM2: null };
     }
 
     // 3. Aplicar las fórmulas de cálculo (Dimensiones EN MILÍMETROS, conversión a M²)
@@ -45,7 +45,8 @@ async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     return { 
         costo: parseFloat(costo.toFixed(2)), 
         peso: parseFloat(peso.toFixed(2)),
-        precio: parseFloat(precio.toFixed(2))
+        precio: parseFloat(precio.toFixed(2)),
+        tarifaPrecioM2: tarifa.precio // <-- Añadido el precio por m2 de la tarifa
     };
 }
 
@@ -54,6 +55,8 @@ async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
 export async function GET(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise; 
+    
+    // 1. Fetch main product data with relations
     const producto = await db.producto.findUnique({
       where: { id: id },
       include: {
@@ -66,7 +69,27 @@ export async function GET(request, { params: paramsPromise }) {
     if (!producto) {
       return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
     }
-    return NextResponse.json(producto);
+    
+    // 2. Fetch the corresponding TarifaMaterial for display (based on material name and espesor)
+    let tarifaPrecioM2 = null;
+    if (producto.material?.nombre && producto.espesor !== null) {
+        const tarifa = await db.tarifaMaterial.findUnique({
+            where: {
+                material_espesor: {
+                    material: producto.material.nombre,
+                    espesor: producto.espesor
+                }
+            },
+            select: { precio: true } // Solo selecciona el precio por m2
+        });
+        tarifaPrecioM2 = tarifa?.precio || null;
+    }
+
+    // 3. Return the product data, injecting the tariff price
+    return NextResponse.json({
+        ...producto,
+        tarifaPrecioM2: tarifaPrecioM2 // NUEVO CAMPO PARA EL FRONTEND
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: 'Error al obtener producto' }, { status: 500 });
@@ -94,7 +117,7 @@ export async function PUT(request, { params: paramsPromise }) {
       return NextResponse.json({ message: `Material "${data.material}" no encontrado.` }, { status: 400 });
     }
     
-    // 2. Calcular Costo Unitario, Peso Unitario y Precio Unitario
+    // 2. Calcular Precio Unitario (Costo Pieza), Peso Unitario
     const { 
         costo: calculatedCosto, 
         peso: calculatedPeso,
@@ -102,7 +125,6 @@ export async function PUT(request, { params: paramsPromise }) {
     } = await calculateCostAndWeight(
         material.id, // Usar ID de Material
         parseFloat(data.espesor), 
-        // PASAMOS MM
         parseFloat(data.largo), 
         parseFloat(data.ancho)
     );
@@ -116,13 +138,12 @@ export async function PUT(request, { params: paramsPromise }) {
         nombre: newNombre, 
         referenciaFabricante: data.modelo, 
         espesor: parseFloat(data.espesor) || 0,
-        // GUARDAMOS MM
         largo: parseFloat(data.largo) || 0,
         ancho: parseFloat(data.ancho) || 0,
         // Usar los valores calculados
         precioUnitario: calculatedPrecio || 0, 
         pesoUnitario: calculatedPeso || 0, 
-        costoUnitario: calculatedCosto, 
+        costoUnitario: 0, // <--- CAMBIO: Eliminamos el concepto, forzando a 0
         fabricanteId: fabricante.id,
         materialId: material.id,
         clienteId: data.clienteId || null,

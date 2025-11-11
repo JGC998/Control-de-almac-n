@@ -26,12 +26,21 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
       Object.keys(initialForm).forEach(key => {
         editData[key] = item[key] || initialForm[key];
       });
+      // Lógica para manejar referencias de bobina (nombre = referencia)
       if (item.referencia) {
           editData.nombre = item.referencia;
       }
       setFormData({ ...editData, id: item.id });
     } else {
-      setFormData(initialForm);
+      // FIX: Al crear, usar '' para campos numéricos/flotantes al crear,
+      // lo cual permite ver el placeholder.
+      const defaultForm = Object.keys(initialForm).reduce((acc, key) => {
+        const value = initialForm[key];
+        // Si el valor por defecto es un número y es 0, lo forzamos a ''
+        acc[key] = (typeof value === 'number' && value === 0) ? '' : value;
+        return acc;
+      }, { id: null });
+      setFormData(defaultForm);
     }
     setError(null);
     setIsModalOpen(true);
@@ -68,7 +77,9 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'Error al guardar el ítem');
+        // Fallback si la respuesta no tiene el campo .error
+        const errorMessage = errData.message || `Error ${res.status}: No se pudo guardar el registro.`; 
+        throw new Error(errorMessage);
       }
 
       mutate(cacheKey);
@@ -101,6 +112,7 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
   const formFields = Object.keys(initialForm).map(key => ({
       name: key,
       label: columns.find(c => c.key === key)?.label || key.charAt(0).toUpperCase() + key.slice(1),
+      // Uso explícito del tipo para inputs, simplificamos la lógica de detección aquí ya que los campos vienen de initialForm
       type: (key.toLowerCase().includes('precio') || key.toLowerCase().includes('valor') || key.toLowerCase().includes('peso') || key.toLowerCase().includes('espesor') || key.toLowerCase().includes('ancho') || key.toLowerCase().includes('lonas')) ? 'number' : 'text',
       step: (key.toLowerCase().includes('precio') || key.toLowerCase().includes('valor') || key.toLowerCase().includes('peso') || key.toLowerCase().includes('espesor') || key.toLowerCase().includes('ancho') || key.toLowerCase().includes('lonas')) ? '0.01' : 'any',
       required: key === 'nombre' || key === 'material' || key === 'precio' || key === 'espesor' || key === 'peso',
@@ -113,7 +125,7 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
         displayValue = item.referencia;
     }
     
-    if (typeof displayValue === 'number' && key !== 'lonas') {
+    if (typeof displayValue === 'number' && key !== 'lonas' && !key.toLowerCase().includes('lonas')) {
         displayValue = displayValue.toFixed(2);
     }
     return displayValue || 'N/A';
@@ -148,7 +160,7 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
               type={field.type}
               step={field.type === 'number' ? field.step : undefined}
               name={field.name} 
-              value={formData[field.name] === null || formData[field.name] === undefined ? '' : formData[field.name]}
+              value={formData[field.name]}
               onChange={handleChange} 
               placeholder={field.label} 
               className="input input-bordered w-full" 

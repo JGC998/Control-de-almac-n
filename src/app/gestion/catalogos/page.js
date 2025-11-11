@@ -1,35 +1,15 @@
 'use client';
 import CatalogManager from '@/components/CatalogManager';
-import { Layers, Factory, Users, Truck, FileText, DollarSign } from 'lucide-react';
+import { Layers, Factory, Users } from 'lucide-react'; 
 
 export default function GestionCatalogosPage() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 flex items-center">
-        <Layers className="mr-2" /> Gestión de Catálogos Maestros
+        <Layers className="mr-2" /> Gestión de Catálogos Maestros (Proveedores, Referencias y Tarifas)
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* --- Fabricantes --- */}
-        <CatalogManager
-          title="Fabricantes"
-          endpoint="/api/fabricantes"
-          initialForm={{ nombre: '' }}
-          columns={[
-            { key: 'nombre', label: 'Nombre' },
-          ]}
-        />
-        
-        {/* --- Materiales --- */}
-        <CatalogManager
-          title="Materiales"
-          endpoint="/api/materiales"
-          initialForm={{ nombre: '' }}
-          columns={[
-            { key: 'nombre', label: 'Nombre' },
-          ]}
-        />
-        
         {/* --- Proveedores --- */}
         <CatalogManager
           title="Proveedores"
@@ -67,6 +47,8 @@ export default function GestionCatalogosPage() {
             { key: 'peso', label: 'Peso (kg/m²)' },
           ]}
         />
+        
+        {/* NOTA: Fabricantes y Materiales se movieron a sus propias páginas /gestion/catalogos/* */}
       </div>
     </div>
   );
