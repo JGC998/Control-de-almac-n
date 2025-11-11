@@ -5,11 +5,16 @@ import autoTable from "jspdf-autotable";
 import fs from 'fs/promises';
 import path from 'path';
 
+// --- DATOS DE LA EMPRESA (Hardcodeados según solicitud) ---
+const COMPANY_ADDRESS = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
+const COMPANY_PHONE = '957 68 28 19';
+// --------------------------------------------------------
+
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise; 
 
-    // 1. Obtener todos los datos de la BD
+    // 1. Obtener todos los datos del Pedido (incluyendo marginId si ya fue migrado)
     const order = await db.pedido.findUnique({
       where: { id: id },
       include: {
@@ -22,12 +27,37 @@ export async function GET(request, { params: paramsPromise }) {
       return new NextResponse('Pedido no encontrado', { status: 404 });
     }
     
-    // 2. Obtener la configuración (IVA)
-    const configIva = await db.config.findUnique({
-      where: { key: 'iva_rate' },
-    });
+    // 2. Obtener la configuración (IVA) y la regla de Margen
+    const [configIva, margenes] = await Promise.all([
+        db.config.findUnique({ where: { key: 'iva_rate' } }),
+        db.reglaMargen.findMany(),
+    ]);
+
     const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;
+    const marginRule = margenes?.find(m => m.id === order.marginId);
     const client = order.cliente;
+
+    // --- CÁLCULO DE PRECIOS UNITARIOS DE VENTA (PRORRATEO) ---
+    const multiplicador = marginRule?.multiplicador || 1;
+    const gastoFijoTotal = marginRule?.gastoFijo || 0;
+    
+    // Calcular la cantidad total de unidades para el prorrateo del gasto fijo
+    const totalQuantity = (order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
+    
+    const calculatedItems = (order.items || []).map(item => {
+        const costoUnitario = item.unitPrice || 0;
+        
+        // Precio Venta Unitario = Costo Unitario + Margen Unitario + Gasto Fijo Unitario Prorrateado
+        const precioUnitarioVenta = (costoUnitario * multiplicador) + gastoFijoUnitarioProrrateado;
+        
+        return {
+            ...item,
+            unitPriceVenta: precioUnitarioVenta,
+            totalVentaItem: precioUnitarioVenta * (item.quantity || 0),
+        };
+    });
+    // -----------------------------------------------------------
 
     // --- Inicio de la Generación del PDF ---
     const doc = new jsPDF();
@@ -48,6 +78,9 @@ export async function GET(request, { params: paramsPromise }) {
     doc.setFont("helvetica", "normal");
     doc.text(process.env.COMPANY_NAME || 'Tu Empresa', 200, 38, { align: 'right' });
     doc.text(process.env.COMPANY_ADDRESS || 'Tu Dirección', 200, 44, { align: 'right' });
+    // Usamos los datos de la empresa ya definidos en el archivo
+    // doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
+    // doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -72,18 +105,21 @@ export async function GET(request, { params: paramsPromise }) {
       doc.text(client.email || 'Email no especificado', 20, 74);
     }
 
+    // --- CONSTRUCCIÓN DE LA TABLA CON PRECIOS DE VENTA ---
     const tableColumn = ["Descripción", "Cantidad", "Precio Unit.", "Total"];
     const tableRows = [];
     
-    order.items.forEach(item => {
+    calculatedItems.forEach(item => {
       const itemData = [
         item.descripcion,
         item.quantity,
-        `${(item.unitPrice || 0).toFixed(2)} €`,
-        `${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} €`
+        // USAMOS EL PRECIO DE VENTA PRORRATEADO
+        `${(item.unitPriceVenta || 0).toFixed(2)} €`, 
+        `${(item.totalVentaItem || 0).toFixed(2)} €` // USAMOS EL TOTAL DE VENTA CALCULADO
       ];
       tableRows.push(itemData);
     });
+    // ----------------------------------------------------
 
     autoTable(doc, {
       head: [tableColumn],
@@ -94,6 +130,7 @@ export async function GET(request, { params: paramsPromise }) {
 
     const finalY = doc.lastAutoTable.finalY;
     doc.setFontSize(10);
+    // FIX: Usamos order.subtotal, order.tax y order.total que ya contienen los valores FINALES DE VENTA GUARDADOS.
     doc.text(`Subtotal:`, 145, finalY + 10);
     doc.text(`${(order.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
 

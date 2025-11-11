@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db'; 
 import { v4 as uuidv4 } from 'uuid';
+// Se mantiene la importación de calculateTotalsBackend por si se usa en otra lógica, aunque se elimina su uso en POST.
 import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
 /**
@@ -58,14 +59,15 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { clienteId, items, notes, estado } = data; // Totales se recalculan aquí
+    // FIX: Recibimos los totales ya calculados (subtotal, tax, total) y el marginId
+    const { clienteId, items, notes, estado, marginId, subtotal, tax, total } = data; 
 
     if (!clienteId || !items || items.length === 0) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
     }
 
     const newQuoteNumber = await getNextPresupuestoNumber();
-    const recalculatedTotals = await calculateTotalsBackend(items);
+    // FIX: Eliminada la llamada a calculateTotalsBackend para usar los valores del cliente.
 
     const newQuote = await db.presupuesto.create({
       data: {
@@ -73,11 +75,16 @@ export async function POST(request) {
         numero: newQuoteNumber,
         fechaCreacion: new Date().toISOString(),
         estado: estado || 'Borrador',
-        clienteId: clienteId,
+        
+        // FIX: Usamos connect para el cliente
+        cliente: { connect: { id: clienteId } },
+        marginId: marginId, // FIX: Guardar el ID del margen
+        
         notas: notes,
-        subtotal: recalculatedTotals.subtotal,
-        tax: recalculatedTotals.tax,
-        total: recalculatedTotals.total,
+        subtotal: subtotal, // FIX: Usar Subtotal de Venta (con margen/gasto)
+        tax: tax,           // FIX: Usar IVA calculado
+        total: total,       // FIX: Usar Total calculado
+        
         items: {
           create: items.map(item => ({
             description: item.description,

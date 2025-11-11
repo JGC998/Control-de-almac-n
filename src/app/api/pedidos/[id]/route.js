@@ -29,21 +29,29 @@ export async function PUT(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise; 
     const data = await request.json();
-    const { items, ...updatedOrderData } = data;
+    const { items, ...rest } = data; // 'rest' contiene todos los campos, incluyendo objetos de relación
+
+    // 1. CREAR OBJETO DE ACTUALIZACIÓN LIMPIO (Solo campos escalares/claves foráneas)
+    const updateData = {
+        // Campos escalares y claves foráneas permitidas por el modelo Pedido
+        numero: rest.numero,
+        fechaCreacion: rest.fechaCreacion,
+        estado: rest.estado,
+        notas: rest.notas,
+        subtotal: rest.subtotal, 
+        tax: rest.tax,
+        total: rest.total,
+        clienteId: rest.clienteId,
+        presupuestoId: rest.presupuestoId,
+        marginId: rest.marginId,
+    };
 
     const transaction = await db.$transaction(async (tx) => {
-      // Recalcular totales con el IVA actual antes de guardar
-      const recalculatedTotals = await calculateTotalsBackend(items, tx);
 
       // 1. Actualizar datos principales del pedido
       const updatedOrder = await tx.pedido.update({
         where: { id: id },
-        data: {
-          ...updatedOrderData,
-          subtotal: recalculatedTotals.subtotal,
-          tax: recalculatedTotals.tax,
-          total: recalculatedTotals.total,
-        },
+        data: updateData, // Usamos los datos limpios y confiamos en los totales de venta del cliente
       });
 
       // 2. Eliminar todos los items antiguos
@@ -55,11 +63,12 @@ export async function PUT(request, { params: paramsPromise }) {
       if (items && items.length > 0) {
         await tx.pedidoItem.createMany({
           data: items.map(item => ({
-            descripcion: item.description,
+            // FIX CRÍTICO: Usar item.descripcion (el nombre de campo de la BD)
+            descripcion: item.descripcion, 
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             pesoUnitario: item.pesoUnitario || 0,
-            productoId: item.productId,
+            productoId: item.productoId,
             pedidoId: id,
           })),
         });
@@ -74,7 +83,7 @@ export async function PUT(request, { params: paramsPromise }) {
     if (error.code === 'P2025') {
       return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     }
-    return NextResponse.json({ message: 'Error interno al actualizar los datos' }, { status: 500 });
+    return NextResponse.json({ message: 'Error al actualizar el pedido: Asegúrese de que todos los campos son válidos.' }, { status: 500 });
   }
 }
 

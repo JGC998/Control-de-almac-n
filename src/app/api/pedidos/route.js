@@ -55,7 +55,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { clienteId, items, notas, subtotal, tax, total, estado } = data;
+    const { clienteId, items, notas, subtotal, tax, total, estado, marginId } = data;
 
     if (!clienteId || !items || items.length === 0) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
@@ -69,11 +69,12 @@ export async function POST(request) {
         numero: newOrderNumber,
         fechaCreacion: new Date().toISOString(),
         estado: estado || 'Pendiente',
-        clienteId: clienteId,
+        cliente: { connect: { id: clienteId } },
         notas: notas,
         subtotal: subtotal,
         tax: tax,
         total: total,
+        marginId: marginId,
         items: {
           create: items.map(item => ({
             descripcion: item.description,

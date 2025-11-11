@@ -1,3 +1,4 @@
+// src/components/ClientOrderForm.js
 "use client";
 // (Paso 4) Eliminamos useRef, ya no es necesario para el debounce
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -18,12 +19,13 @@ const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function ClientOrderForm({ initialData = null, formType = "PRESUPUESTO" }) {
   const router = useRouter();
-  const isQuote = formType === "PRESUPUESTO"; 
+  // FIX: Consideramos el formulario de Pedido (que ahora requiere margen) y Presupuesto como 'tipo-margen'
+  const isMarginRequired = formType === "PRESUPUESTO" || formType === "PEDIDO"; 
 
   // --- ESTADOS (Paso 1) ---
   const [clienteId, setClienteId] = useState(initialData?.clienteId || ''); 
   const [clienteBusqueda, setClienteBusqueda] = useState(initialData?.cliente?.nombre || ''); 
-  const [selectedMarginId, setSelectedMarginId] = useState(''); // Se mantiene, pero la UI se mueve
+  const [selectedMarginId, setSelectedMarginId] = useState(initialData?.marginId || ''); // Incluimos initialData
   const [modalState, setModalState] = useState(null); 
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false); // Carga para Submit
@@ -37,7 +39,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
 
   // --- CARGA DE DATOS (SWR) ---
   const { data: clientes, error: clientesError, isLoading: isLoadingClientes } = useSWR('/api/clientes', fetcher);
-  const { data: margenes, error: margenesError } = useSWR(isQuote ? '/api/pricing/margenes' : null, fetcher);
+  // FIX: Cargamos márgenes siempre que se requiera margen
+  const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null, fetcher);
   const { data: todosProductos, error: prodError } = useSWR('/api/productos', fetcher);
   const { data: config } = useSWR('/api/config', fetcher);
 
@@ -214,8 +217,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     let subtotalConMargen = subtotalBase;
     let margenAplicado = { multiplicador: 1, gastoFijo: 0 };
     
-    // 2. Aplicar margen (solo para presupuestos y si hay uno seleccionado)
-    if (isQuote && selectedMarginId && margenes) {
+    // 2. Aplicar margen (solo si se requiere margen y hay uno seleccionado)
+    if (isMarginRequired && selectedMarginId && margenes) {
         const regla = margenes.find(m => m.id === selectedMarginId);
         if (regla) {
             const multiplicador = regla.multiplicador || 1;
@@ -239,7 +242,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         ivaRate,
         margenAplicado // Devolvemos el margen para mostrarlo en la UI
     };
-  }, [items, config, selectedMarginId, margenes, isQuote]);
+  }, [items, config, selectedMarginId, margenes, isMarginRequired]);
   // --- FIN LÓGICA DE TOTALES ---
 
 
@@ -255,8 +258,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           setIsLoading(false);
           return;
       }
-      // (Paso 4) La validación de margen solo aplica si es Presupuesto
-      if (isQuote && !selectedMarginId) {
+      // FIX: La validación de margen aplica si es un tipo de documento que lo requiere
+      if (isMarginRequired && !selectedMarginId) {
           setError('Debe seleccionar una Regla de Margen/Tier.');
           setIsLoading(false);
           return;
@@ -270,26 +273,27 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       // Preparar datos finales (usando los totales calculados por useMemo)
       const dataPayload = {
           clienteId,
-          formType,
+          // FIX: El formType debe ser 'PRESUPUESTO' o 'PEDIDO'
+          formType: formType, 
           items: items.map(item => ({
               description: item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice, // Enviar el precio base (costo)
               productId: item.productId,
           })),
-          // (Paso 4) Enviamos los totales finales calculados CON margen
+          // FIX: Enviamos los totales finales calculados CON margen
           subtotal: subtotalConMargen,
           tax: tax,
           total: total,
           notas: notes,
       };
 
-      // Si es Presupuesto, añadir el ID del margen para que el backend lo use (si es necesario)
-      if (isQuote) {
+      // FIX: Enviamos el ID del margen si se seleccionó
+      if (selectedMarginId) {
           dataPayload.marginId = selectedMarginId;
       }
 
-      const endpoint = isQuote ? '/api/presupuestos' : '/api/pedidos';
+      const endpoint = formType === 'PRESUPUESTO' ? '/api/presupuestos' : '/api/pedidos';
       
       // (Paso 4) Habilitamos el envío real
       try {
@@ -307,7 +311,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           const savedData = await res.json();
           
           // Redirigir a la página de detalle
-          const redirectUrl = isQuote ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`;
+          const redirectUrl = formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`;
           router.push(redirectUrl);
 
       } catch (err) {
@@ -375,7 +379,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                 )}
             </div>
             
-            {/* (Paso 4) EL SELECTOR DE MARGEN FUE ELIMINADO DE AQUÍ */}
           </div>
         </div>
       </div>
@@ -473,7 +476,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
             </table>
           </div>
             
-            {/* (Paso 4) Botón de Recálculo Manual y Feedback de Carga ELIMINADOS */}
             
         </div>
       </div>
@@ -498,16 +500,16 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           <div className="card-body">
             <h2 className="card-title">Resumen del Total</h2>
             
-            {/* (Paso 4) Selector de Margen MOVIDO AQUÍ (Solo para Presupuestos) */}
-            {isQuote && (
+            {/* FIX: Selector de Margen MOVIDO AQUÍ (Activado para PEDIDO y PRESUPUESTO) */}
+            {isMarginRequired && (
                 <div className="form-control w-full mb-4">
-                    <label className="label"><span className="label-text font-bold">Regla de Margen / Tier (Requerido)</span></label>
+                    <label className="label"><span className="label-text font-bold">Regla de Margen / Tier ({isMarginRequired ? 'Requerido' : 'Opcional'})</span></label>
                     <select 
                         className="select select-bordered w-full" 
                         value={selectedMarginId} 
                         onChange={(e) => handleMarginChange(e.target.value)} 
                         disabled={!margenes}
-                        required
+                        required={isMarginRequired}
                     >
                         <option value="">Selecciona Margen</option>
                         {margenesError && <option disabled>Error al cargar márgenes</option>}
@@ -531,13 +533,13 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                 <span>{subtotalBase.toFixed(2)} €</span>
               </div>
               
-              {isQuote && margenAplicado.multiplicador !== 1 && (
+              {isMarginRequired && margenAplicado.multiplicador !== 1 && (
                   <div className="flex justify-between text-accent">
                     <span>Margen (x{margenAplicado.multiplicador.toFixed(2)})</span> 
                     <span>+ {(subtotalBase * (margenAplicado.multiplicador - 1)).toFixed(2)} €</span>
                   </div>
               )}
-              {isQuote && margenAplicado.gastoFijo > 0 && (
+              {isMarginRequired && margenAplicado.gastoFijo > 0 && (
                   <div className="flex justify-between text-accent">
                     <span>Gasto Fijo</span> 
                     <span>+ {margenAplicado.gastoFijo.toFixed(2)} €</span>
@@ -571,8 +573,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
 
       <div className="flex justify-end gap-4 mt-6">
         <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
-        {/* (Paso 4) Deshabilitar si no hay cliente, o si es presupuesto y no hay margen */}
-        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || (isQuote && !selectedMarginId)}>
+        {/* FIX: La validación del botón ahora usa isMarginRequired */}
+        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || (isMarginRequired && !selectedMarginId)}>
           <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : "Guardar Documento"}
         </button>
       </div>

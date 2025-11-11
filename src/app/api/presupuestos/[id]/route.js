@@ -33,16 +33,12 @@ export async function PUT(request, { params: paramsPromise }) {
 
     const transaction = await db.$transaction(async (tx) => {
       // Recalcular totales con el IVA actual antes de guardar
-      const recalculatedTotals = await calculateTotalsBackend(items, tx);
       
       // 1. Actualizar datos principales del presupuesto
       const updatedQuote = await tx.presupuesto.update({
         where: { id: id },
         data: {
           ...updatedQuoteData,
-          subtotal: recalculatedTotals.subtotal,
-          tax: recalculatedTotals.tax,
-          total: recalculatedTotals.total,
         },
       });
 

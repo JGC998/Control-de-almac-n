@@ -51,9 +51,9 @@ export async function POST(request) {
         throw new Error('Este presupuesto ya ha sido aceptado y convertido en pedido');
       }
 
-      // 2. Generar un nuevo número de pedido y RECALCULAR TOTALES
+      // 2. Generar un nuevo número de pedido.
       const newOrderNumber = await getNextPedidoNumber(tx);
-      const recalculatedTotals = await calculateTotalsBackend(quote.items, tx);
+      // Eliminamos la llamada a calculateTotalsBackend y usamos los totales almacenados en el quote (ya correctos)
 
       // 3. Crear el nuevo pedido copiando los datos
       const createdPedido = await tx.pedido.create({
@@ -62,12 +62,20 @@ export async function POST(request) {
           numero: newOrderNumber,
           fechaCreacion: new Date().toISOString(),
           estado: 'Pendiente', // Estado inicial del pedido
-          clienteId: quote.clienteId,
+          
+          // FIX #1: Usar connect para la relación cliente
+          cliente: { connect: { id: quote.clienteId } },
+          
           notas: quote.notas,
-          subtotal: recalculatedTotals.subtotal,
-          tax: recalculatedTotals.tax,
-          total: recalculatedTotals.total,
-          presupuestoId: quote.id, // Enlazamos al presupuesto
+          // FIX #2: Usar los totales almacenados del quote (Subtotal de Venta correcto)
+          subtotal: quote.subtotal,
+          tax: quote.tax,
+          total: quote.total,
+          
+          // FIX #3: Usar connect para la relación presupuesto (Soluciona el error P1012)
+          presupuesto: { connect: { id: quote.id } },
+          marginId: quote.marginId, // Copiamos el ID del margen
+          
           items: {
             create: quote.items.map(item => ({
               descripcion: item.description,

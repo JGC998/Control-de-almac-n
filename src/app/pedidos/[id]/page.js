@@ -3,9 +3,138 @@ import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, Truck, FileText } from 'lucide-react';
+// Importamos CheckCircle
+import { ArrowLeft, Edit, Trash2, Download, Truck, FileText, DollarSign, CheckCircle } from 'lucide-react'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
+
+// Componente para manejar el desglose del total y los cálculos por item.
+const PedidoTotalsAndItems = ({ order, margenes, config }) => {
+    const ivaRate = config?.iva_rate || 0.21;
+    const marginRule = margenes?.find(m => m.id === order.marginId);
+
+    // 1. Calcular el Costo Base Total de todos los ítems.
+    const subtotalCostoBase = (order.items || []).reduce((acc, item) => 
+        // item.unitPrice en Pedido/Presupuesto contiene el COSTO BASE (materia prima por pieza).
+        acc + ((item.quantity || 0) * (item.unitPrice || 0))
+    , 0);
+
+    // 2. Obtener la regla de margen y gastos fijos.
+    const multiplicador = marginRule?.multiplicador || 1;
+    const gastoFijoTotal = marginRule?.gastoFijo || 0;
+    
+    // 3. Calcular los totales de Venta (al igual que en el Presupuesto).
+    const margenNeto = (subtotalCostoBase * (multiplicador - 1)) || 0;
+    const subtotalVentaFinal = subtotalCostoBase + margenNeto + gastoFijoTotal;
+    const taxFinal = subtotalVentaFinal * ivaRate;
+    const totalFinal = subtotalVentaFinal + taxFinal;
+
+    // --- CÁLCULO DEL PRECIO UNITARIO DE VENTA POR ITEM ---
+    const calculatedItems = (order.items || []).map(item => {
+        const costoUnitario = item.unitPrice || 0;
+        const cantidad = item.quantity || 1;
+
+        // 3a. Calcular la parte del margen sobre el costo unitario
+        const margenUnitario = (costoUnitario * (multiplicador - 1));
+        
+        // 3b. Prorratear el Gasto Fijo total entre TODAS las unidades del pedido
+        const totalQuantity = (order.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+        const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
+        
+        // 3c. Precio Unitario de Venta
+        const precioUnitarioVenta = costoUnitario + margenUnitario + gastoFijoUnitarioProrrateado;
+
+        return {
+            ...item,
+            // Valores de Coste (Guardados como Precio Unit. en BD)
+            costoUnitario: costoUnitario,
+            totalCostoItem: costoUnitario * cantidad,
+            // Valores de Venta Calculados
+            precioUnitarioVenta: precioUnitarioVenta,
+            totalVentaItem: precioUnitarioVenta * cantidad,
+        };
+    });
+    // --------------------------------------------------
+
+    return (
+        <div className="flex justify-between gap-6">
+            {/* Columna de ítems */}
+            <div className="flex-1 overflow-x-auto">
+                <table className="table w-full">
+                    <thead>
+                        {/* AÑADIDO: Columnas de Costo (Uso Interno) */}
+                        <tr>
+                            <th>Descripción</th>
+                            <th>Cantidad</th>
+                            <th>P. Unit. (Costo)</th>
+                            <th>Total (Costo)</th>
+                            <th className="font-bold text-success">P. Unit. (Venta)</th> 
+                            <th className="font-bold text-success text-right">Total (Venta)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {calculatedItems.map((item, index) => (
+                            <tr key={index}>
+                                <td className="font-medium">{item.descripcion}</td>
+                                <td>{item.quantity}</td>
+                                {/* MOSTRANDO COSTO (Sin Margen) */}
+                                <td>{item.costoUnitario.toFixed(2)} €</td>
+                                <td>{item.totalCostoItem.toFixed(2)} €</td>
+                                {/* MOSTRANDO VENTA (Con Margen) */}
+                                <td className="font-bold text-success">{item.precioUnitarioVenta.toFixed(2)} €</td>
+                                <td className="font-bold text-success text-right">{item.totalVentaItem.toFixed(2)} €</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Columna de Totales (Desglose) */}
+            <div className="w-full max-w-xs space-y-2">
+                <div className="divider">Desglose de Costes</div>
+                
+                <div className="flex justify-between">
+                    <span>Subtotal (Costo Base)</span> 
+                    <span>{subtotalCostoBase.toFixed(2)} €</span>
+                </div>
+                
+                {multiplicador > 1 && (
+                    <div className="flex justify-between text-accent font-medium">
+                        <span>Margen (x{multiplicador.toFixed(2)})</span>
+                        <span>+ {margenNeto.toFixed(2)} €</span>
+                    </div>
+                )}
+                
+                {gastoFijoTotal > 0 && (
+                    <div className="flex justify-between text-accent font-medium">
+                        <span>Gasto Fijo</span>
+                        <span>+ {gastoFijoTotal.toFixed(2)} €</span>
+                    </div>
+                )}
+
+                <div className="divider my-1"></div>
+                
+                <div className="flex justify-between font-semibold">
+                    <span>Subtotal (Venta)</span> 
+                    <span>{subtotalVentaFinal.toFixed(2)} €</span>
+                </div>
+                
+                <div className="flex justify-between">
+                    <span>IVA ({((ivaRate || 0.21) * 100).toFixed(0)}%)</span> 
+                    <span>{taxFinal.toFixed(2)} €</span>
+                </div>
+                
+                <div className="divider my-1"></div>
+                
+                <div className="flex justify-between font-bold text-xl text-primary">
+                    <span>TOTAL</span> 
+                    <span>{totalFinal.toFixed(2)} €</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 export default function PedidoDetalle() {
   const router = useRouter();
@@ -14,7 +143,11 @@ export default function PedidoDetalle() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState(null);
 
-  const { data: order, error: orderError, isLoading } = useSWR(id ? `/api/pedidos/${id}` : null, fetcher);
+  // Cargamos el pedido y la información necesaria para el cálculo
+  const { data: order, error: orderError, isLoading: orderLoading } = useSWR(id ? `/api/pedidos/${id}` : null, fetcher);
+  const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes', fetcher);
+  const { data: config, isLoading: configLoading } = useSWR('/api/config', fetcher);
+
 
   const handleDelete = async () => {
     if (confirm('¿Estás seguro de que quieres eliminar este pedido?')) {
@@ -54,10 +187,20 @@ export default function PedidoDetalle() {
   
   const handleUpdateStatus = async (newStatus) => {
      try {
+        // Obtenemos los totales correctos para la actualización
+        const { subtotal, tax, total } = order;
+        
         const res = await fetch(`/api/pedidos/${id}`, { 
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...order, estado: newStatus }) // Envía todo el pedido con el nuevo estado
+            // Enviamos el pedido con los ítems y el nuevo estado
+            body: JSON.stringify({ 
+                ...order, 
+                estado: newStatus,
+                items: order.items,
+                // Incluimos los totales originales de BD, la lógica de recalculo solo es visual
+                subtotal, tax, total 
+            }) 
         });
         if (!res.ok) {
           const errData = await res.json();
@@ -70,13 +213,16 @@ export default function PedidoDetalle() {
       }
   };
 
+  const isLoading = orderLoading || margenesLoading || configLoading;
+
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (orderError || !order) {
       if (orderError?.status === 404) return notFound();
       return <div className="text-red-500 text-center">Error al cargar el pedido.</div>;
   }
 
-  const { subtotal, tax, total } = order;
+  const margenAplicado = margenes?.find(m => m.id === order.marginId);
+
 
   return (
     <div className="container mx-auto p-4">
@@ -95,6 +241,12 @@ export default function PedidoDetalle() {
             <Link href={`/presupuestos/${order.presupuestoId}`} className="btn btn-outline btn-accent">
                 <FileText className="w-4 h-4" /> Ver Presupuesto
             </Link>
+        )}
+        {/* AÑADIDO: Botón principal de Completado */}
+        {order.estado !== 'Completado' && (
+            <button onClick={() => handleUpdateStatus('Completado')} className="btn btn-success">
+                <CheckCircle className="w-4 h-4" /> Marcar como Completado
+            </button>
         )}
         <button onClick={handleDelete} className="btn btn-outline btn-error" disabled={isDeleting}>
           {isDeleting ? <span className="loading loading-spinner loading-xs"></span> : <Trash2 className="w-4 h-4" />}
@@ -119,6 +271,13 @@ export default function PedidoDetalle() {
                     <li><a onClick={() => handleUpdateStatus('Completado')}>Completado</a></li>
                 </ul>
             </div>
+            {/* Información del Margen Aplicado */}
+            {margenAplicado && (
+                <div className="flex items-center mt-2 text-sm text-accent">
+                    <DollarSign className="w-4 h-4 mr-1" />
+                    Margen Aplicado: <span className="font-semibold ml-1">{margenAplicado.descripcion}</span>
+                </div>
+            )}
           </div>
           <div className="text-right">
             {/* Se mantiene el encadenamiento opcional para evitar TypeError si el cliente es nulo */}
@@ -130,40 +289,8 @@ export default function PedidoDetalle() {
 
         <div className="divider"></div>
 
-        {/* Items */}
-        <div className="overflow-x-auto mt-6">
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>Descripción</th>
-                <th>Cantidad</th>
-                <th>Precio Unit.</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Se mantiene el fallback a [] para evitar TypeError */}
-              {(order.items || []).map((item, index) => (
-                <tr key={index}>
-                  <td className="font-medium">{item.descripcion}</td>
-                  <td>{item.quantity}</td>
-                  <td>{(item.unitPrice || 0).toFixed(2)} €</td>
-                  <td>{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} €</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Totales */}
-        <div className="flex justify-end mt-6">
-          <div className="w-full max-w-xs space-y-2">
-            {/* Se mantiene el fallback a 0 para evitar TypeError */}
-            <div className="flex justify-between"><span>Subtotal</span> <span>{(subtotal || 0).toFixed(2)} €</span></div>
-            <div className="flex justify-between"><span>IVA (21%)</span> <span>{(tax || 0).toFixed(2)} €</span></div>
-            <div className="flex justify-between font-bold text-lg"><span>Total</span> <span>{(total || 0).toFixed(2)} €</span></div>
-          </div>
-        </div>
+        {/* Items y Totales Reconstruidos */}
+        <PedidoTotalsAndItems order={order} margenes={margenes} config={config} />
         
         {order.notes && (
           <div className="mt-6">

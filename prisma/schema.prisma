@@ -84,6 +84,7 @@ model Pedido {
 
   presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id])
   presupuestoId String? @unique
+  marginId String?
 
   items PedidoItem[]
 }
@@ -114,6 +115,7 @@ model Presupuesto {
 
   cliente   Cliente? @relation(fields: [clienteId], references: [id])
   clienteId String?
+  marginId String?
 
   items  PresupuestoItem[]
   pedido Pedido?
