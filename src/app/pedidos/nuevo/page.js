@@ -8,7 +8,6 @@ export default function NuevoPedidoPage() {
         <Package className="mr-2" />
         Crear Nuevo Pedido
       </h1>
-      {/* Pasar formType="PEDIDO" para ocultar la selección de margen */}
       <ClientOrderForm formType="PEDIDO" />
     </div>
   );

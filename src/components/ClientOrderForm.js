@@ -1,121 +1,16 @@
 "use client";
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import useSWR, { mutate } from 'swr';
+// (Paso 4) Eliminamos useRef, ya no es necesario para el debounce
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, Calculator, X, UserPlus, Copy, CheckCircle, XCircle, Package, DollarSign, Search } from 'lucide-react'; 
+// (Paso 4) Eliminamos Calculator, ya no es necesario
+import { 
+    Plus, X, UserPlus, Save, DollarSign, CheckCircle, 
+    Trash2, Copy, Search, Package, XCircle 
+} from 'lucide-react'; 
+import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
-
-// Helper para calcular el precio de un solo item (Lógica centralizada en API)
-const calculatePriceForSingleItem = async (clienteId, item) => {
-    if (!clienteId || !item.productId || (item.quantity || 0) <= 0) {
-        return item.unitPrice; 
-    }
-    
-    try {
-        const res = await fetch('/api/pricing/calculate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                clienteId, 
-                items: [{
-                    productId: item.productId,
-                    quantity: item.quantity,
-                    unitPrice: item.unitPrice,
-                    description: item.description
-                }] 
-            }),
-        });
-
-        if (!res.ok) {
-             console.error("Error calculating price on item selection:", await res.json());
-             return item.unitPrice; 
-        }
-
-        const [calculatedItem] = await res.json();
-        return calculatedItem.unitPrice;
-
-    } catch (error) {
-        console.error('Error en cálculo de precio instantáneo:', error);
-        return item.unitPrice;
-    }
-}
-
-// --- Componente Modal para creación Cliente/Fabricante/Material (omitted for brevity) ---
-const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoint, fields, cacheKey, initialData = {} }) => {
-  const [formData, setFormData] = useState(fields.reduce((acc, field) => ({ ...acc, [field.name]: initialData[field.name] || '' }), {}));
-  const [error, setError] = useState(null);
-
-  // ... (Resto de lógica del Modal omitida, asumiendo que funciona) ...
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const dataToSend = { ...formData };
-      fields.forEach(field => {
-          if (field.type === 'number' || field.type === 'float') {
-              dataToSend[field.name] = parseFloat(formData[field.name]) || 0;
-          }
-      });
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSend),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || `Error al crear ${title}`); 
-      }
-      const newItem = await res.json();
-      mutate(cacheKey);
-      onCreated(newItem); 
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  return (
-    <div className="modal modal-open">
-      <div className="modal-box w-11/12 max-w-lg">
-        <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-lg">Nuevo {title} Rápido</h3>
-            <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="py-4 space-y-4">
-          {fields.map(field => (
-            <div key={field.name} className="form-control">
-                <label className="label"><span className="label-text">{field.placeholder}</span></label>
-                <input 
-                  type={field.type || 'text'} 
-                  step={field.step || 'any'}
-                  name={field.name} 
-                  value={formData[field.name] || ''} 
-                  onChange={handleChange} 
-                  placeholder={field.placeholder} 
-                  className="input input-bordered w-full" 
-                  required={field.required !== false}
-                />
-            </div>
-          ))}
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <div className="modal-action">
-            <button type="button" onClick={onClose} className="btn">Cancelar</button>
-            <button type="submit" className="btn btn-primary">Guardar</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 
 // ------------------------------------------------
 // Componente principal: ClientOrderForm
@@ -125,153 +20,39 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   const router = useRouter();
   const isQuote = formType === "PRESUPUESTO"; 
 
+  // --- ESTADOS (Paso 1) ---
   const [clienteId, setClienteId] = useState(initialData?.clienteId || ''); 
-  const [selectedMarginId, setSelectedMarginId] = useState('');
   const [clienteBusqueda, setClienteBusqueda] = useState(initialData?.cliente?.nombre || ''); 
-  const [items, setItems] = useState(initialData?.items?.map(item => ({...item, id: item.id || Date.now() + Math.random()})) || [{ id: Date.now(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
-  const [notes, setNotes] = useState(initialData?.notes || '');
-  const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  
+  const [selectedMarginId, setSelectedMarginId] = useState(''); // Se mantiene, pero la UI se mueve
   const [modalState, setModalState] = useState(null); 
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false); // Carga para Submit
   
+  // --- ESTADOS (Paso 2) ---
+  const [items, setItems] = useState(initialData?.items?.map(item => ({...item, id: item.id || Date.now() + Math.random()})) || [{ id: Date.now(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
   const [stockStatus, setStockStatus] = useState({}); 
+  const [activeSearchIndex, setActiveSearchIndex] = useState(null); 
+  const [notes, setNotes] = useState(initialData?.notas || '');
   
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [activeItemIndex, setActiveItemIndex] = useState(null); 
 
-  // Carga de datos
-  const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
-  const { data: fabricantes, error: fabError } = useSWR('/api/fabricantes', fetcher);
-  const { data: materiales, error: matError } = useSWR('/api/materiales', fetcher);
-  const { data: todosProductos, error: prodError } = useSWR(isQuote ? '/api/productos' : '/api/plantillas', fetcher); 
+  // --- CARGA DE DATOS (SWR) ---
+  const { data: clientes, error: clientesError, isLoading: isLoadingClientes } = useSWR('/api/clientes', fetcher);
+  const { data: margenes, error: margenesError } = useSWR(isQuote ? '/api/pricing/margenes' : null, fetcher);
+  const { data: todosProductos, error: prodError } = useSWR('/api/productos', fetcher);
   const { data: config } = useSWR('/api/config', fetcher);
-  const { data: margenes, error: margenesError } = useSWR('/api/pricing/margenes', fetcher);
-  
-  const isDataLoading = !clientes || !fabricantes || !materiales || !todosProductos; 
-
-  // Efecto para mapear el margen al cargar (si es edición de presupuesto o pedido existente)
-  useEffect(() => {
-    if (initialData && initialData.clienteId && margenes && clientes) {
-        const clienteActual = clientes.find(c => c.id === initialData.clienteId);
-        if (clienteActual?.tier) {
-            const marginMatch = margenes?.find(m => m.tierCliente === clienteActual.tier);
-            if (marginMatch) {
-                setSelectedMarginId(marginMatch.id);
-            }
-        }
-    }
-  }, [initialData, margenes, clientes]);
-  // FIN Mapeo inicial de margen
-
-  // Recalcular Stock cada vez que los ítems cambian
-  useEffect(() => {
-      items.forEach((item) => {
-        if (item.productId && item.quantity > 0) {
-            checkStockStatus(item, item.id);
-        }
-      });
-  }, [items.map(i => `${i.productId}-${i.quantity}-${i.id}`).join('_'), todosProductos]);
-
-  // --- LÓGICA DE BÚSQUEDA DINÁMICA ---
-  useEffect(() => {
-      if (searchQuery.length < 3 || !todosProductos || activeItemIndex === null) {
-          setSearchResults([]);
-          return;
-      }
-
-      const results = todosProductos.filter(p => 
-          p.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.referenciaFabricante?.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 5); 
-
-      setSearchResults(results);
-  }, [searchQuery, todosProductos, activeItemIndex]);
-
-  // Manejar el cierre de búsqueda al hacer clic fuera del componente
-  useEffect(() => {
-      const handleClickOutside = (event) => {
-          if (activeItemIndex !== null && !event.target.closest('.item-row')) {
-              setActiveItemIndex(null);
-          }
-      };
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-  }, [activeItemIndex]);
 
 
-  // --- LÓGICA DE STOCK (omitted for brevity) ---
-  const checkStockStatus = async (item, key) => {
-      const product = todosProductos?.find(p => p.id === item.productId);
-      if (!product || !product.material?.nombre || product.espesor === undefined || product.espesor === null) {
-          setStockStatus(prev => ({ ...prev, [key]: { status: 'N/A' } }));
-          return;
-      }
+  // --- LÓGICA DE CLIENTE (Simplificada Paso 4) ---
+  const filteredClients = useMemo(() => {
+    if (!clientes || clienteBusqueda.length < 2) return [];
+    return clientes.filter(c => 
+      c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase())
+    ).slice(0, 5);
+  }, [clientes, clienteBusqueda]);
 
-      setStockStatus(prev => ({ ...prev, [key]: { status: 'loading' } }));
-
-      const largo_m = product.largo / 1000;
-      const metrosNecesarios = item.quantity * largo_m;
-      
-      try {
-          const res = await fetch(`/api/stock-info/available-meters?material=${product.material.nombre}&espesor=${product.espesor}`);
-          if (!res.ok) throw new Error('Error al obtener stock');
-          
-          const { totalMetros } = await res.json();
-          
-          const newStatus = { totalMetros };
-
-          if (totalMetros >= metrosNecesarios) {
-              newStatus.status = 'available';
-          } else if (totalMetros > 0) {
-              newStatus.status = 'low';
-          } else {
-              newStatus.status = 'unavailable';
-          }
-          setStockStatus(prev => ({ ...prev, [key]: newStatus }));
-      } catch (err) {
-          setStockStatus(prev => ({ ...prev, [key]: { status: 'error' } }));
-      }
-  };
-
-  const getStockIcon = (item) => { 
-    const stockData = stockStatus[item.id];
-    const product = todosProductos?.find(p => p.id === item.productId);
-
-    if (!product) return <Package className="w-5 h-5 text-gray-500" title="Sin plantilla" />;
-    if (!stockData || stockData.status === 'N/A' || stockData.status === 'error') return <Package className="w-5 h-5 text-gray-500" title="Sin datos de stock" />;
-    
-    const metrosNecesarios = product.largo ? (item.quantity * product.largo / 1000).toFixed(2) : 'N/A';
-    const totalMetros = stockData.totalMetros || 0;
-
-    switch(stockData.status) {
-        case 'available':
-            return <CheckCircle className="w-5 h-5 text-success" title={`Stock suficiente para ${metrosNecesarios}m`} />;
-        case 'low':
-            return <XCircle className="w-5 h-5 text-warning" title={`Stock bajo: ${totalMetros.toFixed(2)}m disp. Necesitas ${metrosNecesarios}m`} />;
-        case 'unavailable':
-            return <XCircle className="w-5 h-5 text-error" title={`Stock agotado. Necesitas ${metrosNecesarios}m`} />;
-        case 'loading':
-            return <span className="loading loading-spinner loading-xs text-primary" />;
-        default:
-            return <Package className="w-5 h-5 text-gray-500" title="Sin datos de stock" />;
-    }
-  };
-  // --- FIN LÓGICA DE STOCK ---
-
-  // --- Handlers de Cliente/Margen (omitted for brevity) ---
-  const filteredClients = clientes?.filter(c => 
-    c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase()) && c.id !== clienteId
-  ).slice(0, 5) || [];
-
-  const handleSelectClient = async (clientId, clientName) => {
+  const handleSelectClient = (clientId, clientName) => {
     setClienteId(clientId);
     setClienteBusqueda(clientName);
-    // Se mantiene la llamada completa para recalcular todos los ítems si ya hay alguno.
-    if (items.length > 0) {
-        await handleRecalculatePrices(clientId, selectedMarginId); 
-    } 
   };
   
   const handleClearClient = () => {
@@ -279,171 +60,22 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     setClienteBusqueda('');
   };
   
-  const handleClienteCreado = async (nuevoCliente) => {
+  const handleClienteCreado = (nuevoCliente) => {
     setClienteId(nuevoCliente.id);
     setClienteBusqueda(nuevoCliente.nombre);
     setModalState(null);
-     if (items.length > 0) {
-        await handleRecalculatePrices(nuevoCliente.id, selectedMarginId);
-    }
   };
-  
-  // MODIFICADO: Llama al recálculo siempre que cambie el margen Y haya un cliente/items.
+
+  // --- LÓGICA DE MARGEN (Simplificada Paso 4) ---
+  const filteredMargenes = margenes?.filter(m => m.base !== 'GENERAL_FALLBACK') || [];
+
   const handleMarginChange = (marginId) => {
+    // (Paso 4) Solo actualiza el estado. El cálculo se hace en useMemo.
     setSelectedMarginId(marginId);
-    if (items.length > 0 && clienteId) {
-        handleRecalculatePrices(clienteId, marginId); // MODIFICADO: Pasa el nuevo ID directamente
-    }
   };
   
-  // --- FUNCIÓN DE RECALCULAR COMPLETA (para el botón manual y cambio de cliente/margen) ---
-  const handleRecalculatePrices = useCallback(async (targetClienteId = clienteId, targetMarginId = selectedMarginId) => {
-    
-    // Si no hay margen seleccionado, NO se calcula el margen/descuento.
-    if (!targetMarginId || items.length === 0) {
-        return;
-    }
-    
-    let tempClienteId = targetClienteId; 
-    
-    if (!tempClienteId) {
-        tempClienteId = initialData?.clienteId || 'temp-id'; 
-    }
-
-    setIsLoading(true);
-    setError(null);
-    try {
-      const itemsToCalculate = items
-                                .filter(item => (item.quantity || 0) > 0)
-                                .map(item => ({
-                                  productId: item.productId,
-                                  quantity: item.quantity,
-                                  unitPrice: item.unitPrice,
-                                  description: item.description,
-                                  selectedMarginId: targetMarginId, // USA targetMarginId
-                                }));
-                                
-      if (itemsToCalculate.length === 0) {
-        setIsLoading(false);
-        return;
-      }
-
-      const res = await fetch('/api/pricing/calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            clienteId: tempClienteId, 
-            items: itemsToCalculate,
-            selectedMarginId: targetMarginId // USA targetMarginId
-        }),
-      });
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Error al recalcular precios");
-      }
-      
-      const calculatedItems = await res.json();
-      
-      const updatedItems = items.map(item => {
-        // Match por descripción es más seguro si hay items manuales.
-        const matchedItem = calculatedItems.find(calcItem => calcItem.description === item.description);
-        if (matchedItem) {
-            // Solo actualizamos el precio, mantenemos todo lo demás
-            return { ...item, unitPrice: matchedItem.unitPrice };
-        }
-        return item;
-      });
-
-      setItems(updatedItems);
-      setError(null);
-      
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [items, clienteId, selectedMarginId, initialData]);
-  // --- FIN FUNCIÓN DE RECALCULAR COMPLETA ---
-
-
-  const handleItemChange = async (index, field, value) => {
-    // Es crucial crear una copia profunda del array para la inmutabilidad de React
-    const newItems = items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
-    const item = newItems[index];
-    
-    // Si cambia la descripción, se borra el ID del producto y se activa la búsqueda
-    if (field === 'description') {
-        item.productId = null; 
-        setSearchQuery(value); 
-        setActiveItemIndex(index);
-    } 
-    
-    setItems(newItems);
-  };
+  // --- LÓGICA DE ITEMS (Simplificada Paso 4) ---
   
-  // Nueva función para seleccionar un producto del buscador (MODIFICADA)
-  const handleSelectProduct = async (product, index) => {
-      // 1. Crear un objeto temporal con el producto base seleccionado y la cantidad actual
-      const tempItem = {
-          description: product.nombre,
-          productId: product.id,
-          // El unitPrice es el costo base del producto antes de aplicar reglas
-          unitPrice: parseFloat(product.precioUnitario.toFixed(2)), 
-          quantity: items[index].quantity || 1, // Mantener la cantidad actual
-      };
-      
-      let calculatedPrice = tempItem.unitPrice;
-      
-      const tempClienteId = clienteId || initialData?.clienteId || 'temp-id'; 
-      
-      // Solo se calcula el precio si hay un cliente y un margen seleccionado.
-      if (tempClienteId && selectedMarginId) {
-          setIsLoading(true); 
-          try {
-              // Llamamos a la API con la información de un solo item
-              const res = await fetch('/api/pricing/calculate', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                      clienteId: tempClienteId, 
-                      items: [tempItem], // Solo calculamos este item
-                      selectedMarginId: selectedMarginId // CLAVE: Pasar el margen al backend
-                  }),
-              });
-
-              if (res.ok) {
-                  const [calculatedItem] = await res.json();
-                  calculatedPrice = calculatedItem.unitPrice; // Precio con margen/descuento
-              }
-          } catch (e) {
-              console.error("Error during instant price calculation:", e);
-          } finally {
-              setIsLoading(false);
-          }
-      }
-
-      // 3. Crear el nuevo array de items con el precio final calculado
-      const newItems = items.map((item, i) => {
-          if (i === index) {
-              return { 
-                  ...item, 
-                  description: tempItem.description,
-                  productId: tempItem.productId,
-                  unitPrice: calculatedPrice, // Usar el precio FINAL calculado
-                  id: item.id // MUY IMPORTANTE: MANTENER EL ID ORIGINAL
-              };
-          }
-          return item;
-      });
-      
-      // 4. Actualizar el estado en un solo paso
-      setItems(newItems);
-      setSearchQuery(''); 
-      setActiveItemIndex(null); 
-  };
-
-
   const addItem = () => {
     setItems(prev => [...prev, { id: Date.now() + Math.random(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
   };
@@ -451,266 +83,386 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   const removeItem = (itemId) => {
     const newItems = items.filter(item => item.id !== itemId);
     setItems(newItems);
+    setStockStatus(prev => { 
+        const { [itemId]: removed, ...rest } = prev;
+        return rest;
+    });
   };
 
-  // --- FUNCIONALIDAD: Duplicar Fila ---
   const handleDuplicateItem = (itemId) => {
     const itemToDuplicate = items.find(item => item.id === itemId);
-    const duplicatedItem = { 
-        ...itemToDuplicate, 
-        id: Date.now() + Math.random() // Nuevo ID único para duplicado
-    };
+    const duplicatedItem = { ...itemToDuplicate, id: Date.now() + Math.random() };
     const index = items.findIndex(item => item.id === itemId);
     const newItems = [...items.slice(0, index + 1), duplicatedItem, ...items.slice(index + 1)];
     setItems(newItems);
   };
-  // --- FIN NUEVA FUNCIONALIDAD ---
   
-  // RESTAURACIÓN DE LA FUNCIÓN calculateTotals
-  const calculateTotals = useCallback(() => {
-    const subtotal = items.reduce((acc, item) => 
+  // (Paso 4) Manejar cambio en inputs (Simplificado)
+  const handleItemChange = (index, field, value) => {
+    const newItems = items.map((item, i) => (i === index ? { ...item } : item));
+    const item = newItems[index];
+    
+    if (field === 'unitPrice') {
+        item.unitPrice = parseFloat(parseFloat(value).toFixed(2)) || 0;
+    } else { // 'quantity'
+        item[field] = parseFloat(value) || 0;
+    }
+    
+    setItems(newItems);
+    
+    // (Paso 2) Recalcular stock si cambia la cantidad
+    if (field === 'quantity' && item.productId) {
+        checkStockStatus(item, item.id);
+    }
+  };
+  
+  // --- LÓGICA DE BÚSQUEDA DE PRODUCTOS (Simplificada Paso 4) ---
+  
+  const handleSearchChange = (value, index) => {
+      const newItems = items.map((item, i) => (i === index ? { ...item, description: value, productId: null } : item));
+      setItems(newItems);
+      setActiveSearchIndex(value.length >= 2 ? index : null); 
+  };
+  
+  const searchResults = useMemo(() => {
+      if (activeSearchIndex === null) return [];
+      const query = items[activeSearchIndex]?.description || '';
+      if (query.length < 2 || !todosProductos) return [];
+
+      return todosProductos.filter(p => 
+          p.nombre.toLowerCase().includes(query.toLowerCase()) ||
+          p.referenciaFabricante?.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 5) || [];
+  }, [items, todosProductos, activeSearchIndex]);
+  
+  // (Paso 4) Manejar la selección de un producto (Simplificado)
+  const handleSelectProduct = (product, index) => {
+      const newItems = items.map((item, i) => (i === index ? { ...item } : item));
+      const item = newItems[index];
+      
+      item.description = product.nombre;
+      item.productId = product.id;
+      // (Paso 4) El precio unitario es AHORA el costo base del producto
+      item.unitPrice = parseFloat(product.precioUnitario.toFixed(2)); 
+      item.id = Date.now() + Math.random(); 
+      
+      setItems(newItems);
+      setActiveSearchIndex(null); 
+      checkStockStatus(item, item.id);
+  };
+
+  // --- LÓGICA DE STOCK (Paso 2 - Sin cambios) ---
+  const checkStockStatus = useCallback(async (item, key) => {
+      if (!todosProductos) return; 
+      
+      const product = todosProductos.find(p => p.id === item.productId);
+      if (!product || !product.material?.nombre || product.espesor === undefined || product.espesor === null || !product.largo) {
+          setStockStatus(prev => ({ ...prev, [key]: { status: 'N/A' } }));
+          return;
+      }
+
+      setStockStatus(prev => ({ ...prev, [key]: { status: 'loading' } }));
+      const largo_m = product.largo / 1000; 
+      const metrosNecesarios = item.quantity * largo_m;
+      
+      try {
+          const res = await fetch(`/api/stock-info/available-meters?material=${product.material.nombre}&espesor=${product.espesor}`);
+          if (!res.ok) throw new Error('Error al obtener stock');
+          const { totalMetros } = await res.json();
+          const newStatus = { totalMetros };
+
+          if (totalMetros >= metrosNecesarios) newStatus.status = 'available';
+          else if (totalMetros > 0) newStatus.status = 'low';
+          else newStatus.status = 'unavailable';
+          
+          setStockStatus(prev => ({ ...prev, [key]: newStatus }));
+      } catch (err) {
+          console.error(err);
+          setStockStatus(prev => ({ ...prev, [key]: { status: 'error' } }));
+      }
+  }, [todosProductos]);
+
+  const getStockIcon = (item) => { 
+    const stockData = stockStatus[item.id];
+    const product = todosProductos?.find(p => p.id === item.productId);
+
+    if (!product) return <Package className="w-5 h-5 text-gray-400" title="Item manual (sin plantilla)" />;
+    if (!stockData || stockData.status === 'N/A' || stockData.status === 'error') return <Package className="w-5 h-5 text-gray-500" title="Sin datos de stock" />;
+    
+    const largo_m = product.largo ? product.largo / 1000 : 0;
+    const metrosNecesarios = (item.quantity * largo_m).toFixed(2);
+    const totalMetros = (stockData.totalMetros || 0).toFixed(2);
+
+    switch(stockData.status) {
+        case 'available': return <CheckCircle className="w-5 h-5 text-success" title={`Stock OK: ${totalMetros}m disp. (${metrosNecesarios}m nec.)`} />;
+        case 'low': return <XCircle className="w-5 h-5 text-warning" title={`Stock BAJO: ${totalMetros}m disp. (${metrosNecesarios}m nec.)`} />;
+        case 'unavailable': return <XCircle className="w-5 h-5 text-error" title={`SIN Stock: ${totalMetros}m disp. (${metrosNecesarios}m nec.)`} />;
+        case 'loading': return <span className="loading loading-spinner loading-xs text-primary" title="Comprobando stock..." />;
+        default: return <Package className="w-5 h-5 text-gray-500" title="Datos de stock no disponibles" />;
+    }
+  };
+  
+  // --- LÓGICA DE TOTALES (PASO 4: RECONSTRUIDA) ---
+  const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado } = useMemo(() => {
+    // 1. Calcular el subtotal base (costo)
+    const subtotalBase = items.reduce((acc, item) => 
         acc + ((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0))
     , 0);
     
     const ivaRate = config?.iva_rate ? parseFloat(config.iva_rate) : 0.21;
-    const tax = subtotal * ivaRate;
-    const total = subtotal + tax;
+    
+    let subtotalConMargen = subtotalBase;
+    let margenAplicado = { multiplicador: 1, gastoFijo: 0 };
+    
+    // 2. Aplicar margen (solo para presupuestos y si hay uno seleccionado)
+    if (isQuote && selectedMarginId && margenes) {
+        const regla = margenes.find(m => m.id === selectedMarginId);
+        if (regla) {
+            const multiplicador = regla.multiplicador || 1;
+            const gastoFijo = regla.gastoFijo || 0;
+            
+            // Fórmula: (Subtotal * Multiplicador) + Gasto Fijo
+            subtotalConMargen = (subtotalBase * multiplicador) + gastoFijo;
+            margenAplicado = { multiplicador, gastoFijo };
+        }
+    }
+    
+    // 3. Calcular IVA y Total sobre el subtotal CON margen
+    const tax = subtotalConMargen * ivaRate;
+    const total = subtotalConMargen + tax;
     
     return { 
-        subtotal: parseFloat(subtotal.toFixed(2)), 
+        subtotalBase: parseFloat(subtotalBase.toFixed(2)), 
+        subtotalConMargen: parseFloat(subtotalConMargen.toFixed(2)),
         tax: parseFloat(tax.toFixed(2)), 
         total: parseFloat(total.toFixed(2)), 
-        ivaRate 
+        ivaRate,
+        margenAplicado // Devolvemos el margen para mostrarlo en la UI
     };
-  }, [items, config]);
+  }, [items, config, selectedMarginId, margenes, isQuote]);
+  // --- FIN LÓGICA DE TOTALES ---
 
-  const { subtotal, tax, total, ivaRate } = calculateTotals();
 
+  // --- LÓGICA DE ENVÍO (Actualizada Paso 4) ---
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+      e.preventDefault();
+      setIsLoading(true);
+      setError(null);
 
-    const { subtotal: finalSubtotal, tax: finalTax, total: finalTotal } = calculateTotals();
-    
-    if (!clienteId) {
-        setError('Debe seleccionar un cliente.');
-        setIsLoading(false);
-        return;
-    }
-    
-    // Ahora, el margen se requiere siempre (tanto en Presupuesto como en Pedido)
-    if (!selectedMarginId) { 
-         setError('Debe seleccionar una Regla de Margen/Tier para el precio.');
+      // Validaciones
+      if (!clienteId) {
+          setError('Debe seleccionar un cliente.');
+          setIsLoading(false);
+          return;
+      }
+      // (Paso 4) La validación de margen solo aplica si es Presupuesto
+      if (isQuote && !selectedMarginId) {
+          setError('Debe seleccionar una Regla de Margen/Tier.');
+          setIsLoading(false);
+          return;
+      }
+      if (items.filter(item => item.quantity > 0 && item.description).length === 0) {
+         setError('Debe añadir al menos un artículo con cantidad y descripción.');
          setIsLoading(false);
          return;
-    }
-
-    const orderData = {
-      clienteId,
-      items: items.map(item => ({
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: parseFloat((item.unitPrice || 0).toFixed(2)), 
-        pesoUnitario: item.pesoUnitario || 0,
-        productoId: item.productId,
-      })),
-      notes,
-      subtotal: finalSubtotal,
-      tax: finalTax,
-      total: finalTotal,
-      estado: isQuote ? 'Borrador' : 'Pendiente' // Estado basado en el tipo de formulario
-    };
-
-    const url = isQuote ? (initialData ? `/api/presupuestos/${initialData.id}` : '/api/presupuestos') : '/api/pedidos';
-    const method = initialData ? 'PUT' : 'POST';
-
-    try {
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || `Error al guardar el ${isQuote ? 'presupuesto' : 'pedido'}`);
       }
       
-      const savedItem = await res.json();
+      // Preparar datos finales (usando los totales calculados por useMemo)
+      const dataPayload = {
+          clienteId,
+          formType,
+          items: items.map(item => ({
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice, // Enviar el precio base (costo)
+              productId: item.productId,
+          })),
+          // (Paso 4) Enviamos los totales finales calculados CON margen
+          subtotal: subtotalConMargen,
+          tax: tax,
+          total: total,
+          notas: notes,
+      };
 
-      mutate(isQuote ? '/api/presupuestos' : '/api/pedidos');
-      router.push(isQuote ? `/presupuestos/${savedItem.id}` : `/pedidos/${savedItem.id}`);
+      // Si es Presupuesto, añadir el ID del margen para que el backend lo use (si es necesario)
+      if (isQuote) {
+          dataPayload.marginId = selectedMarginId;
+      }
 
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const endpoint = isQuote ? '/api/presupuestos' : '/api/pedidos';
+      
+      // (Paso 4) Habilitamos el envío real
+      try {
+          const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(dataPayload),
+          });
+          
+          if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.message || `Error al guardar ${formType}`);
+          }
+          
+          const savedData = await res.json();
+          
+          // Redirigir a la página de detalle
+          const redirectUrl = isQuote ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`;
+          router.push(redirectUrl);
+
+      } catch (err) {
+          setError(err.message);
+          setIsLoading(false);
+      }
+  }
+
 
   return (
     <>
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* 1. INFORMACIÓN DEL CLIENTE Y MARGEN */}
+      {/* 1. INFORMACIÓN DEL CLIENTE (Paso 4: Eliminado Margen de aquí) */}
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
-          <h2 className="card-title">Información del Cliente</h2>
-          {clientesError && <div className="text-red-500">Error al cargar clientes.</div>}
+          <h2 className="card-title text-primary">Información Principal</h2>
+          {clientesError && <div className="text-error">Error al cargar clientes.</div>}
           
-          {/* MODIFICADO: Ahora siempre 2 columnas */}
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          {/* (Paso 4) La rejilla ahora es siempre de 1 columna */}
+          <div className="grid grid-cols-1 gap-4">
              
             {/* SELECCIÓN DE CLIENTE */}
-            <div className="form-control w-full">
-                <label className="label"><span className="label-text">Cliente (Requerido para la DB)</span></label>
+            <div className="form-control w-full relative">
+                <label className="label"><span className="label-text">Cliente (Requerido)</span></label>
                 <div className="input-group">
                     <input
                         type="text"
-                        placeholder="Escribe para buscar un cliente existente..."
+                        placeholder={isLoadingClientes ? "Cargando clientes..." : "Buscar o introducir cliente..."}
                         value={clienteBusqueda}
                         onChange={(e) => {
                             setClienteBusqueda(e.target.value);
-                            if (e.target.value.length === 0) setClienteId('');
+                            if (clienteId && e.target.value !== clientes?.find(c => c.id === clienteId)?.nombre) {
+                                setClienteId('');
+                            }
                         }}
                         className={`input input-bordered w-full ${clienteId ? 'border-success' : ''}`}
-                        tabIndex={0} 
+                        disabled={isLoadingClientes}
                         required
                     />
                     {clienteId && (
-                         <button type="button" onClick={handleClearClient} className="btn btn-ghost btn-square">
+                         <button type="button" onClick={handleClearClient} className="btn btn-ghost btn-square" title="Limpiar Cliente Seleccionado">
                             <X className="w-4 h-4 text-error" />
                         </button>
                     )}
-                     <button type="button" onClick={() => setModalState('CLIENTE')} className="btn btn-primary">
-                        <Plus className="w-4 h-4" />
+                     <button type="button" onClick={() => setModalState('CLIENTE')} className="btn btn-primary" title="Crear Cliente Rápido">
+                        <UserPlus className="w-4 h-4" />
                     </button>
                 </div>
                 
                 {clienteBusqueda.length >= 2 && filteredClients.length > 0 && clienteId === '' && (
-                     <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-full">
+                     <ul tabIndex={0} className="absolute top-[100%] z-[10] menu p-2 shadow bg-base-200 rounded-box w-full mt-1">
                         {filteredClients.map(cliente => (
                             <li key={cliente.id} onClick={() => handleSelectClient(cliente.id, cliente.nombre)}>
-                                <a>{cliente.nombre}</a>
+                                <a>{cliente.nombre} <span className="text-xs text-gray-500 ml-2">({cliente.tier || 'Estándar'})</span></a>
                             </li>
                         ))}
                     </ul>
                 )}
                 
                 {clienteId && (
-                    <div className="text-sm mt-2 text-success font-semibold">
-                        Cliente: {clienteBusqueda}
+                    <div className="text-sm mt-2 text-success font-semibold flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Cliente Seleccionado.
                     </div>
                 )}
             </div>
             
-            {/* SELECCIÓN DE MARGEN/TIER (YA NO ES CONDICIONAL) */}
-            <div className="form-control w-full">
-                <label className="label"><span className="label-text font-bold">Regla de Margen / Tier</span></label>
-                <select 
-                    className="select select-bordered w-full" 
-                    value={selectedMarginId} 
-                    onChange={(e) => handleMarginChange(e.target.value)} 
-                    required
-                >
-                    <option value="">Selecciona Margen</option>
-                    {margenesError && <option disabled>Error al cargar márgenes</option>}
-                    {margenes?.filter(m => m.base !== 'GENERAL_FALLBACK').map(m => {
-                      const tierText = m.tierCliente ? ` (${m.tierCliente})` : '';
-                      const gastoFijoText = m.gastoFijo ? ` + ${m.gastoFijo}€ Fijo` : '';
-                      return (
-                        <option key={m.id} value={m.id}>
-                            {m.descripcion}{tierText} (x{m.multiplicador}){gastoFijoText}
-                        </option>
-                      );
-                    })}
-                </select>
-            </div>
+            {/* (Paso 4) EL SELECTOR DE MARGEN FUE ELIMINADO DE AQUÍ */}
           </div>
         </div>
       </div>
-
-      {/* 2. DETALLE DE ITEMS (CON BUSCADOR UNIFICADO) */}
+      
+      {/* 2. DETALLE DE ITEMS (Paso 4: Eliminado botón de recalcular) */}
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">Items</h2>
+            <h2 className="card-title text-primary">Items del Pedido</h2>
             <button type="button" onClick={addItem} className="btn btn-primary btn-sm">
-              <Plus className="w-4 h-4" /> Añadir Item
+              <Plus className="w-4 h-4" /> Añadir Fila
             </button>
           </div>
           
-          <div className="">
+          <div className="overflow-x-auto">
             <table className="table w-full">
               <thead>
                 <tr>
-                  <th>Stock</th>
-                  <th className="w-96">Descripción / Búsqueda</th> 
+                  <th className="w-10">Stock</th>
+                  <th className="w-2/5">Descripción / Búsqueda (Plantilla)</th> 
                   <th>Cantidad</th>
-                  <th>Precio Unit.</th>
-                  <th>Total</th>
-                  <th></th>
+                  <th>Precio Costo (Unit.)</th>
+                  <th>Total (Costo)</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {prodError && <tr><td colSpan="6" className="text-red-500">Error al cargar plantillas.</td></tr>}
+                {prodError && <tr><td colSpan="6" className="text-error">Error al cargar plantillas de producto.</td></tr>}
+                {items.length === 0 && (
+                    <tr><td colSpan="6" className="text-center text-gray-500 py-4">Añade una fila para empezar...</td></tr>
+                )}
+                
                 {items.map((item, index) => {
                     return (
-                        <tr key={item.id} className="item-row"> 
-                           <td className="w-10">
+                        <tr key={item.id} className="item-row hover"> 
+                           <td className="w-10 text-center">
                                 {getStockIcon(item)}
                             </td>
-                            {/* CAMPO DE BÚSQUEDA/DESCRIPCIÓN UNIFICADO */}
-                            <td className="relative w-96">
+                            <td className="relative w-2/5">
                                 <div className="dropdown w-full dropdown-bottom">
                                     <input 
                                         type="text" 
-                                        placeholder="Buscar o introducir descripción manual..."
+                                        placeholder="Buscar producto o introducir descripción manual..."
                                         value={item.description} 
-                                        onChange={(e) => handleItemChange(index, 'description', e.target.value)} 
-                                        onFocus={() => { 
-                                            setActiveItemIndex(index); 
-                                            setSearchQuery(item.description);
-                                        }}
-                                        onBlur={() => {
-                                            setTimeout(() => {
-                                                if (activeItemIndex === index) setActiveItemIndex(null); 
-                                            }, 200);
-                                        }}
+                                        onChange={(e) => handleSearchChange(e.target.value, index)} 
+                                        onFocus={() => setActiveSearchIndex(index)} 
+                                        onBlur={() => setTimeout(() => setActiveSearchIndex(null), 200)}
                                         className="input input-bordered input-sm w-full"
                                     />
-                                    
-                                    {/* MUESTRA RESULTADOS SÓLO PARA EL CAMPO ACTIVO */}
-                                    {activeItemIndex === index && searchResults.length > 0 && (
+                                    {activeSearchIndex === index && (searchResults.length > 0 || item.description.length >= 2) && (
                                         <ul tabIndex={0} 
-                                            className="dropdown-content z-[10] menu p-2 shadow bg-base-200 rounded-box w-96 mt-1 overflow-y-auto max-h-52"
-                                            onClick={(e) => e.stopPropagation()}
+                                            className="dropdown-content z-[10] menu p-2 shadow bg-base-200 rounded-box w-full mt-1 overflow-y-auto max-h-52"
+                                            onMouseDown={(e) => e.preventDefault()} 
                                         >
                                             {searchResults.map(p => (
                                                 <li key={p.id} onClick={() => handleSelectProduct(p, index)}>
                                                     <a><Search className="w-4 h-4 mr-2" />{p.nombre} ({p.referenciaFabricante})</a>
                                                 </li>
                                             ))}
-                                            {/* Opción para crear si no hay match exacto */}
-                                            {
-                                                !todosProductos?.some(p => p.nombre === item.description) && (
-                                                    <li onClick={() => setModalState({ type: 'QUICK_PRODUCT', initialData: { modelo: item.description }, itemIndex: index })}>
-                                                        <a className="text-warning"><Plus className="w-4 h-4 mr-2" /> Crear Producto: {item.description}</a>
-                                                    </li>
-                                                )
-                                            }
+                                            {searchResults.length > 0 && <li className="divider my-1 p-0"></li>}
+                                            <li onClick={() => setModalState({ type: 'QUICK_PRODUCT', initialData: { nombre: item.description }, itemIndex: index })}>
+                                                <a className="text-warning"><Plus className="w-4 h-4 mr-2" /> Crear Producto: {item.description}</a>
+                                            </li>
                                         </ul>
                                     )}
                                 </div>
                             </td>
-                            <td><input type="number" value={item.quantity || ''} onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)} className="input input-bordered input-sm w-20" /></td>
-                            <td><input type="number" step="0.01" value={item.unitPrice || ''} onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)} className="input input-bordered input-sm w-24" /></td>
-                            <td>{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} €</td>
+                            <td><input type="number" step="1" value={item.quantity || ''} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} className="input input-bordered input-sm w-20" /></td>
+                            <td>
+                                <div className="input-group input-group-sm">
+                                    <input 
+                                        type="number" 
+                                        step="0.01" 
+                                        value={item.unitPrice || ''} 
+                                        onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)} 
+                                        className="input input-bordered input-sm w-24" 
+                                    />
+                                    <span className="bg-base-200 text-sm px-2">€</span>
+                                </div>
+                            </td>
+                            {/* (Paso 4) Este total es AHORA el total de costo */}
+                            <td className="font-bold">{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} €</td>
                             <td className="flex gap-1">
                                 <button type="button" onClick={() => handleDuplicateItem(item.id)} className="btn btn-ghost btn-sm btn-circle" title="Duplicar Fila">
                                     <Copy className="w-4 h-4" />
                                 </button>
-                                <button type="button" onClick={() => removeItem(item.id)} className="btn btn-ghost btn-sm btn-circle" title="Eliminar Fila">
+                                <button type="button" onClick={() => removeItem(item.id)} className="btn btn-ghost btn-sm btn-circle text-error" title="Eliminar Fila">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </td>
@@ -720,61 +472,126 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
               </tbody>
             </table>
           </div>
-            <button type="button" onClick={() => handleRecalculatePrices()} className="btn btn-outline btn-accent btn-sm mt-4" disabled={isLoading || !clienteId}>
-                <Calculator className="w-4 h-4" /> Recalcular Precios (Manual)
-            </button>
+            
+            {/* (Paso 4) Botón de Recálculo Manual y Feedback de Carga ELIMINADOS */}
+            
         </div>
       </div>
 
+      {/* 3. NOTAS Y RESUMEN (Paso 4: RECONSTRUIDO) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
-            <h2 className="card-title">Notas</h2>
+            <h2 className="card-title">Notas Adicionales</h2>
             <textarea
               name="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="textarea textarea-bordered h-24" 
-              placeholder="Notas adicionales..."
+              placeholder="Notas internas o para el cliente..."
             ></textarea>
           </div>
         </div>
 
+        {/* (Paso 4) Card de Resumen RECONSTRUIDA */}
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
-            <h2 className="card-title">Resumen</h2>
+            <h2 className="card-title">Resumen del Total</h2>
+            
+            {/* (Paso 4) Selector de Margen MOVIDO AQUÍ (Solo para Presupuestos) */}
+            {isQuote && (
+                <div className="form-control w-full mb-4">
+                    <label className="label"><span className="label-text font-bold">Regla de Margen / Tier (Requerido)</span></label>
+                    <select 
+                        className="select select-bordered w-full" 
+                        value={selectedMarginId} 
+                        onChange={(e) => handleMarginChange(e.target.value)} 
+                        disabled={!margenes}
+                        required
+                    >
+                        <option value="">Selecciona Margen</option>
+                        {margenesError && <option disabled>Error al cargar márgenes</option>}
+                        {filteredMargenes.map(m => {
+                          const tierText = m.tierCliente ? ` (${m.tierCliente})` : '';
+                          const gastoFijoText = m.gastoFijo ? ` + ${m.gastoFijo}€ Fijo` : '';
+                          return (
+                            <option key={m.id} value={m.id}>
+                                {m.descripcion}{tierText} (x{m.multiplicador}){gastoFijoText}
+                            </option>
+                          );
+                        })}
+                    </select>
+                </div>
+            )}
+            
+            {/* (Paso 4) Nueva Lógica de Totales */}
             <div className="space-y-2">
-              <div className="flex justify-between"><span>Subtotal</span> <span>{subtotal.toFixed(2)} €</span></div>
-              <div className="flex justify-between"><span>IVA (${(ivaRate * 100).toFixed(0)}%)</span> <span>{tax.toFixed(2)} €</span></div>
-              <div className="flex justify-between font-bold text-lg"><span>Total</span> <span>{total.toFixed(2)} €</span></div>
+              <div className="flex justify-between">
+                <span>Subtotal (Costo Base)</span> 
+                <span>{subtotalBase.toFixed(2)} €</span>
+              </div>
+              
+              {isQuote && margenAplicado.multiplicador !== 1 && (
+                  <div className="flex justify-between text-accent">
+                    <span>Margen (x{margenAplicado.multiplicador.toFixed(2)})</span> 
+                    <span>+ {(subtotalBase * (margenAplicado.multiplicador - 1)).toFixed(2)} €</span>
+                  </div>
+              )}
+              {isQuote && margenAplicado.gastoFijo > 0 && (
+                  <div className="flex justify-between text-accent">
+                    <span>Gasto Fijo</span> 
+                    <span>+ {margenAplicado.gastoFijo.toFixed(2)} €</span>
+                  </div>
+              )}
+              
+              <div className="divider my-1"></div>
+              
+              <div className="flex justify-between font-semibold">
+                <span>Subtotal (con Margen)</span> 
+                <span>{subtotalConMargen.toFixed(2)} €</span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span>IVA ({((ivaRate || 0) * 100).toFixed(0)}%)</span> 
+                <span>{tax.toFixed(2)} €</span>
+              </div>
+              
+              <div className="divider my-1"></div>
+              
+              <div className="flex justify-between font-bold text-lg text-primary">
+                <span>Total</span> 
+                <span>{total.toFixed(2)} €</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      
-      {error && <div className="alert alert-error shadow-lg">{error}</div>}
+
+      {error && <div className="alert alert-error shadow-lg my-4">{error}</div>}
 
       <div className="flex justify-end gap-4 mt-6">
         <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
-        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || !selectedMarginId}>
-          <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : (isQuote ? (initialData ? "Actualizar Presupuesto" : "Guardar Presupuesto") : "Guardar Pedido")}
+        {/* (Paso 4) Deshabilitar si no hay cliente, o si es presupuesto y no hay margen */}
+        <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || (isQuote && !selectedMarginId)}>
+          <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : "Guardar Documento"}
         </button>
       </div>
     </form>
     
-    {/* Modal de Creación Rápida */}
+    {/* MODALES (Paso 1 y 2 - Sin cambios) */}
+    
     {modalState === 'CLIENTE' && (
       <BaseQuickCreateModal
         isOpen={true}
         onClose={() => setModalState(null)}
         onCreated={handleClienteCreado}
-        title="Cliente"
+        title="Crear Nuevo Cliente"
         endpoint="/api/clientes"
         cacheKey="/api/clientes"
         fields={[
-          { name: 'nombre', placeholder: 'Nombre' },
-          { name: 'email', placeholder: 'Email', required: false },
-          { name: 'direccion', placeholder: 'Dirección', required: false },
+          { name: 'nombre', placeholder: 'Nombre o Razón Social', required: true },
+          { name: 'email', placeholder: 'Email de Contacto', required: false, type: 'email' },
+          { name: 'direccion', placeholder: 'Dirección Fiscal', required: false },
           { name: 'telefono', placeholder: 'Teléfono', required: false }
         ]}
       />
@@ -785,17 +602,18 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           isOpen={true}
           onClose={() => setModalState(null)}
           onCreated={(newItem) => handleSelectProduct(newItem, modalState.itemIndex)}
-          title="Producto/Plantilla"
+          title="Crear Nueva Plantilla de Producto"
           endpoint="/api/productos"
           cacheKey="/api/productos"
           initialData={modalState.initialData}
           fields={[
-              { name: 'modelo', placeholder: 'Referencia Fabricante', required: true },
+              { name: 'nombre', placeholder: 'Nombre/Descripción', required: true },
+              { name: 'referenciaFabricante', placeholder: 'Referencia Fabricante', required: false },
+              { name: 'precioUnitario', placeholder: 'Precio Coste Base (€)', type: 'number', required: true, step: '0.01' },
               { name: 'espesor', placeholder: 'Espesor (mm)', type: 'number', required: true, step: '0.1' },
               { name: 'largo', placeholder: 'Largo (mm)', type: 'number', required: true, step: '1' },
               { name: 'ancho', placeholder: 'Ancho (mm)', type: 'number', required: true, step: '1' },
-              { name: 'fabricante', placeholder: 'Fabricante (ej. Esbelt)', required: true },
-              { name: 'material', placeholder: 'Material (ej. PVC)', required: true },
+              { name: 'materialId', placeholder: 'ID Material (Temporal)', required: true }, // Esto debe mejorarse
           ]}
       />
     )}

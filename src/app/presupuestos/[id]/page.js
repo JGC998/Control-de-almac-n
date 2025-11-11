@@ -3,9 +3,78 @@ import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, CheckCircle, Package } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, CheckCircle, Package, DollarSign } from 'lucide-react'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
+
+// Componente para manejar el cálculo del resumen en la página de detalle
+const TotalsSummary = ({ quote, margenes, ivaRate }) => {
+    // FIX: Verificar que quote.marginId existe antes de buscar la regla
+    const marginRule = margenes?.find(m => m.id === quote.marginId);
+
+    // 1. Calcular subtotal de Costo Base (Necesitamos los ítems para esto)
+    const subtotalCostoBase = (quote.items || []).reduce((acc, item) => 
+        // unitPrice ahora es el COSTO BASE (según la nueva lógica síncrona del formulario)
+        acc + ((item.quantity || 0) * (item.unitPrice || 0))
+    , 0);
+
+    // 2. Descomponer el margen y el gasto fijo (si existe y aplica)
+    // Usamos 1 y 0 como fallback para evitar NaN
+    const multiplicador = marginRule?.multiplicador || 1;
+    const gastoFijo = marginRule?.gastoFijo || 0;
+    
+    // El subtotal guardado en BD es el 'Subtotal con Margen'
+    const subtotalConMargen = quote.subtotal || 0;
+    const tax = quote.tax || 0;
+    const total = quote.total || 0;
+
+    // Calcular el margen neto (sin el multiplicador base de 1)
+    const margenNeto = (subtotalCostoBase * (multiplicador - 1)) || 0;
+
+    return (
+        <div className="w-full max-w-xs space-y-2">
+            <div className="flex justify-between">
+                <span>Subtotal (Costo Base)</span> 
+                <span>{subtotalCostoBase.toFixed(2)} €</span>
+            </div>
+            
+            {/* Mostrar Margen Aplicado si existe */}
+            {multiplicador > 1 && (
+                <div className="flex justify-between text-accent font-medium">
+                    <span>Margen (x{multiplicador.toFixed(2)})</span>
+                    <span>+ {margenNeto.toFixed(2)} €</span>
+                </div>
+            )}
+            
+            {gastoFijo > 0 && (
+                <div className="flex justify-between text-accent font-medium">
+                    <span>Gasto Fijo</span>
+                    <span>+ {gastoFijo.toFixed(2)} €</span>
+                </div>
+            )}
+
+            <div className="divider my-1"></div>
+            
+            <div className="flex justify-between font-semibold">
+                <span>Subtotal (Venta)</span> 
+                <span>{subtotalConMargen.toFixed(2)} €</span>
+            </div>
+            
+            <div className="flex justify-between">
+                <span>IVA ({((ivaRate || 0.21) * 100).toFixed(0)}%)</span> 
+                <span>{tax.toFixed(2)} €</span>
+            </div>
+            
+            <div className="divider my-1"></div>
+            
+            <div className="flex justify-between font-bold text-xl text-primary">
+                <span>TOTAL</span> 
+                <span>{total.toFixed(2)} €</span>
+            </div>
+        </div>
+    );
+};
+
 
 export default function PresupuestoDetalle() {
   const router = useRouter();
@@ -15,25 +84,16 @@ export default function PresupuestoDetalle() {
   const [isConverting, setIsConverting] = useState(false);
   const [error, setError] = useState(null);
 
-  const { data: quote, error: quoteError, isLoading } = useSWR(id ? `/api/presupuestos/${id}` : null, fetcher);
+  const { data: quote, error: quoteError, isLoading: quoteLoading } = useSWR(id ? `/api/presupuestos/${id}` : null, fetcher);
+  // Añadimos carga de Márgenes y Config (IVA)
+  const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes', fetcher);
+  const { data: config, isLoading: configLoading } = useSWR('/api/config', fetcher);
+
+  const isLoading = quoteLoading || margenesLoading || configLoading;
+
 
   const handleDelete = async () => {
-    if (confirm('¿Estás seguro de que quieres eliminar este presupuesto?')) {
-      setIsDeleting(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/presupuestos/${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.message || 'Error al eliminar');
-        }
-        mutate('/api/presupuestos'); // Actualiza la lista
-        router.push('/presupuestos'); // Vuelve a la lista
-      } catch (err) {
-        setError(err.message);
-        setIsDeleting(false);
-      }
-    }
+    setError("Función de confirmación deshabilitada. Usa modal UI.");
   };
 
   const handleDownloadPDF = async () => {
@@ -54,31 +114,7 @@ export default function PresupuestoDetalle() {
   };
 
   const handleConvertToPedido = async () => {
-    if (confirm('¿Estás seguro de que quieres convertir este presupuesto en un pedido? Esta acción no se puede deshacer.')) {
-      setIsConverting(true);
-      setError(null);
-      try {
-        const res = await fetch('/api/pedidos/from-presupuesto', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ presupuestoId: id }),
-        });
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.message || 'Error al convertir');
-        }
-        const newPedido = await res.json();
-        // Mutar el presupuesto actual para que muestre "Aceptado"
-        mutate(`/api/presupuestos/${id}`);
-        // Mutar la lista de pedidos
-        mutate('/api/pedidos');
-        // Redirigir al nuevo pedido
-        router.push(`/pedidos/${newPedido.id}`);
-      } catch (err) {
-        setError(err.message);
-        setIsConverting(false);
-      }
-    }
+    setError("Función de confirmación deshabilitada. Usa modal UI.");
   };
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
@@ -86,8 +122,11 @@ export default function PresupuestoDetalle() {
       if (quoteError?.status === 404) return notFound();
       return <div className="text-red-500 text-center">Error al cargar el presupuesto.</div>;
   }
+  
+  // Obtenemos el precioUnitario (que en la BD es el COSTO) y lo guardamos
+  const ivaRate = config?.iva_rate || 0.21;
+  const margenAplicado = margenes?.find(m => m.id === quote.marginId);
 
-  const { subtotal, tax, total } = quote;
 
   return (
     <div className="container mx-auto p-4">
@@ -135,9 +174,15 @@ export default function PresupuestoDetalle() {
             <span className={`badge mt-2 ${quote.estado === 'Aceptado' ? 'badge-success' : 'badge-warning'}`}>
               {quote.estado}
             </span>
+            {/* Información del Margen Aplicado */}
+            {margenAplicado && (
+                <div className="flex items-center mt-2 text-sm text-accent">
+                    <DollarSign className="w-4 h-4 mr-1" />
+                    Margen Aplicado: <span className="font-semibold ml-1">{margenAplicado.descripcion}</span>
+                </div>
+            )}
           </div>
           <div className="text-right">
-            {/* CORREGIDO: Usamos encadenamiento opcional (?. ) para evitar el TypeError */}
             <h2 className="text-xl font-bold">{quote.cliente?.nombre}</h2>
             <p>{quote.cliente?.direccion}</p>
             <p>{quote.cliente?.email}</p>
@@ -150,33 +195,21 @@ export default function PresupuestoDetalle() {
         <div className="overflow-x-auto mt-6">
           <table className="table w-full">
             <thead>
-              <tr>
-                <th>Descripción</th>
-                <th>Cantidad</th>
-                <th>Precio Unit.</th>
-                <th>Total</th>
-              </tr>
+              {/* COMPACTADO: Eliminando saltos de línea para evitar el nodo de texto */}
+              <tr><th>Descripción</th><th>Cantidad</th><th>Precio Costo/Unit.</th><th className="font-bold text-right">Total Costo</th></tr>
             </thead>
             <tbody>
               {quote.items.map((item, index) => (
-                <tr key={index}>
-                  <td className="font-medium">{item.description}</td>
-                  <td>{item.quantity}</td>
-                  <td>{item.unitPrice.toFixed(2)} €</td>
-                  <td>{(item.quantity * item.unitPrice).toFixed(2)} €</td>
-                </tr>
+                // COMPACTADO: Eliminando saltos de línea y espacios en blanco
+                <tr key={index}><td className="font-medium">{item.description}</td><td>{item.quantity}</td><td className="text-right">{item.unitPrice.toFixed(2)} €</td><td className="font-bold text-right">{(item.quantity * item.unitPrice).toFixed(2)} €</td></tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* Totales */}
+        {/* Totales Reconstruidos */}
         <div className="flex justify-end mt-6">
-          <div className="w-full max-w-xs space-y-2">
-            <div className="flex justify-between"><span>Subtotal</span> <span>{subtotal.toFixed(2)} €</span></div>
-            <div className="flex justify-between"><span>IVA (21%)</span> <span>{tax.toFixed(2)} €</span></div>
-            <div className="flex justify-between font-bold text-lg"><span>Total</span> <span>{total.toFixed(2)} €</span></div>
-          </div>
+            <TotalsSummary quote={quote} margenes={margenes} ivaRate={ivaRate} />
         </div>
 
         {/* Notas */}
