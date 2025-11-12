@@ -430,8 +430,9 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                   )}
                   {formData.bobinas.map((bobina, index) => {
                       // Filtrar referencias disponibles en tiempo real (BUG FIX: Añadir '?.' para r.referencia)
-                      const filteredRefs = referencias?.filter(r => 
-                          r?.referencia?.toLowerCase().includes(bobina.referenciaBusqueda?.toLowerCase() || '')
+                      const filteredRefs = referencias?.filter(r =>
+                        // Usar r.referencia, ya que r.nombre no existe en el objeto ReferenciaBobina
+                        r.referencia?.toLowerCase().includes(bobina.referenciaBusqueda?.toLowerCase() || '')
                       ).slice(0, 5) || [];
                       
                       return (

@@ -206,6 +206,7 @@ const handleUpdateStatus = async (newStatus) => {
         }
         mutate(`/api/pedidos/${id}`); // Recarga este pedido
         mutate('/api/pedidos'); // <--- CRUCIAL: REVALIDA LA LISTA GENERAL DE PEDIDOS
+        router.refresh(); // <--- AÑADIDO: Fuerza la re-renderización de las rutas RSC (como /pedidos)
       } catch (err) {
         setError(err.message);
       }
@@ -264,7 +265,7 @@ const handleUpdateStatus = async (newStatus) => {
                 <div tabIndex={0} role="button" className={`badge ${order.estado === 'Completado' ? 'badge-success' : (order.estado === 'Enviado' ? 'badge-info' : 'badge-warning')}`}>
                     {order.estado}
                 </div>
-                <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-52">
                     <li><a onClick={() => handleUpdateStatus('Pendiente')}>Pendiente</a></li>
                     <li><a onClick={() => handleUpdateStatus('Enviado')}>Enviado</a></li>
                     <li><a onClick={() => handleUpdateStatus('Completado')}>Completado</a></li>

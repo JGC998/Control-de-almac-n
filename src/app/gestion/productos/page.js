@@ -220,11 +220,10 @@ export default function GestionProductos() {
       <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
         <table className="table w-full">
           <thead>
-            {/* CORRECCIÓN: Títulos de la tabla en una sola línea para evitar el nodo de texto */}
             <tr><th>Nombre</th><th>Ref. Fab.</th><th>Material</th><th>P. Unitario</th><th>Margen Fab. (%)</th><th>Acciones</th></tr>
           </thead>
           <tbody>
-            {/* Usar filteredProducts en lugar de productos */}
+            {/* CORRECCIÓN: Estructura compacta para evitar el error de nodo de texto en <tr> */}
             {Array.isArray(filteredProducts) && filteredProducts.map((p) => {
               const margenFab = calculateMargin(p.precioVentaFab, p.precioUnitario);
               const margenClass = margenFab !== 'N/A' && parseFloat(margenFab) > 0 ? 'text-success' : (margenFab !== 'N/A' && parseFloat(margenFab) < 0 ? 'text-error' : 'text-warning');
@@ -236,21 +235,18 @@ export default function GestionProductos() {
                         {p.nombre}
                     </Link>
                   </td>
-                  <td>{p.referenciaFabricante || 'N/A'}</td> 
+                  <td>{p.referenciaFabricante || 'N/A'}</td>
                   <td>{p.material?.nombre || 'N/A'}</td>
                   <td>{p.precioUnitario.toFixed(2)} €</td>
-                  <td className={`font-bold ${margenClass}`}>{margenFab} %</td> {/* VALOR DEL MARGEN */}
+                  <td className={`font-bold ${margenClass}`}>{margenFab} %</td>
                   <td className="flex gap-2">
-                    <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-outline btn-error">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info"><Edit className="w-4 h-4" /></button>
+                    <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-outline btn-error"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
               );
             })}
+            {/* Fin de la corrección */}
           </tbody>
         </table>
         {filteredProducts.length === 0 && !isLoading && (

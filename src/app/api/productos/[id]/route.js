@@ -121,7 +121,7 @@ export async function PUT(request, { params: paramsPromise }) {
     const { 
         costo: calculatedCosto, 
         peso: calculatedPeso,
-        precio: calculatedPrecio 
+        precio: calculatedPrecio // ESTO ES EL COSTO BASE DE LA PIEZA (€)
     } = await calculateCostAndWeight(
         material.id, // Usar ID de Material
         parseFloat(data.espesor), 
@@ -129,6 +129,27 @@ export async function PUT(request, { params: paramsPromise }) {
         parseFloat(data.ancho)
     );
     
+    // ----------------------------------------------------------------------
+    // --- LÓGICA DE RECÁLCULO DE PRECIOS DE VENTA (INSERTADO) ---
+    // ----------------------------------------------------------------------
+    const margenes = await db.reglaMargen.findMany();
+    
+    const applyMargin = (costo, tier) => {
+        const regla = margenes.find(m => m.tierCliente === tier);
+        if (!regla) return null;
+        
+        const multiplicador = regla.multiplicador || 1;
+        const gastoFijo = regla.gastoFijo || 0;
+        
+        // Aplicar la fórmula: (Costo * Multiplicador) + Gasto Fijo
+        return (costo * multiplicador) + gastoFijo;
+    };
+
+    const precioVentaFab = applyMargin(calculatedPrecio, 'FABRICANTE');
+    const precioVentaInt = applyMargin(calculatedPrecio, 'INTERMEDIARIO');
+    const precioVentaFin = applyMargin(calculatedPrecio, 'CLIENTE FINAL');
+    // ----------------------------------------------------------------------
+
     // 3. Generar el nombre del producto: (Referencia fabricante + Material + Fabricante)
     const newNombre = `${data.modelo} - ${material.nombre} - ${fabricante.nombre}`;
 
@@ -143,7 +164,13 @@ export async function PUT(request, { params: paramsPromise }) {
         // Usar los valores calculados
         precioUnitario: calculatedPrecio || 0, 
         pesoUnitario: calculatedPeso || 0, 
-        costoUnitario: 0, // <--- CAMBIO: Eliminamos el concepto, forzando a 0
+        costoUnitario: 0, 
+
+        // AÑADIDO: Los nuevos campos de precios de venta
+        precioVentaFab: precioVentaFab,
+        precioVentaInt: precioVentaInt,
+        precioVentaFin: precioVentaFin, 
+        
         fabricanteId: fabricante.id,
         materialId: material.id,
         clienteId: data.clienteId || null,

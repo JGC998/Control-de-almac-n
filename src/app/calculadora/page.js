@@ -85,13 +85,24 @@ export default function CalculadoraPage() {
       if (!tarifa) {
           throw new Error('No se encontró una tarifa para esta combinación de Material/Espesor.');
       }
+      //
       
+      //
       const multiplicador = selectedMargin?.multiplicador || 1;
+      const gastoFijoTotal = selectedMargin?.gastoFijo || 0; // Añadir gasto fijo
+      const unidadesInt = parseInt(unidades) || 1; 
+
       const precioM2ConMargen = tarifa.precio * multiplicador; 
-      
+
       const areaPorPieza = (ancho / 1000) * (largo / 1000); 
-      const precioUnitario = precioM2ConMargen * areaPorPieza; 
-      const precioTotal = precioUnitario * unidades;
+
+      // Calcular el precio unitario base (solo multiplicador)
+      let precioUnitario = precioM2ConMargen * areaPorPieza; 
+
+      // Añadir el gasto fijo prorrateado por unidad
+      precioUnitario += (gastoFijoTotal / unidadesInt); 
+
+      const precioTotal = precioUnitario * unidadesInt;
       
       const pesoUnitario = tarifa.peso * areaPorPieza;
       const pesoTotal = pesoUnitario * unidades;
