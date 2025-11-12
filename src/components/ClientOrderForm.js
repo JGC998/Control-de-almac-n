@@ -362,7 +362,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                 </div>
                 
                 {clienteBusqueda.length >= 2 && filteredClients.length > 0 && clienteId === '' && (
-                     <ul tabIndex={0} className="absolute top-[100%] z-[10] menu p-2 shadow bg-base-200 rounded-box w-full mt-1">
+                     <ul tabIndex={0} className="absolute top-100% z-10 menu p-2 shadow bg-base-200 rounded-box w-full mt-1">
                         {filteredClients.map(cliente => (
                             <li key={cliente.id} onClick={() => handleSelectClient(cliente.id, cliente.nombre)}>
                                 <a>{cliente.nombre} <span className="text-xs text-gray-500 ml-2">({cliente.tier || 'Estándar'})</span></a>
@@ -393,7 +393,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
             </button>
           </div>
           
-          <div className="overflow-x-auto">
+          <div className="overflow-visible">
             <table className="table w-full">
               <thead>
                 <tr>
@@ -430,7 +430,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                                     />
                                     {activeSearchIndex === index && (searchResults.length > 0 || item.description.length >= 2) && (
                                         <ul tabIndex={0} 
-                                            className="dropdown-content z-[10] menu p-2 shadow bg-base-200 rounded-box w-full mt-1 overflow-y-auto max-h-52"
+                                            className="absolute left-0 top-full z-50 menu p-2 shadow bg-base-200 rounded-box w-full max-w-lg mt-1 overflow-y-auto max-h-52"
                                             onMouseDown={(e) => e.preventDefault()} 
                                         >
                                             {searchResults.map(p => (

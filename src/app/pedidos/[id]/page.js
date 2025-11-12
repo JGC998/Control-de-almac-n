@@ -184,8 +184,8 @@ export default function PedidoDetalle() {
       setError(err.message);
     }
   };
-  
-  const handleUpdateStatus = async (newStatus) => {
+
+const handleUpdateStatus = async (newStatus) => {
      try {
         // Obtenemos los totales correctos para la actualización
         const { subtotal, tax, total } = order;
@@ -193,12 +193,10 @@ export default function PedidoDetalle() {
         const res = await fetch(`/api/pedidos/${id}`, { 
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            // Enviamos el pedido con los ítems y el nuevo estado
             body: JSON.stringify({ 
                 ...order, 
                 estado: newStatus,
                 items: order.items,
-                // Incluimos los totales originales de BD, la lógica de recalculo solo es visual
                 subtotal, tax, total 
             }) 
         });
@@ -207,12 +205,13 @@ export default function PedidoDetalle() {
           throw new Error(errData.message || 'Error al actualizar estado');
         }
         mutate(`/api/pedidos/${id}`); // Recarga este pedido
-        mutate('/api/pedidos'); // Recarga la lista
+        mutate('/api/pedidos'); // <--- CRUCIAL: REVALIDA LA LISTA GENERAL DE PEDIDOS
       } catch (err) {
         setError(err.message);
       }
   };
 
+// ... (Resto del componente)
   const isLoading = orderLoading || margenesLoading || configLoading;
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
