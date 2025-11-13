@@ -1,5 +1,3 @@
-mkdir -p scripts
-cat << 'EOF' > scripts/seed-referencias.js
 const { PrismaClient } = require('@prisma/client');
 const { v4: uuidv4 } = require('uuid');
 
@@ -7,30 +5,42 @@ const db = new PrismaClient();
 
 // Datos extraídos y consolidados para la inserción masiva
 const REFERENCIAS_DATA = [
-    { "referencia": "EP 250/2 2+1.5", "ancho": 400, "lonas": 2, "pesoPorMetroLineal": 2.0 },
-    { "referencia": "EP 250/2 2+1.5", "ancho": 500, "lonas": 2, "pesoPorMetroLineal": 2.5 },
-    { "referencia": "EP 250/2 2+1.5", "ancho": 650, "lonas": 2, "pesoPorMetroLineal": 3.20 },
-    { "referencia": "EP 250/2 2+1.5", "ancho": 800, "lonas": 2, "pesoPorMetroLineal": 4.16 },
+    { "referencia": "EP 250/2 2+1.5", "ancho": 400, "lonas": 2, "pesoPorMetroLineal": 2.56 },
+    { "referencia": "EP 250/2 2+1.5", "ancho": 440, "lonas": 2, "pesoPorMetroLineal": 3 },
+    { "referencia": "EP 250/2 2+1.5", "ancho": 500, "lonas": 2, "pesoPorMetroLineal": 3.20 },
+    { "referencia": "EP 250/2 2+1.5", "ancho": 600, "lonas": 2, "pesoPorMetroLineal": 3.84 },
+    { "referencia": "EP 250/2 2+1.5", "ancho": 650, "lonas": 2, "pesoPorMetroLineal": 4.16 },
     
     { "referencia": "EP400/3 3+1.5", "ancho": 400, "lonas": 3, "pesoPorMetroLineal": 3.56 },
     { "referencia": "EP400/3 3+1.5", "ancho": 500, "lonas": 3, "pesoPorMetroLineal": 4.45 },
+    { "referencia": "EP400/3 3+1.5", "ancho": 540, "lonas": 3, "pesoPorMetroLineal": 5.13 },
     { "referencia": "EP400/3 3+1.5", "ancho": 600, "lonas": 3, "pesoPorMetroLineal": 5.34 },
+    { "referencia": "EP400/3 3+1.5", "ancho": 650, "lonas": 3, "pesoPorMetroLineal": 5.79 },
     { "referencia": "EP400/3 3+1.5", "ancho": 800, "lonas": 3, "pesoPorMetroLineal": 7.12 },
     { "referencia": "EP400/3 3+1.5", "ancho": 1000, "lonas": 3, "pesoPorMetroLineal": 8.90 },
+    { "referencia": "EP400/3 3+1.5", "ancho": 1250, "lonas": 3, "pesoPorMetroLineal": 11.90 },
+
     
     { "referencia": "EP500/4 4+2", "ancho": 500, "lonas": 4, "pesoPorMetroLineal": 5.95 },
+    { "referencia": "EP500/4 4+2", "ancho": 550, "lonas": 4, "pesoPorMetroLineal": 6.34 },
     { "referencia": "EP500/4 4+2", "ancho": 600, "lonas": 4, "pesoPorMetroLineal": 7.08 },
+    { "referencia": "EP500/4 4+2", "ancho": 650, "lonas": 4, "pesoPorMetroLineal": 7.67 },
     { "referencia": "EP500/4 4+2", "ancho": 800, "lonas": 4, "pesoPorMetroLineal": 9.44 },
     { "referencia": "EP500/4 4+2", "ancho": 1000, "lonas": 4, "pesoPorMetroLineal": 11.80 },
     { "referencia": "EP500/4 4+2", "ancho": 1200, "lonas": 4, "pesoPorMetroLineal": 14.16 },
     { "referencia": "EP500/4 4+2", "ancho": 1400, "lonas": 4, "pesoPorMetroLineal": 16.55 },
     { "referencia": "EP500/4 4+2", "ancho": 1600, "lonas": 4, "pesoPorMetroLineal": 18.88 },
 
-    { "referencia": "EP630/4 6+2", "ancho": 1000, "lonas": 4, "pesoPorMetroLineal": 12.02 },
-    { "referencia": "EP630/4 6+2", "ancho": 1200, "lonas": 4, "pesoPorMetroLineal": 15.03 },
-    { "referencia": "EP630/4 6+2", "ancho": 1400, "lonas": 4, "pesoPorMetroLineal": 18.04 }
-];
+    { "referencia": "EP500/4 8+3", "ancho": 500, "lonas": 4, "pesoPorMetroLineal": 9.5},
+    { "referencia": "EP500/4 8+3", "ancho": 600, "lonas": 4, "pesoPorMetroLineal": 11.42},
 
+    { "referencia": "EP500/4 6+2", "ancho": 500, "lonas": 4, "pesoPorMetroLineal": 7.37},
+    { "referencia": "EP500/4 6+2", "ancho": 600, "lonas": 4, "pesoPorMetroLineal": 8.86},
+    
+    { "referencia": "EP630/4 6+2", "ancho": 800, "lonas": 4, "pesoPorMetroLineal": 12.02 },
+    { "referencia": "EP630/4 6+2", "ancho": 1000, "lonas": 4, "pesoPorMetroLineal": 15.03 },
+    { "referencia": "EP630/4 6+2", "ancho": 1200, "lonas": 4, "pesoPorMetroLineal": 18.04 }
+];
 
 async function seedReferencias() {
     console.log('Iniciando inserción de referencias de bobina...');
@@ -69,4 +79,3 @@ async function seedReferencias() {
 }
 
 seedReferencias();
-EOF
