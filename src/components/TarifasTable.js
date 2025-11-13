@@ -1,48 +1,40 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
+import Link from 'next/link'; // Importar Link
 import { formatCurrency } from '@/utils/utils'; 
-import { Download } from 'lucide-react'; // Importar icono de descarga
-import jsPDF from "jspdf"; // Importar jspdf
-import autoTable from "jspdf-autotable"; // Importar autotable
+import { Download, Settings } from 'lucide-react'; // Importar Settings
+import jsPDF from "jspdf"; 
+import autoTable from "jspdf-autotable"; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function TarifasTable() {
-  // Estado para el margen de simulación
   const [selectedMarginId, setSelectedMarginId] = useState('');
-  // Estado: Material seleccionado
   const [selectedMaterial, setSelectedMaterial] = useState('Todos'); 
   
-  // 1. Cargar tarifas (precios base)
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios', fetcher);
-  
-  // 2. Cargar reglas de margen
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes', fetcher);
 
   const isLoading = tarifasLoading || margenesLoading;
   
-  // 3. Obtener el valor del multiplicador seleccionado
   const selectedMargin = useMemo(() => {
     if (!margenes || !selectedMarginId) return null;
     return margenes.find(m => m.id === selectedMarginId);
   }, [margenes, selectedMarginId]);
 
-  // Lista de materiales únicos
   const uniqueMaterials = useMemo(() => {
     if (!tarifas) return [];
     const materials = tarifas.map(t => t.material);
     return ['Todos', ...new Set(materials)].sort();
   }, [tarifas]);
 
-  // Datos filtrados por material
   const filteredTarifas = useMemo(() => {
     if (!tarifas) return [];
     if (selectedMaterial === 'Todos') return tarifas;
     return tarifas.filter(t => t.material === selectedMaterial);
   }, [tarifas, selectedMaterial]);
 
-  // --- NUEVA FUNCIÓN: Exportar a PDF ---
   const handleExportPDF = () => {
     if (filteredTarifas.length === 0) {
         alert("No hay tarifas para exportar.");
@@ -51,7 +43,6 @@ export default function TarifasTable() {
     
     const doc = new jsPDF();
     
-    // Títulos
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text("Tabla de Tarifas de Materiales", 14, 22);
@@ -66,21 +57,21 @@ export default function TarifasTable() {
     doc.text(`Filtro: ${selectedMaterial}`, 14, 30);
     doc.text(margenText, 14, 36);
 
-    // Columnas (ajustadas para la versión simplificada)
-    const tableColumn = ["Material", "Espesor (mm)", "Precio (€/m²)", "Peso (kg/m²)"];
+    // Columnas ajustadas para incluir Precio Base
+    const tableColumn = ["Material", "Espesor (mm)", "Precio Base (€/m²)", "Precio Final (€/m²)", "Peso (kg/m²)"];
     
-    // Filas
+    // Filas ajustadas
     const tableRows = filteredTarifas.map(row => {
         const finalPrice = row.precio * (selectedMargin?.multiplicador || 1);
         return [
             row.material,
             row.espesor.toFixed(2),
-            finalPrice.toFixed(2) + ' €',
+            row.precio.toFixed(2) + ' €', // Precio Base
+            finalPrice.toFixed(2) + ' €', // Precio Final
             row.peso.toFixed(2) + ' kg',
         ];
     });
 
-    // Generar tabla con jspdf-autotable
     autoTable(doc, { 
       head: [tableColumn],
       body: tableRows,
@@ -105,14 +96,22 @@ export default function TarifasTable() {
       <div className="card-body">
         <div className="flex justify-between items-center mb-4">
           <h2 className="card-title">Tabla de Tarifas por Material</h2>
-          {/* AÑADIDO: Botón de Imprimir */}
-          <button 
-              onClick={handleExportPDF} 
-              className="btn btn-secondary btn-sm"
-              disabled={filteredTarifas.length === 0}
-          >
-             <Download className="w-4 h-4" /> Imprimir Tarifa
-          </button>
+          <div className="flex gap-2">
+             {/* NUEVO: Botón de gestión */}
+             <Link href="/configuracion">
+                <button className="btn btn-neutral btn-sm">
+                    <Settings className="w-4 h-4" /> Gestionar Precios Base
+                </button>
+             </Link>
+             {/* Existente: Botón de Imprimir */}
+             <button 
+                 onClick={handleExportPDF} 
+                 className="btn btn-secondary btn-sm"
+                 disabled={filteredTarifas.length === 0}
+             >
+                <Download className="w-4 h-4" /> Imprimir Tarifa
+             </button>
+          </div>
         </div>
         
         {/* Agrupamos los dos selectores */}
@@ -160,7 +159,9 @@ export default function TarifasTable() {
               <tr>
                 <th className="text-center">Material</th>
                 <th className="text-center">Espesor (mm)</th>
-                <th className="text-center font-bold">Precio (€/m²)</th> 
+                {/* Modificado para claridad */}
+                <th className="text-center">Precio Base (€/m²)</th> 
+                <th className="text-center font-bold">Precio Final (€/m²)</th> 
                 <th className="text-center">Peso (kg/m²)</th>
               </tr>
             </thead>
@@ -172,6 +173,11 @@ export default function TarifasTable() {
                   <tr key={row.id} className="hover">
                     <td className="font-bold text-center">{row.material}</td>
                     <td className="text-center">{row.espesor}</td>
+                    {/* Precio Base */}
+                    <td className="text-center opacity-70">
+                       {formatCurrency(row.precio)}
+                    </td>
+                    {/* Precio Final (destacado) */}
                     <td className="text-center font-bold text-primary">
                        {formatCurrency(finalPrice)}
                     </td>

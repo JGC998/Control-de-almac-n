@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { v4 as uuidv4 } from 'uuid';
 
 // Función central de cálculo (Ahora calcula precio y asume dimensiones en milímetros)
 async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
@@ -49,6 +50,29 @@ async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     };
 }
 
+
+// Función auxiliar para aplicar reglas de margen pre-calculadas (REUTILIZADA DE PUT)
+async function calculateTieredPrices(costoBase) {
+    const margenes = await db.reglaMargen.findMany();
+    
+    const applyMargin = (costo, tier) => {
+        const regla = margenes.find(m => m.tierCliente === tier);
+        if (!regla) return null;
+        
+        const multiplicador = regla.multiplicador || 1;
+        const gastoFijo = regla.gastoFijo || 0;
+        
+        return (costo * multiplicador) + gastoFijo;
+    };
+
+    return {
+        precioVentaFab: applyMargin(costoBase, 'FABRICANTE'),
+        precioVentaInt: applyMargin(costoBase, 'INTERMEDIARIO'),
+        precioVentaFin: applyMargin(costoBase, 'CLIENTE FINAL'),
+    };
+}
+
+
 // GET /api/productos - Obtiene todos los productos
 export async function GET(request) {
   try {
@@ -76,7 +100,7 @@ export async function GET(request) {
   }
 }
 
-// POST /api/productos - Crea un nuevo producto
+// POST /api/productos - Crea un nuevo producto (AÑADIDA LÓGICA DE PRECIOS)
 export async function POST(request) {
   try {
     const data = await request.json();
@@ -100,12 +124,15 @@ export async function POST(request) {
     const { costo: calculatedCosto, peso: calculatedPeso, precio: calculatedPrecio } = await calculateCostAndWeight(
         material.id, 
         parseFloat(data.espesor), 
-        // PASAMOS MM
         parseFloat(data.largo), 
         parseFloat(data.ancho)
     );
+    
+    // 3. CALCULAR PRECIOS DE VENTA POR TIER
+    const { precioVentaFab, precioVentaInt, precioVentaFin } = await calculateTieredPrices(calculatedPrecio);
 
-    // 3. Generar el nombre del producto: (Referencia fabricante + Material + Fabricante)
+
+    // 4. Generar el nombre del producto
     const newNombre = `${data.modelo} - ${material.nombre} - ${fabricante.nombre}`;
 
 
@@ -114,10 +141,8 @@ export async function POST(request) {
         nombre: newNombre, 
         referenciaFabricante: data.modelo,
         espesor: parseFloat(data.espesor) || 0,
-        // GUARDAMOS MM
         largo: parseFloat(data.largo) || 0,
         ancho: parseFloat(data.ancho) || 0,
-        // Usar los valores calculados
         precioUnitario: calculatedPrecio || 0, 
         pesoUnitario: calculatedPeso || 0, 
         costoUnitario: calculatedCosto, 
@@ -125,6 +150,10 @@ export async function POST(request) {
         materialId: material.id,
         clienteId: data.clienteId || null,
         tieneTroquel: data.tieneTroquel || false,
+        // AÑADIDO: Guardar los precios de venta
+        precioVentaFab: precioVentaFab,
+        precioVentaInt: precioVentaInt,
+        precioVentaFin: precioVentaFin,
       },
     });
 

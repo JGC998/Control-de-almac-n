@@ -1,13 +1,15 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { MessageSquare, Send } from 'lucide-react';
+// Importamos 'X' para el botón de eliminar
+import { MessageSquare, Send, X } from 'lucide-react'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function TablonNotas() {
   const [newNote, setNewNote] = useState('');
   const [error, setError] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const { data: notas, error: notasError, isLoading } = useSWR('/api/notas', fetcher);
 
@@ -32,6 +34,30 @@ export default function TablonNotas() {
     }
   };
 
+  // NUEVA FUNCIÓN DE ELIMINACIÓN
+  const handleDelete = async (noteId) => {
+    if (!confirm('¿Estás seguro de que quieres borrar esta nota?')) return;
+    
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/notas', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: noteId }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Error al eliminar la nota');
+      }
+      mutate('/api/notas'); // Revalida para refrescar la lista
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+
   return (
     <div className="card bg-base-100 shadow-xl">
       <div className="card-body">
@@ -44,7 +70,8 @@ export default function TablonNotas() {
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
           />
-          <button type="submit" className="btn btn-primary">
+          {/* Deshabilitar mientras se borra o carga para evitar doble envío */}
+          <button type="submit" className="btn btn-primary" disabled={isLoading || isDeleting}>
             <Send className="w-4 h-4" />
           </button>
         </form>
@@ -53,11 +80,20 @@ export default function TablonNotas() {
           {isLoading && <span className="loading loading-spinner"></span>}
           {notasError && <p className="text-red-500">Error al cargar notas.</p>}
           {notas?.map(nota => (
-            <div key={nota.id} className="chat chat-start">
-              <div className="chat-bubble">
+            <div key={nota.id} className="chat chat-start relative"> 
+              <div className="chat-bubble pr-8"> 
                 <p>{nota.content}</p>
                 <time className="text-xs opacity-50">{new Date(nota.fecha).toLocaleString()}</time>
               </div>
+              {/* Botón de Eliminar */}
+              <button 
+                className="absolute right-0 top-0 btn btn-xs btn-circle btn-ghost"
+                onClick={() => handleDelete(nota.id)}
+                disabled={isDeleting}
+                aria-label="Eliminar nota"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           ))}
         </div>

@@ -7,6 +7,8 @@ import { Package, FileText, Truck, Users, DollarSign, Activity } from 'lucide-re
 import NivelesStock from '@/components/NivelesStock';
 import MovimientosRecientesTable from '@/components/MovimientosRecientesTable';
 import KPICard from '@/components/KPICard';
+// 👈 Importar el nuevo componente
+import TablonNotas from '@/components/TablonNotas'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -54,18 +56,17 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* Secciones de Almacén y Movimientos */}
+      {/* Secciones de Almacén, Movimientos y Notas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Niveles de Stock (Columna 1) */}
-        <div className="lg:col-span-1">
-          <NivelesStock data={nivelesStock} />
+        {/* Niveles de Stock y Notas (Columna 1) */}
+        <div className="lg:col-span-1 space-y-6">
+
+          {/* 👈 Nuevo componente de Notas apilado */}
+          <TablonNotas /> 
         </div>
         
-        {/* Movimientos Recientes (Columnas 2 y 3) - Expandido */}
-        <div className="lg:col-span-2">
-          <MovimientosRecientesTable data={movimientosRecientes} />
-        </div>
+     
         
       </div>
     </div>

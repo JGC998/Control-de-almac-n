@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-// GET /api/notas
+// GET /api/notas (Obtener las últimas 20 notas)
 export async function GET() {
   try {
     const notas = await db.nota.findMany({
@@ -15,7 +15,7 @@ export async function GET() {
   }
 }
 
-// POST /api/notas
+// POST /api/notas (Crear una nueva nota)
 export async function POST(request) {
   try {
     const { content } = await request.json();
@@ -30,5 +30,24 @@ export async function POST(request) {
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: 'Error al crear la nota' }, { status: 500 });
+  }
+}
+
+// DELETE /api/notas (Eliminar una nota por ID)
+export async function DELETE(request) {
+  try {
+    const { id } = await request.json();
+    if (!id) {
+      return NextResponse.json({ message: 'El ID de la nota es requerido' }, { status: 400 });
+    }
+
+    await db.nota.delete({
+      where: { id: id },
+    });
+
+    return NextResponse.json({ message: 'Nota eliminada con éxito' }, { status: 200 });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Error al eliminar la nota' }, { status: 500 });
   }
 }

@@ -318,11 +318,13 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
             
             <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 
-                {/* Tipo de Documento - HARDCODEADO Y OCULTADO VISUALMENTE */}
+                {/* Tipo de Documento */}
                 <label className="form-control w-full">
                     <div className="label"><span className="label-text">Tipo</span></div>
                     <select name="tipo" value={'PLANO'} onChange={handleChange} className="select select-bordered w-full" disabled>
                         <option value="PLANO">Plano de Producto</option>
+                        <option value="GUIA">Guía de Máquina/Manual</option>
+                        <option value="PROCESO">Proceso Interno/Instrucción</option>
                     </select>
                 </label>
 
@@ -330,7 +332,7 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
                 <label className="form-control w-full relative">
                     <div className="label"><span className="label-text">Producto Asociado (Requerido)</span></div>
                     <div className="dropdown w-full">
-                            <div className="input-group">
+                             <div className="input-group">
                                 <input
                                     type="text"
                                     name="productoBusqueda"
@@ -343,10 +345,10 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
                                 <button type="button" onClick={() => setModalState('PRODUCTO')} className="btn btn-primary" title="Crear Producto Rápido">
                                     <Plus className="w-4 h-4" />
                                 </button>
-                            </div>
-                            
-                            {/* Resultados de Búsqueda */}
-                            {formData.productoBusqueda.length >= 2 && filteredProducts.length > 0 && formData.productoId === null && (
+                             </div>
+                             
+                             {/* Resultados de Búsqueda */}
+                             {formData.productoBusqueda.length >= 2 && filteredProducts.length > 0 && formData.productoId === null && (
                                 <ul tabIndex={0} className="absolute left-0 top-100% z-10 menu p-2 shadow bg-base-200 rounded-box w-full mt-1">
                                     {filteredProducts.map(product => (
                                         <li key={product.id} onClick={() => handleSelectProduct(product)}>
@@ -354,16 +356,17 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
                                         </li>
                                     ))}
                                 </ul>
-                            )}
-                            
-                            {selectedProduct && (
-                                <div className="text-sm mt-2 text-success font-semibold flex items-center">
-                                    <Package className="w-4 h-4 mr-1" />
-                                    {selectedProduct.nombre} ({selectedProduct.referenciaFabricante})
-                                </div>
-                            )}
-                    </div>
-                </label>
+                             )}
+                             
+                             {selectedProduct && (
+                                 <div className="text-sm mt-2 text-success font-semibold flex items-center">
+                                     <Package className="w-4 h-4 mr-1" />
+                                     {selectedProduct.nombre} ({selectedProduct.referenciaFabricante})
+                                 </div>
+                             )}
+                        </div>
+                    </label>
+                )}
 
                 {/* Referencia/Título (Auto-rellenado para Plano) */}
                 <label className={`form-control w-full md:col-span-2`}>
@@ -491,6 +494,9 @@ export default function GestionDocumentos() {
     if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
     if (docsError || prodError || fabError || matError) return <div className="text-red-500 text-center">Error al cargar datos necesarios.</div>;
 
+    // --- CORRECCIÓN CRÍTICA: Usar una lista segura ---
+    const documentosList = Array.isArray(documentos) ? documentos : [];
+
     return (
         <div className="container mx-auto p-4">
         <h1 className="text-3xl font-bold mb-6 flex items-center"><FileText className="mr-2" /> Gestión de Planos de Producto</h1>
@@ -525,7 +531,7 @@ export default function GestionDocumentos() {
                 </tr>
             </thead>
             <tbody>
-                {(documentos || []).map((doc) => {
+                {documentosList.map((doc) => {
                     const prodInfo = getProductoInfo(doc.productoId);
                     
                     // Solo es PLANO, usamos un color simple
@@ -567,7 +573,7 @@ export default function GestionDocumentos() {
                 })}
             </tbody>
             </table>
-            {(documentos || []).length === 0 && !isLoading && (
+            {documentosList.length === 0 && !isLoading && (
                 <div className="text-center p-6 text-gray-500">No se encontraron planos.</div>
             )}
         </div>
