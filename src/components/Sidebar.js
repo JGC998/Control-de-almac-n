@@ -1,7 +1,10 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator, Users, Settings, Layers, Factory } from 'lucide-react'; 
+import { 
+    Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator, 
+    Users, Settings, Layers, Factory, Wrench 
+} from 'lucide-react'; 
 
 const links = [
   { href: '/', label: 'Dashboard', icon: Home },
@@ -12,14 +15,19 @@ const links = [
   { href: '/calculadora', label: 'Calculadora', icon: Calculator },
   { href: '/tarifas', label: 'Tarifas', icon: DollarSign }, 
   
-  // Catálogos Maestros Aislados (Mantenemos la estructura de Gestión de Catálogos)
+  // --- NUEVA SECCIÓN DE DOCUMENTACIÓN ---
+  { href: '/maquinaria', label: 'Hub de Maquinaria', icon: Wrench }, 
+  { href: '/gestion/documentos', label: 'Gestión Documentos', icon: FileText }, 
+  // -------------------------------------
+  
+  // Catálogos Maestros Aislados
   { href: '/gestion/clientes', label: 'Gestión Clientes', icon: Users }, 
   { href: '/gestion/productos', label: 'Gestión Productos', icon: Package },
   { href: '/gestion/catalogos/proveedores', label: 'Gestión Proveedores', icon: Truck },
   { href: '/gestion/catalogos/materiales', label: 'Gestión Materiales', icon: Layers },
   { href: '/gestion/catalogos/fabricantes', label: 'Gestión Fabricantes', icon: Factory },
   
-  // Configuración Unificada (Reglas, Referencias, Tarifas Base)
+  // Configuración Unificada
   { href: '/configuracion', label: 'Configuración Reglas/Catálogos', icon: Settings },
 ];
 

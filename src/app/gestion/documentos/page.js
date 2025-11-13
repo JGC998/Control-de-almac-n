@@ -1,4 +1,3 @@
-cat << 'EOF' > src/app/gestion/documentos/page.js
 "use client";
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -585,4 +584,3 @@ export default function GestionDocumentos() {
         </div>
     );
 }
-EOF

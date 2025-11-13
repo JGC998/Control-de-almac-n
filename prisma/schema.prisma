@@ -40,7 +40,7 @@ model Producto {
   
   // RELACIONES
   cliente   Cliente? @relation(fields: [clienteId], references: [id])
-  clienteId String? // Fabricante/Cliente propietario del diseño
+  clienteId String? 
 
   fabricante   Fabricante? @relation(fields: [fabricanteId], references: [id])
   fabricanteId String?
@@ -49,6 +49,10 @@ model Producto {
   precioVentaFab Float?
   precioVentaInt Float?
   precioVentaFin Float?
+  
+  // Nuevo campo de relación con Documento (Planos/Guías)
+  documentos      Documento[]
+
   // Otros
   itemsPedido PedidoItem[]
   itemsPresup PresupuestoItem[]
@@ -230,14 +234,13 @@ model ReferenciaBobina {
 
 model ReglaMargen {
   id              String  @id @default(uuid())
-  base            String  @unique // FABRICANTE, INTERMEDIARIO, CLIENTE_FINAL (nueva clave única para el tipo de margen)
-  multiplicador   Float   // Multiplicador (ej. 1.5)
-  gastoFijo       Float?  // Gasto Fijo (€)
+  base            String  @unique 
+  multiplicador   Float   
+  gastoFijo       Float?
   
-  // Campos antiguos renombrados/reutilizados
-  descripcion     String // Título descriptivo (ej. "Tarifa Base para Fabricante")
+  descripcion     String 
   tipo            String? @default("General")
-  categoria       String? @map("tipo_categoria") // Reutilizado para posibles márgenes por categoría
+  categoria       String? @map("tipo_categoria") 
   tierCliente String?
 }
 
@@ -271,6 +274,28 @@ model PrecioEspecial {
   productoId String
   @@unique([clienteId, productoId])
 }
+
+// Modelo de Documentos (CORREGIDO: Eliminamos fechaPlano/version)
+model Documento {
+  id              String   @id @default(uuid())
+  tipo            String   // "PLANO", "GUIA", "PROCESO"
+  referencia      String   // La referencia o nombre del plano
+  descripcion     String?  // Descripción del contenido
+  rutaArchivo     String   // Campo para la URL o path del archivo
+  fechaSubida     DateTime @default(now())
+
+  // Relación opcional con el Producto (Planos)
+  producto        Producto? @relation(fields: [productoId], references: [id])
+  productoId      String?
+
+  // Relación opcional con Maquinaria/Ubicación (Procesos, Guías)
+  maquinaUbicacion String? 
+
+  // MEJORA: Volvemos al constraint simple para evitar problemas de migración destructiva
+  @@unique([referencia, rutaArchivo])
+  @@map("Documento")
+}
+
 
 model Nota {
   id      String   @id @default(uuid())

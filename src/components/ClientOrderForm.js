@@ -2,7 +2,7 @@
 "use client";
 // (Paso 4) Eliminamos useRef, ya no es necesario para el debounce
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 // (Paso 4) Eliminamos Calculator, ya no es necesario
 import { 
@@ -10,6 +10,7 @@ import {
     Trash2, Copy, Search, Package, XCircle 
 } from 'lucide-react'; 
 import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal";
+import QuickProductForm from "@/components/QuickProductForm"; // AÑADIDO: Nuevo formulario de producto
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -39,10 +40,16 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
 
   // --- CARGA DE DATOS (SWR) ---
   const { data: clientes, error: clientesError, isLoading: isLoadingClientes } = useSWR('/api/clientes', fetcher);
-  // FIX: Cargamos márgenes siempre que se requiera margen
   const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null, fetcher);
   const { data: todosProductos, error: prodError } = useSWR('/api/productos', fetcher);
   const { data: config } = useSWR('/api/config', fetcher);
+  
+  // AÑADIDO: Cargar catálogos para el QuickProductForm
+  const { data: fabricantes, error: fabError } = useSWR('/api/fabricantes', fetcher);
+  const { data: materiales, error: matError } = useSWR('/api/materiales', fetcher);
+  const { data: tarifas, error: tarifasError } = useSWR('/api/precios', fetcher); 
+  
+  const isCatalogLoading = isLoadingClientes || !!margenesError || !!fabError || !!matError || !!tarifasError;
 
 
   // --- LÓGICA DE CLIENTE (Simplificada Paso 4) ---
@@ -153,6 +160,22 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       setActiveSearchIndex(null); 
       checkStockStatus(item, item.id);
   };
+  
+  const handleCreatedProduct = (newProduct) => {
+      // Usamos el índice del item que tenía el modal abierto (si se guarda)
+      const index = items.findIndex(item => item.id === modalState.itemId);
+      if (index !== -1) {
+        handleSelectProduct(newProduct, index);
+      }
+      setModalState(null);
+      mutate('/api/productos'); 
+  };
+  
+  const handleOpenProductModal = (item) => {
+       // Guardamos el ID del item que abrió el modal
+       setModalState({ type: 'QUICK_PRODUCT', itemId: item.id }); 
+  }
+
 
   // --- LÓGICA DE STOCK (Paso 2 - Sin cambios) ---
   const checkStockStatus = useCallback(async (item, key) => {
@@ -274,7 +297,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       const dataPayload = {
           clienteId,
           // FIX: El formType debe ser 'PRESUPUESTO' o 'PEDIDO'
-          formType: formType, 
+          estado: initialData?.estado || 'Borrador', // Mantener estado si es edición
           items: items.map(item => ({
               description: item.description,
               quantity: item.quantity,
@@ -286,19 +309,20 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           tax: tax,
           total: total,
           notas: notes,
+          marginId: selectedMarginId, // Siempre enviar ID del margen
       };
 
-      // FIX: Enviamos el ID del margen si se seleccionó
-      if (selectedMarginId) {
-          dataPayload.marginId = selectedMarginId;
-      }
+      // Si es Edición, necesitamos el ID del documento
+      const isEditMode = !!initialData;
+      const endpoint = formType === 'PRESUPUESTO' 
+        ? (isEditMode ? `/api/presupuestos/${initialData.id}` : '/api/presupuestos')
+        : (isEditMode ? `/api/pedidos/${initialData.id}` : '/api/pedidos');
+      const method = isEditMode ? 'PUT' : 'POST';
 
-      const endpoint = formType === 'PRESUPUESTO' ? '/api/presupuestos' : '/api/pedidos';
       
-      // (Paso 4) Habilitamos el envío real
       try {
           const res = await fetch(endpoint, {
-              method: 'POST',
+              method: method,
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(dataPayload),
           });
@@ -328,6 +352,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <h2 className="card-title text-primary">Información Principal</h2>
+          {isCatalogLoading && <span className="loading loading-spinner loading-sm"></span>}
           {clientesError && <div className="text-error">Error al cargar clientes.</div>}
           
           {/* (Paso 4) La rejilla ahora es siempre de 1 columna */}
@@ -419,16 +444,24 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                             </td>
                             <td className="relative w-2/5">
                                 <div className="dropdown w-full dropdown-bottom">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Buscar producto o introducir descripción manual..."
-                                        value={item.description} 
-                                        onChange={(e) => handleSearchChange(e.target.value, index)} 
-                                        onFocus={() => setActiveSearchIndex(index)} 
-                                        onBlur={() => setTimeout(() => setActiveSearchIndex(null), 200)}
-                                        className="input input-bordered input-sm w-full"
-                                    />
-                                    {activeSearchIndex === index && (searchResults.length > 0 || item.description.length >= 2) && (
+                                    <div className="input-group">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Buscar producto o introducir descripción manual..."
+                                            value={item.description} 
+                                            onChange={(e) => handleSearchChange(e.target.value, index)} 
+                                            onFocus={() => setActiveSearchIndex(index)} 
+                                            onBlur={() => setTimeout(() => setActiveSearchIndex(null), 200)}
+                                            className="input input-bordered input-sm w-full"
+                                            required={!item.productId}
+                                        />
+                                         {/* BOTÓN DE CREACIÓN RÁPIDA DE PRODUCTO */}
+                                         <button type="button" onClick={() => handleOpenProductModal(item)} className="btn btn-primary btn-sm" title="Crear Producto Rápido">
+                                            <Plus className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    
+                                    {activeSearchIndex === index && searchResults.length > 0 && (
                                         <ul tabIndex={0} 
                                             className="absolute left-0 top-full z-50 menu p-2 shadow bg-base-200 rounded-box w-full max-w-lg mt-1 overflow-y-auto max-h-52"
                                             onMouseDown={(e) => e.preventDefault()} 
@@ -438,13 +471,13 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                                                     <a><Search className="w-4 h-4 mr-2" />{p.nombre} ({p.referenciaFabricante})</a>
                                                 </li>
                                             ))}
-                                            {searchResults.length > 0 && <li className="divider my-1 p-0"></li>}
-                                            <li onClick={() => setModalState({ type: 'QUICK_PRODUCT', initialData: { nombre: item.description }, itemIndex: index })}>
-                                                <a className="text-warning"><Plus className="w-4 h-4 mr-2" /> Crear Producto: {item.description}</a>
-                                            </li>
                                         </ul>
                                     )}
                                 </div>
+                                {/* Mostrar referencia si ya hay un producto seleccionado */}
+                                {item.productId && (
+                                     <p className="text-xs text-success mt-1">Plantilla: {todosProductos?.find(p => p.id === item.productId)?.referenciaFabricante}</p>
+                                )}
                             </td>
                             <td><input type="number" step="1" value={item.quantity || ''} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} className="input input-bordered input-sm w-20" /></td>
                             <td>
@@ -580,7 +613,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       </div>
     </form>
     
-    {/* MODALES (Paso 1 y 2 - Sin cambios) */}
+    {/* MODALES */}
     
     {modalState === 'CLIENTE' && (
       <BaseQuickCreateModal
@@ -599,25 +632,18 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       />
     )}
     
+    {/* MODAL DE CREACIÓN RÁPIDA DE PRODUCTO */}
     {modalState?.type === 'QUICK_PRODUCT' && (
-      <BaseQuickCreateModal
-          isOpen={true}
-          onClose={() => setModalState(null)}
-          onCreated={(newItem) => handleSelectProduct(newItem, modalState.itemIndex)}
-          title="Crear Nueva Plantilla de Producto"
-          endpoint="/api/productos"
-          cacheKey="/api/productos"
-          initialData={modalState.initialData}
-          fields={[
-              { name: 'nombre', placeholder: 'Nombre/Descripción', required: true },
-              { name: 'referenciaFabricante', placeholder: 'Referencia Fabricante', required: false },
-              { name: 'precioUnitario', placeholder: 'Precio Coste Base (€)', type: 'number', required: true, step: '0.01' },
-              { name: 'espesor', placeholder: 'Espesor (mm)', type: 'number', required: true, step: '0.1' },
-              { name: 'largo', placeholder: 'Largo (mm)', type: 'number', required: true, step: '1' },
-              { name: 'ancho', placeholder: 'Ancho (mm)', type: 'number', required: true, step: '1' },
-              { name: 'materialId', placeholder: 'ID Material (Temporal)', required: true }, // Esto debe mejorarse
-          ]}
-      />
+        <QuickProductForm 
+            isOpen={true}
+            onClose={() => setModalState(null)}
+            onCreated={handleCreatedProduct}
+            catalogos={{ 
+                fabricantes: fabricantes, 
+                materiales: materiales, 
+                tarifas: tarifas
+            }}
+        />
     )}
     </>
   );
