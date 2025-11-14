@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'; 
 
 const links = [
-  { href: '/', label: 'Dashboard', icon: Home },
+  { href: '/', label: 'Inicio', icon: Home },
   { href: '/presupuestos', label: 'Presupuestos', icon: FileText },
   { href: '/pedidos', label: 'Pedidos Cliente', icon: Package }, 
   { href: '/proveedores', label: 'Pedidos Proveedor', icon: Truck },
@@ -16,8 +16,8 @@ const links = [
   { href: '/tarifas', label: 'Tarifas', icon: DollarSign }, 
   
   // --- NUEVA SECCIÓN DE DOCUMENTACIÓN ---
-  { href: '/maquinaria', label: 'Hub de Maquinaria', icon: Wrench }, 
-  { href: '/gestion/documentos', label: 'Gestión Documentos', icon: FileText }, 
+/*   { href: '/maquinaria', label: 'Hub de Maquinaria', icon: Wrench }, 
+ */  { href: '/gestion/documentos', label: 'Planos', icon: FileText }, 
   // -------------------------------------
   
   // Catálogos Maestros Aislados
@@ -28,7 +28,7 @@ const links = [
   { href: '/gestion/catalogos/fabricantes', label: 'Gestión Fabricantes', icon: Factory },
   
   // Configuración Unificada
-  { href: '/configuracion', label: 'Configuración Reglas/Catálogos', icon: Settings },
+  { href: '/configuracion', label: 'Configuración Margenes, Referencias y Tarifa', icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -47,7 +47,7 @@ export default function Sidebar() {
       <Link href="/" className="btn btn-ghost text-xl normal-case mb-4">
         CRM Taller
       </Link>
-      <ul className="menu flex-grow">
+      <ul className="menu grow">
         {links.map(({ href, label, icon: Icon }) => (
           <li key={href}>
             <Link href={href} className={`${isLinkActive(href) ? 'active' : ''} text-base`}> 
