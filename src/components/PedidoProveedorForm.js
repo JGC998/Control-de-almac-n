@@ -296,7 +296,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                     </div>
                     
                     {proveedorBusqueda.length >= 2 && filteredProveedores.length > 0 && formData.proveedorId === '' && (
-                        <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-full">
+                        <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-200 rounded-box w-full">
                             {filteredProveedores.map(p => (
                                 <li key={p.id} onClick={() => handleSelectProveedor(p.id, p.nombre)}>
                                     <a>{p.nombre}</a>
