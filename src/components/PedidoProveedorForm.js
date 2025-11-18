@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, UserPlus, X } from 'lucide-react';
+import { Plus, Trash2, Save, UserPlus, X, Search, FilePlus } from 'lucide-react';
 import "react-day-picker/style.css";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
@@ -31,6 +31,9 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   // Estado para modals y búsqueda
   const [modalState, setModalState] = useState(null); // 'PROVEEDOR', 'REFERENCIA'
   const [proveedorBusqueda, setProveedorBusqueda] = useState(initialData?.proveedor?.nombre || '');
+  
+  // ESTADO NUEVO PARA CONTROL DE BÚSQUEDA DE REFERENCIAS (como en presupuestos)
+  const [activeReferenciaIndex, setActiveReferenciaIndex] = useState(null);
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -85,6 +88,21 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   }, [tarifas, formData.material]);
   // ----------------------------------------------------
 
+  // --- Lógica de Búsqueda de Referencias (MEJORA: usa useMemo) ---
+  const filteredBobinaRefs = useMemo(() => {
+      if (activeReferenciaIndex === null) return [];
+      
+      const query = formData.bobinas[activeReferenciaIndex]?.referenciaBusqueda || '';
+      if (query.length < 2 || !referencias) return [];
+
+      return referencias.filter(r =>
+          // Filtramos por el campo 'referencia' (asumiendo que es el nombre visible)
+          r.referencia?.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 5); // Limitar a 5 resultados
+  }, [referencias, formData.bobinas, activeReferenciaIndex]);
+  // -----------------------------------------------------------------
+
+
   // --- Lógica de Búsqueda de Proveedores ---
   const filteredProveedores = proveedores?.filter(p => 
     p.nombre.toLowerCase().includes(proveedorBusqueda.toLowerCase()) && p.id !== formData.proveedorId
@@ -110,9 +128,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     
-    // Si cambia el material, limpiar espesores y colores de bobinas
     if (name === 'material') {
-        // Al cambiar el material, limpiamos espesor y color
         const newBobinas = formData.bobinas.map(b => ({ ...b, espesor: '', color: '' }));
         setFormData(prev => ({ ...prev, [name]: value, bobinas: newBobinas }));
     } else {
@@ -120,15 +136,23 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     }
   };
 
+  // Mantener handleBobinaChange para los campos que NO son búsqueda (ancho, largo, etc.)
   const handleBobinaChange = (index, field, value) => {
     const newBobinas = [...formData.bobinas];
     newBobinas[index][field] = value;
     
-    if (field === 'referenciaBusqueda') {
-        newBobinas[index].referenciaNombre = value;
-    }
+    setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+  };
+  
+  // NUEVO MANEJADOR: Actualiza la búsqueda y el índice activo (como en presupuestos)
+  const handleBobinaSearchChange = (value, index) => {
+    const newBobinas = [...formData.bobinas];
+    newBobinas[index].referenciaBusqueda = value;
+    newBobinas[index].referenciaNombre = value; // Se actualiza el nombre temporalmente
+    newBobinas[index].referenciaId = ''; // Limpiar ID al buscar
     
     setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+    setActiveReferenciaIndex(value.length >= 2 ? index : null);
   };
   
   const handleSelectReferencia = (index, refId, refName) => {
@@ -137,28 +161,26 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       newBobinas[index].referenciaBusqueda = refName;
       newBobinas[index].referenciaNombre = refName;
       
-      // Intentar rellenar ancho/largo/espesor si es posible (solo funciona si se cargan con el producto)
       const selectedRef = referencias.find(r => r.id === refId);
       if (selectedRef) {
-          // Si la referencia tiene ancho/lonas/peso precargado, lo usamos
           newBobinas[index].ancho = selectedRef.ancho || newBobinas[index].ancho;
-          // Dejamos largo y espesor para que el usuario los ajuste si es necesario.
       }
       
       setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+      setActiveReferenciaIndex(null); // Cerrar desplegable al seleccionar
   };
   
   const handleReferenciaCreada = (index, newRef) => {
       const newBobinas = [...formData.bobinas];
       newBobinas[index].referenciaId = newRef.id;
-      newBobinas[index].referenciaBusqueda = newRef.nombre; // Usamos 'nombre' del objeto creado
+      newBobinas[index].referenciaBusqueda = newRef.nombre; 
       newBobinas[index].referenciaNombre = newRef.nombre;
       
-      // Rellenar campos opcionales con el valor creado si existen
       newBobinas[index].ancho = newRef.ancho || newBobinas[index].ancho;
       
       setFormData(prev => ({ ...prev, bobinas: newBobinas }));
       setModalState(null);
+      setActiveReferenciaIndex(null); // Asegurar cierre
   };
 
   const addBobina = () => {
@@ -178,6 +200,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
 
   const removeBobina = (index) => {
     setFormData(prev => ({ ...prev, bobinas: prev.bobinas.filter((_, i) => i !== index) }));
+    if (activeReferenciaIndex === index) setActiveReferenciaIndex(null);
   };
 
   const handleSubmit = async (e) => {
@@ -205,7 +228,6 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
         referenciaId: b.referenciaId || null,
         ancho: parseFloat(b.ancho) || null,
         largo: parseFloat(b.largo) || null,
-        // Usar null para que Prisma use el tipo Float?
         espesor: b.espesor ? parseFloat(b.espesor) : null, 
         color: b.color || null,
         precioMetro: parseFloat(b.precioMetro) || 0,
@@ -240,7 +262,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Card de Datos Principales */}
+        {/* Card de Datos Principales (sin cambios) */}
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title">Datos del Pedido</h2>
@@ -410,7 +432,8 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                 <Plus className="w-4 h-4" /> Añadir Bobina
               </button>
             </div>
-            <div className="overflow-x-auto">
+            {/* ESTE DIV DE OVERFLOW ES EL PROBLEMA. No se puede quitar, pero vamos a mitigar */}
+            <div className="overflow-x-auto"> 
               <table className="table w-full">
                 <thead>
                   <tr>
@@ -429,25 +452,26 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                     <tr><td colSpan={formData.material === 'PVC' ? "7" : "6"} className="text-center">Añade al menos una bobina.</td></tr>
                   )}
                   {formData.bobinas.map((bobina, index) => {
-                      // Filtrar referencias disponibles en tiempo real (BUG FIX: Añadir '?.' para r.referencia)
-                      const filteredRefs = referencias?.filter(r =>
-                        // Usar r.referencia, ya que r.nombre no existe en el objeto ReferenciaBobina
-                        r.referencia?.toLowerCase().includes(bobina.referenciaBusqueda?.toLowerCase() || '')
-                      ).slice(0, 5) || [];
                       
+                      const isSearchActive = activeReferenciaIndex === index;
+                      const currentResults = isSearchActive ? filteredBobinaRefs : [];
+                      const noResults = isSearchActive && bobina.referenciaBusqueda.length >= 2 && currentResults.length === 0;
+
                       return (
                         <tr key={index}>
-                          <td>
-                            {/* Búsqueda de Referencia Bobina con Quick Create */}
+                          <td className="relative"> {/* Añadimos relative para que el dropdown se ancle a esta celda */}
+                            {/* Búsqueda de Referencia Bobina con Quick Create (REFACTORIZADA) */}
                             <div className="dropdown w-full">
                                 <div className="input-group">
                                     <input 
                                         type="text" 
                                         value={bobina.referenciaBusqueda || ''} 
-                                        onChange={(e) => {
-                                            handleBobinaChange(index, 'referenciaBusqueda', e.target.value);
-                                            handleBobinaChange(index, 'referenciaId', ''); // Limpiar ID al buscar
-                                        }} 
+                                        onChange={(e) => handleBobinaSearchChange(e.target.value, index)} 
+                                        
+                                        // MEJORA: Manejo de Foco para el desplegable (como en presupuestos)
+                                        onFocus={() => setActiveReferenciaIndex(index)}
+                                        onBlur={() => setTimeout(() => setActiveReferenciaIndex(null), 200)}
+                                        
                                         className="input input-bordered input-sm w-full"
                                         placeholder="Buscar Ref."
                                         tabIndex={0}
@@ -457,14 +481,30 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                                     </button>
                                 </div>
                                 
-                                {/* Resultados de búsqueda (Ajuste de estilo para que no se oculte) */}
-                                {bobina.referenciaBusqueda?.length >= 2 && filteredRefs.length > 0 && (
-                                    <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-96 max-w-lg mt-1">
-                                        {filteredRefs.map(r => (
+                                {/* Resultados de búsqueda (AJUSTE CRÍTICO DE CLASES) */}
+                                {isSearchActive && (currentResults.length > 0 || noResults) && (
+                                    <ul tabIndex={0} 
+                                        // Aumentamos Z-index a z-[99] para intentar romper el contexto de apilamiento
+                                        // Además, quitamos 'dropdown-content' y usamos 'absolute' para control total.
+                                        className="absolute left-0 top-full z-[99] menu p-2 shadow-lg bg-base-200 rounded-box w-[360px] mt-1 border border-base-300"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                    >
+                                        {/* Resultados encontrados */}
+                                        {currentResults.map(r => (
                                             <li key={r.id} onClick={() => handleSelectReferencia(index, r.id, r.referencia)}>
-                                                <a>{r.referencia}</a>
+                                                <a><Search className="w-4 h-4 mr-2" />{r.referencia}</a>
                                             </li>
                                         ))}
+                                        
+                                        {/* Opción de Crear Referencia si no hay resultados */}
+                                        {noResults && (
+                                            <li onClick={() => setModalState({ type: 'REFERENCIA', index })} >
+                                                <a className="bg-warning text-warning-content hover:bg-warning-focus">
+                                                    <FilePlus className="w-4 h-4 mr-2" />
+                                                    Crear nueva Referencia: {bobina.referenciaBusqueda}
+                                                </a>
+                                            </li>
+                                        )}
                                     </ul>
                                 )}
                                 
@@ -556,7 +596,6 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
           endpoint="/api/configuracion/referencias"
           cacheKey="/api/configuracion/referencias"
           fields={[
-              // Usamos 'nombre' que es el campo mapeado en Prisma a 'referencia'
               { name: 'nombre', placeholder: 'Referencia (ej: EP-250-2-400)' }, 
               { name: 'ancho', placeholder: 'Ancho (mm)', type: 'number', required: false, step: '0.01' },
               { name: 'lonas', placeholder: 'Número de Lonas', type: 'number', required: false },

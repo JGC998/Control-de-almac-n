@@ -1,594 +1,610 @@
-cat << 'EOF' > src/app/gestion/documentos/page.js
+cat << 'EOF' > src/components/PedidoProveedorForm.js
 "use client";
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { FileText, PlusCircle, Edit, Trash2, Download, ExternalLink, Upload, Search, Package, Plus, X } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { Plus, Trash2, Save, UserPlus, X, Search, FilePlus } from 'lucide-react';
+import "react-day-picker/style.css";
+import { DayPicker } from "react-day-picker";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal"; // IMPORTACIÓN REFACTORIZADA
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-// Constantes para el modal
-const initialFormData = {
-  id: null, tipo: 'PLANO', referencia: '', descripcion: '', rutaArchivo: '', productoId: '', maquinaUbicacion: '', file: null, productoBusqueda: ''
+// --- Estado inicial por defecto para un formulario nuevo ---
+const defaultFormState = {
+  proveedorId: '',
+  material: '',
+  notas: '',
+  tasaCambio: 1,
+  gastosTotales: 0,
+  bobinas: [],
+  numeroContenedor: '',
+  naviera: '',
+  fechaLlegadaEstimada: null,
 };
-const TIPOS_DOCUMENTO = [
-    { value: 'PLANO', label: 'Plano de Producto' },
-    { value: 'GUIA', label: 'Guía de Máquina/Manual' },
-    { value: 'PROCESO', label: 'Proceso Interno/Instrucción' },
-];
 
-// --- COMPONENTE DE MODAL DE CREACIÓN RÁPIDA (COHERENTE CON /api/productos) ---
-function QuickProductForm({ isOpen, onClose, onCreated, catalogos }) {
-    const { fabricantes, materiales, tarifas } = catalogos;
+// --- Componente Principal del Formulario ---
+export default function PedidoProveedorForm({ tipo, initialData = null }) {
+  const router = useRouter();
+  
+  // Estado para modals y búsqueda
+  const [modalState, setModalState] = useState(null); // 'PROVEEDOR', 'REFERENCIA'
+  const [proveedorBusqueda, setProveedorBusqueda] = useState(initialData?.proveedor?.nombre || '');
+  
+  // ESTADO NUEVO PARA CONTROL DE BÚSQUEDA DE REFERENCIAS (como en presupuestos)
+  const [activeReferenciaIndex, setActiveReferenciaIndex] = useState(null);
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
+  const parseInitialData = (data) => {
+    if (!data) return { ...defaultFormState, tipo: tipo };
+    return {
+      proveedorId: data.proveedorId,
+      material: data.material,
+      notas: data.notas || '',
+      tasaCambio: data.tasaCambio || 1,
+      gastosTotales: data.gastosTotales || 0,
+      numeroContenedor: data.numeroContenedor || '',
+      naviera: data.naviera || '',
+      fechaLlegadaEstimada: data.fechaLlegadaEstimada ? new Date(data.fechaLlegadaEstimada) : null,
+      bobinas: data.bobinas.map(b => ({
+        ...b,
+        referenciaId: b.referenciaId || '', 
+        referenciaNombre: b.referencia?.nombre || '',
+        referenciaBusqueda: b.referencia?.nombre || '', 
+        color: b.color || '', 
+      })) || [],
+    };
+  };
+
+  const [formData, setFormData] = useState(parseInitialData(initialData));
+
+  useEffect(() => {
+    setFormData(parseInitialData(initialData));
+    if (initialData?.proveedor?.nombre) setProveedorBusqueda(initialData.proveedor.nombre);
+  }, [initialData]);
+
+  // --- Carga de datos para Selectores ---
+  const { data: proveedores, error: provError } = useSWR('/api/proveedores', fetcher);
+  const { data: materiales, error: matError } = useSWR('/api/materiales', fetcher);
+  const { data: referencias, error: refError } = useSWR('/api/configuracion/referencias', fetcher);
+  const { data: tarifas, error: tarifasError } = useSWR('/api/precios', fetcher); 
+  
+  // Colores de PVC 
+  const pvcColors = ['Blanco', 'Verde', 'Azul', 'Rojo'];
+
+  // --- Lógica de Espesores Dinámicos (SIMPLIFICADA - usa solo tarifas) ---
+  const availableEspesores = useMemo(() => {
+    if (!tarifas || !formData.material) return [];
     
-    // Estado inicial que refleja los inputs necesarios para POST /api/productos
-    const [formData, setFormData] = useState({ 
-        nombre: '', modelo: '', espesor: '', largo: '', ancho: '', 
-        material: '', fabricante: ''
-    });
-    const [error, setError] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const espesores = tarifas
+      .filter(t => t.material.toLowerCase() === formData.material.toLowerCase()) // Filtrar por material
+      .map(t => String(t.espesor)); // Mapear a string para usar en <select>
 
-    // Lógica para obtener espesores disponibles según el material (COPIADA DE GestionProductos)
-    const availableEspesores = useMemo(() => {
-        if (!tarifas || !formData.material) return [];
-        
-        const espesores = tarifas
-            .filter(t => t.material === formData.material)
-            .map(t => String(t.espesor));
-        
-        return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
-    }, [tarifas, formData.material]);
+    // Asegurar unicidad y ordenar
+    return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
+  }, [tarifas, formData.material]);
+  // ----------------------------------------------------
 
-    // Resetear espesor si el material cambia (COPIADA DE GestionProductos)
-    useEffect(() => {
-        setFormData(prev => ({ ...prev, espesor: '' }));
-    }, [formData.material]);
+  // --- Lógica de Búsqueda de Referencias (MEJORA: usa useMemo) ---
+  const filteredBobinaRefs = useMemo(() => {
+      if (activeReferenciaIndex === null) return [];
+      
+      const query = formData.bobinas[activeReferenciaIndex]?.referenciaBusqueda || '';
+      if (query.length < 2 || !referencias) return [];
 
-    if (!isOpen) return null;
+      return referencias.filter(r =>
+          // Filtramos por el campo 'referencia' (asumiendo que es el nombre visible)
+          r.referencia?.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 5); // Limitar a 5 resultados
+  }, [referencias, formData.bobinas, activeReferenciaIndex]);
+  // -----------------------------------------------------------------
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+
+  // --- Lógica de Búsqueda de Proveedores ---
+  const filteredProveedores = proveedores?.filter(p => 
+    p.nombre.toLowerCase().includes(proveedorBusqueda.toLowerCase()) && p.id !== formData.proveedorId
+  ).slice(0, 5) || [];
+
+  const handleSelectProveedor = (proveedorId, proveedorName) => {
+    setFormData(prev => ({ ...prev, proveedorId }));
+    setProveedorBusqueda(proveedorName);
+  };
+  
+  const handleClearProveedor = () => {
+    setFormData(prev => ({ ...prev, proveedorId: '' }));
+    setProveedorBusqueda('');
+  };
+  
+  const handleProveedorCreado = (nuevoProveedor) => {
+    setFormData(prev => ({ ...prev, proveedorId: nuevoProveedor.id }));
+    setProveedorBusqueda(nuevoProveedor.nombre);
+    setModalState(null);
+  };
+  // ------------------------------------------
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name === 'material') {
+        const newBobinas = formData.bobinas.map(b => ({ ...b, espesor: '', color: '' }));
+        setFormData(prev => ({ ...prev, [name]: value, bobinas: newBobinas }));
+    } else {
         setFormData(prev => ({ ...prev, [name]: value }));
-    };
-    
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        setIsLoading(true);
-
-        const dataToSend = {
-            ...formData,
-            espesor: parseFloat(formData.espesor) || 0,
-            largo: parseFloat(formData.largo) || 0,
-            ancho: parseFloat(formData.ancho) || 0,
-            precioUnitario: 0, 
-            pesoUnitario: 0,
-            costo: 0,
-        };
-        
-        try {
-            const res = await fetch('/api/productos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dataToSend),
-            });
-
-            if (!res.ok) {
-                const errorText = await res.text();
-                let errorMessage = 'Error al crear el producto';
-                try {
-                    const errData = JSON.parse(errorText);
-                    errorMessage = errData.message || errorMessage;
-                } catch {}
-                throw new Error(errorMessage);
-            }
-            
-            const newProduct = await res.json();
-            onCreated(newProduct); 
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    return (
-        <div className="modal modal-open">
-          <div className="modal-box w-11/12 max-w-3xl">
-            <button type="button" onClick={onClose} className="btn btn-sm btn-circle absolute right-2 top-2"><X /></button>
-            <h3 className="font-bold text-lg flex items-center mb-4">
-                <Package className="mr-2" /> Nueva Plantilla de Producto Rápido
-            </h3>
-            <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Nombre/Descripción" className="input input-bordered w-full md:col-span-2" required />
-                <input type="text" name="modelo" value={formData.modelo} onChange={handleChange} placeholder="Referencia Fabricante" className="input input-bordered w-full" required />
-                
-                <select name="fabricante" value={formData.fabricante} onChange={handleChange} className="select select-bordered w-full" required>
-                    <option value="">Selecciona Fabricante</option>
-                    {fabricantes?.map(f => <option key={f.id} value={f.nombre}>{f.nombre}</option>)}
-                </select>
-                
-                <select name="material" value={formData.material} onChange={handleChange} className="select select-bordered w-full" required>
-                    <option value="">Selecciona Material</option>
-                    {materiales?.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
-                </select>
-                
-                {/* Selector de Espesor Dinámico */}
-                <label className="form-control w-full">
-                    <div className="label"><span className="label-text">Espesor (mm)</span></div>
-                    <select 
-                        name="espesor" 
-                        value={formData.espesor} 
-                        onChange={handleChange} 
-                        className="select select-bordered w-full" 
-                        disabled={!formData.material || availableEspesores.length === 0}
-                        required
-                    >
-                        <option value="">{formData.material ? (availableEspesores.length > 0 ? 'Selecciona Espesor' : 'Sin tarifas para este material') : 'Selecciona Material primero'}</option>
-                        {availableEspesores.map(e => (
-                            <option key={e} value={e}>{e} mm</option>
-                        ))}
-                    </select>
-                </label>
-                
-                <input type="number" step="1" name="largo" value={formData.largo} onChange={handleChange} placeholder="Largo (mm)" className="input input-bordered w-full" required />
-                <input type="number" step="1" name="ancho" value={formData.ancho} onChange={handleChange} placeholder="Ancho (mm)" className="input input-bordered w-full" required />
-                
-                {error && <p className="text-error text-sm md:col-span-2">{error}</p>}
-                
-                <div className="modal-action md:col-span-2">
-                    <button type="button" onClick={onClose} className="btn">Cancelar</button>
-                    <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                        {isLoading ? 'Guardando...' : 'Guardar'}
-                    </button>
-                </div>
-            </form>
-          </div>
-        </div>
-    );
-}
-
-// --- COMPONENTE PRINCIPAL (DocumentoModal y GestionDocumentos) ---
-
-function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, materiales, tarifas }) {
-    const router = useRouter();
-    
-    // --- HOOKS INCONDICIONALES ---
-    const [formData, setFormData] = useState(initialData);
-    const [error, setError] = useState(null);
-    const [modalState, setModalState] = useState(null); 
-    
-    // Obtener producto seleccionado (para auto-rellenar referencia)
-    const selectedProduct = useMemo(() => {
-        if (!formData.productoId || !productos) return null;
-        return productos.find(p => p.id === formData.productoId);
-    }, [formData.productoId, productos]);
-
-    // Productos para el selector (HOOK INCONDICIONAL)
-    const todosProductos = useMemo(() => productos || [], [productos]);
-    const filteredProducts = useMemo(() => {
-        if (formData.productoBusqueda.length < 2) return [];
-        return todosProductos.filter(p => 
-            p.nombre.toLowerCase().includes(formData.productoBusqueda.toLowerCase()) ||
-            p.referenciaFabricante?.toLowerCase().includes(formData.productoBusqueda.toLowerCase())
-        ).slice(0, 5);
-    }, [todosProductos, formData.productoBusqueda]);
-    // --- FIN HOOKS INCONDICIONALES ---
-
-
-    const handleFileChange = useCallback((file) => {
-        if (file) {
-            const newRuta = `/planos/${file.name}`; 
-            setFormData(prev => ({
-                ...prev,
-                rutaArchivo: newRuta,
-                referencia: prev.referencia || file.name.split('.')[0], 
-                file: file,
-            }));
-        }
-    }, []);
-
-    const handleDrop = (e) => {
-        e.preventDefault();
-        const file = e.dataTransfer.files[0];
-        handleFileChange(file);
-    };
-
-    const handleSelectProduct = (product) => {
-        const defaultRef = product?.referenciaFabricante || product?.nombre || '';
-        
-        setFormData(prev => ({ 
-            ...prev, 
-            productoId: product.id,
-            referencia: defaultRef,
-            productoBusqueda: product.nombre,
-        }));
-    };
-    
-    const handleCreatedProduct = (newProduct) => {
-         handleSelectProduct(newProduct);
-         setModalState(null);
-         mutate('/api/productos'); 
-    };
-
-    const handleChange = (e) => {
-        const { name, value, files } = e.target;
-        
-        if (name === 'fileUpload' && files && files[0]) {
-            handleFileChange(files[0]);
-            return;
-        }
-        
-        if (name === 'productoBusqueda') {
-            setFormData(prev => ({ ...prev, [name]: value, productoId: null }));
-            return;
-        }
-
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-    
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        
-        if (formData.tipo === 'PLANO' && !formData.productoId) {
-            setError('Debe seleccionar o crear un Producto Asociado.');
-            return;
-        }
-        if (!formData.rutaArchivo) {
-             setError('Debe adjuntar un archivo.');
-             return;
-        }
-        
-        const docId = formData.id;
-        const method = docId ? 'PUT' : 'POST';
-        const url = docId ? `/api/documentos/${docId}` : '/api/documentos';
-        
-        const finalFormData = new FormData();
-        
-        // 1. Añadir campos de texto
-        for (const key in formData) {
-            if (key !== 'file' && key !== 'productoBusqueda' && key !== 'fileUpload' && formData[key] !== null && formData[key] !== undefined) {
-                finalFormData.append(key, formData[key]);
-            }
-        }
-        finalFormData.set('tipo', 'PLANO'); // Aseguramos que el tipo sea siempre PLANO
-        
-        // 2. Adjuntar el archivo real
-        if (formData.file) {
-            finalFormData.append('fileUpload', formData.file, formData.file.name);
-        }
-        
-        // 3. Limpiar campos que no aplican
-        finalFormData.set('maquinaUbicacion', '');
-
-        try {
-            const res = await fetch(url, {
-                method: method,
-                body: finalFormData, 
-            });
-
-            if (!res.ok) {
-                const errorText = await res.text();
-                let errorMessage = 'Error al guardar el documento.';
-                try {
-                    const errData = JSON.parse(errorText);
-                    errorMessage = errData.message || errorMessage;
-                } catch {}
-                throw new Error(errorMessage);
-            }
-
-            mutate('/api/documentos'); 
-            onClose();
-            router.refresh(); 
-            
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
-    if (!isOpen) return null;
-
-    const dragAndDropArea = (
-        <div 
-            className="border-2 border-dashed border-primary/50 rounded-lg p-6 text-center cursor-pointer hover:bg-base-300 transition-colors"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            onClick={() => document.getElementById('fileUpload').click()}
-        >
-            <Upload className="w-6 h-6 mx-auto text-primary" />
-            <p className="mt-2 text-sm">Arrastra y suelta el archivo, o haz clic para examinar.</p>
-            {formData.rutaArchivo && <p className="text-xs text-success mt-1">Archivo adjunto: {formData.rutaArchivo.split('/').pop()}</p>}
-            <input type="file" id="fileUpload" name="fileUpload" className="hidden" onChange={handleChange} />
-        </div>
-    );
-
-
-    return (
-        <>
-        <div className="modal modal-open">
-          <div className="modal-box w-11/12 max-w-2xl">
-            <h3 className="font-bold text-xl flex items-center mb-4">
-                <FileText className="mr-2 h-6 w-6" /> {formData.id ? 'Editar Documento' : 'Nuevo Documento'}
-            </h3>
-            
-            <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Tipo de Documento */}
-                <label className="form-control w-full">
-                    <div className="label"><span className="label-text">Tipo</span></div>
-                    <select name="tipo" value={'PLANO'} onChange={handleChange} className="select select-bordered w-full" disabled>
-                        <option value="PLANO">Plano de Producto</option>
-                        <option value="GUIA">Guía de Máquina/Manual</option>
-                        <option value="PROCESO">Proceso Interno/Instrucción</option>
-                    </select>
-                </label>
-
-                {/* Búsqueda y Creación de Producto (Solo si es Plano) */}
-                <label className="form-control w-full relative">
-                    <div className="label"><span className="label-text">Producto Asociado (Requerido)</span></div>
-                    <div className="dropdown w-full">
-                             <div className="input-group">
-                                <input
-                                    type="text"
-                                    name="productoBusqueda"
-                                    placeholder={selectedProduct ? selectedProduct.nombre : "Buscar o crear producto..."}
-                                    value={formData.productoBusqueda}
-                                    onChange={handleChange}
-                                    className={`input input-bordered w-full ${formData.productoId ? 'border-success' : ''}`}
-                                    tabIndex={0}
-                                />
-                                <button type="button" onClick={() => setModalState('PRODUCTO')} className="btn btn-primary" title="Crear Producto Rápido">
-                                    <Plus className="w-4 h-4" />
-                                </button>
-                             </div>
-                             
-                             {/* Resultados de Búsqueda */}
-                             {formData.productoBusqueda.length >= 2 && filteredProducts.length > 0 && formData.productoId === null && (
-                                <ul tabIndex={0} className="absolute left-0 top-100% z-10 menu p-2 shadow bg-base-200 rounded-box w-full mt-1">
-                                    {filteredProducts.map(product => (
-                                        <li key={product.id} onClick={() => handleSelectProduct(product)}>
-                                            <a><Search className="w-4 h-4 mr-2" />{product.nombre} ({product.referenciaFabricante})</a>
-                                        </li>
-                                    ))}
-                                </ul>
-                             )}
-                             
-                             {selectedProduct && (
-                                 <div className="text-sm mt-2 text-success font-semibold flex items-center">
-                                     <Package className="w-4 h-4 mr-1" />
-                                     {selectedProduct.nombre} ({selectedProduct.referenciaFabricante})
-                                 </div>
-                             )}
-                        </div>
-                    </label>
-                )}
-
-                {/* Referencia/Título (Auto-rellenado para Plano) */}
-                <label className={`form-control w-full md:col-span-2`}>
-                    <div className="label"><span className="label-text">Referencia / Título (Se autocompleta con Ref. Fab.)</span></div>
-                    <input 
-                        type="text" 
-                        name="referencia" 
-                        value={formData.referencia} 
-                        onChange={handleChange} 
-                        placeholder={selectedProduct ? selectedProduct.referenciaFabricante : "Título del Documento"} 
-                        className="input input-bordered w-full" 
-                        required 
-                    />
-                </label>
-                
-                {/* Área de Subida de Archivo (Drag & Drop REAL) */}
-                 <div className={`form-control w-full md:col-span-2`}>
-                    <div className="label"><span className="label-text">Adjuntar Archivo</span></div>
-                    {dragAndDropArea}
-                </div>
-                
-                {/* Descripción */}
-                <label className="form-control w-full md:col-span-2">
-                    <div className="label"><span className="label-text">Descripción</span></div>
-                    <textarea name="descripcion" value={formData.descripcion || ''} onChange={handleChange} placeholder="Detalles, notas importantes o pasos clave." className="textarea textarea-bordered h-24" />
-                </label>
-
-
-                {error && <p className="text-error text-sm md:col-span-2 mt-2 p-2 bg-red-100 rounded">{error}</p>}
-                
-                <div className="modal-action md:col-span-2 mt-6">
-                    <button type="button" onClick={onClose} className="btn">Cancelar</button>
-                    <button type="submit" className="btn btn-primary">Guardar Documento</button>
-                </div>
-            </form>
-          </div>
-        </div>
-        
-        {/* Modal de Creación Rápida de Producto */}
-        {modalState === 'PRODUCTO' && (
-            <QuickProductForm 
-                isOpen={true}
-                onClose={() => setModalState(null)}
-                onCreated={handleCreatedProduct}
-                catalogos={{ 
-                    fabricantes: fabricantes, 
-                    materiales: materiales, 
-                    tarifas: tarifas 
-                }}
-            />
-        )}
-        </>
-    );
-}
-
-
-export default function GestionDocumentos() {
-    const router = useRouter();
-
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentDocumento, setCurrentDocumento] = useState(initialFormData);
-    
-    // Solo necesitamos el filtro por referencia/título/fabricante
-    const [filtroReferencia, setFiltroReferencia] = useState('');
-    
-    // HARDCODEADO: Solo PLANOS
-    const { data: documentos, error: docsError, isLoading: docsLoading } = useSWR(`/api/documentos?tipo=PLANO&referencia=${filtroReferencia}`, fetcher);
-    const { data: productos, error: prodError, isLoading: prodLoading } = useSWR('/api/productos', fetcher);
-    const { data: fabricantes, error: fabError, isLoading: fabLoading } = useSWR('/api/fabricantes', fetcher);
-    const { data: materiales, error: matError, isLoading: matLoading } = useSWR('/api/materiales', fetcher);
-    const { data: tarifas } = useSWR('/api/precios', fetcher);
-
-    
-    const isLoading = docsLoading || prodLoading || fabLoading || matLoading;
-
-    const openModal = (doc = null) => {
-        const initial = doc ? { 
-            ...doc, 
-            productoBusqueda: todosProductos.find(p => p.id === doc.productoId)?.nombre || '',
-        } : initialFormData;
-
-        setCurrentDocumento(initial);
-        setIsModalOpen(true);
-    };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setCurrentDocumento(initialFormData);
-        mutate('/api/productos'); 
-    };
-
-    const handleDelete = async (id) => {
-        if (confirm('¿Estás seguro de que quieres eliminar este documento? Esta acción es irreversible y eliminará el archivo del disco.')) {
-            try {
-                const res = await fetch(`/api/documentos/${id}`, { method: 'DELETE' });
-                if (!res.ok) {
-                    const errData = await res.json();
-                    throw new Error(errData.message || 'Error al eliminar el documento.');
-                }
-                mutate(`/api/documentos?tipo=PLANO&referencia=${filtroReferencia}`);
-                router.refresh(); 
-
-            } catch (err) {
-                alert(`Error: ${err.message}`);
-            }
-        }
-    };
-
-    const getProductoInfo = (id) => {
-        if (!id || !productos || !fabricantes) return { nombre: 'N/A', fabricanteNombre: 'N/A' };
-        const prod = productos.find(p => p.id === id);
-        if (!prod) return { nombre: 'N/A', fabricanteNombre: 'N/A' };
-        
-        const fab = fabricantes.find(f => f.id === prod.fabricanteId);
-        return { 
-            nombre: prod.nombre, 
-            fabricanteNombre: fab?.nombre || 'Desconocido' 
-        };
     }
+  };
+
+  // Mantener handleBobinaChange para los campos que NO son búsqueda (ancho, largo, etc.)
+  const handleBobinaChange = (index, field, value) => {
+    const newBobinas = [...formData.bobinas];
+    newBobinas[index][field] = value;
     
-    // Obtenemos todos los productos del cache para el manejo interno
-    const todosProductos = useMemo(() => productos || [], [productos]);
+    setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+  };
+  
+  // NUEVO MANEJADOR: Actualiza la búsqueda y el índice activo (como en presupuestos)
+  const handleBobinaSearchChange = (value, index) => {
+    const newBobinas = [...formData.bobinas];
+    newBobinas[index].referenciaBusqueda = value;
+    newBobinas[index].referenciaNombre = value; // Se actualiza el nombre temporalmente
+    newBobinas[index].referenciaId = ''; // Limpiar ID al buscar
+    
+    setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+    setActiveReferenciaIndex(value.length >= 2 ? index : null);
+  };
+  
+  const handleSelectReferencia = (index, refId, refName) => {
+      const newBobinas = [...formData.bobinas];
+      newBobinas[index].referenciaId = refId;
+      newBobinas[index].referenciaBusqueda = refName;
+      newBobinas[index].referenciaNombre = refName;
+      
+      const selectedRef = referencias.find(r => r.id === refId);
+      if (selectedRef) {
+          newBobinas[index].ancho = selectedRef.ancho || newBobinas[index].ancho;
+      }
+      
+      setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+      setActiveReferenciaIndex(null); // Cerrar desplegable al seleccionar
+  };
+  
+  const handleReferenciaCreada = (index, newRef) => {
+      const newBobinas = [...formData.bobinas];
+      newBobinas[index].referenciaId = newRef.id;
+      newBobinas[index].referenciaBusqueda = newRef.nombre; 
+      newBobinas[index].referenciaNombre = newRef.nombre;
+      
+      newBobinas[index].ancho = newRef.ancho || newBobinas[index].ancho;
+      
+      setFormData(prev => ({ ...prev, bobinas: newBobinas }));
+      setModalState(null);
+      setActiveReferenciaIndex(null); // Asegurar cierre
+  };
 
+  const addBobina = () => {
+    setFormData(prev => ({ 
+        ...prev, 
+        bobinas: [...prev.bobinas, { 
+            referenciaId: '', 
+            referenciaBusqueda: '', 
+            ancho: 0, 
+            largo: 0, 
+            espesor: '',
+            color: '',
+            precioMetro: 0 
+        }] 
+    }));
+  };
 
-    if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-    if (docsError || prodError || fabError || matError) return <div className="text-red-500 text-center">Error al cargar datos necesarios.</div>;
+  const removeBobina = (index) => {
+    setFormData(prev => ({ ...prev, bobinas: prev.bobinas.filter((_, i) => i !== index) }));
+    if (activeReferenciaIndex === index) setActiveReferenciaIndex(null);
+  };
 
-    // --- CORRECCIÓN CRÍTICA: Usar una lista segura ---
-    const documentosList = Array.isArray(documentos) ? documentos : [];
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    
+    const isEditMode = !!initialData;
+    
+    if (!formData.proveedorId) {
+        setError('Debe seleccionar o crear un proveedor.');
+        setIsLoading(false);
+        return;
+    }
 
-    return (
-        <div className="container mx-auto p-4">
-        <h1 className="text-3xl font-bold mb-6 flex items-center"><FileText className="mr-2" /> Gestión de Planos de Producto</h1>
-        
-        <div className="flex justify-between items-center mb-6">
-            <button onClick={() => openModal()} className="btn btn-primary">
-            <PlusCircle className="w-4 h-4" /> Nuevo Plano
-            </button>
-        </div>
+    const dataToSend = {
+      ...formData,
+      proveedorId: formData.proveedorId, 
+      tipo: tipo,
+      gastosTotales: parseFloat(formData.gastosTotales) || 0,
+      tasaCambio: parseFloat(formData.tasaCambio) || 1,
+      fechaLlegadaEstimada: formData.fechaLlegadaEstimada ? formData.fechaLlegadaEstimada.toISOString() : null,
+      bobinas: formData.bobinas.map(b => ({
+        ...b,
+        referenciaId: b.referenciaId || null,
+        ancho: parseFloat(b.ancho) || null,
+        largo: parseFloat(b.largo) || null,
+        espesor: b.espesor ? parseFloat(b.espesor) : null, 
+        color: b.color || null,
+        precioMetro: parseFloat(b.precioMetro) || 0,
+        referenciaBusqueda: undefined,
+        referenciaNombre: undefined,
+      })),
+    };
 
-        {/* --- SECCIÓN DE FILTROS SIMPLIFICADA --- */}
-        <div className="flex justify-start gap-4 mb-6 p-4 bg-base-200 rounded-lg shadow-inner">
-            {/* Buscador único por Referencia/Título/Fabricante */}
-            <input
-            type="text"
-            placeholder="Buscar por Referencia, Título o Fabricante..."
-            value={filtroReferencia}
-            onChange={(e) => setFiltroReferencia(e.target.value)}
-            className="input input-bordered w-full max-w-xl"
-            />
-        </div>
-        {/* ------------------------------------- */}
+    const url = isEditMode 
+      ? `/api/pedidos-proveedores-data/${initialData.id}` 
+      : '/api/pedidos-proveedores-data';
+    const method = isEditMode ? 'PUT' : 'POST';
 
-        <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
-            <table className="table w-full">
-            <thead>
-                <tr>
-                    <th>Referencia / Título</th>
-                    <th>Fecha Subida</th>
-                    <th>Producto (Fabricante)</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {documentosList.map((doc) => {
-                    const prodInfo = getProductoInfo(doc.productoId);
+    try {
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSend),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Error al guardar el pedido');
+      }
+      mutate('/api/pedidos-proveedores-data'); 
+      router.push('/proveedores'); 
+    } catch (err) {
+      setError(err.message);
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Card de Datos Principales (sin cambios) */}
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title">Datos del Pedido</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Selector de Proveedor con Búsqueda/Creación */}
+              <label className="form-control w-full">
+                <div className="label"><span className="label-text">Proveedor</span></div>
+                <div className="dropdown w-full">
+                    <div className="input-group">
+                        <input
+                            type="text"
+                            placeholder="Escribe para buscar o crea uno nuevo..."
+                            value={proveedorBusqueda}
+                            onChange={(e) => {
+                                setProveedorBusqueda(e.target.value);
+                                if (e.target.value.length === 0) setFormData(prev => ({ ...prev, proveedorId: '' }));
+                            }}
+                            className={`input input-bordered w-full ${formData.proveedorId ? 'border-success' : ''}`}
+                            tabIndex={0}
+                            required
+                        />
+                        {formData.proveedorId && (
+                            <button type="button" onClick={handleClearProveedor} className="btn btn-ghost btn-square">
+                                <X className="w-4 h-4 text-error" />
+                            </button>
+                        )}
+                        <button type="button" onClick={() => setModalState({ type: 'PROVEEDOR' })} className="btn btn-primary">
+                            <UserPlus className="w-4 h-4" />
+                        </button>
+                    </div>
                     
-                    // Solo es PLANO, usamos un color simple
-                    let rowClass = 'hover bg-base-300/70';
+                    {proveedorBusqueda.length >= 2 && filteredProveedores.length > 0 && formData.proveedorId === '' && (
+                        <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-full">
+                            {filteredProveedores.map(p => (
+                                <li key={p.id} onClick={() => handleSelectProveedor(p.id, p.nombre)}>
+                                    <a>{p.nombre}</a>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+              </label>
 
-                    return (
-                        <tr key={doc.id} className={rowClass}>
-                            <td className="font-semibold">{doc.referencia}</td>
-                            <td>{new Date(doc.fechaSubida).toLocaleDateString()}</td>
-                            <td>
-                                {doc.productoId ? 
-                                    <span className="tooltip tooltip-right" data-tip={prodInfo.nombre}>
-                                        {prodInfo.fabricanteNombre}
-                                    </span>
-                                    : 'N/A'
-                                }
-                            </td>
-                            <td className="flex gap-2">
-                                {doc.rutaArchivo && (
-                                    <a 
-                                    href={doc.rutaArchivo} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="btn btn-sm btn-ghost tooltip" 
-                                    data-tip="Abrir Ruta (Local/Red)"
-                                    >
-                                        <ExternalLink className="w-4 h-4 text-primary" />
-                                    </a>
-                                )}
-                                <button onClick={() => openModal(doc)} className="btn btn-sm btn-outline btn-info">
-                                <Edit className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleDelete(doc.id)} className="btn btn-sm btn-outline btn-error">
-                                <Trash2 className="w-4 h-4" />
-                                </button>
-                            </td>
-                        </tr>
-                    );
-                })}
-            </tbody>
-            </table>
-            {documentosList.length === 0 && !isLoading && (
-                <div className="text-center p-6 text-gray-500">No se encontraron planos.</div>
+              {/* Selector de Material */}
+              <label className="form-control w-full">
+                <div className="label"><span className="label-text">Material</span></div>
+                <select 
+                  name="material"
+                  value={formData.material}
+                  onChange={handleFormChange}
+                  className="select select-bordered w-full" 
+                  required
+                >
+                  <option value="">Selecciona un material</option>
+                  {matError && <option disabled>Error al cargar</option>}
+                  {materiales?.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+                </select>
+              </label>
+            </div>
+            
+            {/* --- CAMPOS DE IMPORTACIÓN --- */}
+            {tipo === 'IMPORTACION' && (
+              <div className="p-4 border border-base-300 rounded-lg mt-4">
+                <h3 className="font-bold mb-2">Datos de Importación</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <label className="form-control w-full">
+                    <div className="label"><span className="label-text">Nº Contenedor</span></div>
+                    <input 
+                      type="text" 
+                      name="numeroContenedor" 
+                      value={formData.numeroContenedor} 
+                      onChange={handleFormChange} 
+                      className="input input-bordered w-full" 
+                      placeholder="YMLU3456940"
+                    />
+                  </label>
+                  <label className="form-control w-full">
+                    <div className="label"><span className="label-text">Naviera</span></div>
+                    <select 
+                      name="naviera"
+                      value={formData.naviera}
+                      onChange={handleFormChange}
+                      className="select select-bordered w-full" 
+                    >
+                      <option value="">Selecciona naviera</option>
+                      <option value="Yang Ming">Yang Ming</option>
+                      <option value="MSC">MSC</option>
+                      <option value="Maersk">Maersk</option>
+                      <option value="CMA CGM">CMA CGM</option>
+                      <option value="Otra">Otra</option>
+                    </select>
+                  </label>
+                  
+                  <label className="form-control w-full">
+                    <div className="label"><span className="label-text">Fecha Llegada (ETA)</span></div>
+                    <div className="dropdown">
+                      <input 
+                        type="text" 
+                        readOnly
+                        value={formData.fechaLlegadaEstimada ? format(formData.fechaLlegadaEstimada, 'P', { locale: es }) : ''}
+                        placeholder="Selecciona fecha"
+                        className="input input-bordered w-full" 
+                        tabIndex={0}
+                      />
+                      <div className="dropdown-content bg-base-100 p-2 shadow rounded-lg z-10">
+                        <DayPicker
+                          mode="single"
+                          selected={formData.fechaLlegadaEstimada}
+                          onSelect={(date) => setFormData(prev => ({ ...prev, fechaLlegadaEstimada: date }))}
+                          locale={es}
+                        />
+                      </div>
+                    </div>
+                  </label>
+
+                </div>
+              </div>
             )}
+            
+            {/* Campos de Costes y Notas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+             <label className="form-control w-full">
+              <div className="label"><span className="label-text">Gastos Totales ({tipo === 'IMPORTACION' ? '$' : '€'})</span></div>
+              <input 
+                type="number" 
+                step="0.01" 
+                name="gastosTotales" 
+                value={formData.gastosTotales} 
+                onChange={handleFormChange} 
+                className="input input-bordered w-full" 
+              />
+            </label>
+            {tipo === 'IMPORTACION' && (
+              <label className="form-control w-full">
+                <div className="label"><span className="label-text">Tasa de Cambio (USD a EUR)</span></div>
+                <input 
+                  type="number" 
+                  step="0.0001" 
+                  name="tasaCambio" 
+                  value={formData.tasaCambio} 
+                  onChange={handleFormChange} 
+                  className="input input-bordered w-full" 
+                />
+              </label>
+            )}
+            </div>
+            <label className="form-control w-full mt-4">
+              <div className="label"><span className="label-text">Notas del Pedido</span></div>
+              <textarea
+                name="notas"
+                value={formData.notas}
+                onChange={handleFormChange}
+                className="textarea textarea-bordered h-24"
+                placeholder="Ej: Sin comentarios"
+              ></textarea>
+            </label>
+          </div>
         </div>
 
-        <DocumentoModal 
-            isOpen={isModalOpen} 
-            onClose={closeModal} 
-            initialData={currentDocumento}
-            productos={todosProductos}
-            fabricantes={fabricantes}
-            materiales={materiales}
-            tarifas={tarifas}
-        />
+        {/* Card de Bobinas */}
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="card-title">Bobinas</h2>
+              <button type="button" onClick={addBobina} className="btn btn-primary btn-sm">
+                <Plus className="w-4 h-4" /> Añadir Bobina
+              </button>
+            </div>
+            {/* ESTE DIV DE OVERFLOW ES EL PROBLEMA. No se puede quitar, pero vamos a mitigar */}
+            <div className="overflow-x-auto"> 
+              <table className="table w-full">
+                <thead>
+                  <tr>
+                    <th>Referencia</th>
+                    {/* Campo adicional para PVC */}
+                    {formData.material === 'PVC' && <th>Color</th>} 
+                    <th>Ancho (mm)</th>
+                    <th>Largo (m)</th>
+                    <th>Espesor (mm)</th>
+                    <th>Precio/m ({tipo === 'IMPORTACION' ? '$' : '€'})</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.bobinas.length === 0 && (
+                    <tr><td colSpan={formData.material === 'PVC' ? "7" : "6"} className="text-center">Añade al menos una bobina.</td></tr>
+                  )}
+                  {formData.bobinas.map((bobina, index) => {
+                      
+                      const isSearchActive = activeReferenciaIndex === index;
+                      const currentResults = isSearchActive ? filteredBobinaRefs : [];
+                      const noResults = isSearchActive && bobina.referenciaBusqueda.length >= 2 && currentResults.length === 0;
+
+                      return (
+                        <tr key={index}>
+                          <td className="relative"> {/* Añadimos relative para que el dropdown se ancle a esta celda */}
+                            {/* Búsqueda de Referencia Bobina con Quick Create (REFACTORIZADA) */}
+                            <div className="dropdown w-full">
+                                <div className="input-group">
+                                    <input 
+                                        type="text" 
+                                        value={bobina.referenciaBusqueda || ''} 
+                                        onChange={(e) => handleBobinaSearchChange(e.target.value, index)} 
+                                        
+                                        // MEJORA: Manejo de Foco para el desplegable (como en presupuestos)
+                                        onFocus={() => setActiveReferenciaIndex(index)}
+                                        onBlur={() => setTimeout(() => setActiveReferenciaIndex(null), 200)}
+                                        
+                                        className="input input-bordered input-sm w-full"
+                                        placeholder="Buscar Ref."
+                                        tabIndex={0}
+                                    />
+                                    <button type="button" onClick={() => setModalState({ type: 'REFERENCIA', index })} className="btn btn-primary btn-sm">
+                                        <Plus className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                
+                                {/* Resultados de búsqueda (AJUSTE CRÍTICO DE CLASES) */}
+                                {isSearchActive && (currentResults.length > 0 || noResults) && (
+                                    <ul tabIndex={0} 
+                                        // Aumentamos Z-index a z-[99] para intentar romper el contexto de apilamiento
+                                        // Además, quitamos 'dropdown-content' y usamos 'absolute' para control total.
+                                        className="absolute left-0 top-full z-[99] menu p-2 shadow-lg bg-base-200 rounded-box w-[360px] mt-1 border border-base-300"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                    >
+                                        {/* Resultados encontrados */}
+                                        {currentResults.map(r => (
+                                            <li key={r.id} onClick={() => handleSelectReferencia(index, r.id, r.referencia)}>
+                                                <a><Search className="w-4 h-4 mr-2" />{r.referencia}</a>
+                                            </li>
+                                        ))}
+                                        
+                                        {/* Opción de Crear Referencia si no hay resultados */}
+                                        {noResults && (
+                                            <li onClick={() => setModalState({ type: 'REFERENCIA', index })} >
+                                                <a className="bg-warning text-warning-content hover:bg-warning-focus">
+                                                    <FilePlus className="w-4 h-4 mr-2" />
+                                                    Crear nueva Referencia: {bobina.referenciaBusqueda}
+                                                </a>
+                                            </li>
+                                        )}
+                                    </ul>
+                                )}
+                                
+                                {bobina.referenciaId && (
+                                    <p className="text-xs text-success mt-1">Seleccionado: {bobina.referenciaNombre}</p>
+                                )}
+                            </div>
+                          </td>
+                          
+                          {/* CAMPO CONDICIONAL: Color para PVC */}
+                          {formData.material === 'PVC' && (
+                              <td>
+                                  <select 
+                                      value={bobina.color || ''} 
+                                      onChange={(e) => handleBobinaChange(index, 'color', e.target.value)} 
+                                      className="select select-bordered select-sm w-24"
+                                      required
+                                  >
+                                      <option value="">Color</option>
+                                      {pvcColors.map(c => <option key={c} value={c}>{c}</option>)}
+                                  </select>
+                              </td>
+                          )}
+
+                          <td><input type="number" step="0.1" value={bobina.ancho || ''} onChange={(e) => handleBobinaChange(index, 'ancho', e.target.value)} className="input input-bordered input-sm w-24" /></td>
+                          <td><input type="number" step="0.1" value={bobina.largo || ''} onChange={(e) => handleBobinaChange(index, 'largo', e.target.value)} className="input input-bordered input-sm w-24" /></td>
+                          <td>
+                            {/* Selector de espesor (filtrado dinámicamente) */}
+                            <select 
+                              value={bobina.espesor || ''} 
+                              onChange={(e) => handleBobinaChange(index, 'espesor', e.target.value)} 
+                              className="select select-bordered select-sm w-24"
+                              disabled={!formData.material}
+                              required
+                            >
+                              <option value="">Espesor</option>
+                              {availableEspesores.map(e => <option key={e} value={e}>{e} mm</option>)}
+                            </select>
+                          </td>
+                          <td><input type="number" step="0.01" value={bobina.precioMetro} onChange={(e) => handleBobinaChange(index, 'precioMetro', e.target.value)} className="input input-bordered input-sm w-28" /></td>
+                          <td>
+                            <button type="button" onClick={() => removeBobina(index)} className="btn btn-ghost btn-sm btn-circle">
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </td>
+                        </tr>
+                      )}
+                  )}
+                </tbody>
+              </table>
+              {tarifasError && <p className="text-red-500 text-xs mt-2">Error al cargar espesores (tarifas).</p>}
+            </div>
+          </div>
         </div>
-    );
+        
+        {error && <div className="alert alert-error shadow-lg">{error}</div>}
+
+        <div className="flex justify-end gap-4 mt-6">
+          <button type="button" onClick={() => router.push('/proveedores')} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" disabled={isLoading || !formData.proveedorId}>
+            <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : (initialData ? "Actualizar Pedido" : "Guardar Pedido")}
+          </button>
+        </div>
+      </form>
+
+      {modalState?.type === 'PROVEEDOR' && (
+        <BaseQuickCreateModal 
+          isOpen={true}
+          onClose={() => setModalState(null)} 
+          onCreated={handleProveedorCreado}
+          title="Proveedor"
+          endpoint="/api/proveedores"
+          cacheKey="/api/proveedores"
+          fields={[
+              { name: 'nombre', placeholder: 'Nombre' },
+              { name: 'email', placeholder: 'Email', required: false },
+              { name: 'telefono', placeholder: 'Teléfono', required: false },
+              { name: 'direccion', placeholder: 'Dirección', required: false }
+          ]}
+        />
+      )}
+
+      {modalState?.type === 'REFERENCIA' && (
+        <BaseQuickCreateModal 
+          isOpen={true}
+          onClose={() => setModalState(null)} 
+          onCreated={(newRef) => handleReferenciaCreada(modalState.index, newRef)}
+          title="Referencia Bobina"
+          endpoint="/api/configuracion/referencias"
+          cacheKey="/api/configuracion/referencias"
+          fields={[
+              { name: 'nombre', placeholder: 'Referencia (ej: EP-250-2-400)' }, 
+              { name: 'ancho', placeholder: 'Ancho (mm)', type: 'number', required: false, step: '0.01' },
+              { name: 'lonas', placeholder: 'Número de Lonas', type: 'number', required: false },
+              { name: 'pesoPorMetroLineal', placeholder: 'Peso por Metro Lineal (kg)', type: 'number', required: false, step: '0.01' }
+          ]}
+        />
+      )}
+    </>
+  );
 }
 EOF
