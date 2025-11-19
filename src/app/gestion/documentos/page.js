@@ -1,8 +1,8 @@
 "use client";
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { FileText, PlusCircle, Edit, Trash2, ExternalLink, Upload, Search, Package, Plus, FilePlus } from 'lucide-react';
+import { FileText, PlusCircle, Edit, Trash2, ExternalLink, Upload, Search, Package, Plus, X, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -11,36 +11,117 @@ import QuickProductForm from '../../../components/QuickProductForm';
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const initialFormData = {
-  id: null, tipo: 'PLANO', referencia: '', descripcion: '', rutaArchivo: '', productoId: '', maquinaUbicacion: '', file: null, productoBusqueda: ''
+  id: null, tipo: 'PLANO', referencia: '', descripcion: '', rutaArchivo: '', productoId: '', maquinaUbicacion: '', file: null, productoNombre: ''
 };
 
-// --- COMPONENTE PRINCIPAL (DocumentoModal y GestionDocumentos) ---
+// --- NUEVO COMPONENTE: MODAL DE BÚSQUEDA DE PRODUCTOS ---
+function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos = [], fabricantes = [], initialSearch = '' }) {
+    const [search, setSearch] = useState(initialSearch);
+
+    useEffect(() => {
+        if (isOpen) setSearch(initialSearch);
+    }, [isOpen, initialSearch]);
+
+    const filteredProducts = useMemo(() => {
+        if (!productos) return [];
+        return productos.filter(p => {
+            const term = search.toLowerCase();
+            return p.nombre?.toLowerCase().includes(term) ||
+                   p.referenciaFabricante?.toLowerCase().includes(term);
+        }).slice(0, 50);
+    }, [productos, search]);
+
+    const getFabricanteName = (fabId) => {
+        return fabricantes?.find(f => f.id === fabId)?.nombre || '-';
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal modal-open z-[9999]">
+            <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <Package className="w-5 h-5" /> Buscar Producto
+                    </h3>
+                    <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
+                </div>
+
+                <div className="join w-full mb-4">
+                    <input 
+                        type="text" 
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Escribe nombre, referencia fab..."
+                        className="input input-bordered join-item w-full"
+                        autoFocus
+                    />
+                    <button 
+                        className="btn btn-primary join-item"
+                        onClick={() => onCreateNew(search)}
+                    >
+                        <Plus className="w-4 h-4" /> Crear Nuevo
+                    </button>
+                </div>
+
+                <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
+                    <table className="table table-pin-rows w-full">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Ref. Fabricante</th>
+                                <th>Fabricante</th>
+                                <th className="text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredProducts.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="text-center py-10 text-gray-500">
+                                        <p>No se encontraron productos.</p>
+                                        <button onClick={() => onCreateNew(search)} className="btn btn-link btn-sm mt-2">
+                                            Crear "{search}" ahora
+                                        </button>
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredProducts.map((prod) => (
+                                    <tr key={prod.id} className="hover:bg-base-200 cursor-pointer transition-colors" onClick={() => onSelect(prod)}>
+                                        <td className="font-bold">{prod.nombre}</td>
+                                        <td>{prod.referenciaFabricante || '-'}</td>
+                                        <td>{getFabricanteName(prod.fabricanteId)}</td>
+                                        <td className="text-right">
+                                            <button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div className="modal-action mt-4">
+                    <button className="btn" onClick={onClose}>Cancelar</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- COMPONENTE PRINCIPAL DEL MODAL DE DOCUMENTO ---
 
 function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, materiales, tarifas }) {
-    const router = useRouter();
-    
-    // --- HOOKS INCONDICIONALES ---
     const [formData, setFormData] = useState(initialData);
     const [error, setError] = useState(null);
-    const [modalState, setModalState] = useState(null); 
     
-    const selectedProduct = useMemo(() => {
-        if (!formData.productoId || !productos) return null;
-        return productos.find(p => p.id === formData.productoId);
-    }, [formData.productoId, productos]);
+    // Estados para los modales secundarios
+    const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
+    const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
+    const [quickCreateInitialRef, setQuickCreateInitialRef] = useState('');
 
-    const todosProductos = useMemo(() => productos || [], [productos]);
-    
-    // MEJORA 1: Limitar los resultados a 5
-    const filteredProducts = useMemo(() => {
-        if (formData.productoBusqueda.length < 2) return [];
-        return todosProductos.filter(p => 
-            p.nombre.toLowerCase().includes(formData.productoBusqueda.toLowerCase()) ||
-            p.referenciaFabricante?.toLowerCase().includes(formData.productoBusqueda.toLowerCase())
-        ).slice(0, 5); // <-- Límite de 5 resultados
-    }, [todosProductos, formData.productoBusqueda]);
-    // --- FIN HOOKS INCONDICIONALES ---
-
+    useEffect(() => {
+        setFormData(initialData);
+    }, [initialData]);
 
     const handleFileChange = useCallback((file) => {
         if (file) {
@@ -60,39 +141,43 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
         handleFileChange(file);
     };
 
-    const handleSelectProduct = (product) => {
-        const defaultRef = product?.referenciaFabricante || product?.nombre || '';
-        
-        setFormData(prev => ({ 
-            ...prev, 
-            productoId: product.id,
-            referencia: prev.referencia || defaultRef, 
-            productoBusqueda: product.nombre,
-        }));
-    };
-    
-    const handleCreatedProduct = (newProduct) => {
-         handleSelectProduct(newProduct);
-         setModalState(null);
-         mutate('/api/productos'); 
-    };
-
     const handleChange = (e) => {
         const { name, value, files } = e.target;
-        
         if (name === 'fileUpload' && files && files[0]) {
             handleFileChange(files[0]);
             return;
         }
-        
-        if (name === 'productoBusqueda') {
-            setFormData(prev => ({ ...prev, [name]: value, productoId: null }));
-            return;
-        }
-
         setFormData(prev => ({ ...prev, [name]: value }));
     };
+
+    // Lógica de selección desde el nuevo modal
+    const handleSelectProduct = (product) => {
+        const defaultRef = product?.referenciaFabricante || product?.nombre || '';
+        setFormData(prev => ({ 
+            ...prev, 
+            productoId: product.id,
+            productoNombre: product.nombre, // Guardamos nombre para mostrar en input
+            referencia: prev.referencia || defaultRef, 
+        }));
+        setIsProductSearchOpen(false);
+    };
+
+    const handleOpenCreateNew = (searchTerm) => {
+        setIsProductSearchOpen(false);
+        setQuickCreateInitialRef(searchTerm);
+        setIsQuickCreateOpen(true);
+    };
     
+    const handleCreatedProduct = (newProduct) => {
+         handleSelectProduct(newProduct);
+         setIsQuickCreateOpen(false);
+         mutate('/api/productos'); 
+    };
+
+    const handleClearProduct = (e) => {
+        e.stopPropagation();
+        setFormData(prev => ({ ...prev, productoId: '', productoNombre: '' }));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -114,7 +199,7 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
         const finalFormData = new FormData();
         
         for (const key in formData) {
-            if (key !== 'file' && key !== 'productoBusqueda' && key !== 'fileUpload' && formData[key] !== null && formData[key] !== undefined) {
+            if (key !== 'file' && key !== 'productoNombre' && key !== 'fileUpload' && formData[key] !== null && formData[key] !== undefined) {
                 finalFormData.append(key, formData[key]);
             }
         }
@@ -166,10 +251,6 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
         </div>
     );
 
-    const showDropdown = formData.productoBusqueda.length >= 2 && formData.productoId === null;
-    const noResults = showDropdown && filteredProducts.length === 0;
-
-
     return (
         <>
         <div className="modal modal-open">
@@ -180,62 +261,34 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
             
             <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 
-                {/* Contenedor para el desplegable */}
-                <div className="form-control w-full relative md:col-span-2">
+                {/* SELECTOR DE PRODUCTO MEJORADO */}
+                <div className="form-control w-full md:col-span-2">
                     <div className="label"><span className="label-text">Producto Asociado (Requerido)</span></div>
-                    
-                    <div className="dropdown w-full"> 
-                             <div className="input-group">
-                                <input
-                                    type="text"
-                                    name="productoBusqueda"
-                                    placeholder={selectedProduct ? selectedProduct.nombre : "Buscar o crear producto..."}
-                                    value={formData.productoBusqueda}
-                                    onChange={handleChange}
-                                    className={`input input-bordered w-full ${formData.productoId ? 'border-success' : ''}`}
-                                    tabIndex={0}
-                                />
-                                <button type="button" onClick={() => setModalState('PRODUCTO')} className="btn btn-primary" title="Crear Producto Rápido">
-                                    <Plus className="w-4 h-4" />
-                                </button>
-                             </div>
-                             
-                             {/* Resultados de Búsqueda y Opción de Creación Rápida */}
-                             {showDropdown && (
-                                <ul 
-                                    tabIndex={0} 
-                                    // z-50 para asegurar que sobresalga (corrección anterior)
-                                    className="absolute left-0 top-full z-50 menu p-2 shadow bg-base-200 rounded-box w-full mt-1 border border-base-300"
-                                >
-                                    {/* Muestra los resultados filtrados (máx. 5) */}
-                                    {filteredProducts.map(product => (
-                                        <li key={product.id} onClick={() => handleSelectProduct(product)}>
-                                            <a><Search className="w-4 h-4 mr-2" />{product.nombre} ({product.referenciaFabricante})</a>
-                                        </li>
-                                    ))}
-                                    
-                                    {/* MEJORA 2: Opción para crear si no hay resultados */}
-                                    {noResults && (
-                                        <li onClick={() => setModalState('PRODUCTO')}>
-                                            <a className="bg-warning text-warning-content hover:bg-warning-focus">
-                                                <FilePlus className="w-4 h-4 mr-2" />
-                                                Crear nueva Referencia: {formData.productoBusqueda}
-                                            </a>
-                                        </li>
-                                    )}
-                                </ul>
-                             )}
-                             
-                             {selectedProduct && (
-                                 <div className="text-sm mt-2 text-success font-semibold flex items-center">
-                                     <Package className="w-4 h-4 mr-1" />
-                                     {selectedProduct.nombre} ({selectedProduct.referenciaFabricante})
-                                 </div>
-                             )}
-                        </div>
+                    <div className="input-group cursor-pointer" onClick={() => setIsProductSearchOpen(true)}>
+                        <input
+                            type="text"
+                            readOnly
+                            placeholder="Seleccionar producto..."
+                            value={formData.productoNombre || ''}
+                            className={`input input-bordered w-full cursor-pointer ${formData.productoId ? 'input-success' : ''}`}
+                        />
+                        {formData.productoId && (
+                            <button 
+                                type="button" 
+                                onClick={handleClearProduct} 
+                                className="btn btn-square btn-ghost text-error"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
+                        <button type="button" className="btn btn-square btn-primary">
+                            <Search className="w-4 h-4" />
+                        </button>
                     </div>
+                    {!formData.productoId && <span className="text-xs text-gray-500 mt-1 ml-1">Haga clic para buscar o crear</span>}
+                </div>
 
-                {/* Referencia/Título (Auto-rellenado para Plano) */}
+                {/* Referencia/Título */}
                 <label className={`form-control w-full md:col-span-2`}>
                     <div className="label"><span className="label-text">Referencia / Título (Sugerido por Ref. Fab.)</span></div>
                     <input 
@@ -243,13 +296,13 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
                         name="referencia" 
                         value={formData.referencia} 
                         onChange={handleChange} 
-                        placeholder={selectedProduct?.referenciaFabricante || "Título del Documento"} 
+                        placeholder="Título del Documento" 
                         className="input input-bordered w-full" 
                         required 
                     />
                 </label>
                 
-                {/* Área de Subida de Archivo (Drag & Drop REAL) */}
+                {/* Área de Subida */}
                  <div className={`form-control w-full md:col-span-2`}>
                     <div className="label"><span className="label-text">Adjuntar Archivo</span></div>
                     {dragAndDropArea}
@@ -272,19 +325,28 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
           </div>
         </div>
         
-        {/* Modal de Creación Rápida de Producto (Importado) */}
-        {modalState === 'PRODUCTO' && (
+        {/* MODALES SECUNDARIOS */}
+        <ProductSearchModal 
+            isOpen={isProductSearchOpen}
+            onClose={() => setIsProductSearchOpen(false)}
+            onSelect={handleSelectProduct}
+            onCreateNew={handleOpenCreateNew}
+            productos={productos}
+            fabricantes={fabricantes}
+            initialSearch={formData.productoNombre}
+        />
+
+        {isQuickCreateOpen && (
             <QuickProductForm 
                 isOpen={true}
-                onClose={() => setModalState(null)}
+                onClose={() => setIsQuickCreateOpen(false)}
                 onCreated={handleCreatedProduct}
                 catalogos={{ 
                     fabricantes: fabricantes, 
                     materiales: materiales, 
                     tarifas: tarifas 
                 }}
-                // Puedes pasar la búsqueda actual para auto-rellenar la referencia en el modal
-                initialReference={formData.productoBusqueda}
+                initialReference={quickCreateInitialRef}
             />
         )}
         </>
@@ -293,7 +355,6 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
 
 
 export default function GestionDocumentos() {
-// ... [El resto del componente GestionDocumentos permanece igual]
     const router = useRouter();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -310,10 +371,12 @@ export default function GestionDocumentos() {
     
     const isLoading = docsLoading || prodLoading || fabLoading || matLoading;
 
+    const todosProductos = useMemo(() => productos || [], [productos]);
+
     const openModal = (doc = null) => {
         const initial = doc ? { 
             ...doc, 
-            productoBusqueda: todosProductos.find(p => p.id === doc.productoId)?.nombre || '',
+            productoNombre: todosProductos.find(p => p.id === doc.productoId)?.nombre || '',
         } : initialFormData;
 
         setCurrentDocumento(initial);
@@ -361,8 +424,6 @@ export default function GestionDocumentos() {
         };
     }
     
-    const todosProductos = useMemo(() => productos || [], [productos]);
-
 
     if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
     if (docsError || prodError || fabError || matError) return <div className="text-red-500 text-center">Error al cargar datos necesarios.</div>;

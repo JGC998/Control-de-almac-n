@@ -7,24 +7,29 @@ export async function PUT(request, { params: paramsPromise }) {
     const { id } = await paramsPromise;
     const data = await request.json();
 
-    // 1. Obtener el ID del material (el frontend envía el nombre)
+    // 1. Verificar que el material existe (buscamos por nombre)
     const material = await db.material.findUnique({
       where: { nombre: data.material },
     });
+
     if (!material) {
       return NextResponse.json({ message: 'Material no encontrado' }, { status: 400 });
     }
 
+    // 2. Actualizar la tarifa
+    // CORRECCIÓN: Usamos 'material' (String) en lugar de 'materialId'
     const updatedItem = await db.tarifaMaterial.update({
       where: { id: id },
       data: { 
-        materialId: material.id, // Usar el ID
+        material: material.nombre, // <--- CAMBIO AQUÍ: Usamos el nombre, no el ID
         espesor: parseFloat(data.espesor),
         precio: parseFloat(data.precio),
         peso: parseFloat(data.peso),
       },
     });
+
     return NextResponse.json(updatedItem);
+
   } catch (error) {
     if (error.code === 'P2025') {
       return NextResponse.json({ message: 'Tarifa no encontrada' }, { status: 404 });

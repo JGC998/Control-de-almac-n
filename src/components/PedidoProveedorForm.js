@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, UserPlus, X, Search, FilePlus, AlertCircle, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Save, UserPlus, X, Search, AlertCircle, ArrowRight } from 'lucide-react';
 import "react-day-picker/style.css";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
@@ -11,7 +11,98 @@ import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-// --- COMPONENTE MODAL DE BÚSQUEDA AVANZADA ---
+// --- MODAL DE BÚSQUEDA DE PROVEEDORES (NUEVO) ---
+function ProveedorSearchModal({ isOpen, onClose, onSelect, onCreateNew, proveedores = [], initialSearch = '' }) {
+    const [search, setSearch] = useState(initialSearch);
+    
+    useEffect(() => {
+        if (isOpen) setSearch(initialSearch);
+    }, [isOpen, initialSearch]);
+
+    const filteredProveedores = useMemo(() => {
+        if (!proveedores) return [];
+        return proveedores.filter(p => {
+            const matchesText = !search || 
+                p.nombre?.toLowerCase().includes(search.toLowerCase()) ||
+                p.email?.toLowerCase().includes(search.toLowerCase());
+            return matchesText;
+        }).slice(0, 50);
+    }, [proveedores, search]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal modal-open z-[9999]">
+            <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <Search className="w-5 h-5" /> Buscar Proveedor
+                    </h3>
+                    <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
+                </div>
+
+                <div className="join w-full mb-4">
+                    <input 
+                        type="text" 
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Escribe nombre o email..."
+                        className="input input-bordered join-item w-full"
+                        autoFocus
+                    />
+                    <button 
+                        className="btn btn-primary join-item"
+                        onClick={() => onCreateNew(search)}
+                    >
+                        <Plus className="w-4 h-4" /> Crear Nuevo
+                    </button>
+                </div>
+
+                <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
+                    <table className="table table-pin-rows w-full">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th className="text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredProveedores.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="text-center py-10 text-gray-500">
+                                        <p>No se encontraron proveedores.</p>
+                                        <button onClick={() => onCreateNew(search)} className="btn btn-link btn-sm mt-2">
+                                            Crear "{search}" ahora
+                                        </button>
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredProveedores.map((prov) => (
+                                    <tr key={prov.id} className="hover:bg-base-200 cursor-pointer transition-colors" onClick={() => onSelect(prov)}>
+                                        <td className="font-bold">{prov.nombre}</td>
+                                        <td>{prov.email || '-'}</td>
+                                        <td>{prov.telefono || '-'}</td>
+                                        <td className="text-right">
+                                            <button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div className="modal-action mt-4">
+                    <button className="btn" onClick={onClose}>Cancelar</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- MODAL DE BÚSQUEDA DE REFERENCIAS ---
 function ReferenciaSearchModal({ isOpen, onClose, onSelect, onCreateNew, referencias = [], initialSearch = '', materialFilter = '' }) {
     const [search, setSearch] = useState(initialSearch);
     
@@ -109,6 +200,7 @@ function ReferenciaSearchModal({ isOpen, onClose, onSelect, onCreateNew, referen
 
 const defaultFormState = {
   proveedorId: '',
+  numeroFactura: '', // AÑADIDO
   material: '',
   notas: '',
   tasaCambio: 1,
@@ -123,7 +215,8 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   const router = useRouter();
   
   const [modalState, setModalState] = useState(null); 
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [refSearchModalOpen, setRefSearchModalOpen] = useState(false);
+  const [provSearchModalOpen, setProvSearchModalOpen] = useState(false); // NUEVO ESTADO
   const [activeRowIndex, setActiveRowIndex] = useState(null);
 
   const [proveedorBusqueda, setProveedorBusqueda] = useState(initialData?.proveedor?.nombre || '');
@@ -134,6 +227,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     if (!data) return { ...defaultFormState, tipo: tipo };
     return {
       proveedorId: data.proveedorId,
+      numeroFactura: data.numeroFactura || '', // AÑADIDO
       material: data.material,
       notas: data.notas || '',
       tasaCambio: data.tasaCambio || 1,
@@ -172,13 +266,16 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
   }, [tarifas, formData.material]);
 
-  const filteredProveedores = proveedores?.filter(p => 
-    p.nombre.toLowerCase().includes(proveedorBusqueda.toLowerCase()) && p.id !== formData.proveedorId
-  ).slice(0, 5) || [];
+  // LOGICA PROVEEDOR
+  const handleSelectProveedor = (prov) => {
+    setFormData(prev => ({ ...prev, proveedorId: prov.id }));
+    setProveedorBusqueda(prov.nombre);
+    setProvSearchModalOpen(false);
+  };
 
-  const handleSelectProveedor = (proveedorId, proveedorName) => {
-    setFormData(prev => ({ ...prev, proveedorId }));
-    setProveedorBusqueda(proveedorName);
+  const handleCreateNewProveedor = (searchTerm) => {
+      setProvSearchModalOpen(false);
+      setModalState({ type: 'PROVEEDOR', initialName: searchTerm });
   };
 
   const handleClearProveedor = () => {
@@ -208,9 +305,10 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     setFormData(prev => ({ ...prev, bobinas: newBobinas }));
   };
   
-  const openSearchModal = (index) => {
+  // LOGICA REFERENCIAS
+  const openRefSearchModal = (index) => {
       setActiveRowIndex(index);
-      setSearchModalOpen(true);
+      setRefSearchModalOpen(true);
   };
 
   const handleSelectReferencia = (ref) => {
@@ -221,7 +319,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       if (ref.ancho) newBobinas[activeRowIndex].ancho = ref.ancho;
       
       setFormData(prev => ({ ...prev, bobinas: newBobinas }));
-      setSearchModalOpen(false);
+      setRefSearchModalOpen(false);
   };
   
   const handleCreateNewReferencia = (searchTerm) => {
@@ -229,7 +327,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       newBobinas[activeRowIndex].referenciaNombre = searchTerm;
       setFormData(prev => ({ ...prev, bobinas: newBobinas }));
       
-      setSearchModalOpen(false);
+      setRefSearchModalOpen(false);
       setModalState({ type: 'REFERENCIA_NEW', index: activeRowIndex });
   };
 
@@ -240,26 +338,6 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       newBobinas[index].ancho = newRef.ancho || newBobinas[index].ancho;
       setFormData(prev => ({ ...prev, bobinas: newBobinas }));
       setModalState(null);
-  };
-
-  // Lógica de autoselección inteligente (Restaurada)
-  const handleBobinaSearchChange = (value, index) => {
-    const newBobinas = [...formData.bobinas];
-    newBobinas[index].referenciaBusqueda = value;
-    newBobinas[index].referenciaNombre = value;
-    
-    const cleanValue = value.trim().toLowerCase();
-    const exactMatch = referencias?.find(r => r.referencia.toLowerCase() === cleanValue);
-    
-    if (exactMatch) {
-        newBobinas[index].referenciaId = exactMatch.id;
-        newBobinas[index].referenciaNombre = exactMatch.referencia;
-        if (exactMatch.ancho) newBobinas[index].ancho = exactMatch.ancho;
-    } else {
-        newBobinas[index].referenciaId = "";
-    }
-    
-    setFormData(prev => ({ ...prev, bobinas: newBobinas }));
   };
 
   const addBobina = () => {
@@ -280,8 +358,6 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
-    const isEditMode = !!initialData;
     
     if (!formData.proveedorId) {
         setError('Debe seleccionar o crear un proveedor.');
@@ -314,10 +390,10 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       })),
     };
 
-    const url = isEditMode 
+    const url = !!initialData 
       ? `/api/pedidos-proveedores-data/${initialData.id}` 
       : '/api/pedidos-proveedores-data';
-    const method = isEditMode ? 'PUT' : 'POST';
+    const method = !!initialData ? 'PUT' : 'POST';
 
     try {
       const res = await fetch(url, {
@@ -345,42 +421,31 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
             <h2 className="card-title">Datos del Pedido</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* SELECCION DE PROVEEDOR MEJORADA */}
               <label className="form-control w-full">
                 <div className="label"><span className="label-text">Proveedor</span></div>
-                <div className="dropdown w-full">
-                    <div className="input-group">
-                        <input
-                            type="text"
-                            placeholder="Buscar proveedor..."
-                            value={proveedorBusqueda}
-                            onChange={(e) => {
-                                setProveedorBusqueda(e.target.value);
-                                if (e.target.value.length === 0) setFormData(prev => ({ ...prev, proveedorId: '' }));
-                            }}
-                            className={`input input-bordered w-full ${formData.proveedorId ? 'border-success' : ''}`}
-                            tabIndex={0}
-                            required
-                        />
-                        {formData.proveedorId && (
-                            <button type="button" onClick={handleClearProveedor} className="btn btn-ghost btn-square">
-                                <X className="w-4 h-4 text-error" />
-                            </button>
-                        )}
-                        <button type="button" onClick={() => setModalState({ type: 'PROVEEDOR' })} className="btn btn-primary">
-                            <UserPlus className="w-4 h-4" />
+                <div className="input-group cursor-pointer" onClick={() => setProvSearchModalOpen(true)}>
+                    <input
+                        type="text"
+                        readOnly
+                        value={proveedorBusqueda}
+                        placeholder="Seleccionar proveedor..."
+                        className={`input input-bordered w-full cursor-pointer ${formData.proveedorId ? 'input-success' : ''}`}
+                    />
+                    {formData.proveedorId && (
+                        <button 
+                            type="button" 
+                            onClick={(e) => { e.stopPropagation(); handleClearProveedor(); }} 
+                            className="btn btn-square btn-ghost text-error"
+                        >
+                            <X className="w-4 h-4" />
                         </button>
-                    </div>
-                    
-                    {proveedorBusqueda.length >= 2 && filteredProveedores.length > 0 && formData.proveedorId === '' && (
-                        <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-200 rounded-box w-full">
-                            {filteredProveedores.map(p => (
-                                <li key={p.id} onClick={() => handleSelectProveedor(p.id, p.nombre)}>
-                                    <a>{p.nombre}</a>
-                                </li>
-                            ))}
-                        </ul>
                     )}
+                    <button type="button" className="btn btn-square btn-primary">
+                        <Search className="w-4 h-4" />
+                    </button>
                 </div>
+                {!formData.proveedorId && <span className="text-xs text-gray-500 mt-1 ml-1">Haga clic para buscar o crear</span>}
               </label>
 
               <label className="form-control w-full">
@@ -428,6 +493,19 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                     type="number" step="0.01" name="gastosTotales" 
                     value={formData.gastosTotales} onChange={handleFormChange} 
                     className="input input-bordered w-full" 
+                />
+              </label>
+
+              {/* CAMPO NUMERO DE FACTURA AÑADIDO */}
+              <label className="form-control w-full">
+                <div className="label"><span className="label-text">Nº Factura Proveedor</span></div>
+                <input 
+                    type="text" 
+                    name="numeroFactura" 
+                    value={formData.numeroFactura} 
+                    onChange={handleFormChange} 
+                    className="input input-bordered w-full" 
+                    placeholder="Ej: INV-2025-001"
                 />
               </label>
 
@@ -480,7 +558,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                         <tr key={index} className="hover">
                           <td>
                             <div className="form-control w-full">
-                                <div className="input-group cursor-pointer" onClick={() => openSearchModal(index)}>
+                                <div className="input-group cursor-pointer" onClick={() => openRefSearchModal(index)}>
                                     <input 
                                         type="text" 
                                         readOnly 
@@ -545,16 +623,27 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
 
       {/* MODALS */}
       <ReferenciaSearchModal 
-          isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)}
+          isOpen={refSearchModalOpen} onClose={() => setRefSearchModalOpen(false)}
           onSelect={handleSelectReferencia} onCreateNew={handleCreateNewReferencia}
           referencias={referencias} initialSearch={formData.bobinas[activeRowIndex]?.referenciaNombre || ''}
           materialFilter={formData.material}
       />
+      
+      {/* MODAL DE BÚSQUEDA DE PROVEEDOR (NUEVO) */}
+      <ProveedorSearchModal 
+          isOpen={provSearchModalOpen} onClose={() => setProvSearchModalOpen(false)}
+          onSelect={handleSelectProveedor} onCreateNew={handleCreateNewProveedor}
+          proveedores={proveedores} initialSearch={proveedorBusqueda}
+      />
+
       {modalState?.type === 'PROVEEDOR' && (
         <BaseQuickCreateModal 
           isOpen={true} onClose={() => setModalState(null)} onCreated={handleProveedorCreado}
           title="Proveedor" endpoint="/api/proveedores" cacheKey="/api/proveedores"
-          fields={[{ name: 'nombre', placeholder: 'Nombre' }, { name: 'email', placeholder: 'Email', required: false }]}
+          fields={[
+            { name: 'nombre', placeholder: 'Nombre', defaultValue: modalState.initialName }, // Pre-rellenar nombre
+            { name: 'email', placeholder: 'Email', required: false }
+          ]}
         />
       )}
       {modalState?.type === 'REFERENCIA_NEW' && (

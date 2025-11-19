@@ -162,6 +162,7 @@ model PedidoProveedor {
   tipo                 String
   notas                String?
   numeroContenedor     String?
+  numeroFactura        String?
   naviera              String?
   fechaLlegadaEstimada DateTime?
   tasaCambio           Float?         @default(1)

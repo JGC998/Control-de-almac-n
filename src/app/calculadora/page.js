@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
-import { Calculator, Plus, Trash2, Download, Save } from 'lucide-react'; // Importar 'Save'
+import { Calculator, Plus, Trash2, Download, Save, Info } from 'lucide-react';
 import { formatCurrency, formatWeight } from '@/utils/utils';
 import jsPDF from "jspdf"; 
 import autoTable from "jspdf-autotable"; 
@@ -9,9 +9,9 @@ import autoTable from "jspdf-autotable";
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const TotalDisplay = ({ label, value, unit }) => (
-  <div className="stat bg-primary text-primary-content rounded-lg">
-    <div className="stat-title">{label}</div>
-    <div className="stat-value">{value}</div>
+  <div className="stat bg-base-200 border border-base-300 rounded-lg p-4">
+    <div className="stat-title text-xs uppercase font-bold opacity-60">{label}</div>
+    <div className="stat-value text-2xl">{value}</div>
     <div className="stat-desc">{unit}</div>
   </div>
 );
@@ -22,13 +22,13 @@ export default function CalculadoraPage() {
   const [selectedEspesor, setSelectedEspesor] = useState('');
   const [selectedMarginId, setSelectedMarginId] = useState(''); 
   const [unidades, setUnidades] = useState(1);
-  const [ancho, setAncho] = useState(0);
-  const [largo, setLargo] = useState(0);
+  const [ancho, setAncho] = useState(0); // en mm
+  const [largo, setLargo] = useState(0); // en mm
   
   // --- Estado para la lista de items ---
   const [itemsAgregados, setItemsAgregados] = useState([]);
   const [isAddingItem, setIsAddingItem] = useState(false); 
-  const [isSaving, setIsSaving] = useState(false); // Nuevo estado para guardar
+  const [isSaving, setIsSaving] = useState(false);
 
   // 1. Cargar datos necesarios
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios', fetcher);
@@ -48,329 +48,259 @@ export default function CalculadoraPage() {
     return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
   }, [tarifas, selectedMaterial]);
 
-  // 3. Obtener el valor del multiplicador seleccionado
   const selectedMargin = useMemo(() => {
     if (!margenes || !selectedMarginId) return null;
     return margenes.find(m => m.id === selectedMarginId);
   }, [margenes, selectedMarginId]);
   
-  // 4. Resetear espesor si el material cambia
   useEffect(() => {
     setSelectedEspesor('');
   }, [selectedMaterial]);
 
-  // --- 5. NUEVO: Calcular los valores del item actual (PREVISUALIZACIÓN) ---
+  // --- 3. CÁLCULO BASADO EN M2 ---
   const currentCalculation = useMemo(() => {
-    // Si falta data o inputs, retornar 0s
     if (!tarifas || !selectedMaterial || !selectedEspesor || unidades <= 0 || ancho <= 0 || largo <= 0) {
         return { precioUnitario: 0, pesoUnitario: 0, precioTotal: 0, pesoTotal: 0, isValid: false };
     }
     
-    // Buscar tarifa
+    // Buscar tarifa (Precio y Peso ahora se interpretan como POR M2)
     const tarifa = tarifas.find(t => 
         t.material === selectedMaterial && 
         t.espesor == selectedEspesor
     );
 
-    if (!tarifa) {
-        return { precioUnitario: 0, pesoUnitario: 0, precioTotal: 0, pesoTotal: 0, isValid: false, errorMessage: 'Tarifa no encontrada' };
-    }
+    if (!tarifa) return { isValid: false, errorMessage: 'Tarifa no encontrada' };
 
+    // Variables Base
     const multiplicador = selectedMargin?.multiplicador || 1;
-    // Aseguramos que gastoFijoTotal sea 0 si no está definido o seleccionado
     const gastoFijoTotal = selectedMargin?.gastoFijo || 0; 
     const unidadesInt = parseInt(unidades) || 1; 
 
-    const precioM2ConMargen = tarifa.precio * multiplicador; 
-    const areaPorPieza = (ancho / 1000) * (largo / 1000); 
+    // Conversión a Metros
+    const anchoMetros = ancho / 1000;
+    const largoMetros = largo / 1000;
+    const areaPorPieza = anchoMetros * largoMetros; // m2
 
+    // Cálculo Precio (Base m2 * Margen * Area)
+    const precioBaseM2 = tarifa.precio;
+    const precioM2ConMargen = precioBaseM2 * multiplicador; 
+    
     let precioUnitario = precioM2ConMargen * areaPorPieza; 
-    // Añadir el gasto fijo prorrateado por unidad (si existe)
+    
+    // Prorrateo de Gasto Fijo
     if (gastoFijoTotal > 0) {
        precioUnitario += (gastoFijoTotal / unidadesInt); 
     }
 
-    const precioTotal = precioUnitario * unidadesInt;
-    
-    const pesoUnitario = tarifa.peso * areaPorPieza;
-    const pesoTotal = pesoUnitario * unidades;
+    // Cálculo Peso (Base kg/m2 * Area)
+    const pesoBaseM2 = tarifa.peso; 
+    const pesoUnitario = pesoBaseM2 * areaPorPieza;
 
     return { 
+        precioBaseM2, // Para mostrar en UI
+        pesoBaseM2,   // Para mostrar en UI
         precioUnitario, 
         pesoUnitario, 
-        precioTotal, 
-        pesoTotal,
+        precioTotal: precioUnitario * unidadesInt, 
+        pesoTotal: pesoUnitario * unidadesInt,
+        areaTotal: areaPorPieza * unidadesInt,
         isValid: true
     };
   }, [tarifas, selectedMaterial, selectedEspesor, selectedMargin, unidades, ancho, largo]);
-  // -------------------------------------------------------------------------
 
-
-  // 6. Calcular los totales generales de la lista
   const totalesGenerales = useMemo(() => {
-    const totalPrecio = itemsAgregados.reduce((acc, item) => acc + item.precioTotal, 0);
-    const totalPeso = itemsAgregados.reduce((acc, item) => acc + item.pesoTotal, 0);
-    return { totalPrecio, totalPeso };
+    return itemsAgregados.reduce((acc, item) => ({
+        totalPrecio: acc.totalPrecio + item.precioTotal,
+        totalPeso: acc.totalPeso + item.pesoTotal,
+        totalArea: acc.totalArea + (item.areaTotal || 0)
+    }), { totalPrecio: 0, totalPeso: 0, totalArea: 0 });
   }, [itemsAgregados]);
 
-  // 7. Handler para añadir un item a la lista (simplificado)
-  const handleAddItem = async () => {
-    // Usamos el cálculo validado de currentCalculation
-    if (!currentCalculation.isValid) {
-      alert("Por favor, selecciona Material, Espesor, Unidades, Ancho y Largo válidos.");
-      return;
-    }
+  const handleAddItem = () => {
+    if (!currentCalculation.isValid) return;
 
     setIsAddingItem(true);
-
     try {
       const multiplicador = selectedMargin?.multiplicador || 1;
-      const marginText = selectedMargin ? ` (x${multiplicador.toFixed(2)})` : '';
+      const marginText = selectedMargin ? ` (Margen: x${multiplicador.toFixed(2)})` : '';
 
       const newItem = {
         id: Date.now(),
+        // Descripción detallada automática
         descripcion: `${selectedMaterial} (${selectedEspesor}mm)`,
-        medidas: `${ancho} mm x ${largo} mm`,
+        detalles: `${ancho}x${largo} mm ${marginText}`,
+        medidas: `${ancho}x${largo}`,
         unidades: unidades,
         precioUnitario: currentCalculation.precioUnitario, 
         pesoUnitario: currentCalculation.pesoUnitario,
         precioTotal: currentCalculation.precioTotal,
         pesoTotal: currentCalculation.pesoTotal,
-        margen: marginText 
+        areaTotal: currentCalculation.areaTotal
       };
 
       setItemsAgregados(prev => [...prev, newItem]);
-      
-      // Reseteamos dimensiones y unidades para el siguiente item
       setUnidades(1);
-      setAncho(0);
-      setLargo(0);
-      // Mantener material/espesor seleccionado puede ser útil para agregar piezas similares
-      // setSelectedMaterial('');
-      // setSelectedEspesor(''); 
-
+      // Opcional: Limpiar dimensiones para obligar a repensar la siguiente pieza
+      // setAncho(0); 
+      // setLargo(0);
     } catch (error) {
-      console.error("Error al añadir item:", error);
-      alert(`Error al calcular: ${error.message}`);
+      alert(`Error: ${error.message}`);
     } finally {
       setIsAddingItem(false);
     }
   };
 
-  // 8. Handler para eliminar un item
   const handleRemoveItem = (id) => {
     setItemsAgregados(prev => prev.filter(item => item.id !== id));
   };
   
-  // 9. NUEVO: Handler para guardar el presupuesto
   const handleSavePresupuesto = async () => {
-    if (itemsAgregados.length === 0) {
-      alert("No hay ítems para guardar en el presupuesto.");
-      return;
-    }
-
+    if (itemsAgregados.length === 0) return alert("Añade ítems primero.");
     setIsSaving(true);
     try {
-      // ⚠️ ADVERTENCIA: Esta es una ruta de API de ejemplo. Debes implementarla
-      // para que reciba itemsAgregados, totalesGenerales y los guarde en Prisma.
       const res = await fetch('/api/presupuestos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           items: itemsAgregados, 
           totales: totalesGenerales,
-          // Puedes añadir aquí el ID del Cliente o un nombre de referencia
-          nombre: `Presupuesto Rápido ${new Date().toLocaleDateString('es-ES')}`
+          nombre: `Cálculo Web ${new Date().toLocaleString('es-ES')}`
         }),
       });
 
-      if (!res.ok) {
-        throw new Error('Error al guardar el presupuesto en el servidor.');
-      }
-      
-      const savedPresupuesto = await res.json();
-      alert(`✅ Presupuesto ${savedPresupuesto.id} guardado con éxito.`);
-      
-      // Opcional: Redirigir al detalle del presupuesto guardado
-      // router.push(`/presupuestos/${savedPresupuesto.id}`); 
-      setItemsAgregados([]); // Limpiar lista tras guardar
-
+      if (!res.ok) throw new Error('Error al guardar.');
+      alert(`✅ Presupuesto guardado correctamente.`);
+      setItemsAgregados([]); 
     } catch (error) {
-      console.error("Error al guardar presupuesto:", error);
-      alert(`❌ Error al guardar presupuesto: ${error.message}`);
+      alert(`Error: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-
-  // 10. Handler para generar PDF
   const handleExportPDF = () => {
-     // ... (La lógica de exportación a PDF se mantiene igual) ...
-     if (itemsAgregados.length === 0) {
-        alert("No hay ítems para exportar.");
-        return;
-      }
-      
+     if (itemsAgregados.length === 0) return;
       const doc = new jsPDF();
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.text("Simulación de Cálculo", 14, 22);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 30);
+      doc.setFontSize(18); doc.text("Hoja de Cálculo Taller", 14, 22);
+      doc.setFontSize(10); doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 30);
       
-      const tableColumn = ["Descripción", "Medidas (mm)", "Unidades", "Precio Unitario"];
       const tableRows = itemsAgregados.map(item => [
-        item.descripcion + item.margen,
-        item.medidas,
+        item.descripcion,
+        item.detalles,
         item.unidades,
-        formatCurrency(item.precioUnitario),
+        formatCurrency(item.precioTotal),
+        formatWeight(item.pesoTotal)
       ]);
 
       autoTable(doc, { 
-        head: [tableColumn],
+        head: [["Material", "Detalles", "Uds", "Precio Total", "Peso Total"]],
         body: tableRows,
-        startY: 40, 
-        theme: 'grid',
+        startY: 40, theme: 'grid',
       });
 
-      const finalY = doc.lastAutoTable.finalY;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(`--- Resumen General ---`, 145, finalY + 10, { align: 'right' });
-      doc.setFont("helvetica", "bold");
-      doc.text(`Precio Total:`, 145, finalY + 16, { align: 'right' });
-      doc.text(`${formatCurrency(totalesGenerales.totalPrecio)}`, 198, finalY + 16, { align: 'right' });
-      doc.text(`Peso Total:`, 145, finalY + 22, { align: 'right' });
-      doc.text(`${formatWeight(totalesGenerales.totalPeso)}`, 198, finalY + 22, { align: 'right' });
+      const finalY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(12); doc.setFont("helvetica", "bold");
+      doc.text(`TOTAL PRECIO: ${formatCurrency(totalesGenerales.totalPrecio)}`, 195, finalY, { align: 'right' });
+      doc.text(`TOTAL PESO: ${formatWeight(totalesGenerales.totalPeso)}`, 195, finalY + 7, { align: 'right' });
       
-      doc.save(`simulacion-calculo-${new Date().toISOString().slice(0, 10)}.pdf`);
+      doc.save(`calculo-taller-${Date.now()}.pdf`);
   };
 
-  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-  if (tarifasError || materialesError || margenesError) return <div className="text-red-500 text-center">Error al cargar datos necesarios.</div>;
+  if (isLoading) return <div className="flex justify-center h-screen items-center"><span className="loading loading-dots loading-lg"></span></div>;
+  if (tarifasError || materialesError) return <div className="alert alert-error m-4">Error cargando tarifas.</div>;
 
   const uniqueMaterials = materiales?.map(m => m.nombre).sort() || [];
-  
-  // Condición para deshabilitar el botón de Añadir
-  const isAddDisabled = !currentCalculation.isValid || isAddingItem;
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 flex items-center">
-        <Calculator className="mr-2" /> Simulador de Cálculo
-      </h1>
+    <div className="container mx-auto p-4 max-w-7xl">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Calculator className="text-primary" /> Calculadora de Piezas (m²)
+        </h1>
+        <div className="flex gap-2">
+             <button onClick={handleExportPDF} className="btn btn-outline btn-sm" disabled={itemsAgregados.length === 0}>
+                <Download className="w-4 h-4" /> PDF
+             </button>
+             <button onClick={handleSavePresupuesto} className="btn btn-primary btn-sm" disabled={itemsAgregados.length === 0 || isSaving}>
+                <Save className="w-4 h-4" /> Guardar Presupuesto
+             </button>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Columna Izquierda (Inputs y Lista) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Card de Configuración de Item */}
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">Añadir Item</h2>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* PANEL IZQUIERDO: CONFIGURACIÓN */}
+        <div className="xl:col-span-1 space-y-6">
+          <div className="card bg-base-100 shadow-xl border border-base-200">
+            <div className="card-body p-6">
+              <h2 className="card-title text-lg mb-4">Configuración de Pieza</h2>
               
-              {/* Primera fila de inputs (Material, Espesor y Margen) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <label className="form-control w-full">
-                  <div className="label"><span className="label-text">Material</span></div>
-                  <select 
-                    className="select select-bordered"
-                    value={selectedMaterial}
-                    onChange={(e) => setSelectedMaterial(e.target.value)}
-                  >
-                    <option value="">Selecciona material</option>
-                    {uniqueMaterials.map(material => (
-                      <option key={material} value={material}>{material}</option>
-                    ))}
-                  </select>
-                </label>
+              {/* Inputs */}
+              <div className="space-y-4">
+                <div>
+                    <label className="label pt-0"><span className="label-text font-semibold">Material Base</span></label>
+                    <select className="select select-bordered w-full" value={selectedMaterial} onChange={(e) => setSelectedMaterial(e.target.value)}>
+                        <option value="">Seleccionar...</option>
+                        {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                </div>
                 
-                <label className="form-control w-full">
-                  <div className="label"><span className="label-text">Espesor (mm)</span></div>
-                  <select 
-                    className="select select-bordered"
-                    value={selectedEspesor}
-                    onChange={(e) => setSelectedEspesor(e.target.value)}
-                    disabled={!selectedMaterial}
-                  >
-                    <option value="">Selecciona espesor</option>
-                    {availableEspesores.map(e => (
-                      <option key={e} value={e}>{e} mm</option>
-                    ))}
-                  </select>
-                </label>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="label pt-0"><span className="label-text font-semibold">Espesor</span></label>
+                        <select className="select select-bordered w-full" value={selectedEspesor} onChange={(e) => setSelectedEspesor(e.target.value)} disabled={!selectedMaterial}>
+                            <option value="">...</option>
+                            {availableEspesores.map(e => <option key={e} value={e}>{e} mm</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="label pt-0"><span className="label-text font-semibold">Margen</span></label>
+                        <select className="select select-bordered w-full" value={selectedMarginId} onChange={(e) => setSelectedMarginId(e.target.value)}>
+                            <option value="">x1.00 (Base)</option>
+                            {margenes?.map(m => <option key={m.id} value={m.id}>{m.descripcion} (x{m.multiplicador})</option>)}
+                        </select>
+                    </div>
+                </div>
 
-                <label className="form-control w-full">
-                  <div className="label"><span className="label-text">Margen Aplicable</span></div>
-                  <select 
-                      className="select select-bordered"
-                      value={selectedMarginId}
-                      onChange={(e) => setSelectedMarginId(e.target.value)}
-                  >
-                      <option value="">Precio Base (x1)</option>
-                      {margenes?.map(margen => {
-                        const tierText = margen.tierCliente ? ` (${margen.tierCliente})` : '';
-                        return (
-                          <option key={margen.id} value={margen.id}>
-                              {margen.descripcion}{tierText} (x{margen.multiplicador}) 
-                          </option>
-                        );
-                      })}
-                  </select>
-                </label>
+                <div className="divider my-2">Dimensiones</div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="label pt-0"><span className="label-text">Ancho (mm)</span></label>
+                        <input type="number" className="input input-bordered w-full" value={ancho} onChange={(e) => setAncho(parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                        <label className="label pt-0"><span className="label-text">Largo (mm)</span></label>
+                        <input type="number" className="input input-bordered w-full" value={largo} onChange={(e) => setLargo(parseFloat(e.target.value) || 0)} />
+                    </div>
+                </div>
+                
+                <div>
+                    <label className="label pt-0"><span className="label-text font-bold">Cantidad</span></label>
+                    <input type="number" className="input input-bordered w-full font-bold text-lg" value={unidades} onChange={(e) => setUnidades(parseInt(e.target.value) || 1)} min="1" />
+                </div>
               </div>
 
-              {/* Tercera fila de inputs (Dimensiones y Unidades) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <label className="form-control w-full">
-                  <div className="label"><span className="label-text">Unidades</span></div>
-                  <input 
-                    type="number" 
-                    placeholder="Ej: 5" 
-                    className="input input-bordered"
-                    value={unidades}
-                    onChange={(e) => setUnidades(Math.max(1, parseInt(e.target.value) || 1))} // Aseguramos mínimo 1
-                    min="1"
-                  />
-                </label>
-                 <label className="form-control w-full">
-                  <div className="label"><span className="label-text">Ancho (mm)</span></div>
-                  <input 
-                    type="number" 
-                    placeholder="Ej: 1200" 
-                    className="input input-bordered"
-                    value={ancho}
-                    onChange={(e) => setAncho(Math.max(0, parseInt(e.target.value) || 0))} // Aseguramos mínimo 0
-                    min="0"
-                  />
-                </label>
-                <label className="form-control w-full">
-                  <div className="label"><span className="label-text">Largo (mm)</span></div>
-                  <input 
-                    type="number" 
-                    placeholder="Ej: 2000" 
-                    className="input input-bordered"
-                    value={largo}
-                    onChange={(e) => setLargo(Math.max(0, parseInt(e.target.value) || 0))} // Aseguramos mínimo 0
-                    min="0"
-                  />
-                </label>
-              </div>
-              
-              {/* NUEVO: Previsualización de Cálculo */}
+              {/* Previsualización */}
               {currentCalculation.isValid && (
-                  <div className="alert shadow-lg mt-4 bg-base-200">
-                      <div>
-                          <Calculator className="w-5 h-5 text-accent" />
-                          <div>
-                              <h3 className="font-bold">Previsualización (x{unidades} Unidades):</h3>
-                              <div className="text-xs">
-                                  Precio Unitario: <span className="font-bold text-primary">{formatCurrency(currentCalculation.precioUnitario)}</span> | 
-                                  Peso Unitario: <span className="font-bold">{formatWeight(currentCalculation.pesoUnitario)}</span>
+                  <div className="mt-6 bg-base-200/50 rounded-lg p-4 border border-base-300">
+                      <div className="flex items-start gap-3">
+                          <Info className="w-5 h-5 text-info mt-1" />
+                          <div className="w-full text-sm space-y-1">
+                              <p className="font-semibold text-base-content/70 flex justify-between">
+                                  <span>Tarifa Base:</span> 
+                                  <span>{formatCurrency(currentCalculation.precioBaseM2)} / m²</span>
+                              </p>
+                              <p className="font-semibold text-base-content/70 flex justify-between">
+                                  <span>Peso:</span> 
+                                  <span>{currentCalculation.pesoBaseM2.toFixed(2)} kg / m²</span>
+                              </p>
+                              <div className="divider my-1"></div>
+                              <div className="flex justify-between items-center text-lg font-bold text-primary">
+                                  <span>Total Item:</span>
+                                  <span>{formatCurrency(currentCalculation.precioTotal)}</span>
                               </div>
-                              <div className="text-sm font-bold mt-1">
-                                  Total a Añadir: <span className="text-primary">{formatCurrency(currentCalculation.precioTotal)}</span>
+                              <div className="text-right text-xs text-base-content/50">
+                                  ({formatWeight(currentCalculation.pesoTotal)} total)
                               </div>
                           </div>
                       </div>
@@ -378,97 +308,64 @@ export default function CalculadoraPage() {
               )}
 
               <div className="card-actions justify-end mt-4">
-                <button 
-                  onClick={handleAddItem} 
-                  className="btn btn-primary" 
-                  disabled={isAddDisabled}
-                >
-                  {isAddingItem ? <span className="loading loading-spinner loading-xs"></span> : <Plus className="w-4 h-4" />}
-                  Añadir Item al Cálculo
+                <button onClick={handleAddItem} className="btn btn-primary w-full" disabled={!currentCalculation.isValid || isAddingItem}>
+                  <Plus className="w-5 h-5" /> Añadir a la Lista
                 </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Card de Lista de Items */}
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <div className="flex justify-between items-center mb-4">
-                 <h2 className="card-title">Items Agregados</h2>
-                 <div className="flex gap-2">
-                     {/* NUEVO BOTÓN: Guardar Presupuesto */}
-                     
-                     {/* BOTÓN DE EXPORTAR A PDF */}
-                     <button onClick={handleExportPDF} className="btn btn-secondary btn-sm" disabled={itemsAgregados.length === 0 || isSaving}>
-                        <Download className="w-4 h-4" /> Exportar PDF
-                     </button>
-                 </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="table w-full table-zebra">
-                  <thead>
-                    <tr>
-                      <th>Descripción</th>
-                      <th className="text-center">Medidas (mm)</th>
-                      <th className="text-center">Unidades</th>
-                      <th className="text-right">Precio Unitario</th> 
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {itemsAgregados.length === 0 && (
-                      <tr><td colSpan="5" className="text-center">Añade ítems para verlos aquí.</td></tr>
-                    )}
-                    {itemsAgregados.map(item => (
-                      <tr key={item.id} className="hover">
-                        <td className="font-medium">{item.descripcion} {item.margen}</td>
-                        <td className="text-center">{item.medidas}</td>
-                        <td className="text-center">{item.unidades}</td>
-                        <td className="text-right font-bold text-primary">{formatCurrency(item.precioUnitario)}</td>
-                        <td className="text-center">
-                          <button onClick={() => handleRemoveItem(item.id)} className="btn btn-ghost btn-sm btn-circle">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* Resumen de totales debajo de la tabla */}
-              <div className="flex justify-end mt-4 text-sm font-semibold">
-                <div className="w-full max-w-xs space-y-1">
-                    <div className="flex justify-between">
-                        <span>Precio Total:</span>
-                        <span className="font-bold">{formatCurrency(totalesGenerales.totalPrecio)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Peso Total:</span>
-                        <span className="font-bold">{formatWeight(totalesGenerales.totalPeso)}</span>
-                    </div>
-                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Columna Derecha (Resultados Totales) - MANTENIDA */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-4 space-y-6"> 
-             <div className="card bg-base-100 shadow-xl">
-               <div className="card-body">
-                 <h2 className="card-title mb-4">Resumen de Costes y Pesos</h2>
-                 
-                 <div className="stats stats-vertical shadow w-full">
-                   <TotalDisplay label="Precio Total General" value={formatCurrency(totalesGenerales.totalPrecio)} unit="Precio final (sin IVA)" />
-                   <TotalDisplay label="Peso Total General" value={formatWeight(totalesGenerales.totalPeso)} unit="Aproximado" />
-                 </div>
-                 
-               </div>
-             </div>
-          </div>
+        {/* PANEL DERECHO: LISTA Y TOTALES */}
+        <div className="xl:col-span-2 flex flex-col gap-6">
+            {/* Totales Superiores: Superficie Eliminada */}
+            <div className="grid grid-cols-2 gap-4">
+                <TotalDisplay label="Importe Total" value={formatCurrency(totalesGenerales.totalPrecio)} unit="EUR" />
+                <TotalDisplay label="Peso Total" value={formatWeight(totalesGenerales.totalPeso)} unit="Kg" />
+            </div>
+
+            {/* Tabla */}
+            <div className="card bg-base-100 shadow-xl flex-grow">
+                <div className="card-body p-0">
+                    <div className="overflow-x-auto">
+                        <table className="table w-full table-zebra">
+                            <thead className="bg-base-200">
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th>Medidas</th>
+                                    <th className="text-center">Cant.</th>
+                                    <th className="text-right">P. Unit.</th>
+                                    <th className="text-right">Total</th>
+                                    <th className="w-10"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {itemsAgregados.length === 0 ? (
+                                    <tr><td colSpan={6} className="text-center py-10 text-gray-400">Lista vacía. Añade piezas desde el panel izquierdo.</td></tr>
+                                ) : (
+                                    itemsAgregados.map((item) => (
+                                        <tr key={item.id}>
+                                            <td>
+                                                <div className="font-bold">{item.descripcion}</div>
+                                                <div className="text-xs opacity-50">Peso unit: {formatWeight(item.pesoUnitario)}</div>
+                                            </td>
+                                            <td className="font-mono text-xs">{item.detalles}</td>
+                                            <td className="text-center font-bold">{item.unidades}</td>
+                                            <td className="text-right">{formatCurrency(item.precioUnitario)}</td>
+                                            <td className="text-right font-bold text-primary">{formatCurrency(item.precioTotal)}</td>
+                                            <td>
+                                                <button onClick={() => handleRemoveItem(item.id)} className="btn btn-ghost btn-xs text-error">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
       </div>
     </div>
