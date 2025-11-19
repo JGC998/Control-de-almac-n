@@ -1,122 +1,103 @@
 #!/bin/bash
 
-echo "♻️ Regenerando archivos de datos JSON (Data Reset)..."
+echo "🔧 Reparando sintaxis en receive-order/route.js..."
 
-# Asegurar que el directorio existe
-mkdir -p src/data
-mkdir -p scripts
+# Sobreescribimos el archivo con el código JavaScript LIMPIO (sin barras de escape extra)
+cat << 'EOF' > src/app/api/stock-management/receive-order/route.js
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
 
-
-# ---------------------------------------------------------
-# 2. CREACIÓN DEL SCRIPT DE SEED (Lógica de Inserción)
-# ---------------------------------------------------------
-
-cat << 'EOF' > scripts/seed.js
-const { PrismaClient } = require('@prisma/client');
-const fs = require('fs');
-const path = require('path');
-
-const prisma = new PrismaClient();
-
-const readData = (filename) => {
+export async function POST(request) {
   try {
-    const filePath = path.join(__dirname, '../src/data', filename);
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  } catch (e) {
-    console.warn(`⚠️ Aviso: No se encontró ${filename}, saltando...`);
-    return [];
-  }
-};
+    const { pedidoId } = await request.json();
 
-async function main() {
-  console.log('🌱 Iniciando Re-Semillado completo...');
-
-  // 1. LIMPIEZA DE BD (Orden estricto por Foreign Keys)
-  // Añade deleteMany para tablas nuevas si creas más
-  const tables = [
-    'movimientoStock', 'stock', 'bobinaPedido', 'pedidoProveedor', 
-    'pedidoItem', 'presupuestoItem', 'precioEspecial', 'documento',
-    'pedido', 'presupuesto', 'producto', 
-    'descuentoTier', 'reglaDescuento', 'reglaMargen', 'tarifaMaterial', 'referenciaBobina',
-    'proveedor', 'cliente', 'fabricante', 'material', 'nota', 'config'
-  ];
-
-  console.log('🧹 Vaciando tablas...');
-  for (const table of tables) {
-    try {
-      await prisma[table].deleteMany(); 
-    } catch(e) {
-      // Ignorar errores si la tabla no existe aún
-    }
-  }
-
-  // 2. INSERCIÓN DE DATOS BASICOS
-  console.log('📥 Insertando catálogos base...');
-
-  // Fabricantes
-  const fabricantes = readData('fabricantes.json');
-  for (const f of fabricantes) await prisma.fabricante.create({ data: f });
-
-  // Materiales
-  const materiales = readData('materiales.json');
-  for (const m of materiales) await prisma.material.create({ data: m });
-
-  // Proveedores
-  const proveedores = readData('proveedores.json');
-  for (const p of proveedores) await prisma.proveedor.create({ data: p });
-
-  // Clientes
-  const clientes = readData('clientes.json');
-  for (const c of clientes) await prisma.cliente.create({ data: c });
-
-  // Configuración Pricing
-  const margenes = readData('margenes.json');
-  for (const m of margenes) await prisma.reglaMargen.create({ data: m });
-
-  const tarifas = readData('tarifas.json');
-  for (const t of tarifas) await prisma.tarifaMaterial.create({ data: t });
-  
-  const referencias = readData('referencias.json');
-  for (const r of referencias) await prisma.referenciaBobina.create({ data: r });
-
-  // 3. INSERCIÓN DE PRODUCTOS (Con Relaciones)
-  console.log('🔗 Relacionando e insertando productos...');
-  
-  const dbFabricantes = await prisma.fabricante.findMany();
-  const dbMateriales = await prisma.material.findMany();
-  const productos = readData('productos.json');
-
-  for (const prod of productos) {
-    const fabId = dbFabricantes.find(f => f.nombre === prod.fabricante)?.id;
-    const matId = dbMateriales.find(m => m.nombre === prod.material)?.id;
-
-    // Quitamos los campos de texto y ponemos los IDs
-    const { fabricante, material, ...data } = prod;
-    
-    await prisma.producto.create({
-      data: {
-        ...data,
-        fabricanteId: fabId,
-        materialId: matId
-      }
+    // 1. Obtener el pedido completo con sus bobinas
+    const pedido = await db.pedidoProveedor.findUnique({
+      where: { id: pedidoId },
+      include: { bobinas: { include: { referencia: true } } }
     });
+
+    if (!pedido) {
+      return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
+    }
+
+    // 2. CÁLCULO DE COSTES (Lógica Ponderada idéntica al frontend)
+    const tasa = pedido.tasaCambio || 1;
+    const gastos = pedido.gastosTotales || 0;
+    const esImportacion = pedido.tipo === 'IMPORTACION';
+
+    // Calcular valor total base en EUROS para prorrateo
+    const valorTotalMercanciaEUR = pedido.bobinas.reduce((acc, b) => {
+      const precioBaseEUR = (b.precioMetro || 0) * (esImportacion ? tasa : 1);
+      return acc + (precioBaseEUR * (b.largo || 0));
+    }, 0);
+
+    await db.$transaction(async (tx) => {
+      // Recorrer bobinas y crear Stock
+      for (const bobina of pedido.bobinas) {
+        const metros = parseFloat(bobina.largo) || 0;
+        const precioBaseOriginal = parseFloat(bobina.precioMetro) || 0;
+        
+        // Cálculos
+        const precioBaseEUR = precioBaseOriginal * (esImportacion ? tasa : 1);
+        const costeTotalBaseLinea = precioBaseEUR * metros;
+        
+        // Prorrateo
+        const factorParticipacion = valorTotalMercanciaEUR > 0 ? (costeTotalBaseLinea / valorTotalMercanciaEUR) : 0;
+        const gastosAsignados = gastos * factorParticipacion;
+        
+        // Costo Final Unitario
+        const costoMetroFinal = metros > 0 ? (precioBaseEUR + (gastosAsignados / metros)) : 0;
+
+        // 3. Actualizar la bobina con el costo final calculado (para histórico)
+        await tx.bobinaPedido.update({
+            where: { id: bobina.id },
+            data: { costoFinalMetro: costoMetroFinal }
+        });
+
+        // 4. Crear entrada en Stock
+        const materialNombre = pedido.material || 'Material';
+        // CORREGIDO: Template literals limpios
+        const referenciaNombre = bobina.referencia?.nombre || `${materialNombre} ${bobina.espesor}mm`;
+
+        await tx.stock.create({
+          data: {
+            material: materialNombre,
+            espesor: bobina.espesor,
+            metrosDisponibles: metros,
+            proveedor: pedido.proveedorId,
+            costoMetro: costoMetroFinal, 
+            fechaEntrada: new Date(),
+            ubicacion: 'Recepción',
+            
+            // Registrar el movimiento inicial de entrada
+            movimientos: {
+              create: {
+                tipo: 'ENTRADA',
+                cantidad: metros,
+                // CORREGIDO: Template literal limpio
+                referencia: `Recepción Pedido ${pedido.id.slice(0,8)}`,
+                fecha: new Date()
+              }
+            }
+          }
+        });
+      }
+
+      // 5. Marcar pedido como Recibido
+      await tx.pedidoProveedor.update({
+        where: { id: pedidoId },
+        data: { estado: 'Recibido' }
+      });
+    });
+
+    return NextResponse.json({ message: 'Pedido recibido y stock actualizado correctamente' });
+
+  } catch (error) {
+    console.error('Error al recibir pedido:', error);
+    return NextResponse.json({ message: error.message || 'Error interno' }, { status: 500 });
   }
-
-  console.log('✅ Base de datos lista y operativa.');
 }
-
-main()
-  .catch((e) => { console.error(e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
 EOF
 
-echo "✅ Script seed.js generado."
-
-# ---------------------------------------------------------
-# 3. EJECUCIÓN AUTOMÁTICA
-# ---------------------------------------------------------
-
-echo "🚀 Ejecutando semillado..."
-node scripts/seed.js
-
-echo "🏁 Todo listo. Tu base de datos tiene datos nuevos y limpios."
+echo "✅ Archivo route.js reparado."

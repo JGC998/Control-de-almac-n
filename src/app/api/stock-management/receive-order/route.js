@@ -1,90 +1,94 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-/**
- * Lógica para recibir un pedido de proveedor.
- * Esto calcula el coste final, actualiza el estado del pedido,
- * y añade las bobinas al Stock.
- */
 export async function POST(request) {
   try {
     const { pedidoId } = await request.json();
 
-    if (!pedidoId) {
-      return NextResponse.json({ message: 'Se requiere pedidoId' }, { status: 400 });
+    // 1. Obtener el pedido completo con sus bobinas
+    const pedido = await db.pedidoProveedor.findUnique({
+      where: { id: pedidoId },
+      include: { bobinas: { include: { referencia: true } } }
+    });
+
+    if (!pedido) {
+      return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     }
 
-    const updatedPedido = await db.$transaction(async (tx) => {
-      // 1. Encontrar el pedido y sus bobinas
-      const pedido = await tx.pedidoProveedor.findUnique({
-        where: { id: pedidoId },
-        include: { bobinas: true, proveedor: true },
-      });
+    // 2. CÁLCULO DE COSTES (Lógica Ponderada idéntica al frontend)
+    const tasa = pedido.tasaCambio || 1;
+    const gastos = pedido.gastosTotales || 0;
+    const esImportacion = pedido.tipo === 'IMPORTACION';
 
-      if (!pedido) {
-        throw new Error('Pedido no encontrado');
-      }
-      if (pedido.estado === 'Recibido') {
-        throw new Error('Este pedido ya ha sido recibido');
-      }
+    // Calcular valor total base en EUROS para prorrateo
+    const valorTotalMercanciaEUR = pedido.bobinas.reduce((acc, b) => {
+      const precioBaseEUR = (b.precioMetro || 0) * (esImportacion ? tasa : 1);
+      return acc + (precioBaseEUR * (b.largo || 0));
+    }, 0);
 
-      // 2. Calcular costes (lógica extraída de la API de GET)
-      const tasaCambio = pedido.tasaCambio || 1;
-      const gastosTotales = pedido.gastosTotales || 0;
-      
-      const costeTotalBobinas = pedido.bobinas.reduce((acc, b) => acc + (b.precioMetro * (b.largo || 0)), 0);
-      const costeTotalDivisa = costeTotalBobinas + gastosTotales;
-      const costeTotalEuros = costeTotalDivisa * tasaCambio;
-      const totalMetros = pedido.bobinas.reduce((acc, b) => acc + (b.largo || 0), 0);
-
-      let costePorMetroProrrateado = 0;
-      if (totalMetros > 0) {
-        costePorMetroProrrateado = costeTotalEuros / totalMetros;
-      }
-
-      // 3. Actualizar bobinas con coste y crear Stock
+    await db.$transaction(async (tx) => {
+      // Recorrer bobinas y crear Stock
       for (const bobina of pedido.bobinas) {
-        // 3a. Actualizar coste final en la bobina
+        const metros = parseFloat(bobina.largo) || 0;
+        const precioBaseOriginal = parseFloat(bobina.precioMetro) || 0;
+        
+        // Cálculos
+        const precioBaseEUR = precioBaseOriginal * (esImportacion ? tasa : 1);
+        const costeTotalBaseLinea = precioBaseEUR * metros;
+        
+        // Prorrateo
+        const factorParticipacion = valorTotalMercanciaEUR > 0 ? (costeTotalBaseLinea / valorTotalMercanciaEUR) : 0;
+        const gastosAsignados = gastos * factorParticipacion;
+        
+        // Costo Final Unitario
+        const costoMetroFinal = metros > 0 ? (precioBaseEUR + (gastosAsignados / metros)) : 0;
+
+        // 3. Actualizar la bobina con el costo final calculado (para histórico)
         await tx.bobinaPedido.update({
-          where: { id: bobina.id },
-          data: { costoFinalMetro: costePorMetroProrrateado },
+            where: { id: bobina.id },
+            data: { costoFinalMetro: costoMetroFinal }
         });
 
-        // 3b. Crear la entrada de Stock
-        const newStockItem = await tx.stock.create({
+        // 4. Crear entrada en Stock
+        const materialNombre = pedido.material || 'Material';
+        // CORREGIDO: Template literals limpios
+        const referenciaNombre = bobina.referencia?.nombre || `${materialNombre} ${bobina.espesor}mm`;
+
+        await tx.stock.create({
           data: {
-            material: pedido.material,
+            material: materialNombre,
             espesor: bobina.espesor,
-            metrosDisponibles: bobina.largo || 0,
-            proveedor: pedido.proveedor?.nombre || 'N/A',
-            ubicacion: 'Almacén', // Ubicación por defecto
-            costoMetro: costePorMetroProrrateado,
-            stockMinimo: 100, // Valor por defecto, se puede ajustar
-          },
-        });
-
-        // 3c. Crear el movimiento de stock
-        await tx.movimientoStock.create({
-          data: {
-            tipo: "Entrada",
-            cantidad: bobina.largo || 0,
-            referencia: `Pedido Prov: ${pedido.id}`,
-            stockId: newStockItem.id,
-          },
+            metrosDisponibles: metros,
+            proveedor: pedido.proveedorId,
+            costoMetro: costoMetroFinal, 
+            fechaEntrada: new Date(),
+            ubicacion: 'Recepción',
+            
+            // Registrar el movimiento inicial de entrada
+            movimientos: {
+              create: {
+                tipo: 'ENTRADA',
+                cantidad: metros,
+                // CORREGIDO: Template literal limpio
+                referencia: `Recepción Pedido ${pedido.id.slice(0,8)}`,
+                fecha: new Date()
+              }
+            }
+          }
         });
       }
 
-      // 4. Actualizar estado del pedido
-      return tx.pedidoProveedor.update({
+      // 5. Marcar pedido como Recibido
+      await tx.pedidoProveedor.update({
         where: { id: pedidoId },
-        data: { estado: 'Recibido' },
+        data: { estado: 'Recibido' }
       });
     });
 
-    return NextResponse.json(updatedPedido, { status: 200 });
+    return NextResponse.json({ message: 'Pedido recibido y stock actualizado correctamente' });
 
   } catch (error) {
-    console.error('Error al recibir el pedido:', error);
+    console.error('Error al recibir pedido:', error);
     return NextResponse.json({ message: error.message || 'Error interno' }, { status: 500 });
   }
 }
