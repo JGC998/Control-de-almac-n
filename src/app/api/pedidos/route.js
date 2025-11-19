@@ -61,6 +61,13 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
     }
 
+    // VALIDACIÓN DE TIPOS NUMÉRICOS
+    for (const item of items) {
+      if (typeof item.quantity !== 'number' || typeof item.unitPrice !== 'number') {
+        return NextResponse.json({ message: `El item "${item.description}" tiene valores no numéricos para cantidad o precio.` }, { status: 400 });
+      }
+    }
+
     const newOrderNumber = await getNextPedidoNumber();
 
     const newOrder = await db.pedido.create({

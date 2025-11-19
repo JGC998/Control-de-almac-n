@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { PlusCircle, Edit, Trash2, Save, X } from 'lucide-react';
+import TablaGenerica from './TablaGenerica';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -64,6 +65,8 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
     const method = isEdit ? 'PUT' : 'POST';
 
     const dataToSend = { ...formData };
+    delete dataToSend.id; // Eliminar ID para evitar problemas en el 'create' de Prisma
+
     if (endpoint.includes('referencias') && isEdit) {
         dataToSend.referencia = formData.nombre;
     }
@@ -105,7 +108,6 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
     }
   };
 
-  if (isLoading) return <span className="loading loading-spinner"></span>;
   if (swrError) return <div className="text-red-500">Error al cargar {title.toLowerCase()}.</div>;
   
   // Construye los campos del formulario
@@ -170,6 +172,22 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
     });
   };
 
+  const renderRow = (item) => (
+    <tr key={item.id} className="hover">
+      {columns.map(col => (
+          <td key={col.key}>{getDisplayValue(item, col.key)}</td>
+      ))}
+      <td className="flex gap-2">
+        <button onClick={() => openModal(item)} className="btn btn-sm btn-outline btn-info">
+          <Edit className="w-4 h-4" />
+        </button>
+        <button onClick={() => handleDelete(item.id)} className="btn btn-sm btn-outline btn-error">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </td>
+    </tr>
+  );
+
 
   return (
     <div className="card bg-base-100 shadow-xl">
@@ -181,34 +199,12 @@ export default function CatalogManager({ title, endpoint, columns, initialForm }
             </button>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="table w-full table-compact">
-            <thead>
-              <tr>
-                {columns.map(col => <th key={col.key}>{col.label}</th>)}
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* CORREGIDO: Usar Array.isArray(items) para asegurar que es iterable */}
-              {Array.isArray(items) && items.map((item) => (
-                <tr key={item.id} className="hover">
-                  {columns.map(col => (
-                      <td key={col.key}>{getDisplayValue(item, col.key)}</td>
-                  ))}
-                  <td className="flex gap-2">
-                    <button onClick={() => openModal(item)} className="btn btn-sm btn-outline btn-info">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDelete(item.id)} className="btn btn-sm btn-outline btn-error">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TablaGenerica
+          columns={columns}
+          data={items}
+          renderRow={renderRow}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Modal para Crear/Editar */}

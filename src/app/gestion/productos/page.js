@@ -240,8 +240,8 @@ export default function GestionProductos() {
                   <td>{p.precioUnitario.toFixed(2)} €</td>
                   <td className={`font-bold ${margenClass}`}>{margenFab} %</td>
                   <td className="flex gap-2">
-                    <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info"><Edit className="w-4 h-4" /></button>
-                    <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-outline btn-error"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => openModal(p)} className="btn btn-sm btn-outline btn-info" aria-label="Editar"><Edit className="w-4 h-4" /></button>
+                    <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-outline btn-error" aria-label="Eliminar"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
               );

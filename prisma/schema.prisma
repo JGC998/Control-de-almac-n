@@ -201,7 +201,7 @@ model BobinaPedido {
   espesor         Float?
   precioMetro     Float
   color           String?
-  costoFinalMetro Float?
+  costoFinalMetro Float  @default(0)
   
   referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
   referenciaId String?

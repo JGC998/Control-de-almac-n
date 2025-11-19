@@ -1,16 +1,15 @@
 // src/components/ClientOrderForm.js
 "use client";
-// (Paso 4) Eliminamos useRef, ya no es necesario para el debounce
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-// (Paso 4) Eliminamos Calculator, ya no es necesario
 import { 
     Plus, X, UserPlus, Save, DollarSign, CheckCircle, 
     Trash2, Copy, Search, Package, XCircle 
 } from 'lucide-react'; 
 import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal";
-import QuickProductForm from "@/components/QuickProductForm"; // AÑADIDO: Nuevo formulario de producto
+import QuickProductForm from "@/components/QuickProductForm";
+import FilaItemEditor from './FilaItemEditor'; // Importar el nuevo componente
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -20,39 +19,32 @@ const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function ClientOrderForm({ initialData = null, formType = "PRESUPUESTO" }) {
   const router = useRouter();
-  // FIX: Consideramos el formulario de Pedido (que ahora requiere margen) y Presupuesto como 'tipo-margen'
   const isMarginRequired = formType === "PRESUPUESTO" || formType === "PEDIDO"; 
 
-  // --- ESTADOS (Paso 1) ---
   const [clienteId, setClienteId] = useState(initialData?.clienteId || ''); 
   const [clienteBusqueda, setClienteBusqueda] = useState(initialData?.cliente?.nombre || ''); 
-  const [selectedMarginId, setSelectedMarginId] = useState(initialData?.marginId || ''); // Incluimos initialData
+  const [selectedMarginId, setSelectedMarginId] = useState(initialData?.marginId || '');
   const [modalState, setModalState] = useState(null); 
   const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(false); // Carga para Submit
+  const [isLoading, setIsLoading] = useState(false);
   
-  // --- ESTADOS (Paso 2) ---
   const [items, setItems] = useState(initialData?.items?.map(item => ({...item, id: item.id || Date.now() + Math.random()})) || [{ id: Date.now(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
   const [stockStatus, setStockStatus] = useState({}); 
   const [activeSearchIndex, setActiveSearchIndex] = useState(null); 
   const [notes, setNotes] = useState(initialData?.notas || '');
   
 
-  // --- CARGA DE DATOS (SWR) ---
   const { data: clientes, error: clientesError, isLoading: isLoadingClientes } = useSWR('/api/clientes', fetcher);
   const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null, fetcher);
   const { data: todosProductos, error: prodError } = useSWR('/api/productos', fetcher);
   const { data: config } = useSWR('/api/config', fetcher);
   
-  // AÑADIDO: Cargar catálogos para el QuickProductForm
   const { data: fabricantes, error: fabError } = useSWR('/api/fabricantes', fetcher);
   const { data: materiales, error: matError } = useSWR('/api/materiales', fetcher);
   const { data: tarifas, error: tarifasError } = useSWR('/api/precios', fetcher); 
   
   const isCatalogLoading = isLoadingClientes || !!margenesError || !!fabError || !!matError || !!tarifasError;
 
-
-  // --- LÓGICA DE CLIENTE (Simplificada Paso 4) ---
   const filteredClients = useMemo(() => {
     if (!clientes || clienteBusqueda.length < 2) return [];
     return clientes.filter(c => 
@@ -76,15 +68,11 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     setModalState(null);
   };
 
-  // --- LÓGICA DE MARGEN (Simplificada Paso 4) ---
   const filteredMargenes = margenes?.filter(m => m.base !== 'GENERAL_FALLBACK') || [];
 
   const handleMarginChange = (marginId) => {
-    // (Paso 4) Solo actualiza el estado. El cálculo se hace en useMemo.
     setSelectedMarginId(marginId);
   };
-  
-  // --- LÓGICA DE ITEMS (Simplificada Paso 4) ---
   
   const addItem = () => {
     setItems(prev => [...prev, { id: Date.now() + Math.random(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
@@ -107,26 +95,22 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     setItems(newItems);
   };
   
-  // (Paso 4) Manejar cambio en inputs (Simplificado)
   const handleItemChange = (index, field, value) => {
     const newItems = items.map((item, i) => (i === index ? { ...item } : item));
     const item = newItems[index];
     
     if (field === 'unitPrice') {
         item.unitPrice = parseFloat(parseFloat(value).toFixed(2)) || 0;
-    } else { // 'quantity'
+    } else {
         item[field] = parseFloat(value) || 0;
     }
     
     setItems(newItems);
     
-    // (Paso 2) Recalcular stock si cambia la cantidad
     if (field === 'quantity' && item.productId) {
         checkStockStatus(item, item.id);
     }
   };
-  
-  // --- LÓGICA DE BÚSQUEDA DE PRODUCTOS (Simplificada Paso 4) ---
   
   const handleSearchChange = (value, index) => {
       const newItems = items.map((item, i) => (i === index ? { ...item, description: value, productId: null } : item));
@@ -145,14 +129,12 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       ).slice(0, 5) || [];
   }, [items, todosProductos, activeSearchIndex]);
   
-  // (Paso 4) Manejar la selección de un producto (Simplificado)
   const handleSelectProduct = (product, index) => {
       const newItems = items.map((item, i) => (i === index ? { ...item } : item));
       const item = newItems[index];
       
       item.description = product.nombre;
       item.productId = product.id;
-      // (Paso 4) El precio unitario es AHORA el costo base del producto
       item.unitPrice = parseFloat(product.precioUnitario.toFixed(2)); 
       item.id = Date.now() + Math.random(); 
       
@@ -162,7 +144,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   };
   
   const handleCreatedProduct = (newProduct) => {
-      // Usamos el índice del item que tenía el modal abierto (si se guarda)
       const index = items.findIndex(item => item.id === modalState.itemId);
       if (index !== -1) {
         handleSelectProduct(newProduct, index);
@@ -172,12 +153,9 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   };
   
   const handleOpenProductModal = (item) => {
-       // Guardamos el ID del item que abrió el modal
        setModalState({ type: 'QUICK_PRODUCT', itemId: item.id }); 
   }
 
-
-  // --- LÓGICA DE STOCK (Paso 2 - Sin cambios) ---
   const checkStockStatus = useCallback(async (item, key) => {
       if (!todosProductos) return; 
       
@@ -228,9 +206,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     }
   };
   
-  // --- LÓGICA DE TOTALES (PASO 4: RECONSTRUIDA) ---
   const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado } = useMemo(() => {
-    // 1. Calcular el subtotal base (costo)
     const subtotalBase = items.reduce((acc, item) => 
         acc + ((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0))
     , 0);
@@ -240,20 +216,17 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     let subtotalConMargen = subtotalBase;
     let margenAplicado = { multiplicador: 1, gastoFijo: 0 };
     
-    // 2. Aplicar margen (solo si se requiere margen y hay uno seleccionado)
     if (isMarginRequired && selectedMarginId && margenes) {
         const regla = margenes.find(m => m.id === selectedMarginId);
         if (regla) {
             const multiplicador = regla.multiplicador || 1;
             const gastoFijo = regla.gastoFijo || 0;
             
-            // Fórmula: (Subtotal * Multiplicador) + Gasto Fijo
             subtotalConMargen = (subtotalBase * multiplicador) + gastoFijo;
             margenAplicado = { multiplicador, gastoFijo };
         }
     }
     
-    // 3. Calcular IVA y Total sobre el subtotal CON margen
     const tax = subtotalConMargen * ivaRate;
     const total = subtotalConMargen + tax;
     
@@ -263,25 +236,20 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         tax: parseFloat(tax.toFixed(2)), 
         total: parseFloat(total.toFixed(2)), 
         ivaRate,
-        margenAplicado // Devolvemos el margen para mostrarlo en la UI
+        margenAplicado
     };
   }, [items, config, selectedMarginId, margenes, isMarginRequired]);
-  // --- FIN LÓGICA DE TOTALES ---
 
-
-  // --- LÓGICA DE ENVÍO (Actualizada Paso 4) ---
   const handleSubmit = async (e) => {
       e.preventDefault();
       setIsLoading(true);
       setError(null);
 
-      // Validaciones
       if (!clienteId) {
           setError('Debe seleccionar un cliente.');
           setIsLoading(false);
           return;
       }
-      // FIX: La validación de margen aplica si es un tipo de documento que lo requiere
       if (isMarginRequired && !selectedMarginId) {
           setError('Debe seleccionar una Regla de Margen/Tier.');
           setIsLoading(false);
@@ -293,26 +261,22 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
          return;
       }
       
-      // Preparar datos finales (usando los totales calculados por useMemo)
       const dataPayload = {
           clienteId,
-          // FIX: El formType debe ser 'PRESUPUESTO' o 'PEDIDO'
-          estado: initialData?.estado || 'Borrador', // Mantener estado si es edición
+          estado: initialData?.estado || 'Borrador',
           items: items.map(item => ({
               description: item.description,
               quantity: item.quantity,
-              unitPrice: item.unitPrice, // Enviar el precio base (costo)
+              unitPrice: item.unitPrice,
               productId: item.productId,
           })),
-          // FIX: Enviamos los totales finales calculados CON margen
           subtotal: subtotalConMargen,
           tax: tax,
           total: total,
           notas: notes,
-          marginId: selectedMarginId, // Siempre enviar ID del margen
+          marginId: selectedMarginId,
       };
 
-      // Si es Edición, necesitamos el ID del documento
       const isEditMode = !!initialData;
       const endpoint = formType === 'PRESUPUESTO' 
         ? (isEditMode ? `/api/presupuestos/${initialData.id}` : '/api/presupuestos')
@@ -334,7 +298,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           
           const savedData = await res.json();
           
-          // Redirigir a la página de detalle
           const redirectUrl = formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`;
           router.push(redirectUrl);
 
@@ -348,17 +311,14 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   return (
     <>
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* 1. INFORMACIÓN DEL CLIENTE (Paso 4: Eliminado Margen de aquí) */}
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <h2 className="card-title text-primary">Información Principal</h2>
           {isCatalogLoading && <span className="loading loading-spinner loading-sm"></span>}
           {clientesError && <div className="text-error">Error al cargar clientes.</div>}
           
-          {/* (Paso 4) La rejilla ahora es siempre de 1 columna */}
           <div className="grid grid-cols-1 gap-4">
              
-            {/* SELECCIÓN DE CLIENTE */}
             <div className="form-control w-full relative">
                 <label className="label"><span className="label-text">Cliente (Requerido)</span></label>
                 <div className="input-group">
@@ -408,7 +368,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         </div>
       </div>
       
-      {/* 2. DETALLE DE ITEMS (Paso 4: Eliminado botón de recalcular) */}
       <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <div className="flex justify-between items-center mb-4">
@@ -436,75 +395,23 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                     <tr><td colSpan="6" className="text-center text-gray-500 py-4">Añade una fila para empezar...</td></tr>
                 )}
                 
-                {items.map((item, index) => {
-                    return (
-                        <tr key={item.id} className="item-row hover"> 
-                           <td className="w-10 text-center">
-                                {getStockIcon(item)}
-                            </td>
-                            <td className="relative w-2/5">
-                                <div className="dropdown w-full dropdown-bottom">
-                                    <div className="input-group">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Buscar producto o introducir descripción manual..."
-                                            value={item.description} 
-                                            onChange={(e) => handleSearchChange(e.target.value, index)} 
-                                            onFocus={() => setActiveSearchIndex(index)} 
-                                            onBlur={() => setTimeout(() => setActiveSearchIndex(null), 200)}
-                                            className="input input-bordered input-sm w-full"
-                                            required={!item.productId}
-                                        />
-                                         {/* BOTÓN DE CREACIÓN RÁPIDA DE PRODUCTO */}
-                                         <button type="button" onClick={() => handleOpenProductModal(item)} className="btn btn-primary btn-sm" title="Crear Producto Rápido">
-                                            <Plus className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                    
-                                    {activeSearchIndex === index && searchResults.length > 0 && (
-                                        <ul tabIndex={0} 
-                                            className="absolute left-0 top-full z-50 menu p-2 shadow bg-base-200 rounded-box w-full max-w-lg mt-1 overflow-y-auto max-h-52"
-                                            onMouseDown={(e) => e.preventDefault()} 
-                                        >
-                                            {searchResults.map(p => (
-                                                <li key={p.id} onClick={() => handleSelectProduct(p, index)}>
-                                                    <a><Search className="w-4 h-4 mr-2" />{p.nombre} ({p.referenciaFabricante})</a>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                                {/* Mostrar referencia si ya hay un producto seleccionado */}
-                                {item.productId && (
-                                     <p className="text-xs text-success mt-1">Plantilla: {todosProductos?.find(p => p.id === item.productId)?.referenciaFabricante}</p>
-                                )}
-                            </td>
-                            <td><input type="number" step="1" value={item.quantity || ''} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} className="input input-bordered input-sm w-20" /></td>
-                            <td>
-                                <div className="input-group input-group-sm">
-                                    <input 
-                                        type="number" 
-                                        step="0.01" 
-                                        value={item.unitPrice || ''} 
-                                        onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)} 
-                                        className="input input-bordered input-sm w-24" 
-                                    />
-                                    <span className="bg-base-200 text-sm px-2">€</span>
-                                </div>
-                            </td>
-                            {/* (Paso 4) Este total es AHORA el total de costo */}
-                            <td className="font-bold">{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)} €</td>
-                            <td className="flex gap-1">
-                                <button type="button" onClick={() => handleDuplicateItem(item.id)} className="btn btn-ghost btn-sm btn-circle" title="Duplicar Fila">
-                                    <Copy className="w-4 h-4" />
-                                </button>
-                                <button type="button" onClick={() => removeItem(item.id)} className="btn btn-ghost btn-sm btn-circle text-error" title="Eliminar Fila">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </td>
-                        </tr>
-                    )
-                })}
+                {items.map((item, index) => (
+                  <FilaItemEditor
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    handleItemChange={handleItemChange}
+                    handleSearchChange={handleSearchChange}
+                    handleSelectProduct={handleSelectProduct}
+                    handleOpenProductModal={handleOpenProductModal}
+                    removeItem={removeItem}
+                    handleDuplicateItem={handleDuplicateItem}
+                    getStockIcon={getStockIcon}
+                    activeSearchIndex={activeSearchIndex}
+                    searchResults={searchResults}
+                    todosProductos={todosProductos}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
@@ -513,7 +420,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         </div>
       </div>
 
-      {/* 3. NOTAS Y RESUMEN (Paso 4: RECONSTRUIDO) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
@@ -528,12 +434,10 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           </div>
         </div>
 
-        {/* (Paso 4) Card de Resumen RECONSTRUIDA */}
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title">Resumen del Total</h2>
             
-            {/* FIX: Selector de Margen MOVIDO AQUÍ (Activado para PEDIDO y PRESUPUESTO) */}
             {isMarginRequired && (
                 <div className="form-control w-full mb-4">
                     <label className="label"><span className="label-text font-bold">Regla de Margen / Tier ({isMarginRequired ? 'Requerido' : 'Opcional'})</span></label>
@@ -559,7 +463,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                 </div>
             )}
             
-            {/* (Paso 4) Nueva Lógica de Totales */}
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal (Costo Base)</span> 
@@ -606,7 +509,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
 
       <div className="flex justify-end gap-4 mt-6">
         <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
-        {/* FIX: La validación del botón ahora usa isMarginRequired */}
         <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || (isMarginRequired && !selectedMarginId)}>
           <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : "Guardar Documento"}
         </button>
@@ -632,7 +534,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       />
     )}
     
-    {/* MODAL DE CREACIÓN RÁPIDA DE PRODUCTO */}
     {modalState?.type === 'QUICK_PRODUCT' && (
         <QuickProductForm 
             isOpen={true}

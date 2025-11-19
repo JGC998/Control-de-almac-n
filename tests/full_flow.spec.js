@@ -9,13 +9,8 @@ test.describe.serial('Prueba de Flujo Completo E2E', () => {
   // Variables para compartir datos entre tests
   const testId = Date.now();
   const nuevoClienteNombre = `Cliente E2E ${testId}`;
-  const nuevoProductoNombre = `Producto E2E ${testId}`;
-  
-  // CORREGIDO: Usaremos un material existente para Test 4
-  const materialExistente = `GOMA`; 
-  
-  let nuevoPresupuestoNumero = '';
-  let nuevoPedidoNumero = '';
+  const nuevoProductoRef = `E2E-REF-${testId}`;
+  const nuevoProductoNombre = `${nuevoProductoRef} - PVC - Esbelt`;
 
   test('1. Crear Cliente', async ({ page }) => {
     await page.goto(`${URL_BASE}/gestion/clientes`);
@@ -47,29 +42,22 @@ test.describe.serial('Prueba de Flujo Completo E2E', () => {
     
     await expect(page.getByRole('heading', { name: 'Nuevo Producto' })).toBeVisible();
     
-    // Rellenar formulario
-    await page.getByPlaceholder('Nombre').fill(nuevoProductoNombre);
-    await page.getByPlaceholder('Referencia Fabricante').fill('Test Model');
+    // Rellenar formulario con la nueva lógica
+    await page.getByPlaceholder('Referencia Fabricante').fill(nuevoProductoRef);
     
-    // ---
-    // CORRECCIÓN DE ESPERA:
-    // Esperamos a que la opción esté "adjunta" (en el DOM), no "visible" (en pantalla).
-    // ---
-    await expect(page.getByRole('option', { name: 'Esbelt' })).toBeAttached({ timeout: 10000 });
-    const fabricanteSelect = page.getByRole('combobox', { name: 'Fabricante' });
-    await fabricanteSelect.selectOption({ label: 'Esbelt' });
-    
-    await expect(page.getByRole('option', { name: 'PVC' })).toBeAttached({ timeout: 10000 });
-    const materialSelect = page.getByRole('combobox', { name: 'Material' });
-    await materialSelect.selectOption({ label: 'PVC' });
-    // --- FIN CORRECCIÓN ---
-    
-    await page.getByPlaceholder('Precio Unitario (€)').fill('150');
-    await page.getByPlaceholder('Peso Unitario (kg)').fill('10');
+    await page.locator('select[name="fabricante"]').selectOption({ label: 'Esbelt' });
+    await page.locator('select[name="material"]').selectOption({ label: 'PVC' });
+
+    const espesorSelector = page.locator('select[name="espesor"]');
+    await expect(espesorSelector).toBeEnabled({ timeout: 10000 });
+    await espesorSelector.selectOption({ index: 1 });
+
+    await page.getByPlaceholder('Largo (mm)').fill('1000');
+    await page.getByPlaceholder('Ancho (mm)').fill('1000');
     
     await page.getByRole('button', { name: 'Guardar' }).click();
     
-    // Verificar que aparece en la tabla
+    // Verificar que aparece en la tabla con el nombre autogenerado
     await expect(page.getByText(nuevoProductoNombre)).toBeVisible();
     console.log(`\nÉXITO Test 2: Producto "${nuevoProductoNombre}" creado.\n`);
   });
@@ -80,58 +68,44 @@ test.describe.serial('Prueba de Flujo Completo E2E', () => {
     // Esperar a que la página cargue
     await expect(page.locator('h1:has-text("Crear Nuevo Presupuesto")')).toBeVisible({ timeout: 10000 });
 
-    // esperamos a que el cliente (creado en Test 1) aparezca en las opciones.
-    await page.getByPlaceholder('Escribe para buscar un cliente existente...').fill(nuevoClienteNombre);
-    await expect(page.getByText(nuevoClienteNombre)).toBeVisible({ timeout: 10000 });
-    
-    // Clic en el cliente en el dropdown
+    // Seleccionar cliente
+    await page.getByPlaceholder('Buscar o introducir cliente...').fill(nuevoClienteNombre);
     await page.getByRole('listitem').locator('a', { hasText: nuevoClienteNombre }).click();
     
-    // Añadir item
-    await page.getByRole('button', { name: 'Añadir Item Manual' }).click();
-    const itemRow = page.getByRole('row').last();
+    // Seleccionar margen
+    await page.getByLabel('Regla de Margen / Tier').selectOption({ label: 'CLIENTE FINAL (x1.5)' });
+
+    // Añadir item y seleccionar el producto creado en el paso anterior
+    const itemRow = page.locator('tbody tr').first();
+    await itemRow.getByPlaceholder('Buscar producto...').fill(nuevoProductoRef);
+    await page.getByRole('listitem').locator(`a:has-text("${nuevoProductoNombre}")`).click();
     
-    // Esperar a que el selector de plantilla esté listo y seleccionar el producto
-    const plantillaSelect = itemRow.getByRole('combobox').first();
-    await expect(plantillaSelect).toBeVisible();
-    
-    // Esperamos a que el producto (creado en Test 2) esté en las opciones
-    await expect(itemRow.getByRole('option', { name: nuevoProductoNombre })).toBeAttached({ timeout: 10000 });
-    await plantillaSelect.selectOption({ label: nuevoProductoNombre });
-    
-    // ---
-    // CORRECCIÓN DE SYNTAX (TypeError):
-    // Verificamos que el input de texto (rol 'textbox') dentro de la fila
-    // tenga el valor autocompletado.
-    // ---
-    await expect(itemRow.getByRole('textbox')).toHaveValue(nuevoProductoNombre);
+    // Verificar que el input se autocompleta con el nombre correcto
+    await expect(itemRow.getByPlaceholder('Buscar producto...')).toHaveValue(nuevoProductoNombre);
     
     // Guardar presupuesto
-    await page.getByRole('button', { name: 'Guardar Presupuesto' }).click();
+    await page.getByRole('button', { name: 'Guardar Documento' }).click();
 
     // Estamos en la página de "Ver Presupuesto"
-    await expect(page.locator('h1:has-text("Presupuesto ")')).toBeVisible({ timeout: 10000 }); // Espera extra
+    await page.waitForURL('**/presupuestos/**');
+    await expect(page.locator('h1:has-text("Presupuesto")')).toBeVisible();
     await expect(page.getByText(nuevoClienteNombre)).toBeVisible();
     
-    // ---
-    // CORRECCIÓN DE AMBIGÜEDAD (Strict Mode Violation):
-    // El nombre del producto aparece en la tabla de items, pero también
-    // en la lista de filtros de producto. Debemos ser más específicos.
-    // Buscamos el nombre del producto DENTRO de la tabla de items.
-    // ---
+    // Verificar que el item aparece en la tabla del presupuesto
     await expect(page.locator('table').getByText(nuevoProductoNombre)).toBeVisible();
 
     // Obtener el número de presupuesto
-    const presupuestoTitulo = await page.locator('h1').first().innerText(); // "Presupuesto 2025-001"
+    const presupuestoTitulo = await page.locator('h1').first().innerText();
     nuevoPresupuestoNumero = presupuestoTitulo.split(' ')[1];
     console.log(`\nÉXITO Test 3a: Presupuesto "${nuevoPresupuestoNumero}" creado.`);
 
     // Convertir a Pedido
     page.on('dialog', dialog => dialog.accept());
-    await page.getByRole('button', { name: 'Convertir a Pedido' }).click();
+    await page.getByRole('button', { name: 'Crear Pedido' }).click();
 
     // Verificar que fuimos redirigidos a la página de Pedido
-    await expect(page.locator('h1:has-text("Pedido PED-")')).toBeVisible({ timeout: 10000 }); // Espera extra
+    await page.waitForURL('**/pedidos/**');
+    await expect(page.locator('h1:has-text("Pedido")')).toBeVisible();
     await expect(page.getByText(nuevoClienteNombre)).toBeVisible();
     await expect(page.locator('table').getByText(nuevoProductoNombre)).toBeVisible();
     

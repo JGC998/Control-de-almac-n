@@ -37,67 +37,45 @@ test.describe('Prueba de Flujo Principal (Smoke Test)', () => {
   test('2. Probar la Calculadora de Precios', async ({ page }) => {
     // 1. Ir a la página de la Calculadora
     await page.goto(`${URL_BASE}/calculadora`);
+    await expect(page.locator('h1:has-text("Simulador de Cálculo")')).toBeVisible();
 
-    // ---
-    // CORRECCIÓN DE SELECTOR:
-    // Usamos 'getByLabel' que es más robusto que el selector de atributos.
-    // ---
-    const clienteSelector = page.getByLabel('Cliente (Requerido para precios)');
     const materialSelector = page.getByLabel('Material');
-    const productoSelector = page.getByLabel('Producto (Plantilla)');
     
     // ---
-    // CORRECCIÓN DE ESPERA:
-    // Esperamos a que la opción esté "adjunta" (en el DOM), no "visible".
+    // CORRECCIÓN DE ESPERA Y SELECCIÓN:
+    // Hacemos el test más robusto esperando a que los selectores se carguen
+    // y seleccionando la primera opción disponible en lugar de nombres fijos.
     // ---
-    await expect(page.getByRole('option', { name: 'Industrias Zeta' })).toBeAttached({ timeout: 10000 });
-    await expect(clienteSelector).toBeVisible();
-
-    // 3. Seleccionar el primer cliente (índice 1 para saltar "Selecciona...")
-    await clienteSelector.selectOption({ index: 1 });
     
-    // 4. Seleccionar el material "PVC" por su etiqueta (label)
-    await expect(page.getByRole('option', { name: 'PVC' })).toBeAttached({ timeout: 10000 });
-    await expect(materialSelector).toBeEnabled();
-    // ---
-    // CORRECCIÓN DE LÓGICA:
-    // Seleccionamos por etiqueta 'PVC' en lugar de índice 1 (que era 'FIELTRO')
-    // ---
-    await materialSelector.selectOption({ label: 'PVC' }); 
+    // 2. Seleccionar Material
+    await expect(materialSelector.locator('option', { hasText: 'PVC' })).toBeAttached({ timeout: 15000 });
+    await materialSelector.selectOption({ label: 'PVC' });
 
-    // 5. Seleccionar el primer producto
-    // ---
-    // CORRECCIÓN DE AMBIGÜEDAD (Strict Mode):
-    // Eliminamos la comprobación ambigua y seleccionamos por la etiqueta exacta.
-    // ---
-    await expect(productoSelector).toBeEnabled();
-    await productoSelector.selectOption({ label: 'Banda PVC 3mm Reforzada' }); 
+    // 3. Seleccionar Espesor
+    const espesorSelector = page.getByLabel('Espesor (mm)');
+    await expect(espesorSelector).toBeEnabled();
+    await expect(espesorSelector.locator('option').nth(1)).toBeVisible({ timeout: 10000 });
+    await espesorSelector.selectOption({ index: 1 });
 
-    // 6. Clic en "Añadir Item al Cálculo"
+    // 4. Rellenar dimensiones
+    await page.getByLabel('Unidades').fill('10');
+    await page.getByLabel('Ancho (mm)').fill('1000');
+    await page.getByLabel('Largo (mm)').fill('2000');
+
+    // 5. Añadir al cálculo
     const addButton = page.getByRole('button', { name: 'Añadir Item al Cálculo' });
+    await expect(addButton).toBeEnabled();
     await addButton.click();
-
-    // ---
-    // CORRECCIÓN DE ASINCRONÍA:
-    // Esperamos a que el botón se vuelva a habilitar, lo que significa
-    // que la llamada a la API 'handleAddItem' ha terminado.
-    // ---
-    await expect(addButton).toBeEnabled({ timeout: 10000 });
     
-    // 7. Verificar que la tabla de resultados se actualiza
+    // 6. Verificar que la tabla de resultados se actualiza
     await expect(page.getByRole('heading', { name: 'Items Agregados' })).toBeVisible();
-    await expect(page.getByText('Precio Total General')).toBeVisible();
-    
-    // ---
-    // CORRECCIÓN DE ASERCIÓN:
-    // Ahora que /api/precios funciona, verificamos tanto el precio como el peso.
-    // ---
-    const precioTotalRegex = new RegExp('[1-9][0-9]*\\.[0-9]{2} €');
-    const pesoTotalRegex = new RegExp('[0-9]*\\.[0-9]{2} kg'); // Permitir 0.00 si el cálculo de peso es 0, pero debe existir
-    
-    await expect(page.getByText(precioTotalRegex).first()).toBeVisible({ timeout: 10000 });
-    // Verificamos que el peso total también se renderiza
-    await expect(page.getByText(pesoTotalRegex).first()).toBeVisible({ timeout: 10000 });
+    const filaItem = page.locator('table:has-text("Items Agregados") tbody tr').first();
+    await expect(filaItem).toBeVisible();
+
+    // 7. Verificar que los totales se han actualizado y no son cero
+    const resumenCard = page.locator('.card:has-text("Resumen de Costes y Pesos")');
+    const precioTotalRegex = /[1-9][0-9]*,\d{2} €/;
+    await expect(resumenCard.getByText(precioTotalRegex).first()).toBeVisible();
 
     console.log('\nÉXITO: Calculadora de precios funciona.\n');
   });

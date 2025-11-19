@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "generate": "prisma generate"
   },
   "dependencies": {
     "@glidejs/glide": "^3.7.1",

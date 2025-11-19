@@ -28,9 +28,9 @@
                   - generic [ref=e30]:
                     - generic [ref=e32]: Espesor (mm)
                     - combobox "Espesor (mm)" [ref=e33]:
-                      - option "Selecciona espesor" [selected]
+                      - option "Selecciona espesor"
                       - option "1 mm"
-                      - option "2 mm"
+                      - option "2 mm" [selected]
                       - option "3 mm"
                   - generic [ref=e34]:
                     - generic [ref=e36]: Margen Aplicable

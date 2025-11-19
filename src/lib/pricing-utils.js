@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { roundToTwoDecimals } from '@/utils/helpers-matematicos';
 
 /**
  * Calcula el subtotal, tax y total de una lista de items basándose en la configuración de IVA.
@@ -23,8 +24,8 @@ export async function calculateTotalsBackend(items, tx = db) {
     const total = subtotal + tax;
 
     return {
-        subtotal: parseFloat(subtotal.toFixed(2)),
-        tax: parseFloat(tax.toFixed(2)),
-        total: parseFloat(total.toFixed(2)),
+        subtotal: roundToTwoDecimals(subtotal),
+        tax: roundToTwoDecimals(tax),
+        total: roundToTwoDecimals(total),
     };
 }

@@ -105,10 +105,10 @@ export default function GestionClientes() {
                 <td>{cliente.email}</td>
                 <td>{cliente.telefono}</td>
                 <td className="flex gap-2">
-                  <button onClick={() => openModal(cliente)} className="btn btn-sm btn-outline btn-info">
+                  <button onClick={() => openModal(cliente)} className="btn btn-sm btn-outline btn-info" aria-label="Editar">
                     <Edit className="w-4 h-4" />
                   </button>
-                  <button onClick={() => handleDelete(cliente.id)} className="btn btn-sm btn-outline btn-error">
+                  <button onClick={() => handleDelete(cliente.id)} className="btn btn-sm btn-outline btn-error" aria-label="Eliminar">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </td>

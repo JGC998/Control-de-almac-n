@@ -1,38 +1,14 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db'; 
+import { crearManejadoresCRUD } from '@/lib/manejadores-api';
 
-export async function GET() {
-  try {
-    const materiales = await db.material.findMany({
-      orderBy: { nombre: 'asc' },
-    });
-    return NextResponse.json(materiales);
-  } catch (error) {
-    console.error('Error fetching materiales:', error);
-    return NextResponse.json({ error: 'Error fetching materiales' }, { status: 500 });
+const { GET, POST } = crearManejadoresCRUD('material', {
+  findMany: {
+    orderBy: { nombre: 'asc' },
   }
-}
+});
 
-export async function POST(request) {
-  const data = await request.json();
-  try {
-    if (!data.nombre) {
-      return NextResponse.json({ error: 'El nombre del material es requerido.' }, { status: 400 });
-    }
-    const newMaterial = await db.material.create({
-      data: {
-        nombre: data.nombre,
-      },
-    });
-    return NextResponse.json(newMaterial, { status: 201 });
-  } catch (error) {
-    console.error('Error creating material:', error);
-    if (error.code === 'P2002') {
-        return NextResponse.json({ error: 'Ya existe un material con ese nombre.' }, { status: 409 });
-    }
-    return NextResponse.json({ error: 'Error al crear el material.' }, { status: 500 });
-  }
-}
+export { GET, POST };
 
 export async function PUT(request) {
   const { id, ...data } = await request.json();

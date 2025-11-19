@@ -42,32 +42,99 @@ const REFERENCIAS_DATA = [
     { "referencia": "EP630/4 6+2", "ancho": 1200, "lonas": 4, "pesoPorMetroLineal": 18.04 }
 ];
 
-async function seedReferencias() {
-    console.log('Iniciando inserción de referencias de bobina...');
-    
-    // Mapeamos los datos para añadir un ID a cada registro
-    const datosConId = REFERENCIAS_DATA.map(r => ({
-        id: uuidv4(),
-        referencia: r.referencia,
-        ancho: r.ancho,
-        lonas: r.lonas,
-        pesoPorMetroLineal: r.pesoPorMetroLineal,
-    }));
+async function main() {
+    console.log('Iniciando el proceso de siembra de datos...');
     
     try {
-        // 1. Eliminar referencias existentes
+        // --- Limpieza de datos antiguos ---
+        await db.tarifaMaterial.deleteMany({});
+        await db.material.deleteMany({});
+        await db.fabricante.deleteMany({});
         await db.referenciaBobina.deleteMany({});
-        console.log('Referencias de bobina antiguas eliminadas.');
+        await db.reglaMargen.deleteMany({});
+        console.log('Datos antiguos eliminados.');
 
-        // 2. Inserción masiva de los nuevos datos
+        // --- Seed Fabricantes ---
+        console.log('Iniciando inserción de fabricantes...');
+        await db.fabricante.createMany({
+            data: [
+                { id: uuidv4(), nombre: 'Esbelt' },
+                { id: uuidv4(), nombre: 'Ammeraal' },
+                { id: uuidv4(), nombre: 'Siban' },
+            ],
+        });
+        console.log('✅ Fabricantes insertados.');
+
+        // --- Seed Materiales ---
+        console.log('Iniciando inserción de materiales...');
+        const pvc = await db.material.create({ data: { id: uuidv4(), nombre: 'PVC' } });
+        const goma = await db.material.create({ data: { id: uuidv4(), nombre: 'GOMA' } });
+        console.log('✅ Materiales insertados.');
+
+        // --- Seed Tarifas de Material ---
+        console.log('Iniciando inserción de tarifas...');
+        await db.tarifaMaterial.createMany({
+            data: [
+                // Tarifas para PVC
+                { id: uuidv4(), material: pvc.nombre, espesor: 1, precio: 5.25, peso: 0 },
+                { id: uuidv4(), material: pvc.nombre, espesor: 2, precio: 10.50, peso: 0 }, // <-- Tarifa necesaria para el test
+                { id: uuidv4(), material: pvc.nombre, espesor: 3, precio: 15.75, peso: 0 },
+                // Tarifas para GOMA
+                { id: uuidv4(), material: goma.nombre, espesor: 6, precio: 30.00, peso: 0 },
+            ],
+        });
+        console.log('✅ Tarifas de material insertadas.');
+
+        // --- Seed Reglas de Margen ---
+        console.log('Iniciando inserción de reglas de margen...');
+        await db.reglaMargen.createMany({
+            data: [
+                {
+                    id: uuidv4(),
+                    base: 'CLIENTE FINAL',
+                    descripcion: 'CLIENTE FINAL',
+                    multiplicador: 1.5,
+                    tipo: 'General',
+                    gastoFijo: 0,
+                },
+                {
+                    id: uuidv4(),
+                    base: 'DISTRIBUIDOR',
+                    descripcion: 'DISTRIBUIDOR',
+                    multiplicador: 1.2,
+                    tipo: 'General',
+                    gastoFijo: 0,
+                },
+                {
+                    id: uuidv4(),
+                    base: 'OEM',
+                    descripcion: 'OEM',
+                    multiplicador: 1.1,
+                    tipo: 'General',
+                    gastoFijo: 0,
+                },
+            ],
+        });
+        console.log('✅ Reglas de margen insertadas.');
+
+
+        // --- Seed Referencias de Bobina ---
+        console.log('Iniciando inserción de referencias de bobina...');
+        const datosConId = REFERENCIAS_DATA.map(r => ({
+            id: uuidv4(),
+            referencia: r.referencia,
+            ancho: r.ancho,
+            lonas: r.lonas,
+            pesoPorMetroLineal: r.pesoPorMetroLineal,
+        }));
+        
         const result = await db.referenciaBobina.createMany({
             data: datosConId,
-            // Nota: Ya que eliminamos las antiguas, no necesitamos skipDuplicates.
         });
-
         console.log(`✅ ${result.count} referencias de bobina insertadas con éxito.`);
+
     } catch (error) {
-        console.error('❌ Error al insertar referencias de bobina:', error);
+        console.error('❌ Error durante el proceso de siembra:', error);
         if (error.code === 'P2002') {
             console.error('  Conflicto de clave única. Asegúrate de que no haya duplicados en los datos de entrada.');
         } else {
@@ -75,7 +142,8 @@ async function seedReferencias() {
         }
     } finally {
         await db.$disconnect();
+        console.log('Proceso de siembra finalizado.');
     }
 }
 
-seedReferencias();
+main();
