@@ -74,7 +74,7 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
                     <tbody>
                         {calculatedItems.map((item, index) => (
                             <tr key={index}>
-                                <td className="font-medium">{item.descripcion}</td>
+                                <td className="font-medium">{item.description}</td>
                                 <td>{item.quantity}</td>
                                 {/* MOSTRANDO COSTO (Sin Margen) */}
                                 <td>{item.costoUnitario.toFixed(2)} €</td>

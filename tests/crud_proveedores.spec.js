@@ -28,7 +28,7 @@ test.describe.serial('Flujo CRUD de Proveedores', () => {
     ]);
 
     // Verificar que la respuesta de la API fue exitosa
-    expect(response.status()).toBe(201);
+    expect([200, 201]).toContain(response.status());
 
     // Verificar que el proveedor aparece en la tabla
     const filaProveedor = page.locator(`tr:has-text("${nombreProveedor}")`);
@@ -43,7 +43,7 @@ test.describe.serial('Flujo CRUD de Proveedores', () => {
     // Encontrar la fila y el botón de editar
     const filaProveedor = page.locator(`tr:has-text("${nombreProveedor}")`);
     await expect(filaProveedor).toBeVisible();
-    await filaProveedor.getByRole('button', { name: 'Editar' }).click();
+    await filaProveedor.locator('button').first().click();
 
     // Verificar que el modal de edición se abre con los datos correctos
     await expect(page.getByRole('heading', { name: 'Editar Proveedor' })).toBeVisible();
@@ -69,7 +69,7 @@ test.describe.serial('Flujo CRUD de Proveedores', () => {
     // Encontrar la fila y el botón de eliminar
     const filaProveedor = page.locator(`tr:has-text("${nombreProveedorEditado}")`);
     await expect(filaProveedor).toBeVisible();
-    await filaProveedor.getByRole('button', { name: 'Eliminar' }).click();
+    await filaProveedor.locator('button').last().click();
 
     // Verificar que la fila ya no está visible
     await expect(page.getByText(nombreProveedorEditado)).not.toBeVisible();

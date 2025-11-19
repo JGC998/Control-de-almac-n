@@ -69,7 +69,7 @@ test.describe.serial('Flujo CRUD de Productos', () => {
     await filaProducto.getByRole('button', { name: 'Eliminar' }).click();
 
     // Verificar que la fila ya no está visible
-    await expect(page.getByText(refFabricante)).not.toBeVisible();
+    await expect(page.locator('tr', { hasText: refFabricante })).not.toBeVisible();
     console.log(`\nÉXITO Test 2: Producto con ref "${refFabricante}" eliminado.`);
   });
 });
