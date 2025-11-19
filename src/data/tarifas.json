@@ -1,0 +1,24 @@
+[
+  { "material": "PVC", "espesor": 2.0, "precio": 10.50, "peso": 2.5 },
+  { "material": "PVC", "espesor": 3.0, "precio": 14.20, "peso": 3.6 },
+  { "material": "PVC", "espesor": 6.0, "precio": 14.20, "peso": 3.6 },
+  
+  { "material": "GOMA", "espesor": 6.0, "precio": 45.00, "peso": 8.4 },
+  { "material": "GOMA", "espesor": 8.0, "precio": 45.00, "peso": 8.4 },
+  { "material": "GOMA", "espesor": 10.0, "precio": 58.00, "peso": 11.2 },
+  { "material": "GOMA", "espesor": 12.0, "precio": 45.00, "peso": 8.4 },
+  { "material": "GOMA", "espesor": 15.0, "precio": 45.00, "peso": 8.4 },
+  
+  { "material": "CARAMELO", "espesor": 6, "precio": 22.00, "peso": 1.8 },
+  { "material": "CARAMELO", "espesor": 8, "precio": 22.00, "peso": 1.8 },
+  { "material": "CARAMELO", "espesor": 10, "precio": 22.00, "peso": 1.8 },
+  { "material": "CARAMELO", "espesor": 12, "precio": 22.00, "peso": 1.8 },
+  
+  { "material": "VERDE", "espesor": 6, "precio": 22.00, "peso": 1.8 },
+  { "material": "VERDE", "espesor": 8, "precio": 22.00, "peso": 1.8 },
+  { "material": "VERDE", "espesor": 10, "precio": 22.00, "peso": 1.8 },
+  { "material": "VERDE", "espesor": 12, "precio": 22.00, "peso": 1.8 },
+  
+  { "material": "FIELTRO", "espesor": 10, "precio": 22.00, "peso": 1.8 },
+  { "material": "FIELTRO", "espesor": 15, "precio": 22.00, "peso": 1.8 }
+]

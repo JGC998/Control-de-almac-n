@@ -1,17 +1,3 @@
-#!/bin/bash
-
-echo "♻️ Regenerando archivos de datos JSON (Data Reset)..."
-
-# Asegurar que el directorio existe
-mkdir -p src/data
-mkdir -p scripts
-
-
-# ---------------------------------------------------------
-# 2. CREACIÓN DEL SCRIPT DE SEED (Lógica de Inserción)
-# ---------------------------------------------------------
-
-cat << 'EOF' > scripts/seed.js
 const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
@@ -108,15 +94,3 @@ async function main() {
 main()
   .catch((e) => { console.error(e); process.exit(1); })
   .finally(async () => { await prisma.$disconnect(); });
-EOF
-
-echo "✅ Script seed.js generado."
-
-# ---------------------------------------------------------
-# 3. EJECUCIÓN AUTOMÁTICA
-# ---------------------------------------------------------
-
-echo "🚀 Ejecutando semillado..."
-node scripts/seed.js
-
-echo "🏁 Todo listo. Tu base de datos tiene datos nuevos y limpios."

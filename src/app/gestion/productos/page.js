@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link'; // Importar Link
 import { PlusCircle, Edit, Trash2, Package } from 'lucide-react';
+import QuickProductForm from '@/components/QuickProductForm';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 

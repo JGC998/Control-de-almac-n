@@ -1,9 +1,0 @@
-[
-  {
-    "id": "pe-cliente-a-prod-b",
-    "clienteId": "ID_DEL_CLIENTE_ESPECIFICO",
-    "productoId": "ID_DEL_PRODUCTO_ESPECIFICO",
-    "precio": 75.50,
-    "descripcion": "Precio especial para el Cliente A en el Producto B"
-  }
-]

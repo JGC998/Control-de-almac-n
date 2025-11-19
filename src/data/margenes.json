@@ -1,30 +1,5 @@
 [
-  {
-    "descripcion": "Margen para Fabricantes",
-    "tipo": "Cliente",
-    "tierCliente": "FABRICANTE",
-    "valor": 1.35,
-    "id": "89631133-82b7-4047-915c-66ff6de4351e"
-  },
-  {
-    "descripcion": "Margen para Intermediarios",
-    "tipo": "Cliente",
-    "tierCliente": "INTERMEDIARIO",
-    "valor": 1.50,
-    "id": "c873552f-89d3-4cf9-934e-479036c4b224"
-  },
-  {
-    "descripcion": "Margen para Cliente Final",
-    "tipo": "Cliente",
-    "tierCliente": "CLIENTE FINAL",
-    "valor": 1.70,
-    "id": "e0273969-eaf9-4ddb-b0ad-5542984054b8"
-  },
-  {
-    "descripcion": "Margen General de Fallback",
-    "tipo": "General",
-    "categoria": null,
-    "valor": 1.40,
-    "id": "e0273969-eaf9-4ddb-b0ad-5542984054b9"
-  }
+  { "base": "CLIENTE FINAL", "multiplicador": 2, "descripcion": "CLIENTE FINAL", "tipo": "General", "tierCliente": "CLIENTE FINAL" },
+  { "base": "INTERMEDIARIO", "multiplicador": 1.75, "descripcion": "INTERMEDIARIO", "tipo": "General", "tierCliente": "INTERMEDIARIO" },
+  { "base": "FABRICANTE", "multiplicador": 1.5, "descripcion": "FABRICANTE", "tipo": "General", "tierCliente": "FABRICANTE" }
 ]

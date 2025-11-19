@@ -1,4 +1,20 @@
 [
-  { "nombre": "Proveedor Global", "email": "global@prov.com" },
-  { "nombre": "Nacional Metales", "email": "metales@nacional.es" }
+  { 
+    "nombre": "Siban", 
+    "email": "siban@siban.com", 
+    "telefono": "+34 900 100 200", 
+    "direccion": "Pol. Ind. Central, Nave 5" 
+  },
+  { 
+    "nombre": "Esbelt", 
+    "email": "contacto@esbelt.es", 
+    "telefono": "+34 955 123 456", 
+    "direccion": "Avda. Innovación 12" 
+  },
+  { 
+    "nombre": "Fuda China", 
+    "email": "fuda@sales.ch", 
+    "telefono": "+12 234 567 890", 
+    "direccion": "china" 
+  }
 ]
