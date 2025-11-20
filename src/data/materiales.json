@@ -1,7 +1,26 @@
 [
-  { "nombre": "PVC" },
-  { "nombre": "GOMA" },
-  { "nombre": "CARAMELO" },
-  { "nombre": "VERDE" },
-  { "nombre": "GOMA BLANDA" }
+  {
+    "id": "48724242-7ee7-4ee1-9b9f-9fe10f3798b9",
+    "nombre": "PVC"
+  },
+  {
+    "id": "fcc28f2d-0cfc-4c04-b266-cfa9b55371b7",
+    "nombre": "GOMA"
+  },
+  {
+    "id": "dd75928d-14b3-4941-b1c6-00cf07106c73",
+    "nombre": "CARAMELO"
+  },
+  {
+    "id": "0a5428e1-c6c9-41fd-b253-76494aa61e90",
+    "nombre": "VERDE"
+  },
+  {
+    "id": "0c460231-4966-4509-a689-cc24c48b156f",
+    "nombre": "GOMA BLANDA"
+  },
+  {
+    "id": "03bd9047-5c1c-4503-9013-5eb6db24f92c",
+    "nombre": "FIELTRO"
+  }
 ]

@@ -175,6 +175,7 @@ model PedidoProveedor {
 
 model BobinaPedido {
   id              String           @id @default(uuid())
+  cantidad        Int              @default(1) 
   ancho           Float?
   largo           Float?
   espesor         Float?

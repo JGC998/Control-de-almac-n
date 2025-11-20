@@ -13,3 +13,11 @@ node_modules/
 /src/generated/prisma
 .env
 prisma/dev.db
+
+
+# Ignorar bases de datos y backups
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+/backups/

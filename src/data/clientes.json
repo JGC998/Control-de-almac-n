@@ -1,9 +1,58 @@
 [
-  { "id": "cli-001", "nombre": "Aldama", "email": "aldama@contacto.es", "telefono": "111", "tier": "FABRICANTE" }, 
-  { "id": "cli-002", "nombre": "Noli", "email": "noli@contacto.es", "telefono": "112", "tier": "FABRICANTE" }, 
-  { "id": "cli-003", "nombre": "Agruiz", "email": "agruiz@contacto.es", "telefono": "113", "tier": "FABRICANTE" }, 
-  { "id": "cli-004", "nombre": "Moresil", "email": "moresil@contacto.es", "telefono": "114", "tier": "FABRICANTE" }, 
-  { "id": "cli-005", "nombre": "Ferreteria Ubetense", "email": "ubetense@ferreteria.es", "telefono": "225", "tier": "INTERMEDIARIO" }, 
-  { "id": "cli-006", "nombre": "La Preferida", "email": "preferida@contacto.es", "telefono": "336", "tier": "CLIENTE FINAL" }, 
-  { "id": "cli-007", "nombre": "Antonio Artugal", "email": "antonio@contacto.es", "telefono": "337", "tier": "CLIENTE FINAL" }
+  {
+    "id": "cli-001",
+    "nombre": "Aldama",
+    "email": "aldama@contacto.es",
+    "direccion": null,
+    "telefono": "111",
+    "tier": "FABRICANTE"
+  },
+  {
+    "id": "cli-003",
+    "nombre": "Agruiz",
+    "email": "agruiz@contacto.es",
+    "direccion": null,
+    "telefono": "113",
+    "tier": "FABRICANTE"
+  },
+  {
+    "id": "cli-004",
+    "nombre": "Moresil",
+    "email": "moresil@contacto.es",
+    "direccion": null,
+    "telefono": "114",
+    "tier": "FABRICANTE"
+  },
+  {
+    "id": "cli-005",
+    "nombre": "Ferreteria Ubetense",
+    "email": "ubetense@ferreteria.es",
+    "direccion": null,
+    "telefono": "225",
+    "tier": "INTERMEDIARIO"
+  },
+  {
+    "id": "cli-006",
+    "nombre": "La Preferida",
+    "email": "preferida@contacto.es",
+    "direccion": null,
+    "telefono": "336",
+    "tier": "CLIENTE FINAL"
+  },
+  {
+    "id": "cli-007",
+    "nombre": "Antonio Artugal",
+    "email": "antonio@contacto.es",
+    "direccion": null,
+    "telefono": "337",
+    "tier": "CLIENTE FINAL"
+  },
+  {
+    "id": "f7607589-8128-409c-a4c1-128b79cf7731",
+    "nombre": "Vibromart",
+    "email": "vibromart@vibromart.es",
+    "direccion": "calle vibromart",
+    "telefono": "123123",
+    "tier": "FABRICANTE"
+  }
 ]

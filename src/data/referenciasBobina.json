@@ -1,25 +1,240 @@
 [
-
-  { "referencia": "EP 250/2 2+1.5", "ancho": 400, "lonas": 2, "pesoPorMetroLineal": 2.0 },
-  { "referencia": "EP 250/2 2+1.5", "ancho": 500, "lonas": 2, "pesoPorMetroLineal": 2.5 },
-  { "referencia": "EP 250/2 2+1.5", "ancho": 650, "lonas": 2, "pesoPorMetroLineal": 3.20 },
-  { "referencia": "EP 250/2 2+1.5", "ancho": 800, "lonas": 2, "pesoPorMetroLineal": 4.16 },
-  
-  { "referencia": "EP400/3 3+1.5", "ancho": 400, "lonas": 3, "pesoPorMetroLineal": 3.56 },
-  { "referencia": "EP400/3 3+1.5", "ancho": 500, "lonas": 3, "pesoPorMetroLineal": 4.45 },
-  { "referencia": "EP400/3 3+1.5", "ancho": 600, "lonas": 3, "pesoPorMetroLineal": 5.34 },
-  { "referencia": "EP400/3 3+1.5", "ancho": 800, "lonas": 3, "pesoPorMetroLineal": 7.12 },
-  { "referencia": "EP400/3 3+1.5", "ancho": 1000, "lonas": 3, "pesoPorMetroLineal": 8.90 },
-  
-  { "referencia": "EP500/4 4+2", "ancho": 500, "lonas": 4, "pesoPorMetroLineal": 5.95 },
-  { "referencia": "EP500/4 4+2", "ancho": 600, "lonas": 4, "pesoPorMetroLineal": 7.08 },
-  { "referencia": "EP500/4 4+2", "ancho": 800, "lonas": 4, "pesoPorMetroLineal": 9.44 },
-  { "referencia": "EP500/4 4+2", "ancho": 1000, "lonas": 4, "pesoPorMetroLineal": 11.80 },
-  { "referencia": "EP500/4 4+2", "ancho": 1200, "lonas": 4, "pesoPorMetroLineal": 14.16 },
-  { "referencia": "EP500/4 4+2", "ancho": 1400, "lonas": 4, "pesoPorMetroLineal": 16.55 },
-  { "referencia": "EP500/4 4+2", "ancho": 1600, "lonas": 4, "pesoPorMetroLineal": 18.88 },
-
-  { "referencia": "EP630/4 6+2", "ancho": 1000, "lonas": 4, "pesoPorMetroLineal": 12.02 },
-  { "referencia": "EP630/4 6+2", "ancho": 1200, "lonas": 4, "pesoPorMetroLineal": 15.03 },
-  { "referencia": "EP630/4 6+2", "ancho": 1400, "lonas": 4, "pesoPorMetroLineal": 18.04 }
+  {
+    "id": "079fca6d-021d-437b-9364-3851ea985431",
+    "referencia": "EP 250/2 2+1.5",
+    "ancho": 400,
+    "lonas": 2,
+    "pesoPorMetroLineal": 2.56
+  },
+  {
+    "id": "5945a972-5bb9-43f1-882f-4a9b2a75aa0c",
+    "referencia": "EP 250/2 2+1.5",
+    "ancho": 440,
+    "lonas": 2,
+    "pesoPorMetroLineal": 3
+  },
+  {
+    "id": "cf5727a2-2929-4ddb-be76-8593bee182e5",
+    "referencia": "EP 250/2 2+1.5",
+    "ancho": 500,
+    "lonas": 2,
+    "pesoPorMetroLineal": 3.2
+  },
+  {
+    "id": "f9eff325-65eb-4332-bc01-135bdb466780",
+    "referencia": "EP 250/2 2+1.5",
+    "ancho": 600,
+    "lonas": 2,
+    "pesoPorMetroLineal": 3.84
+  },
+  {
+    "id": "0cde9836-d496-44e1-b056-78bc30d8bb5d",
+    "referencia": "EP 250/2 2+1.5",
+    "ancho": 650,
+    "lonas": 2,
+    "pesoPorMetroLineal": 4.16
+  },
+  {
+    "id": "7980732e-7b3d-4387-a3ae-47bd92cb5076",
+    "referencia": "EP400/3 3+1.5",
+    "ancho": 400,
+    "lonas": 3,
+    "pesoPorMetroLineal": 3.56
+  },
+  {
+    "id": "5c852fdf-cdbf-4f93-9a3e-cbe117bacaa9",
+    "referencia": "EP400/3 3+1.5",
+    "ancho": 500,
+    "lonas": 3,
+    "pesoPorMetroLineal": 4.45
+  },
+  {
+    "id": "3b5fbdf9-cfb7-47e7-9928-405dace7f811",
+    "referencia": "EP400/3 3+1.5",
+    "ancho": 540,
+    "lonas": 3,
+    "pesoPorMetroLineal": 5.13
+  },
+  {
+    "id": "db089b3c-9db3-4086-920e-d6174b450343",
+    "referencia": "EP400/3 3+1.5",
+    "ancho": 600,
+    "lonas": 3,
+    "pesoPorMetroLineal": 5.34
+  },
+  {
+    "id": "c15882d2-4141-4ef6-9069-53d043cfe900",
+    "referencia": "EP400/3 3+1.5",
+    "ancho": 650,
+    "lonas": 3,
+    "pesoPorMetroLineal": 5.79
+  },
+  {
+    "id": "57bddb86-73f7-4fe6-87f8-8832b71a2556",
+    "referencia": "EP400/3 3+1.5",
+    "ancho": 800,
+    "lonas": 3,
+    "pesoPorMetroLineal": 7.12
+  },
+  {
+    "id": "58542336-6532-4090-b88d-3206a1b5f1ec",
+    "referencia": "EP400/3 3+1.5",
+    "ancho": 1000,
+    "lonas": 3,
+    "pesoPorMetroLineal": 8.9
+  },
+  {
+    "id": "d3dc36a5-bcb3-4ccc-b56b-b2dd320d97aa",
+    "referencia": "EP400/3 3+1.5",
+    "ancho": 1250,
+    "lonas": 3,
+    "pesoPorMetroLineal": 11.9
+  },
+  {
+    "id": "09ed971b-c7b6-4ff3-b562-bc36ac9ce5b4",
+    "referencia": "EP500/4 4+2",
+    "ancho": 500,
+    "lonas": 4,
+    "pesoPorMetroLineal": 5.95
+  },
+  {
+    "id": "2866c4f3-8156-4c59-bdd7-589c302270d5",
+    "referencia": "EP500/4 4+2",
+    "ancho": 550,
+    "lonas": 4,
+    "pesoPorMetroLineal": 6.34
+  },
+  {
+    "id": "2bc7ef20-86ae-4eba-9bfc-f6d9916711d7",
+    "referencia": "EP500/4 4+2",
+    "ancho": 600,
+    "lonas": 4,
+    "pesoPorMetroLineal": 7.08
+  },
+  {
+    "id": "5e4de9a4-cb2e-4d42-97df-abbb8d1335d2",
+    "referencia": "EP500/4 4+2",
+    "ancho": 650,
+    "lonas": 4,
+    "pesoPorMetroLineal": 7.67
+  },
+  {
+    "id": "1829acf7-bffd-4970-a863-f4d0054b2467",
+    "referencia": "EP500/4 4+2",
+    "ancho": 800,
+    "lonas": 4,
+    "pesoPorMetroLineal": 9.44
+  },
+  {
+    "id": "105f3c2d-bef9-4e2d-8d88-352f0a2adf6a",
+    "referencia": "EP500/4 4+2",
+    "ancho": 1000,
+    "lonas": 4,
+    "pesoPorMetroLineal": 11.8
+  },
+  {
+    "id": "f418518d-9353-42e7-a21f-789ee5a599bb",
+    "referencia": "EP500/4 4+2",
+    "ancho": 1200,
+    "lonas": 4,
+    "pesoPorMetroLineal": 14.16
+  },
+  {
+    "id": "f98ec0b2-adc4-4cec-b36a-f714afda4aa4",
+    "referencia": "EP500/4 4+2",
+    "ancho": 1400,
+    "lonas": 4,
+    "pesoPorMetroLineal": 16.55
+  },
+  {
+    "id": "8dd54626-6719-4193-a060-7bba25a21d12",
+    "referencia": "EP500/4 4+2",
+    "ancho": 1600,
+    "lonas": 4,
+    "pesoPorMetroLineal": 18.88
+  },
+  {
+    "id": "9dbc10ab-cbd5-4182-8142-ffdbff82363c",
+    "referencia": "EP500/4 8+3",
+    "ancho": 500,
+    "lonas": 4,
+    "pesoPorMetroLineal": 9.5
+  },
+  {
+    "id": "3b94051f-518b-4025-9fbf-dff10a2fd0ce",
+    "referencia": "EP500/4 8+3",
+    "ancho": 600,
+    "lonas": 4,
+    "pesoPorMetroLineal": 11.42
+  },
+  {
+    "id": "75b97baf-4d9f-416c-8cca-b76f23636c09",
+    "referencia": "EP500/4 6+2",
+    "ancho": 500,
+    "lonas": 4,
+    "pesoPorMetroLineal": 7.37
+  },
+  {
+    "id": "9157617b-9896-4b31-954b-74f90fc5e327",
+    "referencia": "EP500/4 6+2",
+    "ancho": 600,
+    "lonas": 4,
+    "pesoPorMetroLineal": 8.86
+  },
+  {
+    "id": "6a541436-3a0e-4084-a099-a50e37e28eca",
+    "referencia": "EP630/4 6+2",
+    "ancho": 800,
+    "lonas": 4,
+    "pesoPorMetroLineal": 12.02
+  },
+  {
+    "id": "153d7dee-c144-4ba5-8cf1-8435b54b160b",
+    "referencia": "EP630/4 6+2",
+    "ancho": 1000,
+    "lonas": 4,
+    "pesoPorMetroLineal": 15.03
+  },
+  {
+    "id": "b0aba0b7-d5ec-43a0-b4ca-061407b0ba8d",
+    "referencia": "EP630/4 6+2",
+    "ancho": 1200,
+    "lonas": 4,
+    "pesoPorMetroLineal": 18.04
+  },
+  {
+    "id": "9433962b-22b4-4d11-b411-e9180534594d",
+    "referencia": "CLINA",
+    "ancho": 1200,
+    "lonas": 0,
+    "pesoPorMetroLineal": 12
+  },
+  {
+    "id": "a865d480-ed06-419e-af27-8a2a0c2605f8",
+    "referencia": "Breda",
+    "ancho": 1000,
+    "lonas": 0,
+    "pesoPorMetroLineal": 10
+  },
+  {
+    "id": "de05bc9a-b3bc-472e-ad40-15e99ccc2cc9",
+    "referencia": "Febor",
+    "ancho": 1000,
+    "lonas": 0,
+    "pesoPorMetroLineal": 14
+  },
+  {
+    "id": "79508dc3-6d07-46a8-a130-a236ef63a9f3",
+    "referencia": "FIELTRO15",
+    "ancho": 1800,
+    "lonas": 0,
+    "pesoPorMetroLineal": 3.36
+  },
+  {
+    "id": "3705c383-916c-46e8-a96c-756e36c59101",
+    "referencia": "FIELTRO10",
+    "ancho": 1800,
+    "lonas": 0,
+    "pesoPorMetroLineal": 2.26
+  }
 ]

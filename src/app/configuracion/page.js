@@ -1,13 +1,14 @@
 "use client";
-import React from 'react';
-import { Settings, DollarSign, Layers } from 'lucide-react';
+import React, { useState } from 'react';
+import useSWR, { mutate } from 'swr';
+import { Settings, DollarSign, Layers, TrendingUp } from 'lucide-react';
 import CatalogManager from '@/components/CatalogManager';
-import { mutate } from 'swr';
 import RuleEditorModal from '@/components/RuleEditorModal'; 
-import { useState } from 'react';
+import BulkPriceUpdateModal from '@/components/BulkPriceUpdateModal'; // IMPORTADO
 
-// Lógica de Descuentos (Necesita Modal Especializado)
-// Esta es la única que requiere un manejo especial debido a los tiers anidados.
+const fetcher = (url) => fetch(url).then((res) => res.json());
+
+// Lógica de Descuentos (Mantenida igual)
 const handleSaveDiscount = async (ruleData, isNew) => {
     const endpoint = '/api/pricing/descuentos';
     const url = isNew ? endpoint : `/api/pricing/descuentos/${ruleData.id}`;
@@ -25,7 +26,7 @@ const handleSaveDiscount = async (ruleData, isNew) => {
       }
       
       mutate(endpoint); 
-      return true; // Éxito
+      return true; 
     } catch (err) {
       throw err;
     }
@@ -36,7 +37,6 @@ const CustomDiscountManager = () => {
     const [editingRule, setEditingRule] = useState(null);
     const [modalApiError, setModalApiError] = useState(null);
     
-    // Función de apertura que pre-carga los tiers (si existen)
     const handleOpenModal = (record = null) => {
         setEditingRule(record || { descripcion: '', tipo: 'categoria', descuento: 0.1, categoria: '', tiers: [] });
         setModalApiError(null);
@@ -65,7 +65,6 @@ const CustomDiscountManager = () => {
                     { key: 'tipo', label: 'Tipo' },
                     { key: 'descuento', label: 'Descuento Base' },
                 ]}
-                // Pasa los handlers custom
                 onOpenCustomModal={handleOpenModal}
                 useCustomModal={true}
             />
@@ -86,7 +85,12 @@ const CustomDiscountManager = () => {
 
 
 export default function ConfiguracionPage() {
-    
+  // Estado para el modal de actualización masiva
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  
+  // Necesitamos cargar materiales para el desplegable del modal
+  const { data: materiales } = useSWR('/api/materiales', fetcher);
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 flex items-center">
@@ -111,26 +115,6 @@ export default function ConfiguracionPage() {
           ]}
         />
         
-        {/* 2. Descuentos (OCULTADO) */}
-        {/*
-        <CustomDiscountManager />
-        */}
-        
-        {/* 3. Precios Especiales (OCULTADO) */}
-        {/*
-        <CatalogManager
-          title="Precios Especiales"
-          endpoint="/api/pricing/especiales"
-          initialForm={{ descripcion: '', clienteId: '', productoId: '', precio: 0 }}
-          columns={[
-            { key: 'descripcion', label: 'Descripción' },
-            { key: 'cliente.nombre', label: 'Cliente' },
-            { key: 'producto.nombre', label: 'Producto' },
-            { key: 'precio', label: 'Precio (€)' },
-          ]}
-        />
-        */}
-        
         {/* === SECCIÓN DE CATÁLOGOS BASE === */}
         <h2 className="lg:col-span-2 text-2xl font-bold flex items-center mb-2 mt-6 text-primary"><Layers className="mr-2" /> Catálogos de Inventario</h2>
 
@@ -148,19 +132,40 @@ export default function ConfiguracionPage() {
         />
 
         {/* 5. Tarifas Material */}
-        <CatalogManager
-          title="Tarifas de Material"
-          endpoint="/api/precios"
-          initialForm={{ material: '', espesor: '', precio: '', peso: '' }}
-          columns={[
-            { key: 'material', label: 'Material' },
-            { key: 'espesor', label: 'Espesor (mm)' },
-            { key: 'precio', label: 'Precio (€/m²)' },
-            { key: 'peso', label: 'Peso (kg/m²)' },
-          ]}
-        />
+        <div className="relative">
+            {/* BOTÓN INYECTADO SOBRE EL COMPONENTE */}
+            <div className="absolute top-4 right-36 z-10">
+                 <button 
+                    onClick={() => setIsBulkModalOpen(true)} 
+                    className="btn btn-sm btn-warning btn-outline gap-1"
+                    title="Subir o bajar precios masivamente"
+                 >
+                    <TrendingUp className="w-3 h-3" /> Actualizar %
+                 </button>
+            </div>
+
+            <CatalogManager
+              title="Tarifas de Material"
+              endpoint="/api/precios"
+              initialForm={{ material: '', espesor: '', precio: '', peso: '' }}
+              columns={[
+                { key: 'material', label: 'Material' },
+                { key: 'espesor', label: 'Espesor (mm)' },
+                { key: 'precio', label: 'Precio (€/m²)' },
+                { key: 'peso', label: 'Peso (kg/m²)' },
+              ]}
+            />
+        </div>
         
       </div>
+
+      {/* MODAL DE ACTUALIZACIÓN MASIVA */}
+      <BulkPriceUpdateModal 
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        materiales={materiales}
+        onSuccess={() => mutate('/api/precios')} 
+      />
     </div>
   );
 }

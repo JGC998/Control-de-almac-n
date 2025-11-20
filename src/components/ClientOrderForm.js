@@ -1,40 +1,141 @@
-// src/components/ClientOrderForm.js
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import { 
-    Plus, X, UserPlus, Save, DollarSign, CheckCircle, 
-    Trash2, Copy, Search, Package, XCircle 
+    Plus, X, UserPlus, Save, CheckCircle, 
+    Trash2, Package, XCircle, Search, ArrowRight, User, Box 
 } from 'lucide-react'; 
 import { BaseQuickCreateModal } from "@/components/BaseQuickCreateModal";
 import QuickProductForm from "@/components/QuickProductForm";
-import FilaItemEditor from './FilaItemEditor'; // Importar el nuevo componente
+import FilaItemEditor from './FilaItemEditor'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-// ------------------------------------------------
-// Componente principal: ClientOrderForm
-// ------------------------------------------------
+// --- MODAL DE BÚSQUEDA DE CLIENTES (Restaurado) ---
+function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew, clientes = [], initialSearch = '' }) {
+    const [search, setSearch] = useState(initialSearch);
+    useEffect(() => { if (isOpen) setSearch(initialSearch); }, [isOpen, initialSearch]);
 
+    const filteredClients = useMemo(() => {
+        if (!clientes) return [];
+        return clientes.filter(c => {
+            const term = search.toLowerCase();
+            return c.nombre?.toLowerCase().includes(term) ||
+                   c.email?.toLowerCase().includes(term) ||
+                   c.telefono?.includes(term);
+        }).slice(0, 50);
+    }, [clientes, search]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal modal-open z-[9999]">
+            <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <User className="w-5 h-5" /> Buscar Cliente
+                    </h3>
+                    <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="join w-full mb-4">
+                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, email o teléfono..." className="input input-bordered join-item w-full" autoFocus />
+                    <button className="btn btn-primary join-item" onClick={() => onCreateNew(search)}><Plus className="w-4 h-4" /> Nuevo</button>
+                </div>
+                <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
+                    <table className="table table-pin-rows w-full">
+                        <thead><tr><th>Nombre</th><th>Tier/Cat.</th><th>Contacto</th><th className="text-right">Acción</th></tr></thead>
+                        <tbody>
+                            {filteredClients.map((cli) => (
+                                <tr key={cli.id} className="hover:bg-base-200 cursor-pointer transition-colors" onClick={() => onSelect(cli)}>
+                                    <td className="font-bold">{cli.nombre}</td>
+                                    <td><span className="badge badge-sm badge-ghost">{cli.tier || cli.categoria || 'Estándar'}</span></td>
+                                    <td className="text-sm opacity-70"><div className="flex flex-col"><span>{cli.email}</span><span>{cli.telefono}</span></div></td>
+                                    <td className="text-right"><button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- MODAL DE BÚSQUEDA DE PRODUCTOS (Nuevo) ---
+function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos = [], initialSearch = '' }) {
+    const [search, setSearch] = useState(initialSearch);
+    useEffect(() => { if (isOpen) setSearch(initialSearch); }, [isOpen, initialSearch]);
+
+    const filteredProducts = useMemo(() => {
+        if (!productos) return [];
+        return productos.filter(p => {
+            const term = search.toLowerCase();
+            return p.nombre?.toLowerCase().includes(term) ||
+                   p.referenciaFabricante?.toLowerCase().includes(term);
+        }).slice(0, 50);
+    }, [productos, search]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal modal-open z-[9999]">
+            <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2"><Box className="w-5 h-5" /> Buscar Producto</h3>
+                    <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="join w-full mb-4">
+                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, referencia..." className="input input-bordered join-item w-full" autoFocus />
+                    <button className="btn btn-primary join-item" onClick={() => onCreateNew(search)}><Plus className="w-4 h-4" /> Nuevo</button>
+                </div>
+                <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
+                    <table className="table table-pin-rows w-full">
+                        <thead><tr><th>Nombre</th><th>Referencia</th><th>Precio</th><th className="text-right">Acción</th></tr></thead>
+                        <tbody>
+                            {filteredProducts.length === 0 ? (
+                                <tr><td colSpan={4} className="text-center py-10 text-gray-500">No se encontraron productos.</td></tr>
+                            ) : (
+                                filteredProducts.map((prod) => (
+                                    <tr key={prod.id} className="hover:bg-base-200 cursor-pointer" onClick={() => onSelect(prod)}>
+                                        <td className="font-bold">{prod.nombre}</td>
+                                        <td className="text-sm font-mono">{prod.referenciaFabricante || '-'}</td>
+                                        <td>{prod.precioUnitario?.toFixed(2)}€</td>
+                                        <td className="text-right"><button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button></td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="modal-action mt-4"><button className="btn" onClick={onClose}>Cancelar</button></div>
+            </div>
+        </div>
+    );
+}
+
+// --- COMPONENTE PRINCIPAL ---
 export default function ClientOrderForm({ initialData = null, formType = "PRESUPUESTO" }) {
   const router = useRouter();
   const isMarginRequired = formType === "PRESUPUESTO" || formType === "PEDIDO"; 
 
   const [clienteId, setClienteId] = useState(initialData?.clienteId || ''); 
-  const [clienteBusqueda, setClienteBusqueda] = useState(initialData?.cliente?.nombre || ''); 
+  const [clienteNombre, setClienteNombre] = useState(initialData?.cliente?.nombre || ''); 
   const [selectedMarginId, setSelectedMarginId] = useState(initialData?.marginId || '');
+  
+  // Estados para Modales
   const [modalState, setModalState] = useState(null); 
+  const [isClientSearchOpen, setIsClientSearchOpen] = useState(false);
+  const [productSearchState, setProductSearchState] = useState({ isOpen: false, rowIndex: null, initialSearch: '' });
+
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   
   const [items, setItems] = useState(initialData?.items?.map(item => ({...item, id: item.id || Date.now() + Math.random()})) || [{ id: Date.now(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
   const [stockStatus, setStockStatus] = useState({}); 
-  const [activeSearchIndex, setActiveSearchIndex] = useState(null); 
   const [notes, setNotes] = useState(initialData?.notas || '');
   
-
-  const { data: clientes, error: clientesError, isLoading: isLoadingClientes } = useSWR('/api/clientes', fetcher);
+  const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
   const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null, fetcher);
   const { data: todosProductos, error: prodError } = useSWR('/api/productos', fetcher);
   const { data: config } = useSWR('/api/config', fetcher);
@@ -43,37 +144,38 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   const { data: materiales, error: matError } = useSWR('/api/materiales', fetcher);
   const { data: tarifas, error: tarifasError } = useSWR('/api/precios', fetcher); 
   
-  const isCatalogLoading = isLoadingClientes || !!margenesError || !!fabError || !!matError || !!tarifasError;
+  const isCatalogLoading = !clientes || (isMarginRequired && !margenes) || !todosProductos;
 
-  const filteredClients = useMemo(() => {
-    if (!clientes || clienteBusqueda.length < 2) return [];
-    return clientes.filter(c => 
-      c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase())
-    ).slice(0, 5);
-  }, [clientes, clienteBusqueda]);
+  // --- LÓGICA DE CLIENTES ---
+  const handleSelectClient = (client) => {
+    setClienteId(client.id);
+    setClienteNombre(client.nombre);
+    setIsClientSearchOpen(false);
+  };
 
-  const handleSelectClient = (clientId, clientName) => {
-    setClienteId(clientId);
-    setClienteBusqueda(clientName);
+  const handleOpenCreateClient = (searchTerm) => {
+      setIsClientSearchOpen(false);
+      setModalState({ type: 'CLIENTE', initialName: searchTerm });
   };
   
-  const handleClearClient = () => {
+  const handleClearClient = (e) => {
+    e.stopPropagation();
     setClienteId('');
-    setClienteBusqueda('');
+    setClienteNombre('');
   };
   
   const handleClienteCreado = (nuevoCliente) => {
     setClienteId(nuevoCliente.id);
-    setClienteBusqueda(nuevoCliente.nombre);
+    setClienteNombre(nuevoCliente.nombre);
     setModalState(null);
+    mutate('/api/clientes');
   };
 
+  // --- LÓGICA DE MÁRGENES ---
   const filteredMargenes = margenes?.filter(m => m.base !== 'GENERAL_FALLBACK') || [];
-
-  const handleMarginChange = (marginId) => {
-    setSelectedMarginId(marginId);
-  };
+  const handleMarginChange = (marginId) => setSelectedMarginId(marginId);
   
+  // --- LÓGICA DE ITEMS ---
   const addItem = () => {
     setItems(prev => [...prev, { id: Date.now() + Math.random(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
   };
@@ -81,10 +183,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   const removeItem = (itemId) => {
     const newItems = items.filter(item => item.id !== itemId);
     setItems(newItems);
-    setStockStatus(prev => { 
-        const { [itemId]: removed, ...rest } = prev;
-        return rest;
-    });
+    setStockStatus(prev => { const { [itemId]: removed, ...rest } = prev; return rest; });
   };
 
   const handleDuplicateItem = (itemId) => {
@@ -102,86 +201,72 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     if (field === 'unitPrice') {
         item.unitPrice = parseFloat(parseFloat(value).toFixed(2)) || 0;
     } else {
-        item[field] = parseFloat(value) || 0;
+        item[field] = value;
+        if (field === 'quantity') item[field] = parseFloat(value) || 0;
     }
-    
     setItems(newItems);
-    
-    if (field === 'quantity' && item.productId) {
-        checkStockStatus(item, item.id);
-    }
+    if (field === 'quantity' && item.productId) checkStockStatus(item, item.id);
   };
   
-  const handleSearchChange = (value, index) => {
-      const newItems = items.map((item, i) => (i === index ? { ...item, description: value, productId: null } : item));
-      setItems(newItems);
-      setActiveSearchIndex(value.length >= 2 ? index : null); 
+  // --- LÓGICA DE BÚSQUEDA DE PRODUCTOS (NUEVA) ---
+  const handleOpenProductSearch = (index) => {
+      setProductSearchState({ isOpen: true, rowIndex: index, initialSearch: items[index].description || '' });
   };
-  
-  const searchResults = useMemo(() => {
-      if (activeSearchIndex === null) return [];
-      const query = items[activeSearchIndex]?.description || '';
-      if (query.length < 2 || !todosProductos) return [];
 
-      return todosProductos.filter(p => 
-          p.nombre.toLowerCase().includes(query.toLowerCase()) ||
-          p.referenciaFabricante?.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 5) || [];
-  }, [items, todosProductos, activeSearchIndex]);
-  
-  const handleSelectProduct = (product, index) => {
-      const newItems = items.map((item, i) => (i === index ? { ...item } : item));
-      const item = newItems[index];
-      
-      item.description = product.nombre;
-      item.productId = product.id;
-      item.unitPrice = parseFloat(product.precioUnitario.toFixed(2)); 
-      item.id = Date.now() + Math.random(); 
+  const handleProductSelect = (product) => {
+      const index = productSearchState.rowIndex;
+      if (index === null) return;
+
+      const newItems = [...items];
+      newItems[index].description = product.nombre;
+      newItems[index].productId = product.id;
+      newItems[index].unitPrice = parseFloat(product.precioUnitario.toFixed(2));
       
       setItems(newItems);
-      setActiveSearchIndex(null); 
-      checkStockStatus(item, item.id);
+      setProductSearchState({ isOpen: false, rowIndex: null, initialSearch: '' });
+      checkStockStatus(newItems[index], newItems[index].id);
   };
-  
+
+  const handleOpenCreateProduct = (searchTerm) => {
+      const rowIndex = productSearchState.rowIndex;
+      setProductSearchState({ isOpen: false, rowIndex: null, initialSearch: '' });
+      setModalState({ type: 'QUICK_PRODUCT', itemId: items[rowIndex].id, initialName: searchTerm });
+  };
+
   const handleCreatedProduct = (newProduct) => {
       const index = items.findIndex(item => item.id === modalState.itemId);
       if (index !== -1) {
-        handleSelectProduct(newProduct, index);
+          const newItems = [...items];
+          newItems[index].description = newProduct.nombre;
+          newItems[index].productId = newProduct.id;
+          newItems[index].unitPrice = parseFloat(newProduct.precioUnitario.toFixed(2));
+          setItems(newItems);
+          checkStockStatus(newItems[index], newItems[index].id);
       }
       setModalState(null);
       mutate('/api/productos'); 
   };
-  
-  const handleOpenProductModal = (item) => {
-       setModalState({ type: 'QUICK_PRODUCT', itemId: item.id }); 
-  }
 
+  // --- STOCK ---
   const checkStockStatus = useCallback(async (item, key) => {
       if (!todosProductos) return; 
-      
       const product = todosProductos.find(p => p.id === item.productId);
-      if (!product || !product.material?.nombre || product.espesor === undefined || product.espesor === null || !product.largo) {
+      if (!product || !product.material?.nombre || !product.espesor || !product.largo) {
           setStockStatus(prev => ({ ...prev, [key]: { status: 'N/A' } }));
           return;
       }
-
       setStockStatus(prev => ({ ...prev, [key]: { status: 'loading' } }));
       const largo_m = product.largo / 1000; 
       const metrosNecesarios = item.quantity * largo_m;
-      
       try {
           const res = await fetch(`/api/stock-info/available-meters?material=${product.material.nombre}&espesor=${product.espesor}`);
-          if (!res.ok) throw new Error('Error al obtener stock');
+          if (!res.ok) throw new Error('Error');
           const { totalMetros } = await res.json();
-          const newStatus = { totalMetros };
-
-          if (totalMetros >= metrosNecesarios) newStatus.status = 'available';
-          else if (totalMetros > 0) newStatus.status = 'low';
-          else newStatus.status = 'unavailable';
-          
-          setStockStatus(prev => ({ ...prev, [key]: newStatus }));
+          let status = 'unavailable';
+          if (totalMetros >= metrosNecesarios) status = 'available';
+          else if (totalMetros > 0) status = 'low';
+          setStockStatus(prev => ({ ...prev, [key]: { status, totalMetros } }));
       } catch (err) {
-          console.error(err);
           setStockStatus(prev => ({ ...prev, [key]: { status: 'error' } }));
       }
   }, [todosProductos]);
@@ -189,23 +274,15 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   const getStockIcon = (item) => { 
     const stockData = stockStatus[item.id];
     const product = todosProductos?.find(p => p.id === item.productId);
-
-    if (!product) return <Package className="w-5 h-5 text-gray-400" title="Item manual (sin plantilla)" />;
-    if (!stockData || stockData.status === 'N/A' || stockData.status === 'error') return <Package className="w-5 h-5 text-gray-500" title="Sin datos de stock" />;
-    
-    const largo_m = product.largo ? product.largo / 1000 : 0;
-    const metrosNecesarios = (item.quantity * largo_m).toFixed(2);
-    const totalMetros = (stockData.totalMetros || 0).toFixed(2);
-
-    switch(stockData.status) {
-        case 'available': return <CheckCircle className="w-5 h-5 text-success" title={`Stock OK: ${totalMetros}m disp. (${metrosNecesarios}m nec.)`} />;
-        case 'low': return <XCircle className="w-5 h-5 text-warning" title={`Stock BAJO: ${totalMetros}m disp. (${metrosNecesarios}m nec.)`} />;
-        case 'unavailable': return <XCircle className="w-5 h-5 text-error" title={`SIN Stock: ${totalMetros}m disp. (${metrosNecesarios}m nec.)`} />;
-        case 'loading': return <span className="loading loading-spinner loading-xs text-primary" title="Comprobando stock..." />;
-        default: return <Package className="w-5 h-5 text-gray-500" title="Datos de stock no disponibles" />;
-    }
+    if (!product) return <Package className="w-5 h-5 text-gray-400" title="Item manual" />;
+    if (!stockData || stockData.status === 'N/A') return <Package className="w-5 h-5 text-gray-500" title="Sin datos" />;
+    if (stockData.status === 'loading') return <span className="loading loading-spinner loading-xs text-primary" />;
+    if (stockData.status === 'available') return <CheckCircle className="w-5 h-5 text-success" title="Stock OK" />;
+    if (stockData.status === 'low') return <XCircle className="w-5 h-5 text-warning" title="Stock BAJO" />;
+    return <XCircle className="w-5 h-5 text-error" title="SIN Stock" />;
   };
   
+  // --- TOTALES (MANTENIDOS COMPLETOS) ---
   const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado } = useMemo(() => {
     const subtotalBase = items.reduce((acc, item) => 
         acc + ((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0))
@@ -221,7 +298,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         if (regla) {
             const multiplicador = regla.multiplicador || 1;
             const gastoFijo = regla.gastoFijo || 0;
-            
             subtotalConMargen = (subtotalBase * multiplicador) + gastoFijo;
             margenAplicado = { multiplicador, gastoFijo };
         }
@@ -240,26 +316,14 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
     };
   }, [items, config, selectedMarginId, margenes, isMarginRequired]);
 
+  // --- SUBMIT ---
   const handleSubmit = async (e) => {
       e.preventDefault();
       setIsLoading(true);
       setError(null);
-
-      if (!clienteId) {
-          setError('Debe seleccionar un cliente.');
-          setIsLoading(false);
-          return;
-      }
-      if (isMarginRequired && !selectedMarginId) {
-          setError('Debe seleccionar una Regla de Margen/Tier.');
-          setIsLoading(false);
-          return;
-      }
-      if (items.filter(item => item.quantity > 0 && item.description).length === 0) {
-         setError('Debe añadir al menos un artículo con cantidad y descripción.');
-         setIsLoading(false);
-         return;
-      }
+      if (!clienteId) { setError('Debe seleccionar un cliente.'); setIsLoading(false); return; }
+      if (isMarginRequired && !selectedMarginId) { setError('Debe seleccionar una Regla de Margen.'); setIsLoading(false); return; }
+      if (items.filter(item => item.quantity > 0 && item.description).length === 0) { setError('Añada items válidos.'); setIsLoading(false); return; }
       
       const dataPayload = {
           clienteId,
@@ -282,7 +346,6 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         ? (isEditMode ? `/api/presupuestos/${initialData.id}` : '/api/presupuestos')
         : (isEditMode ? `/api/pedidos/${initialData.id}` : '/api/pedidos');
       const method = isEditMode ? 'PUT' : 'POST';
-
       
       try {
           const res = await fetch(endpoint, {
@@ -290,23 +353,15 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(dataPayload),
           });
-          
-          if (!res.ok) {
-              const err = await res.json();
-              throw new Error(err.message || `Error al guardar ${formType}`);
-          }
+          if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
           
           const savedData = await res.json();
-          
-          const redirectUrl = formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`;
-          router.push(redirectUrl);
-
+          router.push(formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`);
       } catch (err) {
           setError(err.message);
           setIsLoading(false);
       }
   }
-
 
   return (
     <>
@@ -315,55 +370,17 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         <div className="card-body">
           <h2 className="card-title text-primary">Información Principal</h2>
           {isCatalogLoading && <span className="loading loading-spinner loading-sm"></span>}
-          {clientesError && <div className="text-error">Error al cargar clientes.</div>}
           
           <div className="grid grid-cols-1 gap-4">
-             
-            <div className="form-control w-full relative">
+            <div className="form-control w-full">
                 <label className="label"><span className="label-text">Cliente (Requerido)</span></label>
-                <div className="input-group">
-                    <input
-                        type="text"
-                        placeholder={isLoadingClientes ? "Cargando clientes..." : "Buscar o introducir cliente..."}
-                        value={clienteBusqueda}
-                        onChange={(e) => {
-                            setClienteBusqueda(e.target.value);
-                            if (clienteId && e.target.value !== clientes?.find(c => c.id === clienteId)?.nombre) {
-                                setClienteId('');
-                            }
-                        }}
-                        className={`input input-bordered w-full ${clienteId ? 'border-success' : ''}`}
-                        disabled={isLoadingClientes}
-                        required
-                    />
-                    {clienteId && (
-                         <button type="button" onClick={handleClearClient} className="btn btn-ghost btn-square" title="Limpiar Cliente Seleccionado">
-                            <X className="w-4 h-4 text-error" />
-                        </button>
-                    )}
-                     <button type="button" onClick={() => setModalState('CLIENTE')} className="btn btn-primary" title="Crear Cliente Rápido">
-                        <UserPlus className="w-4 h-4" />
-                    </button>
+                <div className="input-group cursor-pointer" onClick={() => setIsClientSearchOpen(true)}>
+                    <input type="text" readOnly placeholder="Seleccionar cliente..." value={clienteNombre} className={`input input-bordered w-full cursor-pointer ${clienteId ? 'input-success' : ''}`} />
+                    {clienteId && <button type="button" onClick={handleClearClient} className="btn btn-square btn-ghost text-error"><X className="w-4 h-4" /></button>}
+                    <button type="button" className="btn btn-square btn-primary"><Search className="w-4 h-4" /></button>
                 </div>
-                
-                {clienteBusqueda.length >= 2 && filteredClients.length > 0 && clienteId === '' && (
-                     <ul tabIndex={0} className="absolute top-100% z-10 menu p-2 shadow bg-base-200 rounded-box w-full mt-1">
-                        {filteredClients.map(cliente => (
-                            <li key={cliente.id} onClick={() => handleSelectClient(cliente.id, cliente.nombre)}>
-                                <a>{cliente.nombre} <span className="text-xs text-gray-500 ml-2">({cliente.tier || 'Estándar'})</span></a>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-                
-                {clienteId && (
-                    <div className="text-sm mt-2 text-success font-semibold flex items-center">
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Cliente Seleccionado.
-                    </div>
-                )}
+                {!clienteId && <span className="text-xs text-gray-500 mt-1 ml-1">Clic para buscar o crear</span>}
             </div>
-            
           </div>
         </div>
       </div>
@@ -372,9 +389,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         <div className="card-body">
           <div className="flex justify-between items-center mb-4">
             <h2 className="card-title text-primary">Items del Pedido</h2>
-            <button type="button" onClick={addItem} className="btn btn-primary btn-sm">
-              <Plus className="w-4 h-4" /> Añadir Fila
-            </button>
+            <button type="button" onClick={addItem} className="btn btn-primary btn-sm"><Plus className="w-4 h-4" /> Añadir Fila</button>
           </div>
           
           <div className="overflow-visible">
@@ -382,41 +397,29 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
               <thead>
                 <tr>
                   <th className="w-10">Stock</th>
-                  <th className="w-2/5">Descripción / Búsqueda (Plantilla)</th> 
+                  <th className="w-2/5">Producto (Plantilla)</th> 
                   <th>Cantidad</th>
-                  <th>Precio Costo (Unit.)</th>
-                  <th>Total (Costo)</th>
+                  <th>Precio Costo</th>
+                  <th>Total</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {prodError && <tr><td colSpan="6" className="text-error">Error al cargar plantillas de producto.</td></tr>}
-                {items.length === 0 && (
-                    <tr><td colSpan="6" className="text-center text-gray-500 py-4">Añade una fila para empezar...</td></tr>
-                )}
-                
                 {items.map((item, index) => (
                   <FilaItemEditor
                     key={item.id}
                     item={item}
                     index={index}
                     handleItemChange={handleItemChange}
-                    handleSearchChange={handleSearchChange}
-                    handleSelectProduct={handleSelectProduct}
-                    handleOpenProductModal={handleOpenProductModal}
+                    onSearchClick={() => handleOpenProductSearch(index)} // <--- NUEVO: Abre modal
                     removeItem={removeItem}
                     handleDuplicateItem={handleDuplicateItem}
                     getStockIcon={getStockIcon}
-                    activeSearchIndex={activeSearchIndex}
-                    searchResults={searchResults}
-                    todosProductos={todosProductos}
                   />
                 ))}
               </tbody>
             </table>
           </div>
-            
-            
         </div>
       </div>
 
@@ -424,13 +427,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title">Notas Adicionales</h2>
-            <textarea
-              name="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="textarea textarea-bordered h-24" 
-              placeholder="Notas internas o para el cliente..."
-            ></textarea>
+            <textarea name="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="textarea textarea-bordered h-24" placeholder="Notas internas..."></textarea>
           </div>
         </div>
 
@@ -440,66 +437,36 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
             
             {isMarginRequired && (
                 <div className="form-control w-full mb-4">
-                    <label className="label"><span className="label-text font-bold">Regla de Margen / Tier ({isMarginRequired ? 'Requerido' : 'Opcional'})</span></label>
-                    <select 
-                        className="select select-bordered w-full" 
-                        value={selectedMarginId} 
-                        onChange={(e) => handleMarginChange(e.target.value)} 
-                        disabled={!margenes}
-                        required={isMarginRequired}
-                    >
+                    <label className="label"><span className="label-text font-bold">Regla de Margen / Tier</span></label>
+                    <select className="select select-bordered w-full" value={selectedMarginId} onChange={(e) => handleMarginChange(e.target.value)} disabled={!margenes} required={isMarginRequired}>
                         <option value="">Selecciona Margen</option>
-                        {margenesError && <option disabled>Error al cargar márgenes</option>}
                         {filteredMargenes.map(m => {
                           const tierText = m.tierCliente ? ` (${m.tierCliente})` : '';
                           const gastoFijoText = m.gastoFijo ? ` + ${m.gastoFijo}€ Fijo` : '';
-                          return (
-                            <option key={m.id} value={m.id}>
-                                {m.descripcion}{tierText} (x{m.multiplicador}){gastoFijoText}
-                            </option>
-                          );
+                          return <option key={m.id} value={m.id}>{m.descripcion}{tierText} (x{m.multiplicador}){gastoFijoText}</option>;
                         })}
                     </select>
                 </div>
             )}
             
             <div className="space-y-2">
-              <div className="flex justify-between">
-                <span>Subtotal (Costo Base)</span> 
-                <span>{subtotalBase.toFixed(2)} €</span>
-              </div>
+              <div className="flex justify-between"><span>Subtotal (Costo Base)</span><span>{subtotalBase.toFixed(2)} €</span></div>
               
               {isMarginRequired && margenAplicado.multiplicador !== 1 && (
-                  <div className="flex justify-between text-accent">
-                    <span>Margen (x{margenAplicado.multiplicador.toFixed(2)})</span> 
-                    <span>+ {(subtotalBase * (margenAplicado.multiplicador - 1)).toFixed(2)} €</span>
-                  </div>
+                  <div className="flex justify-between text-accent"><span>Margen (x{margenAplicado.multiplicador.toFixed(2)})</span><span>+ {(subtotalBase * (margenAplicado.multiplicador - 1)).toFixed(2)} €</span></div>
               )}
               {isMarginRequired && margenAplicado.gastoFijo > 0 && (
-                  <div className="flex justify-between text-accent">
-                    <span>Gasto Fijo</span> 
-                    <span>+ {margenAplicado.gastoFijo.toFixed(2)} €</span>
-                  </div>
+                  <div className="flex justify-between text-accent"><span>Gasto Fijo</span><span>+ {margenAplicado.gastoFijo.toFixed(2)} €</span></div>
               )}
               
               <div className="divider my-1"></div>
               
-              <div className="flex justify-between font-semibold">
-                <span>Subtotal (con Margen)</span> 
-                <span>{subtotalConMargen.toFixed(2)} €</span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span>IVA ({((ivaRate || 0) * 100).toFixed(0)}%)</span> 
-                <span>{tax.toFixed(2)} €</span>
-              </div>
+              <div className="flex justify-between font-semibold"><span>Subtotal (con Margen)</span><span>{subtotalConMargen.toFixed(2)} €</span></div>
+              <div className="flex justify-between"><span>IVA ({((ivaRate || 0) * 100).toFixed(0)}%)</span><span>{tax.toFixed(2)} €</span></div>
               
               <div className="divider my-1"></div>
               
-              <div className="flex justify-between font-bold text-lg text-primary">
-                <span>Total</span> 
-                <span>{total.toFixed(2)} €</span>
-              </div>
+              <div className="flex justify-between font-bold text-lg text-primary"><span>Total</span><span>{total.toFixed(2)} €</span></div>
             </div>
           </div>
         </div>
@@ -510,41 +477,21 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       <div className="flex justify-end gap-4 mt-6">
         <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
         <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || (isMarginRequired && !selectedMarginId)}>
-          <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : "Guardar Documento"}
+          <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : "Guardar"}
         </button>
       </div>
     </form>
     
-    {/* MODALES */}
+    <ClienteSearchModal isOpen={isClientSearchOpen} onClose={() => setIsClientSearchOpen(false)} onSelect={handleSelectClient} onCreateNew={handleOpenCreateClient} clientes={clientes} initialSearch={clienteNombre} />
     
-    {modalState === 'CLIENTE' && (
-      <BaseQuickCreateModal
-        isOpen={true}
-        onClose={() => setModalState(null)}
-        onCreated={handleClienteCreado}
-        title="Crear Nuevo Cliente"
-        endpoint="/api/clientes"
-        cacheKey="/api/clientes"
-        fields={[
-          { name: 'nombre', placeholder: 'Nombre o Razón Social', required: true },
-          { name: 'email', placeholder: 'Email de Contacto', required: false, type: 'email' },
-          { name: 'direccion', placeholder: 'Dirección Fiscal', required: false },
-          { name: 'telefono', placeholder: 'Teléfono', required: false }
-        ]}
-      />
+    <ProductSearchModal isOpen={productSearchState.isOpen} onClose={() => setProductSearchState(prev => ({...prev, isOpen: false}))} onSelect={handleProductSelect} onCreateNew={handleOpenCreateProduct} productos={todosProductos} initialSearch={productSearchState.initialSearch} />
+
+    {modalState?.type === 'CLIENTE' && (
+      <BaseQuickCreateModal isOpen={true} onClose={() => setModalState(null)} onCreated={handleClienteCreado} title="Crear Nuevo Cliente" endpoint="/api/clientes" cacheKey="/api/clientes" fields={[{ name: 'nombre', placeholder: 'Nombre', required: true, defaultValue: modalState.initialName }, { name: 'email', placeholder: 'Email', type: 'email' }, { name: 'telefono', placeholder: 'Teléfono' }]} />
     )}
     
     {modalState?.type === 'QUICK_PRODUCT' && (
-        <QuickProductForm 
-            isOpen={true}
-            onClose={() => setModalState(null)}
-            onCreated={handleCreatedProduct}
-            catalogos={{ 
-                fabricantes: fabricantes, 
-                materiales: materiales, 
-                tarifas: tarifas
-            }}
-        />
+        <QuickProductForm isOpen={true} onClose={() => setModalState(null)} onCreated={handleCreatedProduct} catalogos={{ fabricantes, materiales, tarifas }} initialReference={modalState.initialName} />
     )}
     </>
   );

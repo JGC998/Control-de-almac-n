@@ -1,24 +1,128 @@
 [
-  { "material": "PVC", "espesor": 2.0, "precio": 10.50, "peso": 2.5 },
-  { "material": "PVC", "espesor": 3.0, "precio": 14.20, "peso": 3.6 },
-  { "material": "PVC", "espesor": 6.0, "precio": 14.20, "peso": 3.6 },
-  
-  { "material": "GOMA", "espesor": 6.0, "precio": 45.00, "peso": 8.4 },
-  { "material": "GOMA", "espesor": 8.0, "precio": 45.00, "peso": 8.4 },
-  { "material": "GOMA", "espesor": 10.0, "precio": 58.00, "peso": 11.2 },
-  { "material": "GOMA", "espesor": 12.0, "precio": 45.00, "peso": 8.4 },
-  { "material": "GOMA", "espesor": 15.0, "precio": 45.00, "peso": 8.4 },
-  
-  { "material": "CARAMELO", "espesor": 6, "precio": 22.00, "peso": 1.8 },
-  { "material": "CARAMELO", "espesor": 8, "precio": 22.00, "peso": 1.8 },
-  { "material": "CARAMELO", "espesor": 10, "precio": 22.00, "peso": 1.8 },
-  { "material": "CARAMELO", "espesor": 12, "precio": 22.00, "peso": 1.8 },
-  
-  { "material": "VERDE", "espesor": 6, "precio": 22.00, "peso": 1.8 },
-  { "material": "VERDE", "espesor": 8, "precio": 22.00, "peso": 1.8 },
-  { "material": "VERDE", "espesor": 10, "precio": 22.00, "peso": 1.8 },
-  { "material": "VERDE", "espesor": 12, "precio": 22.00, "peso": 1.8 },
-  
-  { "material": "FIELTRO", "espesor": 10, "precio": 22.00, "peso": 1.8 },
-  { "material": "FIELTRO", "espesor": 15, "precio": 22.00, "peso": 1.8 }
+  {
+    "id": "7fad7d36-56ab-45b5-9a59-fb53b8942739",
+    "material": "PVC",
+    "espesor": 2,
+    "precio": 1,
+    "peso": 1
+  },
+  {
+    "id": "2e840495-2fc8-4719-8570-c08b8ceeaf0a",
+    "material": "PVC",
+    "espesor": 3,
+    "precio": 1,
+    "peso": 1
+  },
+  {
+    "id": "ff2f7c36-0cd5-4822-be70-cd02685ab96f",
+    "material": "PVC",
+    "espesor": 6,
+    "precio": 1,
+    "peso": 1
+  },
+  {
+    "id": "5f0f9629-b2cb-4923-b524-c15b13297a6d",
+    "material": "GOMA",
+    "espesor": 6,
+    "precio": 13.4,
+    "peso": 6.4
+  },
+  {
+    "id": "f9354053-ae08-455d-ab17-32fad13163ad",
+    "material": "GOMA",
+    "espesor": 8,
+    "precio": 18.54,
+    "peso": 8.9
+  },
+  {
+    "id": "10803e01-b97a-4638-afef-c6d5a632a8cb",
+    "material": "GOMA",
+    "espesor": 10,
+    "precio": 24.67,
+    "peso": 11.8
+  },
+  {
+    "id": "7a731093-48b8-41fd-aade-ac9031f9111d",
+    "material": "GOMA",
+    "espesor": 12,
+    "precio": 33,
+    "peso": 14.75
+  },
+  {
+    "id": "34a988e7-0b15-4097-a34e-9f4c9aefa0e6",
+    "material": "GOMA",
+    "espesor": 15,
+    "precio": 38.46,
+    "peso": 19
+  },
+  {
+    "id": "aaa3cc94-e02f-4dc0-bebe-216022530b0b",
+    "material": "CARAMELO",
+    "espesor": 6,
+    "precio": 1.1,
+    "peso": 1
+  },
+  {
+    "id": "a86317b6-b9e9-4561-b7b3-abf7025a3414",
+    "material": "CARAMELO",
+    "espesor": 8,
+    "precio": 1.1,
+    "peso": 1
+  },
+  {
+    "id": "296600c9-0307-4294-b3a2-e385c4006f85",
+    "material": "CARAMELO",
+    "espesor": 10,
+    "precio": 1.1,
+    "peso": 1.8
+  },
+  {
+    "id": "3cafd67b-1793-4071-a04d-6e2fa8923770",
+    "material": "CARAMELO",
+    "espesor": 12,
+    "precio": 1.1,
+    "peso": 1
+  },
+  {
+    "id": "eecb99e8-a8c3-43ea-ad04-fd7848771550",
+    "material": "VERDE",
+    "espesor": 6,
+    "precio": 1,
+    "peso": 1
+  },
+  {
+    "id": "6c05997a-9d38-4d18-88e5-5e7d4680a5c0",
+    "material": "VERDE",
+    "espesor": 8,
+    "precio": 1,
+    "peso": 1
+  },
+  {
+    "id": "59c54081-f018-4524-8f7e-d306a12238b8",
+    "material": "VERDE",
+    "espesor": 10,
+    "precio": 1,
+    "peso": 1
+  },
+  {
+    "id": "c02a4243-53b0-4c18-94f1-5f6c3d84b8e9",
+    "material": "VERDE",
+    "espesor": 12,
+    "precio": 1,
+    "peso": 1
+  },
+  {
+    "id": "44bdeabe-d90c-4d7b-8e6d-e2703c039fcd",
+    "material": "FIELTRO",
+    "espesor": 10,
+    "precio": 9.33,
+    "peso": 2.22
+  },
+  {
+    "id": "2b9af1a1-508a-471a-b266-1dc83db8e27a",
+    "material": "FIELTRO",
+    "espesor": 15,
+    "precio": 13.89,
+    "peso": 3.61
+  }
 ]

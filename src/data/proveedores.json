@@ -1,20 +1,23 @@
 [
-  { 
-    "nombre": "Siban", 
-    "email": "siban@siban.com", 
-    "telefono": "+34 900 100 200", 
-    "direccion": "Pol. Ind. Central, Nave 5" 
+  {
+    "id": "33426899-ca5f-47d7-8d1d-4f05a5081c5e",
+    "nombre": "Siban",
+    "email": "siban@siban.com",
+    "telefono": "+34 900 100 200",
+    "direccion": "Pol. Ind. Central, Nave 5"
   },
-  { 
-    "nombre": "Esbelt", 
-    "email": "contacto@esbelt.es", 
-    "telefono": "+34 955 123 456", 
-    "direccion": "Avda. Innovación 12" 
+  {
+    "id": "625c8af6-a838-4c7d-a186-c6a756fbd17b",
+    "nombre": "Esbelt",
+    "email": "contacto@esbelt.es",
+    "telefono": "+34 955 123 456",
+    "direccion": "Avda. Innovación 12"
   },
-  { 
-    "nombre": "Fuda China", 
-    "email": "fuda@sales.ch", 
-    "telefono": "+12 234 567 890", 
-    "direccion": "china" 
+  {
+    "id": "e0926350-c8e6-470b-8fc4-192d3ad37e88",
+    "nombre": "Fuda China",
+    "email": "fuda@sales.ch",
+    "telefono": "+12 234 567 890",
+    "direccion": "china"
   }
 ]
