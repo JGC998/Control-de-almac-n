@@ -63,17 +63,18 @@ export async function POST(request) {
   try {
     const data = await request.json();
     const { 
-      bobinas, 
-      tipo, 
-      gastosTotales, 
-      tasaCambio, 
-      proveedorId, 
-      material,
-      notas,
-      numeroContenedor, // <-- NUEVO
-      naviera, // <-- NUEVO
-      fechaLlegadaEstimada // <-- NUEVO
-    } = data;
+        bobinas, 
+        tipo, 
+        gastosTotales, 
+        tasaCambio, 
+        proveedorId, 
+        material,
+        notas,
+        numeroFactura,
+        numeroContenedor,
+        naviera,
+        fechaLlegadaEstimada
+      } = data;
 
     if (!proveedorId || !material || !bobinas || bobinas.length === 0) {
       return NextResponse.json({ message: 'Faltan datos (proveedor, material o bobinas)' }, { status: 400 });
@@ -85,6 +86,7 @@ export async function POST(request) {
         material: material,
         tipo: tipo,
         notas: notas,
+        numeroFactura: numeroFactura, 
         gastosTotales: parseFloat(gastosTotales) || 0,
         tasaCambio: parseFloat(tasaCambio) || 1,
         estado: 'Pendiente',
@@ -94,6 +96,7 @@ export async function POST(request) {
         bobinas: {
           create: bobinas.map(b => ({
             referenciaId: b.referenciaId || null,
+            cantidad: parseInt(b.cantidad) || 1, 
             ancho: parseFloat(b.ancho) || null,
             largo: parseFloat(b.largo) || null,
             espesor: parseFloat(b.espesor) || null,

@@ -9,7 +9,11 @@ export async function GET(request, { params }) {
     const pedido = await db.pedidoProveedor.findUnique({
       where: { id: id },
       include: {
-        bobinas: true,
+        bobinas: {
+          include: {
+            referencia: true 
+          }
+        },
         proveedor: true,
       },
     });
@@ -41,6 +45,7 @@ export async function PUT(request, { params }) {
           material: pedidoData.material,
           tipo: pedidoData.tipo,
           notas: pedidoData.notas,
+          numeroFactura: pedidoData.numeroFactura, 
           gastosTotales: parseFloat(pedidoData.gastosTotales) || 0,
           tasaCambio: parseFloat(pedidoData.tasaCambio) || 1,
           numeroContenedor: pedidoData.numeroContenedor,
@@ -59,6 +64,7 @@ export async function PUT(request, { params }) {
         await tx.bobinaPedido.createMany({
           data: bobinas.map(b => ({
             referenciaId: b.referenciaId || null,
+            cantidad: parseInt(b.cantidad) || 1, 
             ancho: parseFloat(b.ancho) || null,
             largo: parseFloat(b.largo) || null,
             espesor: parseFloat(b.espesor) || null,

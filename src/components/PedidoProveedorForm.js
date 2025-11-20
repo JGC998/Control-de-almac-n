@@ -238,7 +238,8 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       bobinas: data.bobinas.map(b => ({
         ...b,
         referenciaId: b.referenciaId || '', 
-        referenciaNombre: b.referencia?.nombre || '', 
+        referenciaNombre: b.referencia?.referencia || b.referencia?.nombre || '', 
+        cantidad: b.cantidad || 1, 
         color: b.color || '', 
       })) || [],
     };
@@ -340,12 +341,19 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       setModalState(null);
   };
 
+  // Busca la función addBobina y cámbiala por esta:
   const addBobina = () => {
     setFormData(prev => ({ 
         ...prev, 
         bobinas: [...prev.bobinas, { 
-            referenciaId: '', referenciaNombre: '', 
-            ancho: 0, largo: 0, espesor: '', color: '', precioMetro: 0 
+            referenciaId: '', 
+            referenciaNombre: '', 
+            cantidad: 1,    
+            ancho: 0, 
+            largo: 0, 
+            espesor: '', 
+            color: '', 
+            precioMetro: 0 
         }] 
     }));
   };
@@ -382,6 +390,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       bobinas: formData.bobinas.map(b => ({
         ...b,
         referenciaId: b.referenciaId || null,
+        cantidad: parseInt(b.cantidad) || 1, 
         ancho: parseFloat(b.ancho) || null,
         largo: parseFloat(b.largo) || null,
         espesor: b.espesor ? parseFloat(b.espesor) : null, 
@@ -539,6 +548,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                   <tr>
                     <th className="w-1/3">Referencia</th>
                     {formData.material === 'PVC' && <th>Color</th>}
+                    <th className="w-16">Cantidad</th>
                     <th>Ancho (mm)</th>
                     <th>Largo (m)</th>
                     <th>Espesor (mm)</th>
@@ -552,8 +562,8 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                     <tr><td colSpan={8} className="text-center text-gray-500 py-4">Añade al menos una bobina para comenzar.</td></tr>
                   )}
                   {formData.bobinas.map((bobina, index) => {
-                      const subtotal = (parseFloat(bobina.largo) || 0) * (parseFloat(bobina.precioMetro) || 0);
-
+                      const cantidad = parseInt(bobina.cantidad) || 1;
+                      const subtotal = (parseFloat(bobina.largo) || 0) * (parseFloat(bobina.precioMetro) || 0) * cantidad;
                       return (
                         <tr key={index} className="hover">
                           <td>
@@ -572,6 +582,17 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                                 </div>
                                 {!bobina.referenciaId && <span className="text-xs text-warning mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Selecciona ref.</span>}
                             </div>
+                          </td>
+                          {/* Columna de Cantidad */}
+                          <td className="border p-2">
+                            <input
+                              type="number"
+                              min="1"
+                              className="w-16 p-1 border rounded text-center font-bold text-blue-600"
+                              // ↓↓↓ ESTA ES LA CLAVE DEL ERROR ↓↓↓
+                              value={bobina.cantidad || 1} 
+                              onChange={(e) => handleBobinaChange(index, 'cantidad', e.target.value)}
+                            />
                           </td>
                           
                           {formData.material === 'PVC' && (
