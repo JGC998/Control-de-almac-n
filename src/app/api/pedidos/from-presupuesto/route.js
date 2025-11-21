@@ -66,22 +66,22 @@ export async function POST(request) {
           // FIX #1: Usar connect para la relación cliente
           cliente: { connect: { id: quote.clienteId } },
           
+          // Se traspasan las notas del presupuesto al pedido
           notas: quote.notas,
-          // FIX #2: Usar los totales almacenados del quote (Subtotal de Venta correcto)
+          
           subtotal: quote.subtotal,
           tax: quote.tax,
           total: quote.total,
           
-          // FIX #3: Usar connect para la relación presupuesto (Soluciona el error P1012)
           presupuesto: { connect: { id: quote.id } },
-          marginId: quote.marginId, // Copiamos el ID del margen
+          marginId: quote.marginId, 
           
           items: {
             create: quote.items.map(item => ({
               descripcion: item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
-              pesoUnitario: 0, // El presupuesto no tiene peso, se pone 0
+              pesoUnitario: item.pesoUnitario,
               productoId: item.productoId,
             })),
           },

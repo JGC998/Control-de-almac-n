@@ -59,8 +59,9 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
-    // FIX: Recibimos los totales ya calculados (subtotal, tax, total) y el marginId
-    const { clienteId, items, notes, estado, marginId, subtotal, tax, total } = data; 
+    // FIX: Aceptamos 'notas', 'observaciones' o 'notes' para máxima compatibilidad.
+    const { clienteId, items, estado, marginId, subtotal, tax, total, notes, notas, observaciones } = data; 
+    const finalNotes = notes || notas || observaciones || null; // Coalesce para obtener el valor correcto
 
     if (!clienteId || !items || items.length === 0) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
@@ -74,7 +75,6 @@ export async function POST(request) {
     }
 
     const newQuoteNumber = await getNextPresupuestoNumber();
-    // FIX: Eliminada la llamada a calculateTotalsBackend para usar los valores del cliente.
 
     const newQuote = await db.presupuesto.create({
       data: {
@@ -83,14 +83,13 @@ export async function POST(request) {
         fechaCreacion: new Date().toISOString(),
         estado: estado || 'Borrador',
         
-        // FIX: Usamos connect para el cliente
         cliente: { connect: { id: clienteId } },
-        marginId: marginId, // FIX: Guardar el ID del margen
+        marginId: marginId,
         
-        notas: notes,
-        subtotal: subtotal, // FIX: Usar Subtotal de Venta (con margen/gasto)
-        tax: tax,           // FIX: Usar IVA calculado
-        total: total,       // FIX: Usar Total calculado
+        notas: finalNotes, // Usamos el valor coalesced
+        subtotal: subtotal,
+        tax: tax,
+        total: total,
         
         items: {
           create: items.map(item => ({
@@ -98,6 +97,7 @@ export async function POST(request) {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             productoId: item.productId,
+            pesoUnitario: item.pesoUnitario,
           })),
         },
       },

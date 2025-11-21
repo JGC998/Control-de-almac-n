@@ -131,7 +131,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [items, setItems] = useState(initialData?.items?.map(item => ({...item, id: item.id || Date.now() + Math.random()})) || [{ id: Date.now(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
+  const [items, setItems] = useState(initialData?.items?.map(item => ({...item, id: item.id || Date.now() + Math.random(), pesoUnitario: item.pesoUnitario || 0})) || [{ id: Date.now(), description: '', quantity: 1, unitPrice: 0, productId: null, pesoUnitario: 0 }]);
   const [stockStatus, setStockStatus] = useState({}); 
   const [notes, setNotes] = useState(initialData?.notas || '');
   
@@ -177,7 +177,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   
   // --- LÓGICA DE ITEMS ---
   const addItem = () => {
-    setItems(prev => [...prev, { id: Date.now() + Math.random(), description: '', quantity: 1, unitPrice: 0, productId: null }]);
+    setItems(prev => [...prev, { id: Date.now() + Math.random(), description: '', quantity: 1, unitPrice: 0, productId: null, pesoUnitario: 0 }]);
   };
 
   const removeItem = (itemId) => {
@@ -221,6 +221,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       newItems[index].description = product.nombre;
       newItems[index].productId = product.id;
       newItems[index].unitPrice = parseFloat(product.precioUnitario.toFixed(2));
+      newItems[index].pesoUnitario = parseFloat(product.pesoUnitario || 0);
       
       setItems(newItems);
       setProductSearchState({ isOpen: false, rowIndex: null, initialSearch: '' });
@@ -240,6 +241,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           newItems[index].description = newProduct.nombre;
           newItems[index].productId = newProduct.id;
           newItems[index].unitPrice = parseFloat(newProduct.precioUnitario.toFixed(2));
+          newItems[index].pesoUnitario = parseFloat(newProduct.pesoUnitario || 0);
           setItems(newItems);
           checkStockStatus(newItems[index], newItems[index].id);
       }
@@ -283,9 +285,13 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   };
   
   // --- TOTALES (MANTENIDOS COMPLETOS) ---
-  const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado } = useMemo(() => {
+  const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado, pesoTotalGlobal } = useMemo(() => {
     const subtotalBase = items.reduce((acc, item) => 
         acc + ((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0))
+    , 0);
+
+    const pesoTotalGlobal = items.reduce((acc, item) =>
+        acc + ((parseFloat(item.quantity) || 0) * (parseFloat(item.pesoUnitario) || 0))
     , 0);
     
     const ivaRate = config?.iva_rate ? parseFloat(config.iva_rate) : 0.21;
@@ -312,7 +318,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         tax: parseFloat(tax.toFixed(2)), 
         total: parseFloat(total.toFixed(2)), 
         ivaRate,
-        margenAplicado
+        margenAplicado,
+        pesoTotalGlobal: parseFloat(pesoTotalGlobal.toFixed(3)),
     };
   }, [items, config, selectedMarginId, margenes, isMarginRequired]);
 
@@ -333,6 +340,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               productId: item.productId,
+              pesoUnitario: item.pesoUnitario,
           })),
           subtotal: subtotalConMargen,
           tax: tax,
@@ -400,6 +408,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
                   <th className="w-2/5">Producto (Plantilla)</th> 
                   <th>Cantidad</th>
                   <th>Precio Costo</th>
+                  <th>Peso U.</th>
+                  <th>Peso Total</th>
                   <th>Total</th>
                   <th>Acciones</th>
                 </tr>
@@ -467,6 +477,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
               <div className="divider my-1"></div>
               
               <div className="flex justify-between font-bold text-lg text-primary"><span>Total</span><span>{total.toFixed(2)} €</span></div>
+              <div className="flex justify-between font-semibold mt-2 pt-2 border-t"><span>Peso Total Global</span><span>{pesoTotalGlobal.toFixed(3)} kg</span></div>
             </div>
           </div>
         </div>

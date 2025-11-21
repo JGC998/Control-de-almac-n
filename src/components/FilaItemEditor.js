@@ -12,6 +12,7 @@ export default function FilaItemEditor({
 }) {
     // Calculamos el total de la fila
     const total = (parseFloat(item.quantity || 0) * parseFloat(item.unitPrice || 0)).toFixed(2);
+    const pesoTotal = (parseFloat(item.quantity || 0) * parseFloat(item.pesoUnitario || 0)).toFixed(3);
 
     return (
         <tr className="hover">
@@ -42,6 +43,7 @@ export default function FilaItemEditor({
                                     handleItemChange(index, 'description', '');
                                     handleItemChange(index, 'productId', null);
                                     handleItemChange(index, 'unitPrice', 0);
+                                    handleItemChange(index, 'pesoUnitario', 0);
                                 }}
                              >
                                 <X className="w-3 h-3" />
@@ -77,12 +79,22 @@ export default function FilaItemEditor({
                 />
             </td>
 
-            {/* 5. Total Fila */}
+            {/* 5. Peso Unitario */}
+            <td className="text-right">
+                <span className="text-sm font-mono">{item.pesoUnitario?.toFixed(3) || '0.000'}</span>
+            </td>
+
+            {/* 6. Peso Total */}
+            <td className="font-mono text-right font-semibold">
+                {pesoTotal} kg
+            </td>
+
+            {/* 7. Total Fila */}
             <td className="font-mono text-right font-semibold">
                 {total} €
             </td>
 
-            {/* 6. Acciones */}
+            {/* 8. Acciones */}
             <td>
                 <div className="flex gap-1 justify-center">
                     <button type="button" onClick={() => handleDuplicateItem(item.id)} className="btn btn-ghost btn-xs tooltip" data-tip="Duplicar">

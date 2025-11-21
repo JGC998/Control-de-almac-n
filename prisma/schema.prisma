@@ -115,6 +115,7 @@ model PresupuestoItem {
   description   String
   quantity      Int
   unitPrice     Float
+  pesoUnitario  Float       @default(0)
   presupuestoId String
   productoId    String?
   

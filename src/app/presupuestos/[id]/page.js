@@ -27,11 +27,15 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
     const subtotalVentaFinal = subtotalCostoBase + margenNeto + gastoFijoTotal;
     const taxFinal = subtotalVentaFinal * ivaRate;
     const totalFinal = subtotalVentaFinal + taxFinal;
+    const pesoTotalDelPedido = (quote.items || []).reduce((acc, item) => 
+        acc + ((item.quantity || 0) * (item.pesoUnitario || 0))
+    , 0);
 
     // --- CÁLCULO DEL PRECIO UNITARIO DE VENTA POR ITEM ---
     const calculatedItems = (quote.items || []).map(item => {
         const costoUnitario = item.unitPrice || 0;
         const cantidad = item.quantity || 1;
+        const pesoUnitario = item.pesoUnitario || 0;
 
         // 3a. Calcular la parte del margen sobre el costo unitario
         const margenUnitario = (costoUnitario * (multiplicador - 1));
@@ -51,6 +55,9 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
             // Valores de Venta Calculados
             precioUnitarioVenta: precioUnitarioVenta,
             totalVentaItem: precioUnitarioVenta * cantidad,
+            // Pesos
+            pesoUnitario: pesoUnitario,
+            pesoTotalItem: pesoUnitario * cantidad,
         };
     });
     // --------------------------------------------------
@@ -65,6 +72,8 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
                         <tr>
                             <th>Descripción</th>
                             <th>Cantidad</th>
+                            <th>Peso U.</th>
+                            <th>Peso Total</th>
                             <th>P. Unit. (Costo)</th>
                             <th>Total (Costo)</th>
                             <th className="font-bold text-success">P. Unit. (Venta)</th> 
@@ -76,6 +85,8 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
                             <tr key={index}>
                                 <td className="font-medium">{item.description}</td>
                                 <td>{item.quantity}</td>
+                                <td>{item.pesoUnitario.toFixed(2)} kg</td>
+                                <td>{item.pesoTotalItem.toFixed(2)} kg</td>
                                 {/* MOSTRANDO COSTO (Sin Margen) */}
                                 <td>{item.costoUnitario.toFixed(2)} €</td>
                                 <td>{item.totalCostoItem.toFixed(2)} €</td>
@@ -128,6 +139,13 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
                 <div className="flex justify-between font-bold text-xl text-primary">
                     <span>TOTAL</span> 
                     <span>{totalFinal.toFixed(2)} €</span>
+                </div>
+
+                <div className="divider"></div>
+
+                <div className="flex justify-between font-bold text-l">
+                    <span>Peso Total del Pedido</span> 
+                    <span>{pesoTotalDelPedido.toFixed(2)} kg</span>
                 </div>
             </div>
         </div>
@@ -272,12 +290,16 @@ export default function PresupuestoDetalle() {
         {/* Items y Totales Reconstruidos */}
         <PresupuestoTotalsAndItems quote={quote} margenes={margenes} config={config} />
         
-        {quote.notes && (
-          <div className="mt-6">
-            <h3 className="font-bold">Notas:</h3>
-            <p className="text-gray-600 whitespace-pre-wrap">{quote.notes}</p>
-          </div>
-        )}
+        <div className="divider"></div>
+
+        {/* Bloque de Notas */}
+        <div className="mt-6 bg-base-200 rounded-lg p-4">
+            <h3 className="font-bold text-lg mb-2">Notas del Presupuesto</h3>
+            <p className="text-base-content whitespace-pre-wrap">
+                {quote.notas || 'Sin notas registradas.'}
+            </p>
+        </div>
+
       </div>
     </div>
   );

@@ -12,7 +12,11 @@ export async function GET(request, { params: paramsPromise }) {
       where: { id: id },
       include: {
         cliente: true,
-        items: true,
+        items: {
+          include: {
+            producto: true,
+          }
+        },
       },
     });
 
