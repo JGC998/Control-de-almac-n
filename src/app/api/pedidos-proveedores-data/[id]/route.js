@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/pedidos-proveedores-data/[id]
 export async function GET(request, { params }) {
   try {

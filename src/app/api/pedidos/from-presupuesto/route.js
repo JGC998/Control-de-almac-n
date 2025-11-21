@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { calculateTotalsBackend } from '@/lib/pricing-utils'; 
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
  */

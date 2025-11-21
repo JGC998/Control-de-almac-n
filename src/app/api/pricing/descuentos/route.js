@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // Función de utilidad para manejar tipos
 const getSafeFloat = (value) => {
     if (value === null || value === undefined || value === '') {

@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 // Se mantiene la importación de calculateTotalsBackend por si se usa en otra lógica, aunque se elimina su uso en POST.
 import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Genera el siguiente número secuencial para un presupuesto (ej. 2025-001)
  * Replicando la lógica de dataManager.js

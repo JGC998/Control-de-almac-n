@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache'; 
 import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
+export const dynamic = 'force-dynamic';
+
 // GET: Obtener un pedido específico por ID
 export async function GET(request, { params: paramsPromise }) {
   try {

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // Función para obtener un número de forma segura o null si es inválido/vacío
 const getSafeFloat = (value) => {
     if (value === null || value === undefined || value === '') {

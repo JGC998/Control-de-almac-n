@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 
+export const dynamic = 'force-dynamic';
+
 // Función central de cálculo (Ahora calcula precio y asume dimensiones en milímetros)
 async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
     if (!materialId || !espesor || !largo || !ancho || largo <= 0 || ancho <= 0) {

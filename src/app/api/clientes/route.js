@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/clientes/route.js
 import { crearManejadoresCRUD } from '@/lib/manejadores-api';
 

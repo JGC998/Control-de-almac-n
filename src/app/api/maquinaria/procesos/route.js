@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import fs from 'fs/promises';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
 // Función de utilidad para manejar tipos
 const getSafeString = (value) => {
     return (typeof value === 'string' && value.trim() !== '') ? value.trim() : null;

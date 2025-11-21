@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
+export const dynamic = 'force-dynamic';
+
 // GET: Obtener un presupuesto específico por ID
 export async function GET(request, { params }) {
   try {

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // PUT /api/configuracion/referencias/[id]
 export async function PUT(request, { params: paramsPromise }) {
   try {

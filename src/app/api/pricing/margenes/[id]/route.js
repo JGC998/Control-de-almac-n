@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // PUT /api/pricing/margenes/[id] - Actualiza una regla de margen
 export async function PUT(request, { params }) {
   try {

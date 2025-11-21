@@ -5,6 +5,8 @@ import autoTable from "jspdf-autotable"; // Aseguramos que se use autoTable
 import fs from 'fs/promises';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
 // --- DATOS DE LA EMPRESA (Hardcodeados según solicitud) ---
 const COMPANY_ADDRESS = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
 const COMPANY_PHONE = '957 68 28 19';

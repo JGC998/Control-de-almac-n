@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db'; // Importamos el cliente de BD
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/clientes/[id] - Obtiene un cliente por su ID
 export async function GET(request, { params: paramsPromise }) {
   try {

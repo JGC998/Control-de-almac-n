@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/plantillas/[id] - Es un alias de /api/productos/[id]
 export async function GET(request, { params: paramsPromise }) {
   try {
