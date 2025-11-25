@@ -115,7 +115,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
 }
 
 // --- COMPONENTE PRINCIPAL ---
-export default function ClientOrderForm({ initialData = null, formType = "PRESUPUESTO" }) {
+export default function ClientOrderForm({ initialData = null, formType = "PRESUPUESTO", onSuccess, onCancel }) {
   const router = useRouter();
   const isMarginRequired = formType === "PRESUPUESTO" || formType === "PEDIDO"; 
 
@@ -131,10 +131,31 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [items, setItems] = useState(initialData?.items?.map(item => ({...item, id: item.id || Date.now() + Math.random(), pesoUnitario: item.pesoUnitario || 0})) || [{ id: Date.now(), description: '', quantity: 1, unitPrice: 0, productId: null, pesoUnitario: 0 }]);
+  const [items, setItems] = useState(
+    initialData?.items?.map(item => ({
+        ...item,
+        id: item.id || Date.now() + Math.random(),
+        pesoUnitario: item.pesoUnitario || 0,
+        descripcion: item.producto?.nombre || item.descripcion,
+        producto: item.producto,
+    })) || [{ id: Date.now(), descripcion: '', quantity: 1, unitPrice: 0, productoId: null, pesoUnitario: 0 }]
+  );
   const [stockStatus, setStockStatus] = useState({}); 
   const [notes, setNotes] = useState(initialData?.notas || '');
   
+  useEffect(() => {
+    if (initialData && initialData.items) {
+      console.log("Hydrating form with initialData items:", initialData.items);
+      setItems(initialData.items.map(item => ({
+        ...item,
+        id: item.id || Date.now() + Math.random(),
+        pesoUnitario: item.pesoUnitario || 0,
+        descripcion: item.producto?.nombre || item.descripcion || '',
+        producto: item.producto,
+      })));
+    }
+  }, [initialData]);
+
   const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
   const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null, fetcher);
   const { data: todosProductos, error: prodError } = useSWR('/api/productos', fetcher);
@@ -177,7 +198,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   
   // --- LÓGICA DE ITEMS ---
   const addItem = () => {
-    setItems(prev => [...prev, { id: Date.now() + Math.random(), description: '', quantity: 1, unitPrice: 0, productId: null, pesoUnitario: 0 }]);
+    setItems(prev => [...prev, { id: Date.now() + Math.random(), descripcion: '', quantity: 1, unitPrice: 0, productoId: null, pesoUnitario: 0 }]);
   };
 
   const removeItem = (itemId) => {
@@ -205,12 +226,12 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
         if (field === 'quantity') item[field] = parseFloat(value) || 0;
     }
     setItems(newItems);
-    if (field === 'quantity' && item.productId) checkStockStatus(item, item.id);
+    if (field === 'quantity' && item.productoId) checkStockStatus(item, item.id);
   };
   
   // --- LÓGICA DE BÚSQUEDA DE PRODUCTOS (NUEVA) ---
   const handleOpenProductSearch = (index) => {
-      setProductSearchState({ isOpen: true, rowIndex: index, initialSearch: items[index].description || '' });
+      setProductSearchState({ isOpen: true, rowIndex: index, initialSearch: items[index].descripcion || '' });
   };
 
   const handleProductSelect = (product) => {
@@ -218,8 +239,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       if (index === null) return;
 
       const newItems = [...items];
-      newItems[index].description = product.nombre;
-      newItems[index].productId = product.id;
+      newItems[index].descripcion = product.nombre;
+      newItems[index].productoId = product.id;
       newItems[index].unitPrice = parseFloat(product.precioUnitario.toFixed(2));
       newItems[index].pesoUnitario = parseFloat(product.pesoUnitario || 0);
       
@@ -238,8 +259,8 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       const index = items.findIndex(item => item.id === modalState.itemId);
       if (index !== -1) {
           const newItems = [...items];
-          newItems[index].description = newProduct.nombre;
-          newItems[index].productId = newProduct.id;
+          newItems[index].descripcion = newProduct.nombre;
+          newItems[index].productoId = newProduct.id;
           newItems[index].unitPrice = parseFloat(newProduct.precioUnitario.toFixed(2));
           newItems[index].pesoUnitario = parseFloat(newProduct.pesoUnitario || 0);
           setItems(newItems);
@@ -252,7 +273,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
   // --- STOCK ---
   const checkStockStatus = useCallback(async (item, key) => {
       if (!todosProductos) return; 
-      const product = todosProductos.find(p => p.id === item.productId);
+      const product = todosProductos.find(p => p.id === item.productoId);
       if (!product || !product.material?.nombre || !product.espesor || !product.largo) {
           setStockStatus(prev => ({ ...prev, [key]: { status: 'N/A' } }));
           return;
@@ -275,7 +296,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
 
   const getStockIcon = (item) => { 
     const stockData = stockStatus[item.id];
-    const product = todosProductos?.find(p => p.id === item.productId);
+    const product = todosProductos?.find(p => p.id === item.productoId);
     if (!product) return <Package className="w-5 h-5 text-gray-400" title="Item manual" />;
     if (!stockData || stockData.status === 'N/A') return <Package className="w-5 h-5 text-gray-500" title="Sin datos" />;
     if (stockData.status === 'loading') return <span className="loading loading-spinner loading-xs text-primary" />;
@@ -330,16 +351,16 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       setError(null);
       if (!clienteId) { setError('Debe seleccionar un cliente.'); setIsLoading(false); return; }
       if (isMarginRequired && !selectedMarginId) { setError('Debe seleccionar una Regla de Margen.'); setIsLoading(false); return; }
-      if (items.filter(item => item.quantity > 0 && item.description).length === 0) { setError('Añada items válidos.'); setIsLoading(false); return; }
+      if (items.filter(item => item.quantity > 0 && item.descripcion).length === 0) { setError('Añada items válidos.'); setIsLoading(false); return; }
       
       const dataPayload = {
           clienteId,
           estado: initialData?.estado || 'Borrador',
           items: items.map(item => ({
-              description: item.description,
+              descripcion: item.descripcion,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
-              productId: item.productId,
+              productoId: item.productoId,
               pesoUnitario: item.pesoUnitario,
           })),
           subtotal: subtotalConMargen,
@@ -364,7 +385,11 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
           
           const savedData = await res.json();
-          router.push(formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`);
+          if (isEditMode) {
+              if (onSuccess) onSuccess(savedData);
+          } else {
+              router.push(formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`);
+          }
       } catch (err) {
           setError(err.message);
           setIsLoading(false);
@@ -486,7 +511,7 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
       {error && <div className="alert alert-error shadow-lg my-4">{error}</div>}
 
       <div className="flex justify-end gap-4 mt-6">
-        <button type="button" onClick={() => router.back()} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
+        <button type="button" onClick={onCancel || (() => router.back())} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
         <button type="submit" className="btn btn-primary" disabled={isLoading || !clienteId || (isMarginRequired && !selectedMarginId)}>
           <Save className="w-4 h-4" /> {isLoading ? "Guardando..." : "Guardar"}
         </button>

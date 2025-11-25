@@ -6,10 +6,29 @@ export const dynamic = 'force-dynamic';
 // GET /api/almacen-stock - Obtiene todo el stock
 export async function GET() {
   try {
-    const stockItems = await db.stock.findMany({
-      orderBy: { fechaEntrada: 'desc' },
-    });
-    return NextResponse.json(stockItems);
+    // 1. Obtener todos los items de stock y todos los proveedores en paralelo
+    const [stockItems, proveedores] = await Promise.all([
+      db.stock.findMany({
+        orderBy: [
+          { material: 'asc' },
+          { espesor: 'asc' }
+        ],
+      }),
+      db.proveedor.findMany({
+        select: { id: true, nombre: true },
+      }),
+    ]);
+
+    // 2. Crear un mapa para búsqueda rápida de nombres de proveedor
+    const proveedorMap = new Map(proveedores.map(p => [p.id, p.nombre]));
+
+    // 3. Unir los datos
+    const stockConNombres = stockItems.map(item => ({
+      ...item,
+      proveedorNombre: proveedorMap.get(item.proveedor) || 'N/A',
+    }));
+
+    return NextResponse.json({ stock: stockConNombres });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: 'Error al obtener stock' }, { status: 500 });

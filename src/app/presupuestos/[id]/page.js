@@ -83,7 +83,7 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
                     <tbody>
                         {calculatedItems.map((item, index) => (
                             <tr key={index}>
-                                <td className="font-medium">{item.description}</td>
+                                <td className="font-medium">{item.descripcion}</td>
                                 <td>{item.quantity}</td>
                                 <td>{item.pesoUnitario.toFixed(2)} kg</td>
                                 <td>{item.pesoTotalItem.toFixed(2)} kg</td>

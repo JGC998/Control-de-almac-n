@@ -1,10 +1,10 @@
 "use client";
 import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
-import useSWR, { mutate } from 'swr';
+import useSWR from 'swr';
 import Link from 'next/link';
-// Importamos CheckCircle
-import { ArrowLeft, Edit, Trash2, Download, Truck, FileText, DollarSign, CheckCircle } from 'lucide-react'; 
+import { ArrowLeft, Edit, Trash2, Download, Truck, FileText, DollarSign, CheckCircle } from 'lucide-react';
+import ClientOrderForm from '@/components/ClientOrderForm';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -99,9 +99,12 @@ export default function PedidoDetalle() {
   const { id } = params;
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Cargamos el pedido y la información necesaria para el cálculo
-  const { data: order, error: orderError, isLoading: orderLoading } = useSWR(id ? `/api/pedidos/${id}` : null, fetcher);
+  const openEditModal = () => setIsEditModalOpen(true);
+  const closeEditModal = () => setIsEditModalOpen(false);
+
+  const { data: order, error: orderError, isLoading: orderLoading, mutate } = useSWR(id ? `/api/pedidos/${id}` : null, fetcher);
 
 
   const handleDelete = async () => {
@@ -133,16 +136,15 @@ export default function PedidoDetalle() {
       a.href = url;
       a.download = `pedido-${order.numero}.pdf`;
       document.body.appendChild(a);
-      a.click();
+a.click();
       a.remove();
     } catch (err) {
       setError(err.message);
     }
   };
 
-const handleUpdateStatus = async (newStatus) => {
+  const handleUpdateStatus = async (newStatus) => {
      try {
-        // Obtenemos los totales correctos para la actualización
         const { subtotal, tax, total } = order;
         
         const res = await fetch(`/api/pedidos/${id}`, { 
@@ -159,15 +161,13 @@ const handleUpdateStatus = async (newStatus) => {
           const errData = await res.json();
           throw new Error(errData.message || 'Error al actualizar estado');
         }
-        mutate(`/api/pedidos/${id}`); // Recarga este pedido
-        mutate('/api/pedidos'); // <--- CRUCIAL: REVALIDA LA LISTA GENERAL DE PEDIDOS
-        router.refresh(); // <--- AÑADIDO: Fuerza la re-renderización de las rutas RSC (como /pedidos)
+        mutate(`/api/pedidos/${id}`);
+        router.refresh();
       } catch (err) {
         setError(err.message);
       }
   };
 
-// ... (Resto del componente)
   const isLoading = orderLoading;
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
@@ -184,17 +184,18 @@ const handleUpdateStatus = async (newStatus) => {
 
       {error && <div className="alert alert-error shadow-lg mb-4">{error}</div>}
 
-      {/* Acciones */}
       <div className="flex flex-wrap gap-2 mb-6">
         <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary">
           <Download className="w-4 h-4" /> Descargar PDF
+        </button>
+        <button onClick={openEditModal} className="btn btn-outline btn-primary">
+          <Edit className="w-4 h-4" /> Editar Pedido
         </button>
         {order.presupuestoId && (
             <Link href={`/presupuestos/${order.presupuestoId}`} className="btn btn-outline btn-accent">
                 <FileText className="w-4 h-4" /> Ver Presupuesto
             </Link>
         )}
-        {/* AÑADIDO: Botón principal de Completado */}
         {order.estado !== 'Completado' && (
             <button onClick={() => handleUpdateStatus('Completado')} className="btn btn-success">
                 <CheckCircle className="w-4 h-4" /> Marcar como Completado
@@ -206,12 +207,10 @@ const handleUpdateStatus = async (newStatus) => {
         </button>
       </div>
 
-      {/* Detalles del Pedido */}
       <div className="bg-base-100 shadow-xl rounded-lg p-6">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold">Pedido {order.numero}</h1>
-            {/* CORRECCIÓN: Comprobación de existencia antes de formatear la fecha */}
             <p className="text-gray-500">Fecha: {order.fechaCreacion ? new Date(order.fechaCreacion).toLocaleDateString() : 'N/A'}</p>
              <div className="dropdown dropdown-hover mt-2">
                 <div tabIndex={0} role="button" className={`badge ${order.estado === 'Completado' ? 'badge-success' : (order.estado === 'Enviado' ? 'badge-info' : 'badge-warning')}`}>
@@ -225,7 +224,6 @@ const handleUpdateStatus = async (newStatus) => {
             </div>
           </div>
           <div className="text-right">
-            {/* Se mantiene el encadenamiento opcional para evitar TypeError si el cliente es nulo */}
             <h2 className="text-xl font-bold">{order.cliente?.nombre}</h2>
             <p>{order.cliente?.direccion}</p>
             <p>{order.cliente?.email}</p>
@@ -234,20 +232,36 @@ const handleUpdateStatus = async (newStatus) => {
 
         <div className="divider"></div>
 
-        {/* Items y Totales Reconstruidos */}
         <PedidoTotalsAndItems order={order} />
         
         <div className="divider"></div>
 
-        {/* Bloque de Notas del Pedido */}
         <div className="mt-6 bg-base-200 rounded-lg p-4">
             <h3 className="font-bold text-lg mb-2">Notas del Pedido</h3>
             <p className="text-base-content whitespace-pre-wrap">
                 {order.notas || 'Sin notas registradas.'}
             </p>
         </div>
-        
       </div>
+
+      {/* Modal de Edición del Pedido */}
+      <dialog id="edit_pedido_modal" className={`modal ${isEditModalOpen ? 'modal-open' : ''}`}>
+          <div className="modal-box w-11/12 max-w-7xl">
+              <button onClick={closeEditModal} className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" >✕</button>
+              <h3 className="font-bold text-lg mb-4">Editar Pedido {order.numero}</h3>
+
+              <ClientOrderForm 
+                  initialData={order} 
+                  onSuccess={() => { mutate(`/api/pedidos/${id}`); closeEditModal(); }}
+                  onCancel={closeEditModal}
+                  isEdit={true}
+                  formType="PEDIDO"
+              />
+          </div>
+          <form method="dialog" className="modal-backdrop">
+              <button onClick={closeEditModal}>close</button>
+          </form>
+      </dialog>
     </div>
   );
 }

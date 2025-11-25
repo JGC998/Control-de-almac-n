@@ -65,6 +65,7 @@ export async function GET(request, { params: paramsPromise }) {
         fabricante: true,
         material: true,
         cliente: true,
+        documentos: true,
       },
     });
 

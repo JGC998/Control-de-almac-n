@@ -13,18 +13,15 @@ async function getNextPedidoNumber(tx) {
   const year = new Date().getFullYear();
   const prefix = `PED-${year}-`;
 
-  const lastPedido = await dbClient.pedido.findFirst({
-    where: { numero: { startsWith: prefix } },
-    orderBy: { numero: 'desc' },
-  });
-
-  let nextNum = 1;
-  if (lastPedido) {
-    const numberPart = lastPedido.numero.split('-')[2];
-    nextNum = parseInt(numberPart, 10) + 1;
-  }
+  // Use a database sequence for atomic, concurrent-safe number generation.
+  // The transaction client (tx) is used if available.
+  const result = await dbClient.$queryRaw`SELECT nextval('"Pedido_numero_seq"')`;
   
-  return `${prefix}${String(nextNum).padStart(3, '0')}`;
+  // The result from nextval can be a BigInt. Convert it to a string for padding.
+  const nextVal = result[0].nextval;
+  const nextNumberPadded = String(nextVal).padStart(3, '0');
+
+  return `${prefix}${nextNumberPadded}`;
 }
 
 // POST /api/pedidos/from-presupuesto - Crea un pedido desde un presupuesto
@@ -80,7 +77,7 @@ export async function POST(request) {
           
           items: {
             create: quote.items.map(item => ({
-              descripcion: item.description,
+              descripcion: item.descripcion,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               pesoUnitario: item.pesoUnitario,

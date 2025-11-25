@@ -31,19 +31,22 @@ export async function POST(request) {
     await db.$transaction(async (tx) => {
       // Recorrer bobinas y crear Stock
       for (const bobina of pedido.bobinas) {
-        const metros = parseFloat(bobina.largo) || 0;
+        const metrosPorBobina = parseFloat(bobina.largo) || 0;
+        const cantidadBobinas = parseInt(bobina.cantidad) || 1;
+        const metrosTotales = metrosPorBobina * cantidadBobinas;
+
         const precioBaseOriginal = parseFloat(bobina.precioMetro) || 0;
         
         // Cálculos
         const precioBaseEUR = precioBaseOriginal * (esImportacion ? tasa : 1);
-        const costeTotalBaseLinea = precioBaseEUR * metros;
+        const costeTotalBaseLinea = precioBaseEUR * metrosTotales;
         
         // Prorrateo
         const factorParticipacion = valorTotalMercanciaEUR > 0 ? (costeTotalBaseLinea / valorTotalMercanciaEUR) : 0;
         const gastosAsignados = gastos * factorParticipacion;
         
         // Costo Final Unitario
-        const costoMetroFinal = metros > 0 ? (precioBaseEUR + (gastosAsignados / metros)) : 0;
+        const costoMetroFinal = metrosTotales > 0 ? (precioBaseEUR + (gastosAsignados / metrosTotales)) : 0;
 
         // 3. Actualizar la bobina con el costo final calculado (para histórico)
         await tx.bobinaPedido.update({
@@ -53,25 +56,24 @@ export async function POST(request) {
 
         // 4. Crear entrada en Stock
         const materialNombre = pedido.material || 'Material';
-        // CORREGIDO: Template literals limpios
         const referenciaNombre = bobina.referencia?.nombre || `${materialNombre} ${bobina.espesor}mm`;
 
         await tx.stock.create({
           data: {
             material: materialNombre,
             espesor: bobina.espesor,
-            metrosDisponibles: metros,
+            metrosDisponibles: metrosTotales, // Usar metros totales
             proveedor: pedido.proveedorId,
             costoMetro: costoMetroFinal, 
             fechaEntrada: new Date(),
             ubicacion: 'Recepción',
+            cantidadBobinas: cantidadBobinas, // Guardar cantidad de bobinas
             
             // Registrar el movimiento inicial de entrada
             movimientos: {
               create: {
                 tipo: 'ENTRADA',
-                cantidad: metros,
-                // CORREGIDO: Template literal limpio
+                cantidad: metrosTotales, // Usar metros totales
                 referencia: `Recepción Pedido ${pedido.id.slice(0,8)}`,
                 fecha: new Date()
               }

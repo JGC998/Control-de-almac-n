@@ -81,32 +81,22 @@ export default function PedidoProveedorDetalleModal({ pedido, onClose }) {
               </tr>
             </thead>
             <tbody>
-              {detallesCalculados.map((item, idx) => (
-                <tr key={idx}>
-                  <td className="font-mono">{item.referencia?.referencia || item.referencia?.nombre || 'N/A'}</td>
+              {detallesCalculados.map((item) => (
+                <tr key={item.id}>
+                  <td className="font-mono text-xs">{item.referencia?.referencia || 'N/A'}</td>
                   <td>{item.ancho}mm x {item.largo}m ({item.espesor}mm)</td>
-                  
-                  {/* CELDA DE CANTIDAD */}
                   <td className="text-center font-bold text-blue-600 text-lg">{item.cantidad}</td>
-                  
-                  <td className="text-right">{item.precioMetro.toFixed(2)}</td>
-                  
-                  {/* METROS TOTALES (Para que la multiplicacion Precio * Metros cuadre visualmente) */}
+                  <td className="text-right">{formatCurrency(item.precioMetro, pedido.tipo === 'IMPORTACION' ? 'USD' : 'EUR', 'de-DE')}</td>
                   <td className="text-right border-l border-base-300 font-mono">
                     {item.totalMetrosLinea.toFixed(1)} m
                     {item.cantidad > 1 && <div className="text-[10px] opacity-50 italic">({item.largo}m x {item.cantidad})</div>}
                   </td>
-                  
                   <td className="text-right font-semibold border-l border-base-300">{formatCurrency(item.costeTotalBaseLinea)}</td>
-                  
                   <td className="text-right text-warning border-l border-base-300">
                       <div>+{formatCurrency(item.gastosAsignados)}</div>
                       <div className="text-[10px] opacity-70 font-bold">{item.porcentajeGastos.toFixed(1)}%</div>
                   </td>
-                  
                   <td className="text-right font-bold text-success text-lg border-l border-base-300">{formatCurrency(item.costoUnitarioFinal)}</td>
-                  
-                  {/* TOTAL FINAL (Calculado con metros totales) */}
                   <td className="text-right font-bold">{formatCurrency(item.costoUnitarioFinal * item.totalMetrosLinea)}</td>
                 </tr>
               ))}

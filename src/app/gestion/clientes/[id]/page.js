@@ -1,9 +1,10 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag } from 'lucide-react'; // <-- AÑADIDO: Tag
+import ClientEditModal from '@/components/ClientEditModal';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -47,9 +48,14 @@ export default function ClienteDetalle() {
   const params = useParams();
   const { id } = params;
 
-  const { data: cliente, error: clienteError, isLoading: clienteLoading } = useSWR(id ? `/api/clientes/${id}` : null, fetcher);
+  const { data: cliente, error: clienteError, isLoading: clienteLoading, mutate } = useSWR(id ? `/api/clientes/${id}` : null, fetcher);
   const { data: pedidos, error: pedidosError, isLoading: pedidosLoading } = useSWR(id ? `/api/pedidos?clientId=${id}` : null, fetcher);
   const { data: presupuestos, error: presupuestosError, isLoading: presupuestosLoading } = useSWR(id ? `/api/presupuestos?clientId=${id}` : null, fetcher);
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const openModal = () => setIsEditModalOpen(true);
+  const closeModal = () => setIsEditModalOpen(false);
 
   const isLoading = clienteLoading || pedidosLoading || presupuestosLoading;
 
@@ -74,7 +80,7 @@ export default function ClienteDetalle() {
       {/* Cabecera del Cliente */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold flex items-center"><User className="mr-2" /> {cliente.nombre}</h1>
-        <button onClick={() => alert('Función de editar no conectada a modal')} className="btn btn-outline btn-primary">
+        <button onClick={openModal} className="btn btn-outline btn-primary">
           <Edit className="w-4 h-4" /> Editar Cliente
         </button>
       </div>
@@ -92,6 +98,13 @@ export default function ClienteDetalle() {
         <SectionList title="Presupuestos Recientes" data={presupuestos} pathPrefix="presupuestos" />
         <SectionList title="Pedidos Recientes" data={pedidos} pathPrefix="pedidos" />
       </div>
+
+      <ClientEditModal 
+          cliente={cliente} 
+          isOpen={isEditModalOpen} 
+          onClose={closeModal} 
+          onUpdate={mutate} 
+      />
     </div>
   );
 }

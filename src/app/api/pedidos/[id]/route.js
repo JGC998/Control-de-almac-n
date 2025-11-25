@@ -8,95 +8,97 @@ export const dynamic = 'force-dynamic';
 // GET: Obtener un pedido específico por ID
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; 
-    console.log(`[PEDIDOS-API:GET] Solicitando pedido: ${id}`); // Debug log
+    const { id } = await paramsPromise;
+    console.log(`[PEDIDOS-API:GET] Solicitando pedido: ${id}`);
+    
+    // Incluimos las relaciones confirmadas en el modelo Pedido
     const order = await db.pedido.findUnique({
-      where: { id: id },
+      where: { id },
       include: {
         cliente: true,
+        presupuesto: true, // Corregido a singular
         items: {
+          orderBy: { descripcion: 'asc' },
           include: {
-            producto: true,
-          }
+            producto: true, // Necesario para obtener los datos completos del producto
+          },
         },
       },
     });
 
     if (!order) {
-      console.log(`[PEDIDOS-API:GET] Pedido ${id} no encontrado.`); // Debug log
       return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     }
+
     return NextResponse.json(order);
+
   } catch (error) {
-    console.error('Error al leer el pedido:', error);
-    return NextResponse.json({ message: 'Error interno al leer los datos' }, { status: 500 });
+    console.error('Error al obtener pedido:', error);
+    return NextResponse.json({ message: `Error interno al obtener pedido: ${error.message}` }, { status: 500 });
   }
 }
 
 // PUT: Actualizar un pedido existente (Incluye actualización de estado y sincronización de caché)
 export async function PUT(request, { params: paramsPromise }) {
+  const { id } = await paramsPromise;
   try {
-    const { id } = await paramsPromise; 
     const data = await request.json();
-    const { items, ...rest } = data; // 'rest' contiene datos y objetos de relación
+    const { clienteId, items, notas, subtotal, tax, total, estado, marginId, presupuestoId } = data;
 
-    console.log(`[PEDIDOS-API:PUT] Iniciando actualización de pedido: ${id}`);
-    console.log(`[PEDIDOS-API:PUT] Nuevo estado solicitado: ${rest.estado}`); // Debug log
+    if (!clienteId || !items || items.length === 0) {
+      return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
+    }
 
-    // 1. CREAR OBJETO DE ACTUALIZACIÓN LIMPIO (Solo campos escalares/claves foráneas)
-    const updateData = {
-        // Campos escalares y claves foráneas permitidas por el modelo Pedido
-        numero: rest.numero,
-        fechaCreacion: rest.fechaCreacion,
-        estado: rest.estado, // <-- El estado se actualiza aquí
-        notas: rest.notas,
-        subtotal: rest.subtotal, 
-        tax: rest.tax,
-        total: rest.total,
-        clienteId: rest.clienteId,
-        presupuestoId: rest.presupuestoId,
-        marginId: rest.marginId,
-    };
-
-    const transaction = await db.$transaction(async (tx) => {
-
-      // 1. Actualizar datos principales del pedido
-      const updatedOrder = await tx.pedido.update({
-        where: { id: id },
-        data: updateData, // Usamos los datos limpios
-      });
-
-      // 2. Eliminar todos los items antiguos
+    const updatedOrder = await db.$transaction(async (tx) => {
+      
+      // 1. Eliminar todos los ítems antiguos del pedido
       await tx.pedidoItem.deleteMany({
         where: { pedidoId: id },
       });
 
-      // 3. Crear todos los items nuevos
-      if (items && items.length > 0) {
-        await tx.pedidoItem.createMany({
-          data: items.map(item => ({
-            descripcion: item.descripcion, // Usamos item.descripcion
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            pesoUnitario: item.pesoUnitario || 0,
-            productoId: item.productId,
-            pedidoId: id,
-          })),
-        });
-      }
-      return updatedOrder;
+      // 2. Crear los nuevos ítems
+      const newItems = items.map(item => ({
+        descripcion: item.descripcion,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        pesoUnitario: item.pesoUnitario || 0,
+        productoId: item.productoId,
+        pedidoId: id, // Asegura la referencia
+      }));
+      await tx.pedidoItem.createMany({ data: newItems });
+
+      // 3. Actualizar los datos principales del pedido
+      const order = await tx.pedido.update({
+        where: { id: id },
+        data: {
+          clienteId: clienteId,
+          notas: notas,
+          subtotal: subtotal,
+          tax: tax,
+          total: total,
+          estado: estado,
+          marginId: marginId,
+          presupuestoId: presupuestoId,
+        },
+        include: {
+          cliente: true,
+          presupuesto: true,
+          items: {
+            include: { producto: true },
+          },
+        },
+      });
+      return order;
     });
 
-    // --- FIX CRÍTICO: REVALIDAR LA RUTA DE LISTADO DESDE EL API ---
-    revalidatePath('/pedidos');
-    console.log(`[PEDIDOS-API:PUT] Revalidación de caché para '/pedidos' ejecutada.`); // Debug log
-    // -------------------------------------------------------------
+    return NextResponse.json(updatedOrder);
 
-    return NextResponse.json(transaction, { status: 200 });
   } catch (error) {
-    console.error(`[PEDIDOS-API:PUT] ERROR CRÍTICO:`, error);
-    // Devolvemos un mensaje genérico para evitar exponer detalles internos al cliente.
-    return NextResponse.json({ message: 'Error al actualizar el pedido: Revise los logs del servidor para más detalles.' }, { status: 500 });
+    console.error(`Error al actualizar el pedido ${id}:`, error);
+    if (error.code === 'P2025') {
+        return NextResponse.json({ message: 'Error: El pedido o un registro relacionado no fue encontrado.' }, { status: 404 });
+    }
+    return NextResponse.json({ message: `Error interno al actualizar pedido: ${error.message}` }, { status: 500 });
   }
 }
 

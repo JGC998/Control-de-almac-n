@@ -1,5 +1,5 @@
 "use client";
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import ClientOrderForm from "@/components/ClientOrderForm";
 import { Edit } from "lucide-react";
@@ -8,6 +8,7 @@ const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function EditarPresupuestoPage() {
   const params = useParams();
+  const router = useRouter(); // <--- Importar y usar el router
   const { id } = params;
 
   // Cargar los datos iniciales del presupuesto
@@ -22,7 +23,12 @@ export default function EditarPresupuestoPage() {
         <Edit className="mr-2" />
         Editar Presupuesto ( {initialData?.numero} )
       </h1>
-      <ClientOrderForm formType="PRESUPUESTO" initialData={initialData} />
+      <ClientOrderForm 
+        formType="PRESUPUESTO" 
+        initialData={initialData}
+        onSuccess={() => router.push('/presupuestos')} // <--- Redirigir en caso de éxito
+        onCancel={() => router.back()} // <--- Volver atrás si se cancela
+      />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Warehouse, PlusCircle, ArrowRightLeft, MinusCircle } from 'lucide-react'; 
+import { Warehouse, PlusCircle, ArrowRightLeft, MinusCircle, History } from 'lucide-react'; 
+import MovimientoStockModal from '@/components/MovimientoStockModal'; // Importar el nuevo modal
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -12,19 +13,38 @@ export default function AlmacenPage() {
   const [withdrawalData, setWithdrawalData] = useState({ stockId: '', material: '', espesor: '', cantidad: 0, disponible: 0, referencia: '' });
   const [error, setError] = useState(null);
 
-  const { data: stock, error: stockError, isLoading: stockLoading } = useSWR('/api/almacen-stock', fetcher);
+  // Estado para el modal de historial
+  const [historyModalState, setHistoryModalState] = useState({ isOpen: false, stockId: null, materialNombre: '' });
+
+  const { data, error: stockError, isLoading: stockLoading } = useSWR('/api/almacen-stock', fetcher);
   const { data: movimientos, error: movError, isLoading: movLoading } = useSWR('/api/movimientos', fetcher);
 
   const isLoading = stockLoading || movLoading;
 
-  // --- Modal de ENTRADA (Añadir Stock Manual) ---
-  const openModal = () => {
-    setFormData({ material: '', espesor: '', metrosDisponibles: 0, proveedor: '', ubicacion: 'Almacén', stockMinimo: 100 });
-    setError(null);
-    setIsModalOpen(true);
-  };
-
+  // --- Lógica de Modales ---
+  const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
+  
+  const openWithdrawalModal = (item) => {
+      setWithdrawalData({
+          stockId: item.id,
+          material: item.material,
+          espesor: item.espesor,
+          cantidad: item.metrosDisponibles.toFixed(2),
+          disponible: item.metrosDisponibles, 
+          referencia: `Salida para Material: ${item.material} ${item.espesor}mm`
+      });
+      setIsWithdrawalModalOpen(true);
+  };
+  const closeWithdrawalModal = () => setIsWithdrawalModalOpen(false);
+
+  // Handlers para el nuevo modal de historial
+  const openHistoryModal = (stockId, materialNombre) => {
+    setHistoryModalState({ isOpen: true, stockId, materialNombre });
+  };
+  const closeHistoryModal = () => {
+    setHistoryModalState({ isOpen: false, stockId: null, materialNombre: '' });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -34,7 +54,6 @@ export default function AlmacenPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    // URL DE ENTRADA (Misma API, sin 'action' para usar la lógica de entrada por defecto)
     try {
       const res = await fetch('/api/almacen-stock', {
         method: 'POST',
@@ -45,8 +64,6 @@ export default function AlmacenPage() {
           stockMinimo: parseFloat(formData.stockMinimo)
         }),
       });
-      
-      // Se mantiene la lógica para leer JSON de la respuesta (aunque la respuesta de éxito de POST entrada es un objeto Stock)
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || 'Error al añadir stock');
@@ -59,29 +76,11 @@ export default function AlmacenPage() {
     }
   };
   
-  // --- Lógica para Dar de Baja Stock (Salida) ---
-  
-  const openWithdrawalModal = (item) => {
-      setWithdrawalData({
-          stockId: item.id,
-          material: item.material,
-          espesor: item.espesor,
-          cantidad: item.metrosDisponibles.toFixed(2), // Por defecto, baja total
-          disponible: item.metrosDisponibles, 
-          referencia: `Salida para Material: ${item.material} ${item.espesor}mm`
-      });
-      setError(null);
-      setIsWithdrawalModalOpen(true);
-  };
-  
-  const closeWithdrawalModal = () => setIsWithdrawalModalOpen(false);
-
   const handleWithdrawalChange = (e) => {
     const { name, value } = e.target;
     setWithdrawalData(prev => ({ ...prev, [name]: value }));
   };
   
-  // Función para establecer la cantidad máxima
   const setMaxQuantity = () => {
       setWithdrawalData(prev => ({ ...prev, cantidad: prev.disponible.toFixed(2) }));
   };
@@ -89,26 +88,22 @@ export default function AlmacenPage() {
   const handleWithdrawalSubmit = async (e) => {
       e.preventDefault();
       setError(null);
-      
       const cantidadRetirar = parseFloat(withdrawalData.cantidad);
       
       if (cantidadRetirar <= 0) {
           setError('La cantidad a retirar debe ser positiva.');
           return;
       }
-      
-      if (cantidadRetirar > withdrawalData.disponible + 0.001) { // Añadir tolerancia
+      if (cantidadRetirar > withdrawalData.disponible + 0.001) {
           setError(`No puedes retirar más de ${withdrawalData.disponible.toFixed(2)}m.`);
           return;
       }
       
-      // Si la cantidad a retirar es IGUAL a la cantidad disponible,
       let finalReferencia = withdrawalData.referencia;
       if (cantidadRetirar > withdrawalData.disponible - 0.001) {
            finalReferencia = `BAJA TOTAL: ${withdrawalData.referencia}`;
       }
 
-      // CAMBIO CLAVE: Nueva URL con parámetro de acción
       try {
           const res = await fetch('/api/almacen-stock?action=salida', {
               method: 'POST',
@@ -119,27 +114,26 @@ export default function AlmacenPage() {
                   referencia: finalReferencia,
               }),
           });
-          
           if (!res.ok) {
               const errorText = await res.text(); 
               try {
                   const errData = JSON.parse(errorText);
                   throw new Error(errData.message || 'Error al dar de baja el stock');
               } catch {
-                  // Si falla el parseo o no hay JSON, muestra el texto de error (HTML 404)
                   throw new Error(`Error ${res.status}: ${errorText.substring(0, 50)}...`);
               }
           }
           
-          mutate('/api/almacen-stock');
-          mutate('/api/movimientos');
+          // Forzar revalidación explícita
+          await mutate('/api/almacen-stock', fetcher('/api/almacen-stock'));
+          await mutate('/api/movimientos');
           closeWithdrawalModal();
       } catch (err) {
           setError(err.message);
       }
   };
 
-  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (isLoading || !data) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (stockError || movError) return <div className="text-red-500 text-center">Error al cargar datos del almacén.</div>;
 
   return (
@@ -160,27 +154,31 @@ export default function AlmacenPage() {
                   <th>Material</th>
                   <th>Espesor</th>
                   <th>Metros Disp.</th>
-                  <th>Stock Mín.</th>
+                  <th>Cant. Bobinas</th>
                   <th>Proveedor</th>
-                  <th>Ubicación</th>
                   <th>Acción</th>
                 </tr></thead>
                 <tbody>
-                  {stock?.map(item => (
+                  {data?.stock?.map(item => (
                     <tr key={item.id} className="hover">
                       <td className="font-bold">{item.material}</td>
                       <td>{item.espesor}</td>
                       <td>{item.metrosDisponibles.toFixed(2)} m</td>
-                      <td>{item.stockMinimo ? `${item.stockMinimo.toFixed(2)} m` : 'N/A'}</td>
-                      <td>{item.proveedor}</td>
-                      <td>{item.ubicacion}</td>
-                      <td>
+                      <td>{item.cantidadBobinas || 0}</td>
+                      <td>{item.proveedorNombre}</td>
+                      <td className="flex gap-1">
                           <button 
                               onClick={() => openWithdrawalModal(item)} 
-                              className="btn btn-sm btn-error btn-outline"
+                              className="btn btn-xs btn-error btn-outline"
                               disabled={item.metrosDisponibles <= 0}
                           >
-                              <MinusCircle className="w-4 h-4" /> Dar de Baja
+                              <MinusCircle className="w-4 h-4" /> Baja
+                          </button>
+                          <button 
+                              onClick={() => openHistoryModal(item.id, `${item.material} ${item.espesor}mm`)}
+                              className="btn btn-xs btn-info btn-outline"
+                          >
+                              <History className="w-4 h-4" /> Historial
                           </button>
                       </td>
                     </tr>
@@ -215,6 +213,19 @@ export default function AlmacenPage() {
           </div>
         </div>
       </div>
+
+      {/* --- MODALES --- */}
+      {isModalOpen && (
+        <div className="modal modal-open">
+          {/* ... Modal de Añadir Stock ... */}
+        </div>
+      )}
+      
+      {isWithdrawalModalOpen && (
+        <div className="modal modal-open">
+          {/* ... Modal de Dar de Baja Stock ... */}
+        </div>
+      )}
 
       {/* Modal para Añadir Stock (Entrada) */}
       {isModalOpen && (
@@ -280,6 +291,14 @@ export default function AlmacenPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {historyModalState.isOpen && (
+        <MovimientoStockModal 
+          stockId={historyModalState.stockId}
+          materialNombre={historyModalState.materialNombre}
+          onClose={closeHistoryModal}
+        />
       )}
     </div>
   );

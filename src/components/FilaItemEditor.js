@@ -30,18 +30,18 @@ export default function FilaItemEditor({
                         <input 
                             type="text" 
                             readOnly // IMPORTANTE: No editable a mano para forzar el modal
-                            value={item.description || ''} 
+                            value={item.producto?.nombre || item.descripcion || ''} 
                             placeholder="Buscar producto..." 
-                            className={`input input-bordered input-sm w-full cursor-pointer ${item.productId ? 'input-success' : ''}`}
+                            className={`input input-bordered input-sm w-full cursor-pointer ${item.productoId ? 'input-success' : ''}`}
                         />
-                        {item.productId ? (
+                        {item.productoId ? (
                              <button 
                                 type="button" 
                                 className="btn btn-square btn-sm btn-ghost text-error"
                                 onClick={(e) => {
                                     e.stopPropagation(); // Evitar abrir el modal al borrar
-                                    handleItemChange(index, 'description', '');
-                                    handleItemChange(index, 'productId', null);
+                                    handleItemChange(index, 'descripcion', '');
+                                    handleItemChange(index, 'productoId', null);
                                     handleItemChange(index, 'unitPrice', 0);
                                     handleItemChange(index, 'pesoUnitario', 0);
                                 }}

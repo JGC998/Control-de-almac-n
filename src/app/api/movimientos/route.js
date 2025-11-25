@@ -4,12 +4,22 @@ import { db } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 // GET /api/movimientos - Obtiene los últimos movimientos
-export async function GET() {
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const stockId = searchParams.get('stockId');
+
+    const whereClause = {};
+    if (stockId) {
+      whereClause.stockId = stockId;
+    }
+
     const movimientos = await db.movimientoStock.findMany({
+      where: whereClause,
       orderBy: { fecha: 'desc' },
-      take: 50, // Limita a los últimos 50
+      take: stockId ? undefined : 50, // Sin límite si se filtra por ID
     });
+
     return NextResponse.json(movimientos);
   } catch (error) {
     console.error(error);

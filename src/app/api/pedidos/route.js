@@ -11,18 +11,14 @@ async function getNextPedidoNumber() {
   const year = new Date().getFullYear();
   const prefix = `PED-${year}-`;
 
-  const lastPedido = await db.pedido.findFirst({
-    where: { numero: { startsWith: prefix } },
-    orderBy: { numero: 'desc' },
-  });
-
-  let nextNum = 1;
-  if (lastPedido) {
-    const numberPart = lastPedido.numero.split('-')[2];
-    nextNum = parseInt(numberPart, 10) + 1;
-  }
+  // Use a database sequence for atomic, concurrent-safe number generation.
+  const result = await db.$queryRaw`SELECT nextval('"Pedido_numero_seq"')`;
   
-  return `${prefix}${String(nextNum).padStart(3, '0')}`;
+  // The result from nextval can be a BigInt. Convert it to a string for padding.
+  const nextVal = result[0].nextval;
+  const nextNumberPadded = String(nextVal).padStart(3, '0');
+
+  return `${prefix}${nextNumberPadded}`;
 }
 
 // GET /api/pedidos - Obtiene todos los pedidos
@@ -86,11 +82,11 @@ export async function POST(request) {
         marginId: marginId,
         items: {
           create: items.map(item => ({
-            descripcion: item.description,
+            descripcion: item.descripcion,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             pesoUnitario: item.pesoUnitario || 0,
-            productoId: item.productId,
+            productoId: item.productoId,
           })),
         },
       },

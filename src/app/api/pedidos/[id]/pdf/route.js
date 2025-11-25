@@ -16,12 +16,20 @@ export async function GET(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise; 
 
-    // 1. Obtener todos los datos del Pedido
+    // 1. Obtener todos los datos del Pedido, incluyendo detalles del producto
     const order = await db.pedido.findUnique({
       where: { id: id },
       include: {
         cliente: true,
-        items: true,
+        items: {
+          include: {
+            producto: {
+              include: {
+                material: true, // Incluye el material del producto
+              },
+            },
+          },
+        },
       },
     });
 
@@ -34,6 +42,7 @@ export async function GET(request, { params: paramsPromise }) {
     // --- Inicio de la Generación del PDF ---
     const doc = new jsPDF();
 
+    // Logo (opcional, si existe)
     try {
       // const logoPath = path.join(process.cwd(), 'public', 'logo-crm.png');
       // const logoBuffer = await fs.readFile(logoPath);
@@ -42,13 +51,13 @@ export async function GET(request, { params: paramsPromise }) {
       console.error("No se pudo cargar el logo:", error);
     }
 
+    // Título y datos del pedido
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("NOTA DE TRABAJO", 14, 22); // TÍTULO CAMBIADO
+    doc.text("NOTA DE TRABAJO", 14, 22);
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -61,6 +70,7 @@ export async function GET(request, { params: paramsPromise }) {
     doc.setFont("helvetica", "normal");
     doc.text(`${new Date(order.fechaCreacion).toLocaleDateString('es-ES')}`, 38, 42);
 
+    // Datos del cliente
     doc.rect(14, 50, 90, 28);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -73,8 +83,8 @@ export async function GET(request, { params: paramsPromise }) {
       doc.text(client.email || 'Email no especificado', 20, 74);
     }
 
-    // --- CONSTRUCCIÓN DE LA TABLA PARA NOTA DE TRABAJO ---
-    const tableColumn = ["Descripción", "Cantidad", "Peso Unitario (kg)", "Peso Subtotal (kg)"]; // COLUMNAS CAMBIADAS
+    // --- CONSTRUCCIÓN DE LA TABLA (CON DETALLES AMPLIADOS) ---
+    const tableColumn = ["Descripción", "Detalles", "Cantidad", "Peso Unit. (kg)", "Peso Total (kg)"];
     const tableRows = [];
     let pesoTotalGlobal = 0;
     
@@ -84,8 +94,19 @@ export async function GET(request, { params: paramsPromise }) {
       const pesoSubtotal = cantidad * pesoUnitario;
       pesoTotalGlobal += pesoSubtotal;
 
+      const producto = item.producto;
+      let detalles = 'Item manual';
+      if (producto) {
+        const material = producto.material?.nombre || 'N/A';
+        const espesor = producto.espesor || 'N/A';
+        const largo = producto.largo || 'N/A';
+        const ancho = producto.ancho || 'N/A';
+        detalles = `${material} - ${espesor}mm - ${largo}x${ancho}mm`;
+      }
+
       const itemData = [
         item.descripcion,
+        detalles,
         cantidad,
         pesoUnitario.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 3 }),
         pesoSubtotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 3 })
@@ -98,17 +119,25 @@ export async function GET(request, { params: paramsPromise }) {
       head: [tableColumn],
       body: tableRows,
       startY: 85,
-      theme: 'grid'
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [220, 220, 220], textColor: 40, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 50 }, // Descripción
+        1: { cellWidth: 50 }, // Detalles
+        2: { cellWidth: 'auto', halign: 'center' }, // Cantidad
+        3: { cellWidth: 'auto', halign: 'right' }, // Peso Unit.
+        4: { cellWidth: 'auto', halign: 'right' }  // Peso Total
+      }
     });
 
     let finalY = doc.lastAutoTable.finalY;
 
-    // --- AJUSTE DE POSICIÓN Y SALTO DE PÁGINA ---
-    if (finalY > 250) { // Si la tabla termina muy abajo
+    if (finalY > 250) {
         doc.addPage();
-        finalY = 15; // Posición inicial en la nueva página
+        finalY = 15;
     } else {
-        finalY += 15; // Margen si hay espacio
+        finalY += 15;
     }
     
     // --- TOTALES DE PESO ---
@@ -117,14 +146,27 @@ export async function GET(request, { params: paramsPromise }) {
     const pesoTotalFormateado = pesoTotalGlobal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
     doc.text(`Peso Total Global:`, 125, finalY);
     doc.text(`${pesoTotalFormateado} kg`, 198, finalY, { align: 'right' });
-    // -------------------------
     
-    if (order.notes) {
-      doc.setFontSize(8);
-      doc.text("Notas:", 14, finalY + 15);
-      doc.setFontSize(8);
-      doc.text(order.notes, 14, finalY + 19, { maxWidth: 180 });
+    // --- SECCIÓN DE NOTAS DEL PEDIDO (CORREGIDA Y MEJORADA) ---
+    if (order.notas) { // CORREGIDO: order.notas en lugar de order.notes
+      const notesY = finalY + 15;
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Notas del Pedido:", 14, notesY);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      
+      const textLines = doc.splitTextToSize(order.notas, 180);
+      const textHeight = textLines.length * (doc.getLineHeight() / doc.internal.scaleFactor);
+      
+      doc.setDrawColor(200, 200, 200); 
+      doc.roundedRect(14, notesY + 3, 182, textHeight + 8, 3, 3, 'D'); 
+
+      doc.text(order.notas, 18, notesY + 10, { maxWidth: 178 });
     }
+    // ---------------------------------------------
 
     const pdfBuffer = doc.output('arraybuffer');
 
@@ -132,7 +174,7 @@ export async function GET(request, { params: paramsPromise }) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="notatrabajo-${order.numero}.pdf"`, // Nombre de archivo cambiado
+        'Content-Disposition': `attachment; filename="notatrabajo-${order.numero}.pdf"`,
       },
     });
 

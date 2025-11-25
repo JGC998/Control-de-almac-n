@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -112,7 +112,7 @@ model Presupuesto {
 
 model PresupuestoItem {
   id            String      @id @default(uuid())
-  description   String
+  descripcion   String
   quantity      Int
   unitPrice     Float
   pesoUnitario  Float       @default(0)
@@ -142,6 +142,7 @@ model Stock {
   fechaEntrada      DateTime          @default(now())
   costoMetro        Float?
   stockMinimo       Float?
+  cantidadBobinas   Int?              @default(0)
   movimientos       MovimientoStock[]
 }
 

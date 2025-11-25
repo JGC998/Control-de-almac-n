@@ -63,10 +63,10 @@ export async function PUT(request, { params }) {
       if (items && items.length > 0) {
         await tx.presupuestoItem.createMany({
           data: items.map(item => ({
-            description: item.description,
+            descripcion: item.descripcion,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            productoId: item.productId,
+            productoId: item.productoId,
             pesoUnitario: item.pesoUnitario || 0, // Verificado: Se guarda correctamente
             presupuestoId: id,
           })),

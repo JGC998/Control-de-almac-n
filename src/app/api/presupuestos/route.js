@@ -14,18 +14,14 @@ async function getNextPresupuestoNumber() {
   const year = new Date().getFullYear();
   const prefix = `${year}-`;
 
-  const lastPresupuesto = await db.presupuesto.findFirst({
-    where: { numero: { startsWith: prefix } },
-    orderBy: { numero: 'desc' },
-  });
-
-  let nextNum = 1;
-  if (lastPresupuesto) {
-    const numberPart = lastPresupuesto.numero.split('-')[1];
-    nextNum = parseInt(numberPart, 10) + 1;
-  }
+  // Use a database sequence for atomic, concurrent-safe number generation.
+  const result = await db.$queryRaw`SELECT nextval('"Presupuesto_numero_seq"')`;
   
-  return `${year}-${String(nextNum).padStart(3, '0')}`;
+  // The result from nextval can be a BigInt. Convert it to a string for padding.
+  const nextVal = result[0].nextval;
+  const nextNumberPadded = String(nextVal).padStart(3, '0');
+
+  return `${prefix}${nextNumberPadded}`;
 }
 
 // GET /api/presupuestos - Obtiene todos los presupuestos
@@ -72,7 +68,7 @@ export async function POST(request) {
     // VALIDACIÓN DE TIPOS NUMÉRICOS
     for (const item of items) {
       if (typeof item.quantity !== 'number' || typeof item.unitPrice !== 'number') {
-        return NextResponse.json({ message: `El item "${item.description}" tiene valores no numéricos para cantidad o precio.` }, { status: 400 });
+        return NextResponse.json({ message: `El item "${item.descripcion}" tiene valores no numéricos para cantidad o precio.` }, { status: 400 });
       }
     }
 
@@ -95,10 +91,10 @@ export async function POST(request) {
         
         items: {
           create: items.map(item => ({
-            description: item.description,
+            descripcion: item.descripcion,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            productoId: item.productId,
+            productoId: item.productoId,
             pesoUnitario: item.pesoUnitario,
           })),
         },
