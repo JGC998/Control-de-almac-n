@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
 import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
-export const dynamic = 'force-dynamic';
+
 
 // GET: Obtener un presupuesto específico por ID
 export async function GET(request, { params }) {
@@ -76,6 +77,8 @@ export async function PUT(request, { params }) {
       return quote;
     });
 
+    revalidatePath('/presupuestos'); // Invalidate the list page
+    revalidatePath(`/presupuestos/${id}`); // Invalidate the detail page
     return NextResponse.json(updatedQuote, { status: 200 });
   } catch (error) {
     console.error('Error al actualizar el presupuesto:', error);
@@ -100,6 +103,7 @@ export async function DELETE(request, { params }) {
       });
     });
 
+    revalidatePath('/presupuestos'); // Invalidate the list page
     return NextResponse.json({ message: 'Presupuesto eliminado correctamente' }, { status: 200 });
   } catch (error) {
     console.error('Error al eliminar el presupuesto:', error);

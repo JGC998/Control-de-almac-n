@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+
 
 // GET /api/pedidos-proveedores-data/[id]
 export async function GET(request, { params }) {
@@ -84,6 +85,10 @@ export async function PUT(request, { params }) {
       });
     });
 
+    revalidatePath('/proveedores');
+    revalidatePath('/almacen');
+    revalidatePath('/');
+    revalidatePath(`/pedidos-proveedores-data/${id}`);
     return NextResponse.json(updatedPedido, { status: 200 });
   } catch (error) {
     console.error('Error al actualizar el pedido:', error);
@@ -152,7 +157,9 @@ export async function DELETE(request, { params }) {
             });
         });
 
-        // La mutación de cache de SWR se realiza en el frontend (page.js)
+        revalidatePath('/proveedores');
+        revalidatePath('/almacen');
+        revalidatePath('/');
         return NextResponse.json({ message: 'Pedido de proveedor y stock asociado eliminados correctamente' }, { status: 200 });
     } catch (error) {
         console.error('Error al eliminar el pedido de proveedor:', error);

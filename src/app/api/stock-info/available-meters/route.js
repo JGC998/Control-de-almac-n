@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export const dynamic = 'force-dynamic';
+
 
 // GET /api/stock-info/available-meters?material=X&espesor=Y
 // Returns the total sum of metrosDisponibles for a specific material and espesor.

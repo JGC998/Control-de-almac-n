@@ -1,24 +1,47 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-
-export const dynamic = 'force-dynamic';
+import { revalidatePath } from 'next/cache';
 
 /**
  * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
+ * de forma concurrente y segura para MySQL/MariaDB.
  */
 async function getNextPedidoNumber() {
-  const year = new Date().getFullYear();
-  const prefix = `PED-${year}-`;
+  const sequenceName = 'pedido';
 
-  // Use a database sequence for atomic, concurrent-safe number generation.
-  const result = await db.$queryRaw`SELECT nextval('"Pedido_numero_seq"')`;
-  
-  // The result from nextval can be a BigInt. Convert it to a string for padding.
-  const nextVal = result[0].nextval;
-  const nextNumberPadded = String(nextVal).padStart(3, '0');
+  try {
+    const newNumber = await db.$transaction(async (tx) => {
+      const sequence = await tx.sequence.findUnique({
+        where: { name: sequenceName },
+      });
 
-  return `${prefix}${nextNumberPadded}`;
+      if (!sequence) {
+        await tx.sequence.create({
+          data: { name: sequenceName, value: 1 },
+        });
+        return 1;
+      }
+
+      const nextValue = sequence.value + 1;
+
+      await tx.sequence.update({
+        where: { name: sequenceName },
+        data: { value: nextValue },
+      });
+
+      return nextValue;
+    });
+
+    const year = new Date().getFullYear();
+    const prefix = `PED-${year}-`;
+    const nextNumberPadded = String(newNumber).padStart(3, '0');
+
+    return `${prefix}${nextNumberPadded}`;
+  } catch (error) {
+    console.error('Error al generar el número de pedido:', error);
+    throw new Error('No se pudo generar el número de pedido.');
+  }
 }
 
 // GET /api/pedidos - Obtiene todos los pedidos
@@ -55,7 +78,7 @@ export async function POST(request) {
     const data = await request.json();
     const { clienteId, items, notas, subtotal, tax, total, estado, marginId } = data;
 
-    if (!clienteId || !items || items.length === 0) {
+    if (!clienteId || !items || !items.length === 0) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
     }
 
@@ -90,19 +113,15 @@ export async function POST(request) {
           })),
         },
       },
-    });
-
-    // --- CORRECCIÓN: Volver a buscar el pedido para incluir las relaciones 'cliente' e 'items' ---
-    const populatedOrder = await db.pedido.findUnique({
-      where: { id: newOrder.id },
-      include: {
+      include: { // Include related data in the response
         cliente: true,
         items: true,
-      },
+      }
     });
 
-    return NextResponse.json(populatedOrder, { status: 201 });
-    // ------------------------------------------------------------------------------------------
+    revalidatePath('/pedidos'); // Invalidate cache
+
+    return NextResponse.json(newOrder, { status: 201 });
 
   } catch (error) {
     console.error('Error al crear el pedido:', error);

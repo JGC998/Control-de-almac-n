@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-
-export const dynamic = 'force-dynamic';
+import { revalidatePath } from 'next/cache';
 
 // Función para obtener un número de forma segura o null si es inválido/vacío
 const getSafeFloat = (value) => {
@@ -47,6 +46,7 @@ export async function POST(request) {
         peso: getSafeFloat(data.peso),
       },
     });
+    revalidatePath('/tarifas'); // Invalidate cache after create
     return NextResponse.json(newTarifa, { status: 201 });
   } catch (error) {
     console.error('Error creating tarifa:', error);
@@ -74,6 +74,7 @@ export async function PUT(request) {
         peso: getSafeFloat(data.peso),
       },
     });
+    revalidatePath('/tarifas'); // Invalidate cache after update
     return NextResponse.json(updatedTarifa, { status: 200 });
   } catch (error) {
     console.error('Error updating tarifa:', error);
@@ -98,6 +99,7 @@ export async function DELETE(request) {
     await db.tarifaMaterial.delete({
       where: { id: id },
     });
+    revalidatePath('/tarifas'); // Invalidate cache after delete
     return NextResponse.json({ message: 'Tarifa eliminada.' }, { status: 200 });
   } catch (error) {
     console.error('Error deleting tarifa:', error);

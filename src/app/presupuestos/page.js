@@ -56,7 +56,7 @@ const PresupuestosTable = ({ quotes, title, icon: Icon, isCollapsible = false })
     if (isCollapsible) {
         return (
             <div className="collapse collapse-arrow bg-base-200 mt-4">
-              <input type="checkbox" /> 
+              <input type="checkbox" defaultChecked /> 
               <div className="collapse-title text-xl font-medium flex items-center gap-2">
                 <Icon className="w-5 h-5" /> {title} ({quotes.length})
               </div>
@@ -90,11 +90,8 @@ export default async function PresupuestosPage() {
     orderBy: { fechaCreacion: 'desc' }, // Ordenación por fecha inicial
   });
 
-  // 2. Filtrar por estado
-  const presupuestosActivos = allPresupuestos.filter(q => q.estado === 'Borrador');
-  // Se incluye 'Aceptado' en el historial para mantener la lista de trabajo limpia (Aceptado -> Pedido)
-  const presupuestosHistorial = allPresupuestos.filter(q => q.estado === 'Aceptado' || q.estado === 'Rechazado');
-
+  const presupuestosAceptados = allPresupuestos.filter(p => p.estado === 'Aceptado');
+  const presupuestosBorrador = allPresupuestos.filter(p => p.estado === 'Borrador');
 
   return (
     <div className="container mx-auto p-4">
@@ -105,19 +102,17 @@ export default async function PresupuestosPage() {
         </Link>
       </div>
       
-      <div className="space-y-6">
-        {/* Bloque de Presupuestos Activos (Borrador) */}
+      <div className="space-y-4">
         <PresupuestosTable 
-            quotes={presupuestosActivos} 
-            title="Presupuestos en Borrador" 
-            icon={Clock} 
+            quotes={presupuestosAceptados} 
+            title="Aceptados" 
+            icon={CheckCircle}
+            isCollapsible={true}
         />
-
-        {/* Bloque de Presupuestos Históricos (Aceptados/Rechazados) */}
         <PresupuestosTable 
-            quotes={presupuestosHistorial} 
-            title="Presupuestos Aceptados o Históricos" 
-            icon={CheckCircle} 
+            quotes={presupuestosBorrador} 
+            title="Borradores" 
+            icon={Clock} 
             isCollapsible={true}
         />
       </div>

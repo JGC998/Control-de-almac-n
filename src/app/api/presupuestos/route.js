@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db'; 
 import { v4 as uuidv4 } from 'uuid';
+import { revalidatePath } from 'next/cache';
 // Se mantiene la importación de calculateTotalsBackend por si se usa en otra lógica, aunque se elimina su uso en POST.
 import { calculateTotalsBackend } from '@/lib/pricing-utils';
 
-export const dynamic = 'force-dynamic';
+
 
 /**
  * Genera el siguiente número secuencial para un presupuesto (ej. 2025-001)
@@ -134,6 +135,7 @@ export async function POST(request) {
       },
     });
 
+    revalidatePath('/presupuestos'); // Invalidate cache for the list page
     return NextResponse.json(newQuote, { status: 201 });
   } catch (error) {
     console.error('Error al crear el presupuesto:', error);

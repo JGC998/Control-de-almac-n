@@ -216,9 +216,9 @@ export default function PresupuestoDetalle() {
         }
 
         const newOrder = await res.json();
-        // Opcional: Actualizar el estado del presupuesto si cambia al crear el pedido
-        mutate(`/api/presupuestos/${id}`);
-        mutate('/api/pedidos');
+        // Forzar una actualización de los datos del servidor en el cliente.
+        router.refresh();
+        // Redirigir al nuevo pedido.
         router.push(`/pedidos/${newOrder.id}`);
 
     } catch (err) {

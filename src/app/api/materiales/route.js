@@ -1,14 +1,15 @@
-export const dynamic = 'force-dynamic';
+
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db'; 
 import { crearManejadoresCRUD } from '@/lib/manejadores-api';
+import { revalidatePath } from 'next/cache';
 
 const { GET, POST } = crearManejadoresCRUD('material', {
   findMany: {
     orderBy: { nombre: 'asc' },
   }
-});
+}, '/configuracion');
 
 export { GET, POST };
 
@@ -26,6 +27,7 @@ export async function PUT(request) {
         nombre: data.nombre,
       },
     });
+    revalidatePath('/configuracion'); // Invalidate cache after update
     return NextResponse.json(updatedMaterial);
   } catch (error) {
     console.error('Error updating material:', error);
@@ -58,6 +60,7 @@ export async function DELETE(request) {
     await db.material.delete({
       where: { id: id },
     });
+    revalidatePath('/configuracion'); // Invalidate cache after delete
     return NextResponse.json({ message: 'Material eliminado.' });
   } catch (error) {
     console.error('Error deleting material:', error);

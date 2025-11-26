@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db'; // Importamos el cliente de BD
+import { revalidatePath } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+
 
 // GET /api/clientes/[id] - Obtiene un cliente por su ID
 export async function GET(request, { params: paramsPromise }) {
@@ -37,6 +38,8 @@ export async function PUT(request, { params: paramsPromise }) {
         tier: data.categoria, // <-- CORRECCIÓN CLAVE: Mapear 'categoria' del frontend a 'tier' de Prisma
       },
     });
+    revalidatePath('/gestion/clientes');
+    revalidatePath(`/gestion/clientes/${id}`);
     return NextResponse.json(updatedCliente);
   } catch (error) {
     console.error(error);
@@ -54,6 +57,7 @@ export async function DELETE(request, { params: paramsPromise }) {
     await db.cliente.delete({
       where: { id: id },
     });
+    revalidatePath('/gestion/clientes');
     return NextResponse.json({ message: 'Cliente eliminado' }, { status: 200 });
   } catch (error) {
     console.error(error);

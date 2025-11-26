@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache'; // 👈 Importación requerida
 
-export const dynamic = 'force-dynamic';
+
 
 export async function POST(request) {
   try {
@@ -90,6 +91,10 @@ export async function POST(request) {
       });
     });
 
+    revalidatePath('/almacen');
+    revalidatePath('/proveedores');
+    revalidatePath('/');
+    revalidatePath(`/pedidos-proveedores-data/${pedidoId}`);
     return NextResponse.json({ message: 'Pedido recibido y stock actualizado correctamente' });
 
   } catch (error) {

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+
 
 // PUT /api/proveedores/[id]
 export async function PUT(request, { params: paramsPromise }) {
@@ -18,6 +19,8 @@ export async function PUT(request, { params: paramsPromise }) {
         direccion: data.direccion,
       },
     });
+    revalidatePath('/proveedores');
+    revalidatePath(`/proveedores/${id}`);
     return NextResponse.json(updatedItem);
   } catch (error) {
     if (error.code === 'P2025') {
@@ -38,6 +41,7 @@ export async function DELETE(request, { params: paramsPromise }) {
     await db.proveedor.delete({
       where: { id: id },
     });
+    revalidatePath('/proveedores');
     return NextResponse.json({ message: 'Proveedor eliminado' }, { status: 200 });
   } catch (error) {
     if (error.code === 'P2025') {

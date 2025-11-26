@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+
 
 // src/app/api/clientes/route.js
 import { crearManejadoresCRUD } from '@/lib/manejadores-api';
@@ -12,7 +12,7 @@ const manejadores = crearManejadoresCRUD('cliente', {
     telefono: data.telefono,
     tier: data.categoria, // Mapea 'categoria' del frontend a 'tier' del modelo
   }),
-});
+}, '/gestion/clientes');
 
 export const GET = manejadores.GET;
 export const POST = manejadores.POST;

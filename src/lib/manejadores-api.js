@@ -1,9 +1,10 @@
 // src/lib/manejadores-api.js
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache'; // Import revalidatePath
 import { manejarErrorApi } from '@/utils/utils';
 
-export function crearManejadoresCRUD(modelName, options = {}) {
+export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) { // Renamed parameter
   const model = db[modelName];
 
   const GET = async (request) => {
@@ -23,6 +24,9 @@ export function crearManejadoresCRUD(modelName, options = {}) {
       const finalData = options.mapearCrear ? options.mapearCrear(data) : data;
 
       const newRecord = await model.create({ data: finalData });
+      if (revalidationPath) { // Call revalidatePath if a path is provided
+        revalidatePath(revalidationPath);
+      }
       return NextResponse.json(newRecord, { status: 201 });
     } catch (e) {
       return manejarErrorApi(e);

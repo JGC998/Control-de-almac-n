@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { revalidatePath } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+
 
 /**
  * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
@@ -117,6 +118,9 @@ export async function POST(request) {
       return createdPedido;
     });
 
+    revalidatePath('/pedidos');
+    revalidatePath('/presupuestos');
+    revalidatePath(`/presupuestos/${presupuestoId}`);
     return NextResponse.json(newPedido, { status: 201 });
 
   } catch (error) {

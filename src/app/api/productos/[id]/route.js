@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+
 
 // Función central de cálculo (Ahora calcula precio y asume dimensiones en milímetros)
 async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
@@ -185,7 +186,8 @@ export async function PUT(request, { params: paramsPromise }) {
       where: { id: id },
       data: updateData,
     });
-    
+    revalidatePath('/gestion/productos');
+    revalidatePath(`/gestion/productos/${id}`);
     return NextResponse.json(updatedProducto);
   } catch (error) {
     console.error('Error al actualizar producto:', error);
@@ -203,8 +205,8 @@ export async function DELETE(request, { params: paramsPromise }) {
         await db.producto.delete({
             where: { id: id },
         });
-        return NextResponse.json({ message: 'Producto eliminado' }, { status: 200 });
-    } catch (error) {
+            revalidatePath('/gestion/productos');
+            return NextResponse.json({ message: 'Producto eliminado' }, { status: 200 });    } catch (error) {
         console.error('Error al eliminar producto:', error);
         if (error.code === 'P2025') {
             return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });

@@ -385,6 +385,10 @@ export default function ClientOrderForm({ initialData = null, formType = "PRESUP
           if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
           
           const savedData = await res.json();
+          
+          // FORZAR ACTUALIZACIÓN DE CACHÉ DEL ROUTER
+          router.refresh();
+
           if (isEditMode) {
               if (onSuccess) onSuccess(savedData);
           } else {

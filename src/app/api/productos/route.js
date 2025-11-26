@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { revalidatePath } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+
 
 // Función central de cálculo (Ahora calcula precio y asume dimensiones en milímetros)
 async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
@@ -158,7 +159,7 @@ export async function POST(request) {
         precioVentaFin: precioVentaFin,
       },
     });
-
+    revalidatePath('/gestion/productos');
     return NextResponse.json(nuevoProducto, { status: 201 });
   } catch (error) {
     console.error('Error al crear el producto:', error);

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-
-export const dynamic = 'force-dynamic';
+import { revalidatePath } from 'next/cache'; // 👈 Importación requerida
 
 // GET /api/almacen-stock - Obtiene todo el stock
 export async function GET() {
@@ -113,6 +112,8 @@ export async function POST(request) {
       }
     });
 
+    revalidatePath('/almacen');
+    revalidatePath('/');
     return NextResponse.json({ message: 'Salida de stock por bobinas procesada correctamente.' }, { status: 200 });
 
     } else {
@@ -138,6 +139,8 @@ export async function POST(request) {
                 stockId: newStockItem.id
             }
         });
+        revalidatePath('/almacen');
+        revalidatePath('/');
         return NextResponse.json(newStockItem, { status: 201 });
     }
 
