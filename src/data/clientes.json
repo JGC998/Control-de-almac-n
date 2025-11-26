@@ -1,5 +1,13 @@
 [
   {
+    "id": "ae267d5e-8f02-4d3f-afca-79e1492a2b83",
+    "nombre": "Prueba",
+    "email": "prueba@gmail.es",
+    "direccion": "prueba",
+    "telefono": "123",
+    "tier": "FABRICANTE"
+  },
+  {
     "id": "cli-001",
     "nombre": "Aldama",
     "email": "aldama@contacto.es",

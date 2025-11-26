@@ -1,5 +1,15 @@
 [
   {
+    "id": "4adc6303-c8ed-48e1-a6da-535d90482a6e",
+    "base": "FABRICANTE",
+    "multiplicador": 1.5,
+    "gastoFijo": 0,
+    "descripcion": "FABRICANTE",
+    "tipo": "General",
+    "categoria": null,
+    "tierCliente": "FABRICANTE"
+  },
+  {
     "id": "56a3f64b-76be-4dd9-a508-6479a5f92db2",
     "base": "CLIENTE FINAL",
     "multiplicador": 2,
@@ -18,15 +28,5 @@
     "tipo": "General",
     "categoria": null,
     "tierCliente": "INTERMEDIARIO"
-  },
-  {
-    "id": "4adc6303-c8ed-48e1-a6da-535d90482a6e",
-    "base": "FABRICANTE",
-    "multiplicador": 1.5,
-    "gastoFijo": 0,
-    "descripcion": "FABRICANTE",
-    "tipo": "General",
-    "categoria": null,
-    "tierCliente": "FABRICANTE"
   }
 ]
