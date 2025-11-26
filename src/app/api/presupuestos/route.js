@@ -8,20 +8,53 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Genera el siguiente número secuencial para un presupuesto (ej. 2025-001)
- * Replicando la lógica de dataManager.js
+ * de forma concurrente y segura para MySQL.
  */
 async function getNextPresupuestoNumber() {
-  const year = new Date().getFullYear();
-  const prefix = `${year}-`;
+  const sequenceName = 'presupuesto';
 
-  // Use a database sequence for atomic, concurrent-safe number generation.
-  const result = await db.$queryRaw`SELECT nextval('"Presupuesto_numero_seq"')`;
-  
-  // The result from nextval can be a BigInt. Convert it to a string for padding.
-  const nextVal = result[0].nextval;
-  const nextNumberPadded = String(nextVal).padStart(3, '0');
+  try {
+    // Usamos una transacción para garantizar que la lectura, incremento y escritura
+    // de la secuencia sean una operación atómica, evitando race conditions.
+    const newNumber = await db.$transaction(async (tx) => {
+      // 1. Obtener el registro de la secuencia.
+      const sequence = await tx.sequence.findUnique({
+        where: { name: sequenceName },
+      });
 
-  return `${prefix}${nextNumberPadded}`;
+      if (!sequence) {
+        // Fallback: si la secuencia no existe, la creamos y empezamos en 1.
+        // Esto hace que el seeder no sea estrictamente necesario, pero es una buena práctica tenerlo.
+        await tx.sequence.create({
+          data: { name: sequenceName, value: 1 },
+        });
+        return 1;
+      }
+
+      // 2. Incrementar el valor.
+      const nextValue = sequence.value + 1;
+
+      // 3. Actualizar el valor en la base de datos.
+      await tx.sequence.update({
+        where: { name: sequenceName },
+        data: { value: nextValue },
+      });
+
+      return nextValue;
+    });
+
+    const year = new Date().getFullYear();
+    // NOTA: El número de presupuesto se reinicia cada año? Si no, se puede quitar el año.
+    // Por ahora, se mantiene la lógica original.
+    const prefix = `${year}-`; 
+    const nextNumberPadded = String(newNumber).padStart(3, '0');
+
+    return `${prefix}${nextNumberPadded}`;
+  } catch (error) {
+    console.error('Error al generar el número de presupuesto:', error);
+    // Lanzamos el error para que el endpoint que llama lo capture y devuelva una respuesta 500.
+    throw new Error('No se pudo generar el número de presupuesto.');
+  }
 }
 
 // GET /api/presupuestos - Obtiene todos los presupuestos

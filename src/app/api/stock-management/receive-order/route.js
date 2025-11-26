@@ -68,6 +68,7 @@ export async function POST(request) {
             fechaEntrada: new Date(),
             ubicacion: 'Recepción',
             cantidadBobinas: cantidadBobinas, // Guardar cantidad de bobinas
+            metrosInicialesPorBobina: cantidadBobinas > 0 ? metrosTotales / cantidadBobinas : 0, // Calcular y guardar
             
             // Registrar el movimiento inicial de entrada
             movimientos: {

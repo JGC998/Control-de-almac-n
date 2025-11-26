@@ -1,27 +1,48 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-import { calculateTotalsBackend } from '@/lib/pricing-utils'; 
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
+ * de forma concurrente y segura para MySQL.
  */
-async function getNextPedidoNumber(tx) {
-  const dbClient = tx || db;
-  const year = new Date().getFullYear();
-  const prefix = `PED-${year}-`;
+async function getNextPedidoNumber() {
+  const sequenceName = 'pedido';
 
-  // Use a database sequence for atomic, concurrent-safe number generation.
-  // The transaction client (tx) is used if available.
-  const result = await dbClient.$queryRaw`SELECT nextval('"Pedido_numero_seq"')`;
-  
-  // The result from nextval can be a BigInt. Convert it to a string for padding.
-  const nextVal = result[0].nextval;
-  const nextNumberPadded = String(nextVal).padStart(3, '0');
+  try {
+    const newNumber = await db.$transaction(async (tx) => {
+      const sequence = await tx.sequence.findUnique({
+        where: { name: sequenceName },
+      });
 
-  return `${prefix}${nextNumberPadded}`;
+      if (!sequence) {
+        await tx.sequence.create({
+          data: { name: sequenceName, value: 1 },
+        });
+        return 1;
+      }
+
+      const nextValue = sequence.value + 1;
+
+      await tx.sequence.update({
+        where: { name: sequenceName },
+        data: { value: nextValue },
+      });
+
+      return nextValue;
+    });
+
+    const year = new Date().getFullYear();
+    const prefix = `PED-${year}-`;
+    const nextNumberPadded = String(newNumber).padStart(3, '0');
+
+    return `${prefix}${nextNumberPadded}`;
+  } catch (error) {
+    console.error('Error al generar el número de pedido:', error);
+    throw new Error('No se pudo generar el número de pedido.');
+  }
 }
 
 // POST /api/pedidos/from-presupuesto - Crea un pedido desde un presupuesto
@@ -51,7 +72,7 @@ export async function POST(request) {
       }
 
       // 2. Generar un nuevo número de pedido.
-      const newOrderNumber = await getNextPedidoNumber(tx);
+      const newOrderNumber = await getNextPedidoNumber();
       // Eliminamos la llamada a calculateTotalsBackend y usamos los totales almacenados en el quote (ya correctos)
 
       // 3. Crear el nuevo pedido copiando los datos

@@ -43,49 +43,77 @@ export async function POST(request) {
 
   try {
     if (action === 'salida') {
-        // --- Lógica de SALIDA (Baja de Stock) ---
-        const { stockId, cantidad, referencia } = data;
-        const cantidadFloat = parseFloat(cantidad);
+    // --- Lógica de SALIDA (Baja de Stock por Bobinas) ---
+    // El frontend debe enviar 'cantidadBobinasToDiscard' en lugar de 'cantidad'
+    const { stockId, cantidadBobinasToDiscard, referencia } = data;
 
-        if (!stockId || !cantidad || cantidadFloat <= 0) {
-            return NextResponse.json({ message: 'Se requiere stockId, cantidad y una cantidad positiva para la salida.' }, { status: 400 });
-        }
+    const cantidadBobinasFloat = parseFloat(cantidadBobinasToDiscard);
 
-        await db.$transaction(async (tx) => {
-            const stockItem = await tx.stock.findUnique({ where: { id: stockId } });
-            if (!stockItem) {
-                throw new Error('Item de stock no encontrado.');
-            }
-            
-            const newMetros = stockItem.metrosDisponibles - cantidadFloat;
-            if (newMetros < -0.001) { 
-                throw new Error(`Stock insuficiente. Solo quedan ${stockItem.metrosDisponibles.toFixed(2)}m disponibles.`);
-            }
+    if (!stockId || isNaN(cantidadBobinasFloat) || cantidadBobinasFloat <= 0) {
+      return NextResponse.json(
+        { message: 'Se requiere stockId, cantidadBobinasToDiscard y una cantidad positiva de bobinas para la salida.' },
+        { status: 400 }
+      );
+    }
 
-            // 1. Crear movimiento de salida
-            await tx.movimientoStock.create({
-                data: {
-                    tipo: "Salida",
-                    cantidad: cantidadFloat,
-                    referencia: referencia || `Baja Manual - ID: ${stockId}`,
-                    // stockId es ahora opcional y no necesita cambios aquí
-                    stockId: stockId,
-                },
-            });
+    // Usar una transacción para asegurar la atomicidad
+    await db.$transaction(async (tx) => {
+      const stockItem = await tx.stock.findUnique({ where: { id: stockId } });
 
-            // 2. Actualizar o Eliminar el registro de Stock
-            if (newMetros <= 0.001) { 
-                // Esto disparará onDelete: SetNull en los MovimientosStock vinculados
-                await tx.stock.delete({ where: { id: stockId } });
-            } else {
-                await tx.stock.update({
-                    where: { id: stockId },
-                    data: { metrosDisponibles: newMetros },
-                });
-            }
+      if (!stockItem) {
+        throw new Error('Item de stock no encontrado.');
+      }
+
+      if (!stockItem.metrosInicialesPorBobina) {
+        throw new Error('El item de stock no tiene definido "metrosInicialesPorBobina". No se puede procesar la baja por bobinas.');
+      }
+
+      if (stockItem.cantidadBobinas === null || cantidadBobinasFloat > stockItem.cantidadBobinas) {
+        throw new Error(`Stock insuficiente de bobinas. Solo quedan ${stockItem.cantidadBobinas || 0} bobinas disponibles.`);
+      }
+
+      // Calcular los metros a descontar
+      const metrosADescontar = cantidadBobinasFloat * stockItem.metrosInicialesPorBobina;
+
+      // Validar si hay suficientes metros, aunque priorizamos la baja por bobinas
+      if (metrosADescontar > stockItem.metrosDisponibles) {
+        throw new Error(`Metros insuficientes para ${cantidadBobinasFloat} bobinas. Quedan ${stockItem.metrosDisponibles.toFixed(2)}m.`);
+      }
+
+      // 1. Crear el registro de MovimientoStock
+      await tx.movimientoStock.create({
+        data: {
+          tipo: 'salida_bobina',
+          cantidad: -metrosADescontar, // La cantidad en MovimientoStock sigue siendo metros, pero negativa
+          referencia: referencia || `Baja por ${cantidadBobinasFloat} bobinas - ID: ${stockId}`,
+          stockId: stockId,
+        },
+      });
+
+      // 2. Actualizar el registro de Stock
+      const newCantidadBobinas = stockItem.cantidadBobinas - cantidadBobinasFloat;
+      const newMetrosDisponibles = stockItem.metrosDisponibles - metrosADescontar;
+
+      if (newCantidadBobinas === 0 && newMetrosDisponibles > 0) {
+        // Esto es un caso anómalo, no debería ocurrir si se gestiona bien
+        console.warn(`Advertencia: Se agotaron las bobinas de Stock ${stockId}, pero quedan ${newMetrosDisponibles.toFixed(2)}m.`);
+        // Podríamos decidir eliminar el stock o dejarlo con 0 bobinas y los metros restantes
+        await tx.stock.delete({ where: { id: stockId } }); // O eliminar si el usuario lo prefiere
+      } else if (newCantidadBobinas <= 0 && newMetrosDisponibles <= 0) {
+        // Si se agotan las bobinas y los metros, eliminar el item de stock
+        await tx.stock.delete({ where: { id: stockId } });
+      } else {
+        await tx.stock.update({
+          where: { id: stockId },
+          data: {
+            cantidadBobinas: newCantidadBobinas,
+            metrosDisponibles: newMetrosDisponibles,
+          },
         });
-        
-        return NextResponse.json({ message: 'Salida de stock procesada correctamente.' }, { status: 200 });
+      }
+    });
+
+    return NextResponse.json({ message: 'Salida de stock por bobinas procesada correctamente.' }, { status: 200 });
 
     } else {
         // --- Lógica de ENTRADA (Añadir Stock Manual) ---

@@ -112,12 +112,12 @@ export async function GET(request, { params: paramsPromise }) {
     }
 
     // Usamos las columnas de VENTA para el cliente (Precio Unit. Venta y Total Venta)
-    const tableColumn = ["Descripción", "Cantidad", "Precio Unit.", "Total"];
+    const tableColumn = ["Descripción", "Cantidad", "P. Unit. (Venta)", "Total (Venta)"];
     const tableRows = [];
     
     calculatedItems.forEach(item => {
       const itemData = [
-        item.description,
+        item.descripcion,
         item.quantity,
         // USAMOS EL PRECIO DE VENTA PRORRATEADO
         `${(item.unitPriceVenta || 0).toFixed(2)} €`,

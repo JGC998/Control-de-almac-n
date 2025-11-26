@@ -10,7 +10,7 @@ export default function AlmacenPage() {
   const [formData, setFormData] = useState({ material: '', espesor: '', metrosDisponibles: 0, proveedor: '', ubicacion: 'Almacén', stockMinimo: 100 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
-  const [withdrawalData, setWithdrawalData] = useState({ stockId: '', material: '', espesor: '', cantidad: 0, disponible: 0, referencia: '' });
+  const [withdrawalData, setWithdrawalData] = useState({ stockId: '', material: '', espesor: '', cantidadBobinas: 0, disponibleBobinas: 0, disponibleMetros: 0, referencia: '' });
   const [error, setError] = useState(null);
 
   // Estado para el modal de historial
@@ -30,8 +30,9 @@ export default function AlmacenPage() {
           stockId: item.id,
           material: item.material,
           espesor: item.espesor,
-          cantidad: item.metrosDisponibles.toFixed(2),
-          disponible: item.metrosDisponibles, 
+          cantidadBobinas: item.cantidadBobinas || 0, // Initialize with available bobbins
+          disponibleBobinas: item.cantidadBobinas || 0, // Store total available bobbins
+          disponibleMetros: item.metrosDisponibles || 0, // Store total available meters
           referencia: `Salida para Material: ${item.material} ${item.espesor}mm`
       });
       setIsWithdrawalModalOpen(true);
@@ -88,19 +89,19 @@ export default function AlmacenPage() {
   const handleWithdrawalSubmit = async (e) => {
       e.preventDefault();
       setError(null);
-      const cantidadRetirar = parseFloat(withdrawalData.cantidad);
+      const cantidadBobinasRetirar = parseFloat(withdrawalData.cantidadBobinas);
       
-      if (cantidadRetirar <= 0) {
-          setError('La cantidad a retirar debe ser positiva.');
+      if (isNaN(cantidadBobinasRetirar) || cantidadBobinasRetirar <= 0) {
+          setError('La cantidad de bobinas a retirar debe ser positiva.');
           return;
       }
-      if (cantidadRetirar > withdrawalData.disponible + 0.001) {
-          setError(`No puedes retirar más de ${withdrawalData.disponible.toFixed(2)}m.`);
+      if (cantidadBobinasRetirar > withdrawalData.disponibleBobinas + 0.001) { // Adding small epsilon for float comparison safety
+          setError(`No puedes retirar más de ${withdrawalData.disponibleBobinas} bobinas.`);
           return;
       }
       
       let finalReferencia = withdrawalData.referencia;
-      if (cantidadRetirar > withdrawalData.disponible - 0.001) {
+      if (cantidadBobinasRetirar > withdrawalData.disponibleBobinas - 0.001) { // Adding small epsilon for float comparison safety
            finalReferencia = `BAJA TOTAL: ${withdrawalData.referencia}`;
       }
 
@@ -110,7 +111,7 @@ export default function AlmacenPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                   stockId: withdrawalData.stockId,
-                  cantidad: cantidadRetirar,
+                  cantidadBobinasToDiscard: cantidadBobinasRetirar, // Send new field
                   referencia: finalReferencia,
               }),
           });
@@ -170,7 +171,7 @@ export default function AlmacenPage() {
                           <button 
                               onClick={() => openWithdrawalModal(item)} 
                               className="btn btn-xs btn-error btn-outline"
-                              disabled={item.metrosDisponibles <= 0}
+                              disabled={item.cantidadBobinas <= 0} // Disable if no bobbins
                           >
                               <MinusCircle className="w-4 h-4" /> Baja
                           </button>
@@ -253,25 +254,25 @@ export default function AlmacenPage() {
       {isWithdrawalModalOpen && (
         <div className="modal modal-open">
           <div className="modal-box">
-            <h3 className="font-bold text-lg">Dar de Baja Stock</h3>
+            <h3 className="font-bold text-lg">Dar de Baja Stock (por bobinas)</h3>
             <p className="text-sm text-gray-500 mb-4">
-                Retirando {withdrawalData.material} ({withdrawalData.espesor}mm). Disponible: 
-                <span className="font-semibold text-warning"> {withdrawalData.disponible.toFixed(2)}m</span>
+                Retirando {withdrawalData.material} ({withdrawalData.espesor}mm). 
+                <span className="font-semibold text-warning"> Disponibles: {withdrawalData.disponibleBobinas} bobinas ({withdrawalData.disponibleMetros.toFixed(2)}m)</span>
             </p>
             <form onSubmit={handleWithdrawalSubmit} className="py-4 space-y-4">
               <div className="flex gap-2">
                  <input 
                     type="number" 
-                    step="0.01" 
-                    name="cantidad" 
-                    value={withdrawalData.cantidad} 
+                    step="1" 
+                    name="cantidadBobinas" 
+                    value={withdrawalData.cantidadBobinas} 
                     onChange={handleWithdrawalChange} 
-                    placeholder="Cantidad a Retirar (metros)" 
+                    placeholder="Cantidad de Bobinas a Retirar" 
                     className="input input-bordered w-full" 
                     required 
                 />
-                <button type="button" onClick={setMaxQuantity} className="btn btn-outline btn-sm whitespace-nowrap">
-                    Baja Total ({withdrawalData.disponible.toFixed(2)}m)
+                <button type="button" onClick={() => setWithdrawalData(prev => ({ ...prev, cantidadBobinas: prev.disponibleBobinas }))} className="btn btn-outline btn-sm whitespace-nowrap">
+                    Baja Total ({withdrawalData.disponibleBobinas} bobinas)
                 </button>
               </div>
 
