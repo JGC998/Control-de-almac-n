@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "generate": "prisma generate"
+    "generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:seed": "node scripts/seed.js",
+    "backup": "node scripts/backup.js"
   },
   "dependencies": {
     "@glidejs/glide": "^3.7.1",
