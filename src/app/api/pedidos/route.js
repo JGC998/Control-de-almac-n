@@ -64,7 +64,7 @@ export async function GET(request) {
       },
       orderBy: { fechaCreacion: 'desc' },
     });
-    
+
     return NextResponse.json(pedidos);
   } catch (error) {
     console.error(error);
@@ -78,7 +78,7 @@ export async function POST(request) {
     const data = await request.json();
     const { clienteId, items, notas, subtotal, tax, total, estado, marginId } = data;
 
-    if (!clienteId || !items || !items.length === 0) {
+    if (!clienteId || !items || items.length === 0) {
       return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
     }
 
