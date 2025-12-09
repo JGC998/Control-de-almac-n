@@ -1,23 +1,39 @@
-# Excluir dependencias de Node
+# Dependencias
 node_modules/
 
-# Excluir la carpeta de caché y build de Next.js
+# Next.js
 .next/
+out/
 
-# Excluir logs y otros archivos temporales
+# Logs y temporales
 *.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
 
-# Excluir variables de entorno locales
-.env.local
-
-/src/generated/prisma
+# Variables de entorno
 .env
+.env.local
+.env.*.local
+
+# Prisma
+/src/generated/prisma
 prisma/dev.db
 
-
-# Ignorar bases de datos y backups
+# Bases de datos y backups
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
 /backups/
+
+# Archivos temporales del proyecto
+temp.js
+temp_*.prisma
+nohup.out
+pordondevoy.txt
+hojaDeRuta.md
+
+# Tests
+test-results/
+playwright-report/

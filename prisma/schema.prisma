@@ -7,67 +7,100 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Cliente {
-  id           String           @id @default(uuid())
-  nombre       String           @unique
-  email        String?
-  direccion    String?
-  telefono     String?
-  tier         String?
-  pedidos      Pedido[]
-  presupuestos Presupuesto[]
-  precios      PrecioEspecial[]
-  productos    Producto[]
+model BobinaPedido {
+  id               String            @id
+  cantidad         Int               @default(1)
+  ancho            Float?
+  largo            Float?
+  espesor          Float?
+  precioMetro      Float
+  color            String?
+  costoFinalMetro  Float             @default(0)
+  referenciaId     String?
+  pedidoId         String
+  PedidoProveedor  PedidoProveedor   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  ReferenciaBobina ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
+
+  @@index([pedidoId], map: "BobinaPedido_pedidoId_fkey")
+  @@index([referenciaId], map: "BobinaPedido_referenciaId_fkey")
 }
 
-model Producto {
-  id                   String            @id @default(uuid())
-  nombre               String
-  referenciaFabricante String?           @map("referencia_fab")
-  espesor              Float?
-  largo                Float?
-  ancho                Float?
-  precioUnitario       Float
-  pesoUnitario         Float
-  costoUnitario        Float?            @map("costo")
-  tieneTroquel         Boolean?          @default(false)
-  clienteId            String?
-  fabricanteId         String?
-  materialId           String?
-  precioVentaFab       Float?
-  precioVentaInt       Float?
-  precioVentaFin       Float?
-  
-  cliente              Cliente?          @relation(fields: [clienteId], references: [id])
-  fabricante           Fabricante?       @relation(fields: [fabricanteId], references: [id])
-  material             Material?         @relation(fields: [materialId], references: [id])
-  
-  documentos           Documento[]
-  itemsPedido          PedidoItem[]
-  itemsPresup          PresupuestoItem[]
-  precios              PrecioEspecial[]
+model Cliente {
+  id             String           @id
+  nombre         String           @unique
+  email          String?
+  direccion      String?
+  telefono       String?
+  tier           String?
+  Pedido         Pedido[]
+  PrecioEspecial PrecioEspecial[]
+  Presupuesto    Presupuesto[]
+  Producto       Producto[]
+}
 
-  @@index([clienteId])
-  @@index([materialId])
-  @@index([fabricanteId])
-  @@index([nombre])
-  @@map("Producto")
+model Config {
+  id    String @id
+  key   String @unique
+  value String
+}
+
+model DescuentoTier {
+  id             String         @id
+  cantidadMinima Int
+  descuento      Float
+  reglaId        String
+  ReglaDescuento ReglaDescuento @relation(fields: [reglaId], references: [id], onDelete: Cascade)
+
+  @@index([reglaId], map: "DescuentoTier_reglaId_fkey")
+}
+
+model Documento {
+  id               String    @id
+  tipo             String
+  referencia       String
+  descripcion      String?
+  rutaArchivo      String
+  fechaSubida      DateTime  @default(now())
+  productoId       String?
+  maquinaUbicacion String?
+  Producto         Producto? @relation(fields: [productoId], references: [id])
+
+  @@unique([referencia, rutaArchivo])
+  @@index([productoId], map: "Documento_productoId_fkey")
 }
 
 model Fabricante {
-  id        String     @id @default(uuid())
-  nombre    String     @unique
-  productos Producto[]
+  id       String     @id
+  nombre   String     @unique
+  Producto Producto[]
 }
 
 model Material {
-  id        String     @id @default(uuid())
-  nombre    String     @unique
-  productos Producto[]
+  id       String     @id
+  nombre   String     @unique
+  Producto Producto[]
+}
+
+model MovimientoStock {
+  id         String   @id
+  tipo       String
+  cantidad   Float
+  fecha      DateTime @default(now())
+  referencia String?
+  stockId    String?
+  Stock      Stock?   @relation(fields: [stockId], references: [id])
+
+  @@index([stockId], map: "MovimientoStock_stockId_fkey")
+}
+
+model Nota {
+  id      String   @id
+  content String
+  fecha   DateTime @default(now())
 }
 
 model Pedido {
-  id            String       @id @default(uuid())
+  id            String       @id
   numero        String       @unique
   fechaCreacion DateTime     @default(now())
   estado        String
@@ -78,10 +111,9 @@ model Pedido {
   clienteId     String?
   presupuestoId String?      @unique
   marginId      String?
-  
-  cliente       Cliente?     @relation(fields: [clienteId], references: [id])
-  presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id])
-  items         PedidoItem[]
+  Cliente       Cliente?     @relation(fields: [clienteId], references: [id])
+  Presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id])
+  PedidoItem    PedidoItem[]
 
   @@index([clienteId])
   @@index([estado])
@@ -89,88 +121,22 @@ model Pedido {
 }
 
 model PedidoItem {
-  id           String    @id @default(uuid())
+  id           String    @id
   descripcion  String
   quantity     Int
   unitPrice    Float
   pesoUnitario Float
   pedidoId     String
   productoId   String?
-  
-  pedido       Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  producto     Producto? @relation(fields: [productoId], references: [id], onDelete: Cascade)
-}
+  Pedido       Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  Producto     Producto? @relation(fields: [productoId], references: [id], onDelete: Cascade)
 
-model Presupuesto {
-  id            String            @id @default(uuid())
-  numero        String            @unique
-  fechaCreacion DateTime          @default(now())
-  estado        String
-  notas         String?
-  subtotal      Float
-  tax           Float
-  total         Float
-  clienteId     String?
-  marginId      String?
-  
-  cliente       Cliente?          @relation(fields: [clienteId], references: [id])
-  items         PresupuestoItem[]
-  pedido        Pedido?
-}
-
-model PresupuestoItem {
-  id            String      @id @default(uuid())
-  descripcion   String
-  quantity      Int
-  unitPrice     Float
-  pesoUnitario  Float       @default(0)
-  presupuestoId String
-  productoId    String?
-  
-  presupuesto   Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
-  producto      Producto?   @relation(fields: [productoId], references: [id], onDelete: Cascade)
-}
-
-model Proveedor {
-  id        String            @id @default(uuid())
-  nombre    String            @unique
-  email     String?
-  telefono  String?
-  direccion String?
-  pedidos   PedidoProveedor[]
-}
-
-model Stock {
-  id                      String            @id @default(uuid())
-  material                String
-  espesor                 Float?
-  metrosDisponibles       Float
-  proveedor               String?
-  ubicacion               String?
-  fechaEntrada            DateTime          @default(now())
-  costoMetro              Float?
-  stockMinimo             Float?
-  cantidadBobinas         Int?              @default(0)
-  metrosInicialesPorBobina Float?
-  movimientos             MovimientoStock[]
-
-  @@index([material])
-  @@index([espesor])
-  @@index([material, espesor])
-}
-
-model MovimientoStock {
-  id         String   @id @default(uuid())
-  tipo       String
-  cantidad   Float
-  fecha      DateTime @default(now())
-  referencia String?
-  stockId    String?
-  stockItem  Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
+  @@index([pedidoId], map: "PedidoItem_pedidoId_fkey")
+  @@index([productoId], map: "PedidoItem_productoId_fkey")
 }
 
 model PedidoProveedor {
-  id                   String         @id @default(uuid())
+  id                   String         @id
   material             String
   fecha                DateTime       @default(now())
   estado               String
@@ -183,120 +149,162 @@ model PedidoProveedor {
   tasaCambio           Float?         @default(1)
   gastosTotales        Float?         @default(0)
   proveedorId          String
-  
-  proveedor            Proveedor      @relation(fields: [proveedorId], references: [id])
-  bobinas              BobinaPedido[]
-}
+  BobinaPedido         BobinaPedido[]
+  Proveedor            Proveedor      @relation(fields: [proveedorId], references: [id])
 
-model BobinaPedido {
-  id              String           @id @default(uuid())
-  cantidad        Int              @default(1) 
-  ancho           Float?
-  largo           Float?
-  espesor         Float?
-  precioMetro     Float
-  color           String?
-  costoFinalMetro Float            @default(0)
-  referenciaId    String?
-  pedidoId        String
-  
-  referencia      ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
-  pedido          PedidoProveedor   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-}
-
-model TarifaMaterial {
-  id       String @id @default(uuid())
-  material String
-  espesor  Float
-  precio   Float
-  peso     Float
-  @@unique([material, espesor])
-}
-
-model ReferenciaBobina {
-  id                 String         @id @default(uuid())
-  referencia         String         @map("nombre")
-  ancho              Float?
-  lonas              Int?
-  pesoPorMetroLineal Float?
-  bobinas            BobinaPedido[]
-  @@unique([referencia, ancho, lonas])
-  @@map("ReferenciaBobina")
-}
-
-model ReglaMargen {
-  id            String  @id @default(uuid())
-  base          String  @unique
-  multiplicador Float
-  gastoFijo     Float?
-  descripcion   String
-  tipo          String? @default("General")
-  categoria     String? @map("tipo_categoria")
-  tierCliente   String?
-}
-
-model ReglaDescuento {
-  id          String          @id @default(uuid())
-  descripcion String
-  tipo        String
-  categoria   String?
-  tierCliente String?
-  descuento   Float
-  fechaInicio DateTime?
-  fechaFin    DateTime?
-  tiers       DescuentoTier[]
-}
-
-model DescuentoTier {
-  id             String         @id @default(uuid())
-  cantidadMinima Int
-  descuento      Float
-  reglaId        String
-  regla          ReglaDescuento @relation(fields: [reglaId], references: [id], onDelete: Cascade)
+  @@index([proveedorId], map: "PedidoProveedor_proveedorId_fkey")
 }
 
 model PrecioEspecial {
-  id          String   @id @default(uuid())
+  id          String   @id
   descripcion String
   precio      Float
   clienteId   String
   productoId  String
-  
-  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
-  
+  Cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  Producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
   @@unique([clienteId, productoId])
+  @@index([productoId], map: "PrecioEspecial_productoId_fkey")
 }
 
-model Documento {
-  id               String   @id @default(uuid())
-  tipo             String
-  referencia       String
-  descripcion      String?
-  rutaArchivo      String
-  fechaSubida      DateTime @default(now())
-  productoId       String?
-  maquinaUbicacion String?
-  
-  producto         Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
-  
-  @@unique([referencia, rutaArchivo])
-  @@map("Documento")
+model Presupuesto {
+  id              String            @id
+  numero          String            @unique
+  fechaCreacion   DateTime          @default(now())
+  estado          String
+  notas           String?
+  subtotal        Float
+  tax             Float
+  total           Float
+  clienteId       String?
+  marginId        String?
+  Pedido          Pedido?
+  Cliente         Cliente?          @relation(fields: [clienteId], references: [id])
+  PresupuestoItem PresupuestoItem[]
+
+  @@index([clienteId], map: "Presupuesto_clienteId_fkey")
 }
 
-model Nota {
-  id      String   @id @default(uuid())
-  content String
-  fecha   DateTime @default(now())
+model PresupuestoItem {
+  id            String      @id
+  descripcion   String
+  quantity      Int
+  unitPrice     Float
+  pesoUnitario  Float       @default(0)
+  presupuestoId String
+  productoId    String?
+  Presupuesto   Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+  Producto      Producto?   @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([presupuestoId], map: "PresupuestoItem_presupuestoId_fkey")
+  @@index([productoId], map: "PresupuestoItem_productoId_fkey")
 }
 
-model Config {
-  id    String @id @default(uuid())
-  key   String @unique
-  value String
+model Producto {
+  id              String            @id
+  nombre          String
+  referencia_fab  String?
+  espesor         Float?
+  largo           Float?
+  ancho           Float?
+  precioUnitario  Float
+  pesoUnitario    Float
+  costo           Float?
+  tieneTroquel    Boolean?          @default(false)
+  clienteId       String?
+  fabricanteId    String?
+  materialId      String?
+  precioVentaFab  Float?
+  precioVentaInt  Float?
+  precioVentaFin  Float?
+  Documento       Documento[]
+  PedidoItem      PedidoItem[]
+  PrecioEspecial  PrecioEspecial[]
+  PresupuestoItem PresupuestoItem[]
+  Cliente         Cliente?          @relation(fields: [clienteId], references: [id])
+  Fabricante      Fabricante?       @relation(fields: [fabricanteId], references: [id])
+  Material        Material?         @relation(fields: [materialId], references: [id])
+
+  @@index([clienteId])
+  @@index([fabricanteId], map: "Producto_fabricanteId_fkey")
+  @@index([materialId], map: "Producto_materialId_fkey")
+  @@index([nombre])
+}
+
+model Proveedor {
+  id              String            @id
+  nombre          String            @unique
+  email           String?
+  telefono        String?
+  direccion       String?
+  PedidoProveedor PedidoProveedor[]
+}
+
+model ReferenciaBobina {
+  id                 String         @id
+  nombre             String
+  ancho              Float?
+  lonas              Int?
+  pesoPorMetroLineal Float?
+  BobinaPedido       BobinaPedido[]
+
+  @@unique([nombre, ancho, lonas])
+}
+
+model ReglaDescuento {
+  id            String          @id
+  descripcion   String
+  tipo          String
+  categoria     String?
+  tierCliente   String?
+  descuento     Float
+  fechaInicio   DateTime?
+  fechaFin      DateTime?
+  DescuentoTier DescuentoTier[]
+}
+
+model ReglaMargen {
+  id             String  @id
+  base           String  @unique
+  multiplicador  Float
+  gastoFijo      Float?
+  descripcion    String
+  tipo           String? @default("General")
+  tipo_categoria String?
+  tierCliente    String?
 }
 
 model Sequence {
   name  String @id
   value Int
+}
+
+model Stock {
+  id                       String            @id
+  material                 String
+  espesor                  Float?
+  metrosDisponibles        Float
+  proveedor                String?
+  ubicacion                String?
+  fechaEntrada             DateTime          @default(now())
+  costoMetro               Float?
+  stockMinimo              Float?
+  cantidadBobinas          Int?              @default(0)
+  metrosInicialesPorBobina Float?
+  MovimientoStock          MovimientoStock[]
+
+  @@index([espesor])
+  @@index([material, espesor])
+  @@index([material])
+}
+
+model TarifaMaterial {
+  id       String @id
+  material String
+  espesor  Float
+  precio   Float
+  peso     Float
+
+  @@unique([material, espesor])
 }
