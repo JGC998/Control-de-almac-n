@@ -47,6 +47,10 @@ model Producto {
   itemsPresup          PresupuestoItem[]
   precios              PrecioEspecial[]
 
+  @@index([clienteId])
+  @@index([materialId])
+  @@index([fabricanteId])
+  @@index([nombre])
   @@map("Producto")
 }
 
@@ -78,6 +82,10 @@ model Pedido {
   cliente       Cliente?     @relation(fields: [clienteId], references: [id])
   presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id])
   items         PedidoItem[]
+
+  @@index([clienteId])
+  @@index([estado])
+  @@index([fechaCreacion])
 }
 
 model PedidoItem {
@@ -145,6 +153,10 @@ model Stock {
   cantidadBobinas         Int?              @default(0)
   metrosInicialesPorBobina Float?
   movimientos             MovimientoStock[]
+
+  @@index([material])
+  @@index([espesor])
+  @@index([material, espesor])
 }
 
 model MovimientoStock {
