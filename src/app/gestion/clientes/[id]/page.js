@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag } from 'lucide-react'; // <-- AÑADIDO: Tag
-import ClientEditModal from '@/components/ClientEditModal';
+import ClientEditModal from '@/componentes/modales/ModalEditarCliente';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 

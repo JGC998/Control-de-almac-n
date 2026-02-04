@@ -9,147 +9,132 @@ const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Componente para manejar el desglose del total y los cálculos por item.
 const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
-    const ivaRate = config?.iva_rate || 0.21;
-    const marginRule = margenes?.find(m => m.id === quote.marginId);
+  const ivaRate = config?.iva_rate || 0.21;
+  const marginRule = margenes?.find(m => m.id === quote.marginId);
 
-    // 1. Calcular el Costo Base Total de todos los ítems.
-    // item.unitPrice en Presupuesto contiene el COSTO BASE (materia prima por pieza).
-    const subtotalCostoBase = (quote.items || []).reduce((acc, item) => 
-        acc + ((item.quantity || 0) * (item.unitPrice || 0))
+  // 1. Calcular el Costo Base Total de todos los ítems.
+  // item.unitPrice en Presupuesto contiene el COSTO BASE (precio del producto).
+  const subtotalCostoBase = (quote.items || []).reduce((acc, item) =>
+    acc + ((item.quantity || 0) * (item.unitPrice || 0))
     , 0);
 
-    // 2. Obtener la regla de margen y gastos fijos.
-    const multiplicador = marginRule?.multiplicador || 1;
-    const gastoFijoTotal = marginRule?.gastoFijo || 0;
-    
-    // 3. Calcular los totales de Venta (Re-cálculo para consistencia)
-    const margenNeto = (subtotalCostoBase * (multiplicador - 1)) || 0;
-    const subtotalVentaFinal = subtotalCostoBase + margenNeto + gastoFijoTotal;
-    const taxFinal = subtotalVentaFinal * ivaRate;
-    const totalFinal = subtotalVentaFinal + taxFinal;
-    const pesoTotalDelPedido = (quote.items || []).reduce((acc, item) => 
-        acc + ((item.quantity || 0) * (item.pesoUnitario || 0))
-    , 0);
+  // 2. Obtener la regla de margen y gastos fijos.
+  const multiplicador = marginRule?.multiplicador || 1;
+  const gastoFijoTotal = marginRule?.gastoFijo || 0;
 
-    // --- CÁLCULO DEL PRECIO UNITARIO DE VENTA POR ITEM ---
-    const calculatedItems = (quote.items || []).map(item => {
-        const costoUnitario = item.unitPrice || 0;
-        const cantidad = item.quantity || 1;
-        const pesoUnitario = item.pesoUnitario || 0;
+  // 3. Calcular los totales de Venta
+  const margenNeto = (subtotalCostoBase * (multiplicador - 1)) || 0;
+  const subtotalVentaFinal = subtotalCostoBase + margenNeto + gastoFijoTotal;
+  const taxFinal = subtotalVentaFinal * ivaRate;
+  const totalFinal = subtotalVentaFinal + taxFinal;
 
-        // 3a. Calcular la parte del margen sobre el costo unitario
-        const margenUnitario = (costoUnitario * (multiplicador - 1));
-        
-        // 3b. Prorratear el Gasto Fijo total entre TODAS las unidades del pedido
-        const totalQuantity = (quote.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
-        const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
-        
-        // 3c. Precio Unitario de Venta
-        const precioUnitarioVenta = costoUnitario + margenUnitario + gastoFijoUnitarioProrrateado;
+  // --- CÁLCULO DEL PRECIO UNITARIO DE VENTA POR ITEM ---
+  const calculatedItems = (quote.items || []).map(item => {
+    const costoUnitario = item.unitPrice || 0;
+    const cantidad = item.quantity || 1;
 
-        return {
-            ...item,
-            // Valores de Coste (Uso Interno)
-            costoUnitario: costoUnitario,
-            totalCostoItem: costoUnitario * cantidad,
-            // Valores de Venta Calculados
-            precioUnitarioVenta: precioUnitarioVenta,
-            totalVentaItem: precioUnitarioVenta * cantidad,
-            // Pesos
-            pesoUnitario: pesoUnitario,
-            pesoTotalItem: pesoUnitario * cantidad,
-        };
-    });
-    // --------------------------------------------------
+    // 3a. Calcular la parte del margen sobre el costo unitario
+    const margenUnitario = (costoUnitario * (multiplicador - 1));
 
-    return (
-        <div className="flex justify-between gap-6">
-            {/* Columna de ítems */}
-            <div className="flex-1 overflow-x-auto">
-                <table className="table w-full">
-                    <thead>
-                        {/* AÑADIDO: Columnas de Costo (Uso Interno) */}
-                        <tr>
-                            <th>Descripción</th>
-                            <th>Cantidad</th>
-                            <th>Peso U.</th>
-                            <th>Peso Total</th>
-                            <th>P. Unit. (Costo)</th>
-                            <th>Total (Costo)</th>
-                            <th className="font-bold text-success">P. Unit. (Venta)</th> 
-                            <th className="font-bold text-success text-right">Total (Venta)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {calculatedItems.map((item, index) => (
-                            <tr key={index}>
-                                <td className="font-medium">{item.descripcion}</td>
-                                <td>{item.quantity}</td>
-                                <td>{item.pesoUnitario.toFixed(2)} kg</td>
-                                <td>{item.pesoTotalItem.toFixed(2)} kg</td>
-                                {/* MOSTRANDO COSTO (Sin Margen) */}
-                                <td>{item.costoUnitario.toFixed(2)} €</td>
-                                <td>{item.totalCostoItem.toFixed(2)} €</td>
-                                {/* MOSTRANDO VENTA (Con Margen) */}
-                                <td className="font-bold text-success">{item.precioUnitarioVenta.toFixed(2)} €</td>
-                                <td className="font-bold text-success text-right">{item.totalVentaItem.toFixed(2)} €</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+    // 3b. Prorratear el Gasto Fijo total entre TODAS las unidades del pedido
+    const totalQuantity = (quote.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+    const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
 
-            {/* Columna de Totales (Desglose) */}
-            <div className="w-full max-w-xs space-y-2">
-                <div className="divider">Desglose de Costes</div>
-                
-                <div className="flex justify-between">
-                    <span>Subtotal (Costo Base)</span> 
-                    <span>{subtotalCostoBase.toFixed(2)} €</span>
-                </div>
-                
-                {multiplicador > 1 && (
-                    <div className="flex justify-between text-accent font-medium">
-                        <span>Margen (x{multiplicador.toFixed(2)})</span>
-                        <span>+ {margenNeto.toFixed(2)} €</span>
-                    </div>
-                )}
-                
-                {gastoFijoTotal > 0 && (
-                    <div className="flex justify-between text-accent font-medium">
-                        <span>Gasto Fijo</span>
-                        <span>+ {gastoFijoTotal.toFixed(2)} €</span>
-                    </div>
-                )}
+    // 3c. Precio Unitario de Venta
+    const precioUnitarioVenta = costoUnitario + margenUnitario + gastoFijoUnitarioProrrateado;
 
-                <div className="divider my-1"></div>
-                
-                <div className="flex justify-between font-semibold">
-                    <span>Subtotal (Venta)</span> 
-                    <span>{subtotalVentaFinal.toFixed(2)} €</span>
-                </div>
-                
-                <div className="flex justify-between">
-                    <span>IVA ({((ivaRate || 0.21) * 100).toFixed(0)}%)</span> 
-                    <span>{taxFinal.toFixed(2)} €</span>
-                </div>
-                
-                <div className="divider my-1"></div>
-                
-                <div className="flex justify-between font-bold text-xl text-primary">
-                    <span>TOTAL</span> 
-                    <span>{totalFinal.toFixed(2)} €</span>
-                </div>
+    return {
+      ...item,
+      // Valores de Coste (Uso Interno)
+      costoUnitario: costoUnitario,
+      totalCostoItem: costoUnitario * cantidad,
+      // Valores de Venta Calculados
+      precioUnitarioVenta: precioUnitarioVenta,
+      totalVentaItem: precioUnitarioVenta * cantidad,
+    };
+  });
+  // --------------------------------------------------
 
-                <div className="divider"></div>
+  return (
+    <div className="flex flex-col md:flex-row justify-between gap-6">
+      {/* Columna de ítems */}
+      <div className="flex-1 overflow-x-auto">
+        <table className="table w-full">
+          <thead>
+            {/* AÑADIDO: Columnas de Costo (Uso Interno) */}
+            <tr>
+              <th>Descripción</th>
+              <th className="text-center">Cantidad</th>
+              <th className="text-right">P. Unit. (Costo)</th>
+              <th className="text-right">Total (Costo)</th>
+              <th className="font-bold text-success text-right">P. Unit. (Venta)</th>
+              <th className="font-bold text-success text-right">Total (Venta)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {calculatedItems.map((item, index) => (
+              <tr key={index}>
+                <td className="font-medium">
+                  {item.descripcion}
+                  {item.producto && <div className="text-xs opacity-50">{item.producto.nombre}</div>}
+                </td>
+                <td className="text-center">{item.quantity}</td>
+                {/* MOSTRANDO COSTO (Sin Margen) */}
+                <td className="text-right">{item.costoUnitario.toFixed(2)} €</td>
+                <td className="text-right">{item.totalCostoItem.toFixed(2)} €</td>
+                {/* MOSTRANDO VENTA (Con Margen) */}
+                <td className="font-bold text-success text-right">{item.precioUnitarioVenta.toFixed(2)} €</td>
+                <td className="font-bold text-success text-right">{item.totalVentaItem.toFixed(2)} €</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-                <div className="flex justify-between font-bold text-l">
-                    <span>Peso Total del Pedido</span> 
-                    <span>{pesoTotalDelPedido.toFixed(2)} kg</span>
-                </div>
-            </div>
+      {/* Columna de Totales (Desglose) */}
+      <div className="w-full md:max-w-xs space-y-2 bg-base-200 p-4 rounded-lg h-fit">
+        <div className="font-bold text-lg mb-2">Desglose de Costes</div>
+
+        <div className="flex justify-between">
+          <span>Subtotal (Costo Base)</span>
+          <span>{subtotalCostoBase.toFixed(2)} €</span>
         </div>
-    );
+
+        {multiplicador > 1 && (
+          <div className="flex justify-between text-accent font-medium">
+            <span>Margen (x{multiplicador.toFixed(2)})</span>
+            <span>+ {margenNeto.toFixed(2)} €</span>
+          </div>
+        )}
+
+        {gastoFijoTotal > 0 && (
+          <div className="flex justify-between text-accent font-medium">
+            <span>Gasto Fijo</span>
+            <span>+ {gastoFijoTotal.toFixed(2)} €</span>
+          </div>
+        )}
+
+        <div className="divider my-1"></div>
+
+        <div className="flex justify-between font-semibold">
+          <span>Subtotal (Venta)</span>
+          <span>{subtotalVentaFinal.toFixed(2)} €</span>
+        </div>
+
+        <div className="flex justify-between">
+          <span>IVA ({((ivaRate || 0.21) * 100).toFixed(0)}%)</span>
+          <span>{taxFinal.toFixed(2)} €</span>
+        </div>
+
+        <div className="divider my-1"></div>
+
+        <div className="flex justify-between font-bold text-xl text-primary">
+          <span>TOTAL</span>
+          <span>{totalFinal.toFixed(2)} €</span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 
@@ -201,28 +186,28 @@ export default function PresupuestoDetalle() {
       setError(err.message);
     }
   };
-  
+
   const handleCreateOrder = async () => {
     try {
-        const res = await fetch('/api/pedidos/from-presupuesto', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ presupuestoId: id })
-        });
+      const res = await fetch('/api/pedidos/from-presupuesto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presupuestoId: id })
+      });
 
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.message || 'Error al crear el pedido');
-        }
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Error al crear el pedido');
+      }
 
-        const newOrder = await res.json();
-        // Forzar una actualización de los datos del servidor en el cliente.
-        router.refresh();
-        // Redirigir al nuevo pedido.
-        router.push(`/pedidos/${newOrder.id}`);
+      const newOrder = await res.json();
+      // Forzar una actualización de los datos del servidor en el cliente.
+      router.refresh();
+      // Redirigir al nuevo pedido.
+      router.push(`/pedidos/${newOrder.id}`);
 
     } catch (err) {
-        setError(err.message);
+      setError(err.message);
     }
   };
 
@@ -231,10 +216,10 @@ export default function PresupuestoDetalle() {
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (quoteError || !quote) {
-      if (quoteError?.status === 404) return notFound();
-      return <div className="text-red-500 text-center">Error al cargar el presupuesto.</div>;
+    if (quoteError?.status === 404) return notFound();
+    return <div className="text-red-500 text-center">Error al cargar el presupuesto.</div>;
   }
-  
+
   const margenAplicado = margenes?.find(m => m.id === quote.marginId);
 
 
@@ -272,10 +257,10 @@ export default function PresupuestoDetalle() {
             <span className="badge badge-info mt-2">{quote.estado}</span>
             {/* Información del Margen Aplicado */}
             {margenAplicado && (
-                <div className="flex items-center mt-2 text-sm text-accent">
-                    <DollarSign className="w-4 h-4 mr-1" />
-                    Margen Aplicado: <span className="font-semibold ml-1">{margenAplicado.descripcion}</span>
-                </div>
+              <div className="flex items-center mt-2 text-sm text-accent">
+                <DollarSign className="w-4 h-4 mr-1" />
+                Margen Aplicado: <span className="font-semibold ml-1">{margenAplicado.descripcion}</span>
+              </div>
             )}
           </div>
           <div className="text-right">
@@ -289,15 +274,15 @@ export default function PresupuestoDetalle() {
 
         {/* Items y Totales Reconstruidos */}
         <PresupuestoTotalsAndItems quote={quote} margenes={margenes} config={config} />
-        
+
         <div className="divider"></div>
 
         {/* Bloque de Notas */}
         <div className="mt-6 bg-base-200 rounded-lg p-4">
-            <h3 className="font-bold text-lg mb-2">Notas del Presupuesto</h3>
-            <p className="text-base-content whitespace-pre-wrap">
-                {quote.notas || 'Sin notas registradas.'}
-            </p>
+          <h3 className="font-bold text-lg mb-2">Notas del Presupuesto</h3>
+          <p className="text-base-content whitespace-pre-wrap">
+            {quote.notas || 'Sin notas registradas.'}
+          </p>
         </div>
 
       </div>

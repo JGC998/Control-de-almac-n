@@ -1,7 +1,7 @@
 "use client";
 import { useParams, notFound } from 'next/navigation';
 import useSWR from 'swr';
-import PedidoProveedorForm from "@/components/PedidoProveedorForm";
+import PedidoProveedorForm from "@/componentes/pedidos/FormularioPedidoProveedor";
 import { Edit } from "lucide-react";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());

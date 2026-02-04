@@ -2,98 +2,25 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
-
-
-// Función central de cálculo (Ahora calcula precio y asume dimensiones en milímetros)
-async function calculateCostAndWeight(materialId, espesor, largo, ancho) {
-    if (!materialId || !espesor || !largo || !ancho || largo <= 0 || ancho <= 0) {
-        return { costo: 0, peso: 0, precio: 0, tarifaPrecioM2: null };
-    }
-
-    // 1. Obtener el nombre del material para buscar la tarifa
-    const material = await db.material.findUnique({
-      where: { id: materialId },
-      select: { nombre: true }
-    });
-
-    if (!material) {
-        return { costo: 0, peso: 0, precio: 0, tarifaPrecioM2: null };
-    }
-
-    // 2. Buscar la TarifaMaterial usando el nombre del material
-    const tarifa = await db.tarifaMaterial.findUnique({
-        where: { 
-            material_espesor: { 
-                material: material.nombre,
-                espesor: espesor
-            }
-        },
-    });
-
-    if (!tarifa || tarifa.precio <= 0) {
-        return { costo: 0, peso: 0, precio: 0, tarifaPrecioM2: null };
-    }
-
-    // 3. Aplicar las fórmulas de cálculo (Dimensiones EN MILÍMETROS, conversión a M²)
-    const largo_m = parseFloat(largo) / 1000;
-    const ancho_m = parseFloat(ancho) / 1000;
-    
-    // Área M2 = Largo(m) * Ancho(m)
-    const areaM2 = largo_m * ancho_m; 
-    
-    const costo = areaM2 * tarifa.precio; 
-    const peso = areaM2 * tarifa.peso;     
-    const precio = costo; // Precio Unitario base (sin margen)
-
-    return { 
-        costo: parseFloat(costo.toFixed(2)), 
-        peso: parseFloat(peso.toFixed(2)),
-        precio: parseFloat(precio.toFixed(2)),
-        tarifaPrecioM2: tarifa.precio // <-- Añadido el precio por m2 de la tarifa
-    };
-}
-
-
 // GET /api/productos/[id] - Obtiene un producto por su ID
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; 
-    
-    // 1. Fetch main product data with relations
+    const { id } = await paramsPromise;
+    const productoId = parseInt(id);
+
+    if (isNaN(productoId)) {
+      return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
+    }
+
     const producto = await db.producto.findUnique({
-      where: { id: id },
-      include: {
-        fabricante: true,
-        material: true,
-        cliente: true,
-        documentos: true,
-      },
+      where: { id: productoId },
     });
 
     if (!producto) {
       return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
     }
-    
-    // 2. Fetch the corresponding TarifaMaterial for display (based on material name and espesor)
-    let tarifaPrecioM2 = null;
-    if (producto.material?.nombre && producto.espesor !== null) {
-        const tarifa = await db.tarifaMaterial.findUnique({
-            where: {
-                material_espesor: {
-                    material: producto.material.nombre,
-                    espesor: producto.espesor
-                }
-            },
-            select: { precio: true } // Solo selecciona el precio por m2
-        });
-        tarifaPrecioM2 = tarifa?.precio || null;
-    }
 
-    // 3. Return the product data, injecting the tariff price
-    return NextResponse.json({
-        ...producto,
-        tarifaPrecioM2: tarifaPrecioM2 // NUEVO CAMPO PARA EL FRONTEND
-    });
+    return NextResponse.json(producto);
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: 'Error al obtener producto' }, { status: 500 });
@@ -103,89 +30,26 @@ export async function GET(request, { params: paramsPromise }) {
 // PUT /api/productos/[id] - Actualiza un producto
 export async function PUT(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; 
+    const { id } = await paramsPromise;
+    const productoId = parseInt(id);
+    if (isNaN(productoId)) {
+      return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
+    }
+
     const data = await request.json();
 
-    // 1. Buscar IDs de Fabricante y Material
-    const fabricante = await db.fabricante.findUnique({
-      where: { nombre: data.fabricante },
-    });
-    const material = await db.material.findUnique({
-      where: { nombre: data.material },
-    });
-
-    if (!fabricante) {
-      return NextResponse.json({ message: `Fabricante "${data.fabricante}" no encontrado.` }, { status: 400 });
-    }
-    if (!material) {
-      return NextResponse.json({ message: `Material "${data.material}" no encontrado.` }, { status: 400 });
-    }
-    
-    // 2. Calcular Precio Unitario (Costo Pieza), Peso Unitario
-    const { 
-        costo: calculatedCosto, 
-        peso: calculatedPeso,
-        precio: calculatedPrecio // ESTO ES EL COSTO BASE DE LA PIEZA (€)
-    } = await calculateCostAndWeight(
-        material.id, // Usar ID de Material
-        parseFloat(data.espesor), 
-        parseFloat(data.largo), 
-        parseFloat(data.ancho)
-    );
-    
-    // ----------------------------------------------------------------------
-    // --- LÓGICA DE RECÁLCULO DE PRECIOS DE VENTA (INSERTADO) ---
-    // ----------------------------------------------------------------------
-    const margenes = await db.reglaMargen.findMany();
-    
-    const applyMargin = (costo, tier) => {
-        const regla = margenes.find(m => m.tierCliente === tier);
-        if (!regla) return null;
-        
-        const multiplicador = regla.multiplicador || 1;
-        const gastoFijo = regla.gastoFijo || 0;
-        
-        // Aplicar la fórmula: (Costo * Multiplicador) + Gasto Fijo
-        return (costo * multiplicador) + gastoFijo;
-    };
-
-    const precioVentaFab = applyMargin(calculatedPrecio, 'FABRICANTE');
-    const precioVentaInt = applyMargin(calculatedPrecio, 'INTERMEDIARIO');
-    const precioVentaFin = applyMargin(calculatedPrecio, 'CLIENTE FINAL');
-    // ----------------------------------------------------------------------
-
-    // 3. Generar el nombre del producto: (Referencia fabricante + Material + Fabricante)
-    const newNombre = `${data.modelo} - ${material.nombre} - ${fabricante.nombre}`;
-
-
-    // Prepara los datos para la actualización
-    const updateData = {
-        nombre: newNombre, 
-        referenciaFabricante: data.modelo, 
-        espesor: parseFloat(data.espesor) || 0,
-        largo: parseFloat(data.largo) || 0,
-        ancho: parseFloat(data.ancho) || 0,
-        // Usar los valores calculados
-        precioUnitario: calculatedPrecio || 0, 
-        pesoUnitario: calculatedPeso || 0, 
-        costoUnitario: 0, 
-
-        // AÑADIDO: Los nuevos campos de precios de venta
-        precioVentaFab: precioVentaFab,
-        precioVentaInt: precioVentaInt,
-        precioVentaFin: precioVentaFin, 
-        
-        fabricanteId: fabricante.id,
-        materialId: material.id,
-        clienteId: data.clienteId || null,
-        tieneTroquel: data.tieneTroquel || false,
-    };
-
+    const updateData = {};
+    if (data.nombre !== undefined) updateData.nombre = data.nombre;
+    if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
+    if (data.precio !== undefined) updateData.precio = parseFloat(data.precio);
+    if (data.stock !== undefined) updateData.stock = parseInt(data.stock);
+    if (data.categoria !== undefined) updateData.categoria = data.categoria;
 
     const updatedProducto = await db.producto.update({
-      where: { id: id },
+      where: { id: productoId },
       data: updateData,
     });
+
     revalidatePath('/gestion/productos');
     revalidatePath(`/gestion/productos/${id}`);
     return NextResponse.json(updatedProducto);
@@ -200,21 +64,23 @@ export async function PUT(request, { params: paramsPromise }) {
 
 // DELETE /api/productos/[id] - Elimina un producto
 export async function DELETE(request, { params: paramsPromise }) {
-    try {
-        const { id } = await paramsPromise; 
-        await db.producto.delete({
-            where: { id: id },
-        });
-            revalidatePath('/gestion/productos');
-            return NextResponse.json({ message: 'Producto eliminado' }, { status: 200 });    } catch (error) {
-        console.error('Error al eliminar producto:', error);
-        if (error.code === 'P2025') {
-            return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
-        }
-        // Error de clave foránea (si el producto está en un pedido)
-        if (error.code === 'P2003' || error.code === 'P2014') {
-            return NextResponse.json({ message: 'Error: El producto está siendo usado en pedidos o presupuestos y no se puede eliminar.' }, { status: 409 });
-        }
-        return NextResponse.json({ message: 'Error al eliminar producto' }, { status: 500 });
+  try {
+    const { id } = await paramsPromise;
+    const productoId = parseInt(id);
+    if (isNaN(productoId)) {
+      return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
     }
+
+    await db.producto.delete({
+      where: { id: productoId },
+    });
+    revalidatePath('/gestion/productos');
+    return NextResponse.json({ message: 'Producto eliminado' }, { status: 200 });
+  } catch (error) {
+    console.error('Error al eliminar producto:', error);
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
+    }
+    return NextResponse.json({ message: 'Error al eliminar producto' }, { status: 500 });
+  }
 }

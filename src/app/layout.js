@@ -1,8 +1,8 @@
 "use client";
 import { useState } from 'react';
 import './globals.css';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
+import BarraLateral from '@/componentes/layout/BarraLateral';
+import Encabezado from '@/componentes/layout/Encabezado';
 import { SWRConfig } from 'swr';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
@@ -14,7 +14,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning={true}>
       <body className={`antialiased min-h-screen`}>
-        <SWRConfig 
+        <SWRConfig
           value={{
             fetcher,
             revalidateOnFocus: true,
@@ -24,24 +24,24 @@ export default function RootLayout({ children }) {
           }}
         >
           <div className="drawer lg:drawer-open">
-            <input 
-              id="my-drawer" 
-              type="checkbox" 
-              className="drawer-toggle" 
-              checked={isDrawerOpen} 
-              onChange={toggleDrawer} 
+            <input
+              id="my-drawer"
+              type="checkbox"
+              className="drawer-toggle"
+              checked={isDrawerOpen}
+              onChange={toggleDrawer}
             />
-            
+
             <div className="drawer-content flex flex-col h-screen">
-              <Header toggleDrawer={toggleDrawer} />
+              <Encabezado toggleDrawer={toggleDrawer} />
               <main className="flex-1 overflow-y-auto p-4 bg-base-100">
                 {children}
               </main>
             </div>
-            
+
             <div className="drawer-side z-50">
               <label htmlFor="my-drawer" aria-label="close sidebar" className="drawer-overlay"></label>
-              <Sidebar />
+              <BarraLateral />
             </div>
           </div>
         </SWRConfig>

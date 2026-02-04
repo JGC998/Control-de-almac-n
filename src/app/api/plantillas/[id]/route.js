@@ -6,13 +6,12 @@ export const dynamic = 'force-dynamic';
 // GET /api/plantillas/[id] - Es un alias de /api/productos/[id]
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; // <-- CORREGIDO
+    const { id } = await paramsPromise;
+    const pId = parseInt(id);
+    if (isNaN(pId)) return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
+
     const producto = await db.producto.findUnique({
-      where: { id: id },
-      include: {
-        fabricante: true,
-        material: true,
-      },
+      where: { id: pId },
     });
 
     if (!producto) {

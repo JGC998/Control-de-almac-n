@@ -1,21 +1,35 @@
 "use client";
-import CatalogManager from '@/components/CatalogManager';
+import { PaginaGestion } from '@/componentes/patrones';
 import { Layers } from 'lucide-react';
+
+/**
+ * Página de Gestión de Materiales (Refactorizada)
+ * Antes usaba GestorCatalogo, ahora usa PaginaGestion directamente
+ */
+
+const columnasMaterial = [
+  { clave: 'nombre', etiqueta: 'Nombre' },
+];
+
+const camposMaterial = [
+  {
+    clave: 'nombre',
+    etiqueta: 'Nombre del Material',
+    requerido: true,
+    placeholder: 'Ej: Goma, Fieltro, PVC'
+  },
+];
 
 export default function GestionMaterialesPage() {
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 flex items-center">
-        <Layers className="mr-2" /> Gestión de Materiales
-      </h1>
-        <CatalogManager
-          title="Materiales"
-          endpoint="/api/materiales"
-          initialForm={{ nombre: '' }}
-          columns={[
-            { key: 'nombre', label: 'Nombre' },
-          ]}
-        />
-    </div>
+    <PaginaGestion
+      titulo="Materiales"
+      icono={Layers}
+      recursoApi="/api/materiales"
+      columnas={columnasMaterial}
+      campos={camposMaterial}
+      tituloNuevo="Nuevo Material"
+      tituloEditar="Editar Material"
+    />
   );
 }

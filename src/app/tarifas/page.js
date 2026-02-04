@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Table, FileSpreadsheet, TrendingUp } from 'lucide-react'; // Importa TrendingUp
-import TarifasTable from '@/components/TarifasTable';
-import BulkPriceUpdateModal from '@/components/BulkPriceUpdateModal'; // Importa el Modal
+import TablaTarifas from '@/componentes/productos/TablaTarifas';
+import BulkPriceUpdateModal from '@/componentes/modales/ModalActualizacionPrecios'; // Importa el Modal
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -26,20 +26,20 @@ export default function TarifasPage() {
         <h1 className="text-3xl font-bold flex items-center">
           <FileSpreadsheet className="mr-2 text-primary" /> Gestión de Tarifas
         </h1>
-        
+
 
       </div>
 
       <div className="bg-base-100 rounded-lg shadow-xl p-6">
-        <TarifasTable 
-          initialTarifas={tarifas} 
-          materiales={materiales} 
-          onDataChange={handleDataChange} 
+        <TablaTarifas
+          initialTarifas={tarifas}
+          materiales={materiales}
+          onDataChange={handleDataChange}
         />
       </div>
 
       {/* MODAL DE ACTUALIZACIÓN MASIVA */}
-      <BulkPriceUpdateModal 
+      <BulkPriceUpdateModal
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
         materiales={materiales}

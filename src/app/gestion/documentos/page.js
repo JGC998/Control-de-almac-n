@@ -6,12 +6,12 @@ import { FileText, PlusCircle, Edit, Trash2, ExternalLink, Upload, Search, Packa
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import QuickProductForm from '../../../components/QuickProductForm'; 
+import QuickProductForm from '@/componentes/modales/ModalCreacionRapida';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const initialFormData = {
-  id: null, tipo: 'PLANO', referencia: '', descripcion: '', rutaArchivo: '', productoId: '', maquinaUbicacion: '', file: null, productoNombre: ''
+    id: null, tipo: 'PLANO', referencia: '', descripcion: '', rutaArchivo: '', productoId: '', maquinaUbicacion: '', file: null, productoNombre: ''
 };
 
 // --- NUEVO COMPONENTE: MODAL DE BÚSQUEDA DE PRODUCTOS ---
@@ -27,7 +27,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
         return productos.filter(p => {
             const term = search.toLowerCase();
             return p.nombre?.toLowerCase().includes(term) ||
-                   p.referenciaFabricante?.toLowerCase().includes(term);
+                p.referenciaFabricante?.toLowerCase().includes(term);
         }).slice(0, 50);
     }, [productos, search]);
 
@@ -48,15 +48,15 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
                 </div>
 
                 <div className="join w-full mb-4">
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Escribe nombre, referencia fab..."
                         className="input input-bordered join-item w-full"
                         autoFocus
                     />
-                    <button 
+                    <button
                         className="btn btn-primary join-item"
                         onClick={() => onCreateNew(search)}
                     >
@@ -99,7 +99,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
                         </tbody>
                     </table>
                 </div>
-                
+
                 <div className="modal-action mt-4">
                     <button className="btn" onClick={onClose}>Cancelar</button>
                 </div>
@@ -113,7 +113,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
 function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, materiales, tarifas }) {
     const [formData, setFormData] = useState(initialData);
     const [error, setError] = useState(null);
-    
+
     // Estados para los modales secundarios
     const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
     const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
@@ -125,11 +125,11 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
 
     const handleFileChange = useCallback((file) => {
         if (file) {
-            const newRuta = `/planos/${file.name}`; 
+            const newRuta = `/planos/${file.name}`;
             setFormData(prev => ({
                 ...prev,
                 rutaArchivo: newRuta,
-                referencia: prev.referencia || file.name.split('.')[0], 
+                referencia: prev.referencia || file.name.split('.')[0],
                 file: file,
             }));
         }
@@ -153,11 +153,11 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
     // Lógica de selección desde el nuevo modal
     const handleSelectProduct = (product) => {
         const defaultRef = product?.referenciaFabricante || product?.nombre || '';
-        setFormData(prev => ({ 
-            ...prev, 
+        setFormData(prev => ({
+            ...prev,
             productoId: product.id,
             productoNombre: product.nombre, // Guardamos nombre para mostrar en input
-            referencia: prev.referencia || defaultRef, 
+            referencia: prev.referencia || defaultRef,
         }));
         setIsProductSearchOpen(false);
     };
@@ -167,11 +167,11 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
         setQuickCreateInitialRef(searchTerm);
         setIsQuickCreateOpen(true);
     };
-    
+
     const handleCreatedProduct = (newProduct) => {
-         handleSelectProduct(newProduct);
-         setIsQuickCreateOpen(false);
-         mutate('/api/productos'); 
+        handleSelectProduct(newProduct);
+        setIsQuickCreateOpen(false);
+        mutate('/api/productos');
     };
 
     const handleClearProduct = (e) => {
@@ -182,39 +182,39 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
-        
+
         if (!formData.productoId) {
             setError('Debe seleccionar o crear un Producto Asociado.');
             return;
         }
         if (!formData.rutaArchivo) {
-             setError('Debe adjuntar un archivo.');
-             return;
+            setError('Debe adjuntar un archivo.');
+            return;
         }
-        
+
         const docId = formData.id;
         const method = docId ? 'PUT' : 'POST';
         const url = docId ? `/api/documentos/${docId}` : '/api/documentos';
-        
+
         const finalFormData = new FormData();
-        
+
         for (const key in formData) {
             if (key !== 'file' && key !== 'productoNombre' && key !== 'fileUpload' && formData[key] !== null && formData[key] !== undefined) {
                 finalFormData.append(key, formData[key]);
             }
         }
-        
-        finalFormData.set('tipo', 'PLANO'); 
-        finalFormData.set('maquinaUbicacion', ''); 
-        
+
+        finalFormData.set('tipo', 'PLANO');
+        finalFormData.set('maquinaUbicacion', '');
+
         if (formData.file) {
             finalFormData.append('fileUpload', formData.file, formData.file.name);
         }
-        
+
         try {
             const res = await fetch(url, {
                 method: method,
-                body: finalFormData, 
+                body: finalFormData,
             });
 
             if (!res.ok) {
@@ -223,13 +223,13 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
                 try {
                     const errData = JSON.parse(errorText);
                     errorMessage = errData.message || errorMessage;
-                } catch {}
+                } catch { }
                 throw new Error(errorMessage);
             }
 
-            mutate('/api/documentos'); 
+            mutate('/api/documentos');
             onClose();
-            
+
         } catch (err) {
             setError(err.message);
         }
@@ -238,7 +238,7 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
     if (!isOpen) return null;
 
     const dragAndDropArea = (
-        <div 
+        <div
             className="border-2 border-dashed border-primary/50 rounded-lg p-6 text-center cursor-pointer hover:bg-base-300 transition-colors"
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
@@ -253,102 +253,102 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
 
     return (
         <>
-        <div className="modal modal-open">
-          <div className="modal-box w-11/12 max-w-2xl">
-            <h3 className="font-bold text-xl flex items-center mb-4">
-                <FileText className="mr-2 h-6 w-6" /> {formData.id ? 'Editar Plano' : 'Nuevo Plano de Producto'}
-            </h3>
-            
-            <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* SELECTOR DE PRODUCTO MEJORADO */}
-                <div className="form-control w-full md:col-span-2">
-                    <div className="label"><span className="label-text">Producto Asociado (Requerido)</span></div>
-                    <div className="input-group cursor-pointer" onClick={() => setIsProductSearchOpen(true)}>
-                        <input
-                            type="text"
-                            readOnly
-                            placeholder="Seleccionar producto..."
-                            value={formData.productoNombre || ''}
-                            className={`input input-bordered w-full cursor-pointer ${formData.productoId ? 'input-success' : ''}`}
-                        />
-                        {formData.productoId && (
-                            <button 
-                                type="button" 
-                                onClick={handleClearProduct} 
-                                className="btn btn-square btn-ghost text-error"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        )}
-                        <button type="button" className="btn btn-square btn-primary">
-                            <Search className="w-4 h-4" />
-                        </button>
-                    </div>
-                    {!formData.productoId && <span className="text-xs text-gray-500 mt-1 ml-1">Haga clic para buscar o crear</span>}
+            <div className="modal modal-open">
+                <div className="modal-box w-11/12 max-w-2xl">
+                    <h3 className="font-bold text-xl flex items-center mb-4">
+                        <FileText className="mr-2 h-6 w-6" /> {formData.id ? 'Editar Plano' : 'Nuevo Plano de Producto'}
+                    </h3>
+
+                    <form onSubmit={handleSubmit} className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        {/* SELECTOR DE PRODUCTO MEJORADO */}
+                        <div className="form-control w-full md:col-span-2">
+                            <div className="label"><span className="label-text">Producto Asociado (Requerido)</span></div>
+                            <div className="input-group cursor-pointer" onClick={() => setIsProductSearchOpen(true)}>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    placeholder="Seleccionar producto..."
+                                    value={formData.productoNombre || ''}
+                                    className={`input input-bordered w-full cursor-pointer ${formData.productoId ? 'input-success' : ''}`}
+                                />
+                                {formData.productoId && (
+                                    <button
+                                        type="button"
+                                        onClick={handleClearProduct}
+                                        className="btn btn-square btn-ghost text-error"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                )}
+                                <button type="button" className="btn btn-square btn-primary">
+                                    <Search className="w-4 h-4" />
+                                </button>
+                            </div>
+                            {!formData.productoId && <span className="text-xs text-gray-500 mt-1 ml-1">Haga clic para buscar o crear</span>}
+                        </div>
+
+                        {/* Referencia/Título */}
+                        <label className={`form-control w-full md:col-span-2`}>
+                            <div className="label"><span className="label-text">Referencia / Título (Sugerido por Ref. Fab.)</span></div>
+                            <input
+                                type="text"
+                                name="referencia"
+                                value={formData.referencia}
+                                onChange={handleChange}
+                                placeholder="Título del Documento"
+                                className="input input-bordered w-full"
+                                required
+                            />
+                        </label>
+
+                        {/* Área de Subida */}
+                        <div className={`form-control w-full md:col-span-2`}>
+                            <div className="label"><span className="label-text">Adjuntar Archivo</span></div>
+                            {dragAndDropArea}
+                        </div>
+
+                        {/* Descripción */}
+                        <label className="form-control w-full md:col-span-2">
+                            <div className="label"><span className="label-text">Descripción</span></div>
+                            <textarea name="descripcion" value={formData.descripcion || ''} onChange={handleChange} placeholder="Detalles, notas importantes o pasos clave." className="textarea textarea-bordered h-24" />
+                        </label>
+
+
+                        {error && <p className="text-error text-sm md:col-span-2 mt-2 p-2 bg-red-100 rounded">{error}</p>}
+
+                        <div className="modal-action md:col-span-2 mt-6">
+                            <button type="button" onClick={onClose} className="btn">Cancelar</button>
+                            <button type="submit" className="btn btn-primary">Guardar Documento</button>
+                        </div>
+                    </form>
                 </div>
+            </div>
 
-                {/* Referencia/Título */}
-                <label className={`form-control w-full md:col-span-2`}>
-                    <div className="label"><span className="label-text">Referencia / Título (Sugerido por Ref. Fab.)</span></div>
-                    <input 
-                        type="text" 
-                        name="referencia" 
-                        value={formData.referencia} 
-                        onChange={handleChange} 
-                        placeholder="Título del Documento" 
-                        className="input input-bordered w-full" 
-                        required 
-                    />
-                </label>
-                
-                {/* Área de Subida */}
-                 <div className={`form-control w-full md:col-span-2`}>
-                    <div className="label"><span className="label-text">Adjuntar Archivo</span></div>
-                    {dragAndDropArea}
-                </div>
-                
-                {/* Descripción */}
-                <label className="form-control w-full md:col-span-2">
-                    <div className="label"><span className="label-text">Descripción</span></div>
-                    <textarea name="descripcion" value={formData.descripcion || ''} onChange={handleChange} placeholder="Detalles, notas importantes o pasos clave." className="textarea textarea-bordered h-24" />
-                </label>
-
-
-                {error && <p className="text-error text-sm md:col-span-2 mt-2 p-2 bg-red-100 rounded">{error}</p>}
-                
-                <div className="modal-action md:col-span-2 mt-6">
-                    <button type="button" onClick={onClose} className="btn">Cancelar</button>
-                    <button type="submit" className="btn btn-primary">Guardar Documento</button>
-                </div>
-            </form>
-          </div>
-        </div>
-        
-        {/* MODALES SECUNDARIOS */}
-        <ProductSearchModal 
-            isOpen={isProductSearchOpen}
-            onClose={() => setIsProductSearchOpen(false)}
-            onSelect={handleSelectProduct}
-            onCreateNew={handleOpenCreateNew}
-            productos={productos}
-            fabricantes={fabricantes}
-            initialSearch={formData.productoNombre}
-        />
-
-        {isQuickCreateOpen && (
-            <QuickProductForm 
-                isOpen={true}
-                onClose={() => setIsQuickCreateOpen(false)}
-                onCreated={handleCreatedProduct}
-                catalogos={{ 
-                    fabricantes: fabricantes, 
-                    materiales: materiales, 
-                    tarifas: tarifas 
-                }}
-                initialReference={quickCreateInitialRef}
+            {/* MODALES SECUNDARIOS */}
+            <ProductSearchModal
+                isOpen={isProductSearchOpen}
+                onClose={() => setIsProductSearchOpen(false)}
+                onSelect={handleSelectProduct}
+                onCreateNew={handleOpenCreateNew}
+                productos={productos}
+                fabricantes={fabricantes}
+                initialSearch={formData.productoNombre}
             />
-        )}
+
+            {isQuickCreateOpen && (
+                <QuickProductForm
+                    isOpen={true}
+                    onClose={() => setIsQuickCreateOpen(false)}
+                    onCreated={handleCreatedProduct}
+                    catalogos={{
+                        fabricantes: fabricantes,
+                        materiales: materiales,
+                        tarifas: tarifas
+                    }}
+                    initialReference={quickCreateInitialRef}
+                />
+            )}
         </>
     );
 }
@@ -359,23 +359,23 @@ export default function GestionDocumentos() {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentDocumento, setCurrentDocumento] = useState(initialFormData);
-    
+
     const [filtroReferencia, setFiltroReferencia] = useState('');
-    
+
     const { data: documentos, error: docsError, isLoading: docsLoading } = useSWR(`/api/documentos?tipo=PLANO&referencia=${filtroReferencia}`, fetcher);
     const { data: productos, error: prodError, isLoading: prodLoading } = useSWR('/api/productos', fetcher);
     const { data: fabricantes, error: fabError, isLoading: fabLoading } = useSWR('/api/fabricantes', fetcher);
     const { data: materiales, error: matError, isLoading: matLoading } = useSWR('/api/materiales', fetcher);
     const { data: tarifas } = useSWR('/api/precios', fetcher);
 
-    
+
     const isLoading = docsLoading || prodLoading || fabLoading || matLoading;
 
     const todosProductos = useMemo(() => productos || [], [productos]);
 
     const openModal = (doc = null) => {
-        const initial = doc ? { 
-            ...doc, 
+        const initial = doc ? {
+            ...doc,
             productoNombre: todosProductos.find(p => p.id === doc.productoId)?.nombre || '',
         } : initialFormData;
 
@@ -392,19 +392,19 @@ export default function GestionDocumentos() {
         if (confirm('¿Estás seguro de que quieres eliminar este documento? Esta acción es irreversible y eliminará el archivo del disco.')) {
             try {
                 const res = await fetch(`/api/documentos/${id}`, { method: 'DELETE' });
-                
+
                 if (!res.ok) {
                     const errorText = await res.text();
                     let errorMessage = 'Error al eliminar el documento.';
                     try {
                         const errData = JSON.parse(errorText);
                         errorMessage = errData.message || errorMessage;
-                    } catch {}
+                    } catch { }
                     throw new Error(errorMessage);
                 }
-                
+
                 mutate(`/api/documentos?tipo=PLANO&referencia=${filtroReferencia}`);
-                router.refresh(); 
+                router.refresh();
 
             } catch (err) {
                 alert(`Error: ${err.message}`);
@@ -416,14 +416,14 @@ export default function GestionDocumentos() {
         if (!id || !productos || !fabricantes) return { nombre: 'N/A', fabricanteNombre: 'N/A' };
         const prod = productos.find(p => p.id === id);
         if (!prod) return { nombre: 'N/A', fabricanteNombre: 'N/A' };
-        
+
         const fab = fabricantes.find(f => f.id === prod.fabricanteId);
-        return { 
-            nombre: prod.nombre, 
-            fabricanteNombre: fab?.nombre || 'Desconocido' 
+        return {
+            nombre: prod.nombre,
+            fabricanteNombre: fab?.nombre || 'Desconocido'
         };
     }
-    
+
 
     if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
     if (docsError || prodError || fabError || matError) return <div className="text-red-500 text-center">Error al cargar datos necesarios.</div>;
@@ -432,90 +432,90 @@ export default function GestionDocumentos() {
 
     return (
         <div className="container mx-auto p-4">
-        <h1 className="text-3xl font-bold mb-6 flex items-center"><FileText className="mr-2" /> Gestión de Planos de Producto</h1>
-        
-        <div className="flex justify-between items-center mb-6">
-            <button onClick={() => openModal()} className="btn btn-primary">
-            <PlusCircle className="w-4 h-4" /> Nuevo Plano
-            </button>
-        </div>
+            <h1 className="text-3xl font-bold mb-6 flex items-center"><FileText className="mr-2" /> Gestión de Planos de Producto</h1>
 
-        <div className="flex justify-start gap-4 mb-6 p-4 bg-base-200 rounded-lg shadow-inner">
-            <input
-            type="text"
-            placeholder="Buscar por Referencia, Título o Fabricante..."
-            value={filtroReferencia}
-            onChange={(e) => setFiltroReferencia(e.target.value)}
-            className="input input-bordered w-full max-w-xl"
-            />
-        </div>
+            <div className="flex justify-between items-center mb-6">
+                <button onClick={() => openModal()} className="btn btn-primary">
+                    <PlusCircle className="w-4 h-4" /> Nuevo Plano
+                </button>
+            </div>
 
-        <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
-            <table className="table w-full">
-            <thead>
-                <tr>
-                    <th>Referencia / Título</th>
-                    <th>Fecha Subida</th>
-                    <th>Producto (Fabricante)</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {documentosList.map((doc) => {
-                    const prodInfo = getProductoInfo(doc.productoId);
-                    
-                    let rowClass = 'hover bg-base-300/70';
+            <div className="flex justify-start gap-4 mb-6 p-4 bg-base-200 rounded-lg shadow-inner">
+                <input
+                    type="text"
+                    placeholder="Buscar por Referencia, Título o Fabricante..."
+                    value={filtroReferencia}
+                    onChange={(e) => setFiltroReferencia(e.target.value)}
+                    className="input input-bordered w-full max-w-xl"
+                />
+            </div>
 
-                    return (
-                        <tr key={doc.id} className={rowClass}>
-                            <td className="font-semibold">{doc.referencia}</td>
-                            <td>{doc.fechaSubida ? format(new Date(doc.fechaSubida), 'dd/MM/yyyy', { locale: es }) : 'N/A'}</td>
-                            <td>
-                                {doc.productoId ? 
-                                    <span className="tooltip tooltip-right" data-tip={prodInfo.nombre}>
-                                        {prodInfo.fabricanteNombre}
-                                    </span>
-                                    : 'N/A'
-                                }
-                            </td>
-                            <td className="flex gap-2">
-                                {doc.rutaArchivo && (
-                                    <a 
-                                    href={doc.rutaArchivo} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="btn btn-sm btn-ghost tooltip" 
-                                    data-tip="Abrir Ruta (Local/Red)"
-                                    >
-                                        <ExternalLink className="w-4 h-4 text-primary" />
-                                    </a>
-                                )}
-                                <button onClick={() => openModal(doc)} className="btn btn-sm btn-outline btn-info">
-                                <Edit className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleDelete(doc.id)} className="btn btn-sm btn-outline btn-error">
-                                <Trash2 className="w-4 h-4" />
-                                </button>
-                            </td>
+            <div className="overflow-x-auto bg-base-100 shadow-xl rounded-lg">
+                <table className="table w-full">
+                    <thead>
+                        <tr>
+                            <th>Referencia / Título</th>
+                            <th>Fecha Subida</th>
+                            <th>Producto (Fabricante)</th>
+                            <th>Acciones</th>
                         </tr>
-                    );
-                })}
-            </tbody>
-            </table>
-            {documentosList.length === 0 && !isLoading && (
-                <div className="text-center p-6 text-gray-500">No se encontraron planos.</div>
-            )}
-        </div>
+                    </thead>
+                    <tbody>
+                        {documentosList.map((doc) => {
+                            const prodInfo = getProductoInfo(doc.productoId);
 
-        <DocumentoModal 
-            isOpen={isModalOpen} 
-            onClose={closeModal} 
-            initialData={currentDocumento}
-            productos={todosProductos}
-            fabricantes={fabricantes}
-            materiales={materiales}
-            tarifas={tarifas}
-        />
+                            let rowClass = 'hover bg-base-300/70';
+
+                            return (
+                                <tr key={doc.id} className={rowClass}>
+                                    <td className="font-semibold">{doc.referencia}</td>
+                                    <td>{doc.fechaSubida ? format(new Date(doc.fechaSubida), 'dd/MM/yyyy', { locale: es }) : 'N/A'}</td>
+                                    <td>
+                                        {doc.productoId ?
+                                            <span className="tooltip tooltip-right" data-tip={prodInfo.nombre}>
+                                                {prodInfo.fabricanteNombre}
+                                            </span>
+                                            : 'N/A'
+                                        }
+                                    </td>
+                                    <td className="flex gap-2">
+                                        {doc.rutaArchivo && (
+                                            <a
+                                                href={doc.rutaArchivo}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-sm btn-ghost tooltip"
+                                                data-tip="Abrir Ruta (Local/Red)"
+                                            >
+                                                <ExternalLink className="w-4 h-4 text-primary" />
+                                            </a>
+                                        )}
+                                        <button onClick={() => openModal(doc)} className="btn btn-sm btn-outline btn-info">
+                                            <Edit className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => handleDelete(doc.id)} className="btn btn-sm btn-outline btn-error">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+                {documentosList.length === 0 && !isLoading && (
+                    <div className="text-center p-6 text-gray-500">No se encontraron planos.</div>
+                )}
+            </div>
+
+            <DocumentoModal
+                isOpen={isModalOpen}
+                onClose={closeModal}
+                initialData={currentDocumento}
+                productos={todosProductos}
+                fabricantes={fabricantes}
+                materiales={materiales}
+                tarifas={tarifas}
+            />
         </div>
     );
 }

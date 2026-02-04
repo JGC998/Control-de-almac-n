@@ -64,7 +64,7 @@ export async function GET(request) {
       },
       orderBy: { fechaCreacion: 'desc' },
     });
-    
+
     return NextResponse.json(pedidos);
   } catch (error) {
     console.error(error);
@@ -109,7 +109,7 @@ export async function POST(request) {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             pesoUnitario: item.pesoUnitario || 0,
-            productoId: item.productoId,
+            productoId: item.productoId ? parseInt(item.productoId) : null,
           })),
         },
       },

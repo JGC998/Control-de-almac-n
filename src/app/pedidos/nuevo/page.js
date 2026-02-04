@@ -1,4 +1,4 @@
-import ClientOrderForm from "@/components/ClientOrderForm";
+import FormularioPedidoCliente from "@/componentes/pedidos/FormularioPedidoCliente";
 import { Package } from "lucide-react";
 
 export default function NuevoPedidoPage() {
@@ -8,7 +8,7 @@ export default function NuevoPedidoPage() {
         <Package className="mr-2" />
         Crear Nuevo Pedido
       </h1>
-      <ClientOrderForm formType="PEDIDO" />
+      <FormularioPedidoCliente formType="PEDIDO" />
     </div>
   );
 }

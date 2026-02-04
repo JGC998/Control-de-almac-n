@@ -7,10 +7,6 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const productos = await db.producto.findMany({
-      include: {
-        fabricante: true,
-        material: true,
-      },
       orderBy: { nombre: 'asc' },
     });
     return NextResponse.json(productos);

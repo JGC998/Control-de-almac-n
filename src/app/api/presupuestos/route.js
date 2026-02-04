@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db'; 
+import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
 // Se mantiene la importación de calculateTotalsBackend por si se usa en otra lógica, aunque se elimina su uso en POST.
-import { calculateTotalsBackend } from '@/lib/pricing-utils';
+import { calculateTotalsBackend } from '@/lib/utilidades-precios';
 
 
 
@@ -47,7 +47,7 @@ async function getNextPresupuestoNumber() {
     const year = new Date().getFullYear();
     // NOTA: El número de presupuesto se reinicia cada año? Si no, se puede quitar el año.
     // Por ahora, se mantiene la lógica original.
-    const prefix = `${year}-`; 
+    const prefix = `${year}-`;
     const nextNumberPadded = String(newNumber).padStart(3, '0');
 
     return `${prefix}${nextNumberPadded}`;
@@ -79,7 +79,7 @@ export async function GET(request) {
       },
       orderBy: { fechaCreacion: 'desc' },
     });
-    
+
     return NextResponse.json(quotes);
   } catch (error) {
     console.error(error);
@@ -92,7 +92,7 @@ export async function POST(request) {
   try {
     const data = await request.json();
     // FIX: Aceptamos 'notas', 'observaciones' o 'notes' para máxima compatibilidad.
-    const { clienteId, items, estado, marginId, subtotal, tax, total, notes, notas, observaciones } = data; 
+    const { clienteId, items, estado, marginId, subtotal, tax, total, notes, notas, observaciones } = data;
     const finalNotes = notes || notas || observaciones || null; // Coalesce para obtener el valor correcto
 
     if (!clienteId || !items || items.length === 0) {
@@ -110,26 +110,26 @@ export async function POST(request) {
 
     const newQuote = await db.presupuesto.create({
       data: {
-        id: uuidv4(), 
+        id: uuidv4(),
         numero: newQuoteNumber,
         fechaCreacion: new Date().toISOString(),
         estado: estado || 'Borrador',
-        
+
         cliente: { connect: { id: clienteId } },
         marginId: marginId,
-        
+
         notas: finalNotes, // Usamos el valor coalesced
         subtotal: subtotal,
         tax: tax,
         total: total,
-        
+
         items: {
           create: items.map(item => ({
             descripcion: item.descripcion,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            productoId: item.productoId,
-            pesoUnitario: item.pesoUnitario,
+            productoId: item.productoId ? parseInt(item.productoId) : null,
+            pesoUnitario: item.pesoUnitario || 0,
           })),
         },
       },

@@ -1,4 +1,4 @@
-import PedidoProveedorForm from "@/components/PedidoProveedorForm";
+import PedidoProveedorForm from "@/componentes/pedidos/FormularioPedidoProveedor";
 import { Truck } from "lucide-react";
 
 export default function NuevoPedidoNacionalPage() {

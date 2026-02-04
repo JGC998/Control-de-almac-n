@@ -3,100 +3,87 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Cliente {
-  id           String           @id @default(uuid())
-  nombre       String           @unique
+  id           String         @id @default(uuid())
+  nombre       String         @unique
   email        String?
   direccion    String?
   telefono     String?
   tier         String?
+  categoria    String?
   pedidos      Pedido[]
   presupuestos Presupuesto[]
-  precios      PrecioEspecial[]
-  productos    Producto[]
+  // Relacionamos con la tabla antigua por si acaso
+  productosOld Producto_Old[]
 }
 
-model Producto {
-  id                   String            @id @default(uuid())
+// Modelo antiguo mantenido solo para evitar perdida de datos historicos si fuera necesario
+model Producto_Old {
+  id                   String   @id @default(uuid())
   nombre               String
-  referenciaFabricante String?           @map("referencia_fab")
+  referenciaFabricante String?  @map("referencia_fab")
   espesor              Float?
   largo                Float?
   ancho                Float?
   precioUnitario       Float
   pesoUnitario         Float
-  costoUnitario        Float?            @map("costo")
-  tieneTroquel         Boolean?          @default(false)
+  costoUnitario        Float?   @map("costo")
   clienteId            String?
-  fabricanteId         String?
-  materialId           String?
-  precioVentaFab       Float?
-  precioVentaInt       Float?
-  precioVentaFin       Float?
-  
-  cliente              Cliente?          @relation(fields: [clienteId], references: [id])
-  fabricante           Fabricante?       @relation(fields: [fabricanteId], references: [id])
-  material             Material?         @relation(fields: [materialId], references: [id])
-  
-  documentos           Documento[]
-  itemsPedido          PedidoItem[]
-  itemsPresup          PresupuestoItem[]
-  precios              PrecioEspecial[]
+  cliente              Cliente? @relation(fields: [clienteId], references: [id])
 
-  @@map("Producto")
+  @@map("Producto_Old")
 }
 
 model Fabricante {
-  id        String     @id @default(uuid())
-  nombre    String     @unique
-  productos Producto[]
+  id     String @id @default(uuid())
+  nombre String @unique
 }
 
 model Material {
-  id        String     @id @default(uuid())
-  nombre    String     @unique
-  productos Producto[]
+  id     String @id @default(uuid())
+  nombre String @unique
 }
 
 model Pedido {
-  id            String       @id @default(uuid())
-  numero        String       @unique
-  fechaCreacion DateTime     @default(now())
+  id            String   @id @default(uuid())
+  numero        String   @unique
+  fechaCreacion DateTime @default(now())
   estado        String
   notas         String?
   subtotal      Float
   tax           Float
   total         Float
   clienteId     String?
-  presupuestoId String?      @unique
+  presupuestoId String?  @unique
   marginId      String?
-  
-  cliente       Cliente?     @relation(fields: [clienteId], references: [id])
-  presupuesto   Presupuesto? @relation(fields: [presupuestoId], references: [id])
-  items         PedidoItem[]
+
+  cliente     Cliente?     @relation(fields: [clienteId], references: [id])
+  presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id])
+  items       PedidoItem[]
 }
 
 model PedidoItem {
-  id           String    @id @default(uuid())
+  id           String @id @default(uuid())
   descripcion  String
   quantity     Int
   unitPrice    Float
-  pesoUnitario Float
+  pesoUnitario Float  @default(0)
   pedidoId     String
-  productoId   String?
-  
-  pedido       Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  producto     Producto? @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  // RELACION ACTUALIZADA AL NUEVO PRODUCTO
+  productoId Int?
+  pedido     Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  producto   Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
 }
 
 model Presupuesto {
-  id            String            @id @default(uuid())
-  numero        String            @unique
-  fechaCreacion DateTime          @default(now())
+  id            String   @id @default(uuid())
+  numero        String   @unique
+  fechaCreacion DateTime @default(now())
   estado        String
   notas         String?
   subtotal      Float
@@ -104,23 +91,24 @@ model Presupuesto {
   total         Float
   clienteId     String?
   marginId      String?
-  
-  cliente       Cliente?          @relation(fields: [clienteId], references: [id])
-  items         PresupuestoItem[]
-  pedido        Pedido?
+
+  cliente Cliente?          @relation(fields: [clienteId], references: [id])
+  items   PresupuestoItem[]
+  pedido  Pedido?
 }
 
 model PresupuestoItem {
-  id            String      @id @default(uuid())
+  id            String @id @default(uuid())
   descripcion   String
   quantity      Int
   unitPrice     Float
-  pesoUnitario  Float       @default(0)
+  pesoUnitario  Float  @default(0)
   presupuestoId String
-  productoId    String?
-  
-  presupuesto   Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
-  producto      Producto?   @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  // RELACION ACTUALIZADA AL NUEVO PRODUCTO
+  productoId  Int?
+  presupuesto Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+  producto    Producto?   @relation(fields: [productoId], references: [id], onDelete: SetNull)
 }
 
 model Proveedor {
@@ -133,83 +121,72 @@ model Proveedor {
 }
 
 model Stock {
-  id                      String            @id @default(uuid())
-  material                String
-  espesor                 Float?
-  metrosDisponibles       Float
-  proveedor               String?
-  ubicacion               String?
-  fechaEntrada            DateTime          @default(now())
-  costoMetro              Float?
-  stockMinimo             Float?
-  cantidadBobinas         Int?              @default(0)
-  metrosInicialesPorBobina Float?
-  movimientos             MovimientoStock[]
+  id                String            @id @default(uuid())
+  material          String
+  espesor           Float?
+  metrosDisponibles Float
+  proveedor         String?
+  costoMetro        Float?
+  cantidadBobinas   Int?              @default(0)
+  movimientos       MovimientoStock[]
 }
 
 model MovimientoStock {
-  id         String   @id @default(uuid())
-  tipo       String
-  cantidad   Float
-  fecha      DateTime @default(now())
-  referencia String?
-  stockId    String?
-  stockItem  Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
+  id        String   @id @default(uuid())
+  tipo      String
+  cantidad  Float
+  fecha     DateTime @default(now())
+  stockId   String?
+  stockItem Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
 }
 
 model PedidoProveedor {
-  id                   String         @id @default(uuid())
-  material             String
-  fecha                DateTime       @default(now())
-  estado               String
-  tipo                 String
+  id          String   @id @default(uuid())
+  material    String
+  fecha       DateTime @default(now())
+  estado      String
+  proveedorId String
+
+  // Campos añadidos
+  tipo                 String    @default("NACIONAL") // 'NACIONAL' o 'IMPORTACION'
   notas                String?
-  numeroContenedor     String?
   numeroFactura        String?
+  gastosTotales        Float     @default(0)
+  tasaCambio           Float     @default(1)
+  numeroContenedor     String?
   naviera              String?
   fechaLlegadaEstimada DateTime?
-  tasaCambio           Float?         @default(1)
-  gastosTotales        Float?         @default(0)
-  proveedorId          String
-  
-  proveedor            Proveedor      @relation(fields: [proveedorId], references: [id])
-  bobinas              BobinaPedido[]
+
+  proveedor Proveedor      @relation(fields: [proveedorId], references: [id])
+  bobinas   BobinaPedido[]
 }
 
 model BobinaPedido {
-  id              String           @id @default(uuid())
-  cantidad        Int              @default(1) 
-  ancho           Float?
-  largo           Float?
-  espesor         Float?
-  precioMetro     Float
-  color           String?
-  costoFinalMetro Float            @default(0)
-  referenciaId    String?
-  pedidoId        String
-  
-  referencia      ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
-  pedido          PedidoProveedor   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-}
+  id       String          @id @default(uuid())
+  cantidad Int             @default(1)
+  pedidoId String
+  pedido   PedidoProveedor @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
 
-model TarifaMaterial {
-  id       String @id @default(uuid())
-  material String
-  espesor  Float
-  precio   Float
-  peso     Float
-  @@unique([material, espesor])
+  // Campos extendidos para detalle de bobina en pedido
+  ancho       Float?
+  largo       Float?
+  espesor     Float?
+  precioMetro Float  @default(0)
+
+  // Relación con Referencia Maestro
+  referenciaId String?
+  referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
 }
 
 model ReferenciaBobina {
   id                 String         @id @default(uuid())
-  referencia         String         @map("nombre")
+  referencia         String
   ancho              Float?
-  lonas              Int?
+  lonas              Float?
   pesoPorMetroLineal Float?
   bobinas            BobinaPedido[]
-  @@unique([referencia, ancho, lonas])
-  @@map("ReferenciaBobina")
+
+  @@unique([referencia, ancho, lonas]) // Constraint para evitar duplicados lógicos (opcional pero recomendado)
 }
 
 model ReglaMargen {
@@ -218,56 +195,30 @@ model ReglaMargen {
   multiplicador Float
   gastoFijo     Float?
   descripcion   String
-  tipo          String? @default("General")
-  categoria     String? @map("tipo_categoria")
   tierCliente   String?
 }
 
-model ReglaDescuento {
-  id          String          @id @default(uuid())
-  descripcion String
-  tipo        String
-  categoria   String?
-  tierCliente String?
-  descuento   Float
-  fechaInicio DateTime?
-  fechaFin    DateTime?
-  tiers       DescuentoTier[]
-}
+model TarifaMaterial {
+  id       String @id @default(uuid())
+  material String
+  espesor  Float
+  precio   Float
+  peso     Float
 
-model DescuentoTier {
-  id             String         @id @default(uuid())
-  cantidadMinima Int
-  descuento      Float
-  reglaId        String
-  regla          ReglaDescuento @relation(fields: [reglaId], references: [id], onDelete: Cascade)
-}
-
-model PrecioEspecial {
-  id          String   @id @default(uuid())
-  descripcion String
-  precio      Float
-  clienteId   String
-  productoId  String
-  
-  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
-  
-  @@unique([clienteId, productoId])
+  @@unique([material, espesor])
 }
 
 model Documento {
-  id               String   @id @default(uuid())
-  tipo             String
-  referencia       String
-  descripcion      String?
-  rutaArchivo      String
-  fechaSubida      DateTime @default(now())
-  productoId       String?
-  maquinaUbicacion String?
-  
-  producto         Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
-  
+  id          String   @id @default(uuid())
+  tipo        String
+  referencia  String
+  rutaArchivo String
+  fechaSubida DateTime @default(now())
+
+  // RELACION ACTUALIZADA AL NUEVO PRODUCTO
+  productoId Int?
+  producto   Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
   @@unique([referencia, rutaArchivo])
   @@map("Documento")
 }
@@ -287,4 +238,21 @@ model Config {
 model Sequence {
   name  String @id
   value Int
+}
+
+model Producto {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  // Usamos Decimal para dinero, precision 10, escala 2
+  precio      Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  categoria   String?
+  creadoEn    DateTime @default(now())
+  actualizado DateTime @updatedAt
+
+  // Relaciones Inversas
+  itemsPedido PedidoItem[]
+  itemsPresup PresupuestoItem[]
+  documentos  Documento[]
 }

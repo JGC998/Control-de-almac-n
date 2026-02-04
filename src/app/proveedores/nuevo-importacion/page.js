@@ -1,4 +1,4 @@
-import PedidoProveedorForm from "@/components/PedidoProveedorForm";
+import PedidoProveedorForm from "@/componentes/pedidos/FormularioPedidoProveedor";
 import { PackageOpen } from "lucide-react";
 
 export default function NuevoPedidoImportacionPage() {

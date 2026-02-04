@@ -4,11 +4,11 @@ import useSWR from 'swr';
 import Link from 'next/link';
 import { Package, FileText, Truck, Users, DollarSign, Activity } from 'lucide-react';
 
-import NivelesStock from '@/components/NivelesStock';
-import MovimientosRecientesTable from '@/components/MovimientosRecientesTable';
-import KPICard from '@/components/KPICard';
+import NivelesStock from '@/componentes/productos/NivelesStock';
+import MovimientosRecientesTable from '@/componentes/tablas/TablaMovimientosRecientes';
+import KPICard from '@/componentes/ui/TarjetaKPI';
 // 👈 Importar el nuevo componente
-import TablonNotas from '@/components/TablonNotas'; 
+import TablonNotas from '@/componentes/TablonNotas'; 
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 

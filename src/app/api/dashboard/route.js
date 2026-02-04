@@ -7,8 +7,8 @@ export async function GET() {
   try {
     // Ejecutar todas las consultas en paralelo
     const [
-      totalPedidos, 
-      totalPresupuestos, 
+      totalPedidos,
+      totalPresupuestos,
       pedidosProveedorPorLlegarCount,
       productosBajoStock,
       movimientosRecientes
@@ -16,42 +16,38 @@ export async function GET() {
     ] = await db.$transaction([
       // 1. Total Pedidos de Cliente
       db.pedido.count(),
-      
+
       // 2. Total Presupuestos
       db.presupuesto.count(),
-      
+
       // 3. Pedidos Proveedor por llegar (Estado: NO 'Recibido')
-      db.pedidoProveedor.count({ 
+      db.pedidoProveedor.count({
         where: {
           estado: {
             not: 'Recibido'
           }
         }
       }),
-      
-      // 4. Productos Bajo Stock (Stock < Stock Mínimo)
-      db.stock.findMany({ 
+
+      // 4. Productos Bajo Stock (Stock < 100 metros - Simulado ya que no hay stockMinimo en DB)
+      db.stock.findMany({
         where: {
           metrosDisponibles: {
-              lt: 100 // Simulación: menos de 100 metros disponibles
-          },
-          stockMinimo: {
-              gt: 0 
+            lt: 100
           }
         },
         select: {
           id: true,
           material: true,
           metrosDisponibles: true,
-          stockMinimo: true,
           espesor: true,
         },
         orderBy: {
-            metrosDisponibles: 'asc'
+          metrosDisponibles: 'asc'
         },
-        take: 10, 
+        take: 10,
       }),
-      
+
       // 5. Movimientos Recientes
       db.movimientoStock.findMany({
         orderBy: {
@@ -64,7 +60,7 @@ export async function GET() {
             }
           }
         },
-        take: 10, 
+        take: 10,
       }),
       // Eliminadas las queries de sumPendingOrders y sumDraftQuotes
     ]);
@@ -87,27 +83,27 @@ export async function GET() {
         title: "Pedidos Proveedor Pendientes",
         value: pedidosProveedorPorLlegarCount,
         icon: "Truck",
-        href: "/proveedores", 
+        href: "/proveedores",
       },
     ];
 
     return NextResponse.json({
       kpiData: kpiData,
-      nivelesStock: productosBajoStock.map(item => ({ 
-          id: item.id, 
-          material: item.material, 
-          metrosDisponibles: item.metrosDisponibles, 
-          stockMinimo: item.stockMinimo, 
-          espesor: item.espesor 
+      nivelesStock: productosBajoStock.map(item => ({
+        id: item.id,
+        material: item.material,
+        metrosDisponibles: item.metrosDisponibles,
+        stockMinimo: 100, // Simulado ya que no existe en DB
+        espesor: item.espesor
       })),
-      movimientosRecientes: movimientosRecientes.map(mov => ({ 
-          ...mov, 
-          materialNombre: mov.stockItem?.material 
+      movimientosRecientes: movimientosRecientes.map(mov => ({
+        ...mov,
+        materialNombre: mov.stockItem?.material
       })),
     });
 
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
-    return NextResponse.json({ message: "Error fetching dashboard data" }, { status: 500 });
+    console.error("Error completo fetching dashboard data:", error);
+    return NextResponse.json({ message: "Error fetching dashboard data", details: error.message }, { status: 500 });
   }
 }

@@ -1,9 +1,9 @@
 "use client";
 import React, { useState } from 'react';
-import { useParams, notFound } from 'next/navigation';
+import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Ruler, Factory, Layers, MinusCircle, FileText, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Tag, Info, List, FileText, Upload, Trash2 } from 'lucide-react';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -17,7 +17,7 @@ const InfoCard = ({ title, value, unit = '', icon: Icon = Package }) => (
   </div>
 );
 
-// --- NUEVO COMPONENTE PARA LA GESTIÓN DE DOCUMENTOS ---
+// --- COMPONENTE PARA LA GESTIÓN DE DOCUMENTOS (Sin cambios funcionales, solo estilo si necesario) ---
 function DocumentosProducto({ productoId, documentos }) {
   const [file, setFile] = useState(null);
   const [referencia, setReferencia] = useState('');
@@ -42,7 +42,7 @@ function DocumentosProducto({ productoId, documentos }) {
     formData.append('fileUpload', file);
     formData.append('productoId', productoId);
     formData.append('referencia', referencia);
-    formData.append('tipo', 'PLANO'); // Tipo fijo para este contexto
+    formData.append('tipo', 'PLANO');
 
     try {
       const res = await fetch('/api/documentos', {
@@ -55,18 +55,17 @@ function DocumentosProducto({ productoId, documentos }) {
         throw new Error(errorData.message || 'Error al subir el archivo.');
       }
 
-      // Limpiar formulario y refrescar datos
       setFile(null);
       setReferencia('');
-      e.target.reset(); // Resetea el input de archivo
-      mutate(`/api/productos/${productoId}`); // Refresca los datos del producto
+      e.target.reset();
+      mutate(`/api/documentos?productoId=${productoId}`);
     } catch (err) {
       setError(err.message);
     } finally {
       setIsUploading(false);
     }
   };
-  
+
   const handleDelete = async (docId) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este documento? Esta acción es irreversible.')) {
       return;
@@ -79,7 +78,7 @@ function DocumentosProducto({ productoId, documentos }) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Error al eliminar');
       }
-      mutate(`/api/productos/${productoId}`);
+      mutate(`/api/documentos?productoId=${productoId}`);
     } catch (err) {
       alert(`Error: ${err.message}`);
     }
@@ -87,9 +86,8 @@ function DocumentosProducto({ productoId, documentos }) {
 
   return (
     <div className="mt-8">
-      <div className="divider">Documentación Técnica / Planos</div>
+      <div className="divider">Documentación Técnica</div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* --- Lista de Documentos --- */}
         <div className="card bg-base-200 p-4">
           <h3 className="text-lg font-semibold mb-2">Archivos Asociados</h3>
           {documentos && documentos.length > 0 ? (
@@ -113,28 +111,26 @@ function DocumentosProducto({ productoId, documentos }) {
           )}
         </div>
 
-        {/* --- Formulario de Subida --- */}
         <div className="card bg-base-200 p-4">
           <h3 className="text-lg font-semibold mb-2">Subir Nuevo Documento</h3>
           <form onSubmit={handleUpload} className="space-y-3">
             <div>
-              <label className="label">Referencia / Nombre del Plano</label>
+              <label className="label">Nombre del Documento</label>
               <input
                 type="text"
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
                 className="input input-bordered w-full"
-                placeholder="Ej: Plano de corte v2"
+                placeholder="Ej: Ficha técnica"
                 required
               />
             </div>
             <div>
-              <label className="label">Archivo (PDF, PNG, JPG)</label>
+              <label className="label">Archivo</label>
               <input
                 type="file"
                 onChange={handleFileChange}
                 className="file-input file-input-bordered w-full"
-                accept=".pdf,.png,.jpg,.jpeg"
                 required
               />
             </div>
@@ -150,21 +146,45 @@ function DocumentosProducto({ productoId, documentos }) {
   );
 }
 
+// Importar el modal de edición
+import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';
+
+// ... (código existente)
 
 export default function ProductoDetallePage() {
   const params = useParams();
+  const router = useRouter(); // <-- AÑADIDO: router
   const { id } = params;
 
-  const { data: producto, error, isLoading } = useSWR(id ? `/api/productos/${id}` : null, fetcher);
+  const { data: producto, error, isLoading, mutate } = useSWR(id ? `/api/productos/${id}` : null, fetcher); // <-- AÑADIDO: mutate
   const { data: documentos = [], isLoading: docsLoading } = useSWR(id ? `/api/documentos?productoId=${id}` : null, fetcher);
 
+  // Estado para el modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  if (isLoading || docsLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
+  const openEditModal = () => setIsEditModalOpen(true);
+  const closeEditModal = () => setIsEditModalOpen(false);
+
+  // Manejador de eliminación
+  const handleDeleteProduct = async () => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este producto? Esta acción también eliminará documentos asociados.')) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/productos/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Error al eliminar producto');
+      router.push('/gestion/productos');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  if (isLoading || docsLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg text-primary"></span></div>;
   if (error || !producto) {
-      if (error?.status === 404) return notFound();
-      return <div className="text-red-500 text-center">Error al cargar los detalles del producto.</div>;
+    if (error?.status === 404) return notFound();
+    return <div className="text-error text-center p-10">Error al cargar los detalles del producto.</div>;
   }
-  
+
   const formatValue = (value, fallback = 'N/A') => {
     if (value === null || value === undefined) return fallback;
     if (typeof value === 'number') return value.toFixed(2);
@@ -172,82 +192,69 @@ export default function ProductoDetallePage() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <Link href="/gestion/productos" className="btn btn-ghost mb-4">
-        <ArrowLeft className="w-4 h-4" /> Volver a Productos
+    <div className="container mx-auto p-6 max-w-5xl">
+      <Link href="/gestion/productos" className="btn btn-ghost mb-6 gap-2">
+        <ArrowLeft className="w-4 h-4" /> Volver al Catálogo
       </Link>
-      
-      <div className="bg-base-100 shadow-xl rounded-lg p-6">
-        <div className="flex items-center mb-6">
-          <Package className="w-8 h-8 mr-3 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold">{producto.nombre}</h1>
-            <p className="text-gray-500">Ref. Fabricante: {producto.referenciaFabricante || 'N/A'}</p>
+
+      <div className="bg-base-100 shadow-xl rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+        <div className="p-8 bg-gradient-to-r from-base-100 to-base-200">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-primary/10 rounded-full">
+                <Package className="w-10 h-10 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-extrabold text-base-content">{producto.nombre}</h1>
+                <div className="flex gap-2 mt-2">
+                  {producto.categoria && <span className="badge badge-secondary badge-outline">{producto.categoria}</span>}
+                  <span className={`badge ${producto.stock > 0 ? 'badge-success' : 'badge-error'}`}>{producto.stock > 0 ? 'En Stock' : 'Agotado'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-base-content/60 uppercase font-bold tracking-wider">Precio</div>
+              <div className="text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precio))} €</div>
+              <div className="flex justify-end gap-2 mt-2">
+                <button onClick={openEditModal} className="btn btn-sm btn-outline btn-info">
+                  <Edit className="w-4 h-4" /> Editar
+                </button>
+                <button onClick={handleDeleteProduct} className="btn btn-sm btn-outline btn-error">
+                  <Trash2 className="w-4 h-4" /> Eliminar
+                </button>
+              </div>
+            </div>
+
+            <ModalEditarProducto
+              producto={producto}
+              isOpen={isEditModalOpen}
+              onClose={closeEditModal}
+              onUpdate={mutate}
+            />
           </div>
         </div>
 
-        <div className="divider">Detalles Técnicos y de Costo</div>
+        <div className="p-8">
+          <div className="divider text-base-content/50 font-semibold uppercase tracking-widest text-xs">Información General</div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <InfoCard title="Material" value={producto.material?.nombre || 'N/A'} icon={Layers} />
-          <InfoCard title="Fabricante" value={producto.fabricante?.nombre || 'N/A'} icon={Factory} />
-          <InfoCard title="Espesor" value={producto.espesor || 'N/A'} unit="mm" icon={Ruler} />
-          <InfoCard title="Peso Unitario" value={formatValue(producto.pesoUnitario, '0.00')} unit="kg" icon={MinusCircle} />
-          <InfoCard title="Largo" value={producto.largo || 'N/A'} unit="mm" icon={Ruler} />
-          <InfoCard title="Ancho" value={producto.ancho || 'N/A'} unit="mm" icon={Ruler} />
-          <InfoCard 
-            title="Precio Tarifa (€/m²)" 
-            value={formatValue(producto.tarifaPrecioM2)} 
-            unit="€" 
-            icon={DollarSign} 
-          />
-          <InfoCard 
-            title="Costo Total Pieza" 
-            value={formatValue(producto.precioUnitario, '0.00')} 
-            unit="€" 
-            icon={DollarSign} 
-          />
-        </div>
-        
-        <div className="divider">Precios de Venta (Pre-calculados por Tier)</div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <InfoCard 
-            title="Precio FABRICANTE" 
-            value={formatValue(producto.precioVentaFab)} 
-            unit="€" 
-            icon={DollarSign}
-          />
-          <InfoCard 
-            title="Precio INTERMEDIARIO" 
-            value={formatValue(producto.precioVentaInt)} 
-            unit="€" 
-            icon={DollarSign}
-          />
-          <InfoCard 
-            title="Precio CLIENTE FINAL" 
-            value={formatValue(producto.precioVentaFin)} 
-            unit="€" 
-            icon={DollarSign}
-          />
-        </div>
-
-        <div className="divider">Documentación</div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {/* InfoCard con el conteo de documentos */}
-          <InfoCard title="Documentos Asociados" value={documentos.length} unit="" icon={FileText} />
-
-          {/* Enlace a la gestión de planos. Usamos justify-end y md:col-span-3 para alinear a la derecha. */}
-          {documentos.length > 0 && (
-            <div className="md:col-span-3 flex justify-end">
-                <Link 
-                  href={`/gestion/documentos?productoId=${id}`} 
-                  className="btn btn-secondary self-end"
-                >
-                  Ver Planos Asociados ({documentos.length})
-                </Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div className="bg-base-200/50 p-6 rounded-xl">
+              <h3 className="flex items-center gap-2 font-bold text-lg mb-4 text-secondary">
+                <Info className="w-5 h-5" /> Descripción
+              </h3>
+              <p className="text-base-content/80 leading-relaxed whitespace-pre-wrap">
+                {producto.descripcion || 'Sin descripción disponible.'}
+              </p>
             </div>
-          )}
+
+            <div className="grid grid-cols-1 gap-4 content-start">
+              <InfoCard title="Categoría" value={producto.categoria || 'Sin clasificar'} icon={Tag} />
+              <InfoCard title="Stock Disponible" value={producto.stock} unit="unidades" icon={List} />
+              <InfoCard title="Precio Unitario" value={formatValue(parseFloat(producto.precio))} unit="€" icon={DollarSign} />
+            </div>
+          </div>
+
+          <DocumentosProducto productoId={id} documentos={documentos} />
         </div>
       </div>
     </div>

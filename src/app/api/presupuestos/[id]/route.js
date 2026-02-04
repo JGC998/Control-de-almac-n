@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { calculateTotalsBackend } from '@/lib/pricing-utils';
+import { calculateTotalsBackend } from '@/lib/utilidades-precios';
 
 
 
 // GET: Obtener un presupuesto específico por ID
 export async function GET(request, { params }) {
   try {
-    const { id } = await params; 
+    const { id } = await params;
     const quote = await db.presupuesto.findUnique({
       where: { id: id },
       include: {
-        cliente: true, 
-        items: true,   
+        cliente: true,
+        items: true,
       },
     });
 
@@ -67,13 +67,13 @@ export async function PUT(request, { params }) {
             descripcion: item.descripcion,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            productoId: item.productoId,
+            productoId: item.productoId ? parseInt(item.productoId) : null,
             pesoUnitario: item.pesoUnitario || 0, // Verificado: Se guarda correctamente
             presupuestoId: id,
           })),
         });
       }
-      
+
       return quote;
     });
 
@@ -89,14 +89,14 @@ export async function PUT(request, { params }) {
 // DELETE: Eliminar un presupuesto
 export async function DELETE(request, { params }) {
   try {
-    const { id } = await params; 
+    const { id } = await params;
 
     await db.$transaction(async (tx) => {
       // 1. Eliminar todos los items asociados
       await tx.presupuestoItem.deleteMany({
         where: { presupuestoId: id },
       });
-      
+
       // 2. Eliminar el presupuesto principal
       await tx.presupuesto.delete({
         where: { id: id },

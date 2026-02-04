@@ -1,23 +1,54 @@
 "use client";
-import CatalogManager from '@/components/CatalogManager';
+import { PaginaGestion } from '@/componentes/patrones';
 import { Truck } from 'lucide-react';
+
+/**
+ * Página de Gestión de Proveedores (Refactorizada)
+ * Antes usaba GestorCatalogo, ahora usa PaginaGestion directamente
+ */
+
+const columnasProveedor = [
+  { clave: 'nombre', etiqueta: 'Nombre' },
+  { clave: 'email', etiqueta: 'Email' },
+  { clave: 'telefono', etiqueta: 'Teléfono' },
+];
+
+const camposProveedor = [
+  {
+    clave: 'nombre',
+    etiqueta: 'Nombre',
+    requerido: true,
+    placeholder: 'Nombre del proveedor'
+  },
+  {
+    clave: 'email',
+    etiqueta: 'Email',
+    tipo: 'email',
+    placeholder: 'email@proveedor.com'
+  },
+  {
+    clave: 'telefono',
+    etiqueta: 'Teléfono',
+    tipo: 'telefono',
+    placeholder: '+34 600 000 000'
+  },
+  {
+    clave: 'direccion',
+    etiqueta: 'Dirección',
+    placeholder: 'Dirección postal'
+  },
+];
 
 export default function GestionProveedoresPage() {
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 flex items-center">
-        <Truck className="mr-2" /> Gestión de Proveedores
-      </h1>
-        <CatalogManager
-          title="Proveedores"
-          endpoint="/api/proveedores"
-          initialForm={{ nombre: '', email: '', telefono: '', direccion: '' }}
-          columns={[
-            { key: 'nombre', label: 'Nombre' },
-            { key: 'email', label: 'Email' },
-            { key: 'telefono', label: 'Teléfono' },
-          ]}
-        />
-    </div>
+    <PaginaGestion
+      titulo="Proveedores"
+      icono={Truck}
+      recursoApi="/api/proveedores"
+      columnas={columnasProveedor}
+      campos={camposProveedor}
+      tituloNuevo="Nuevo Proveedor"
+      tituloEditar="Editar Proveedor"
+    />
   );
 }

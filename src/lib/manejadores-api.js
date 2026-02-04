@@ -2,7 +2,7 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache'; // Import revalidatePath
-import { manejarErrorApi } from '@/utils/utils';
+import { manejarErrorApi } from '@/utils/utilidades';
 
 export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) { // Renamed parameter
   const model = db[modelName];
@@ -19,7 +19,7 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
   const POST = async (request) => {
     try {
       const data = await request.json();
-      
+
       // Lógica de mapeo opcional antes de crear
       const finalData = options.mapearCrear ? options.mapearCrear(data) : data;
 

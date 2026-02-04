@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { revalidatePath } from 'next/cache'; 
-import { calculateTotalsBackend } from '@/lib/pricing-utils';
+import { revalidatePath } from 'next/cache';
+import { calculateTotalsBackend } from '@/lib/utilidades-precios';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +10,7 @@ export async function GET(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise;
     console.log(`[PEDIDOS-API:GET] Solicitando pedido: ${id}`);
-    
+
     // Incluimos las relaciones confirmadas en el modelo Pedido
     const order = await db.pedido.findUnique({
       where: { id },
@@ -50,7 +50,7 @@ export async function PUT(request, { params: paramsPromise }) {
     }
 
     const updatedOrder = await db.$transaction(async (tx) => {
-      
+
       // 1. Eliminar todos los ítems antiguos del pedido
       await tx.pedidoItem.deleteMany({
         where: { pedidoId: id },
@@ -62,7 +62,7 @@ export async function PUT(request, { params: paramsPromise }) {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         pesoUnitario: item.pesoUnitario || 0,
-        productoId: item.productoId,
+        productoId: item.productoId ? parseInt(item.productoId) : null,
         pedidoId: id, // Asegura la referencia
       }));
       await tx.pedidoItem.createMany({ data: newItems });
@@ -96,7 +96,7 @@ export async function PUT(request, { params: paramsPromise }) {
   } catch (error) {
     console.error(`Error al actualizar el pedido ${id}:`, error);
     if (error.code === 'P2025') {
-        return NextResponse.json({ message: 'Error: El pedido o un registro relacionado no fue encontrado.' }, { status: 404 });
+      return NextResponse.json({ message: 'Error: El pedido o un registro relacionado no fue encontrado.' }, { status: 404 });
     }
     return NextResponse.json({ message: `Error interno al actualizar pedido: ${error.message}` }, { status: 500 });
   }
@@ -105,7 +105,7 @@ export async function PUT(request, { params: paramsPromise }) {
 // DELETE: Eliminar un pedido
 export async function DELETE(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; 
+    const { id } = await paramsPromise;
     console.log(`[PEDIDOS-API:DELETE] Eliminando pedido: ${id}`); // Debug log
 
     await db.$transaction(async (tx) => {
@@ -116,7 +116,7 @@ export async function DELETE(request, { params: paramsPromise }) {
         where: { id: id },
       });
     });
-    
+
     // Revalidamos la lista tras eliminar
     revalidatePath('/pedidos');
     console.log(`[PEDIDOS-API:DELETE] Pedido eliminado y caché revalidada.`); // Debug log

@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Settings, DollarSign, Layers, TrendingUp } from 'lucide-react';
-import CatalogManager from '@/components/CatalogManager';
-import RuleEditorModal from '@/components/RuleEditorModal'; 
-import BulkPriceUpdateModal from '@/components/BulkPriceUpdateModal'; // IMPORTADO
+import GestorCatalogo from '@/componentes/productos/GestorCatalogo';
+import RuleEditorModal from '@/componentes/modales/ModalEditorReglas'; 
+import BulkPriceUpdateModal from '@/componentes/modales/ModalActualizacionPrecios'; // IMPORTADO
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -56,7 +56,7 @@ const CustomDiscountManager = () => {
 
     return (
         <>
-            <CatalogManager
+            <GestorCatalogo
                 title="Reglas de Descuento"
                 endpoint="/api/pricing/descuentos"
                 initialForm={{ descripcion: '', tipo: '', descuento: 0 }}
@@ -103,7 +103,7 @@ export default function ConfiguracionPage() {
         <h2 className="lg:col-span-2 text-2xl font-bold flex items-center mb-2 mt-4 text-primary"><DollarSign className="mr-2" /> Reglas de Precio y Márgenes</h2>
         
         {/* 1. Márgenes */}
-        <CatalogManager
+        <GestorCatalogo
           title="Reglas de Margen"
           endpoint="/api/pricing/margenes"
           initialForm={{ descripcion: '', base: '', multiplicador: 1.0, gastoFijo: 0.0, tipo: 'General', tierCliente: '' }}
@@ -119,7 +119,7 @@ export default function ConfiguracionPage() {
         <h2 className="lg:col-span-2 text-2xl font-bold flex items-center mb-2 mt-6 text-primary"><Layers className="mr-2" /> Catálogos de Inventario</h2>
 
         {/* 4. Referencias Bobina */}
-        <CatalogManager
+        <GestorCatalogo
           title="Referencias de Bobina"
           endpoint="/api/configuracion/referencias"
           initialForm={{ nombre: '', ancho: '', lonas: '', pesoPorMetroLineal: '' }}
@@ -144,7 +144,7 @@ export default function ConfiguracionPage() {
                  </button>
             </div>
 
-            <CatalogManager
+            <GestorCatalogo
               title="Tarifas de Material"
               endpoint="/api/precios"
               initialForm={{ material: '', espesor: '', precio: '', peso: '' }}
