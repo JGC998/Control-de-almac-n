@@ -9,6 +9,12 @@ const DEFAULT_THEME = "forest"; // Establecemos 'forest' como tema por defecto p
 export default function ProveedorTema({ children }) {
     const [theme, setTheme] = useState("");
 
+    const applyTheme = (theme) => {
+        setTheme(theme);
+        document.documentElement.setAttribute("data-theme", theme);
+        localStorage.setItem("theme", theme);
+    };
+
     useEffect(() => {
         themeChange(false); // 👆 false parameter is required for react project
 
@@ -33,12 +39,6 @@ export default function ProveedorTema({ children }) {
 
         return () => window.removeEventListener("storage", handleStorage);
     }, []);
-
-    const applyTheme = (theme) => {
-        setTheme(theme);
-        document.documentElement.setAttribute("data-theme", theme);
-        localStorage.setItem("theme", theme);
-    };
 
     return <>{children}</>;
 }

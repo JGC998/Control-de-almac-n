@@ -62,7 +62,7 @@ function SearchContent() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">
-        Resultados de búsqueda para: <span className="text-primary">"{query}"</span>
+        Resultados de búsqueda para: <span className="text-primary">&quot;{query}&quot;</span>
       </h1>
 
       {isLoading && <div className="flex justify-center items-center h-64"><span className="loading loading-spinner loading-lg"></span></div>}

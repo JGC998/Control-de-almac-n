@@ -139,15 +139,17 @@ export function useConfirmacion() {
         });
     }, []);
 
+    const { resolver } = estado;
+
     const handleConfirmar = React.useCallback(() => {
-        estado.resolver?.(true);
+        resolver?.(true);
         setEstado(prev => ({ ...prev, abierto: false }));
-    }, [estado.resolver]);
+    }, [resolver]);
 
     const handleCancelar = React.useCallback(() => {
-        estado.resolver?.(false);
+        resolver?.(false);
         setEstado(prev => ({ ...prev, abierto: false }));
-    }, [estado.resolver]);
+    }, [resolver]);
 
     const ModalConfirmacionConectado = React.useCallback(() => (
         <ModalConfirmacion

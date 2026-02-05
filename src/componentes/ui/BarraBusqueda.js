@@ -60,14 +60,16 @@ export default function BarraBusqueda() {
   const queryUrl = query.trim().length >= 2 ? `/api/busqueda?q=${encodeURIComponent(query)}` : null;
   const { data: results, isLoading } = useSWR(queryUrl, fetcher, {
     revalidateOnFocus: false,
-    dedupingInterval: 500, // Prevenir llamadas repetidas
-    shouldRetryOnError: false
+    dedupingInterval: 500,
+    shouldRetryOnError: false,
+    onSuccess: (data) => {
+      if (data && data.length > 0 && query.trim().length >= 2) {
+        setIsDropdownOpen(true);
+      }
+    }
   });
 
-  // Abrir/cerrar dropdown basado en la consulta y los resultados
-  useEffect(() => {
-    setIsDropdownOpen(query.trim().length >= 2 && !!results && results.length > 0);
-  }, [query, results]);
+  // useEffect(() => { ... }) eliminado para evitar set-state-in-effect
 
   // Cerrar el dropdown al hacer clic fuera
   useEffect(() => {
@@ -79,6 +81,14 @@ export default function BarraBusqueda() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setQuery(val);
+    if (val.trim().length < 2) {
+      setIsDropdownOpen(false);
+    }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -102,7 +112,7 @@ export default function BarraBusqueda() {
             placeholder="Buscar cliente, pedido..."
             className="input input-bordered w-full"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={handleSearchChange}
             // 'tabIndex' es necesario para que el div se comporte como el botón del dropdown
             tabIndex={0}
           />
@@ -114,7 +124,7 @@ export default function BarraBusqueda() {
 
       {/* Contenido del Dropdown (Resultados) */}
       {isDropdownOpen && (
-        <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full max-w-md mt-1">
+        <ul tabIndex={0} className="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box w-full max-w-md mt-1">
           {isLoading ? (
             <div className="p-4 text-center">
               <span className="loading loading-spinner loading-sm"></span>

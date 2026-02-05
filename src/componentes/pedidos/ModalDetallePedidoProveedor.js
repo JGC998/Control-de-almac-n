@@ -3,9 +3,9 @@ import { X, Package } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 
 export default function PedidoProveedorDetalleModal({ pedido, onClose }) {
-  if (!pedido) return null;
-
   const detallesCalculados = useMemo(() => {
+    if (!pedido) return [];
+
     const tasa = pedido.tasaCambio || 1;
     const gastos = pedido.gastosTotales || 0;
     const esImportacion = pedido.tipo === 'IMPORTACION';
@@ -44,6 +44,8 @@ export default function PedidoProveedorDetalleModal({ pedido, onClose }) {
       };
     });
   }, [pedido]);
+
+  if (!pedido) return null;
 
   const totalImporteBase = detallesCalculados.reduce((acc, i) => acc + i.costeTotalBaseLinea, 0);
   const totalGastos = pedido.gastosTotales || 0;

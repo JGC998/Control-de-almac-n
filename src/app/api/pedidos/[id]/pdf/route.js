@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import fs from 'fs/promises';
 import path from 'path';
@@ -14,7 +14,7 @@ const COMPANY_PHONE = '957 68 28 19';
 
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; 
+    const { id } = await paramsPromise;
 
     // 1. Obtener todos los datos del Pedido, incluyendo detalles del producto
     const order = await db.pedido.findUnique({
@@ -23,20 +23,17 @@ export async function GET(request, { params: paramsPromise }) {
         cliente: true,
         items: {
           include: {
-            producto: {
-              include: {
-                material: true, // Incluye el material del producto
-              },
-            },
+            producto: true  // Producto solo tiene campos básicos, sin relaciones
           },
         },
       },
     });
 
+
     if (!order) {
       return new NextResponse('Pedido no encontrado', { status: 404 });
     }
-    
+
     const client = order.cliente;
 
     // --- Inicio de la Generación del PDF ---
@@ -87,7 +84,7 @@ export async function GET(request, { params: paramsPromise }) {
     const tableColumn = ["Descripción", "Detalles", "Cantidad", "Peso Unit. (kg)", "Peso Total (kg)"];
     const tableRows = [];
     let pesoTotalGlobal = 0;
-    
+
     (order.items || []).forEach(item => {
       const cantidad = item.quantity || 0;
       const pesoUnitario = item.pesoUnitario || 0;
@@ -97,11 +94,19 @@ export async function GET(request, { params: paramsPromise }) {
       const producto = item.producto;
       let detalles = 'Item manual';
       if (producto) {
-        const material = producto.material?.nombre || 'N/A';
-        const espesor = producto.espesor || 'N/A';
-        const largo = producto.largo || 'N/A';
-        const ancho = producto.ancho || 'N/A';
-        detalles = `${material} - ${espesor}mm - ${largo}x${ancho}mm`;
+        // El modelo Producto solo tiene nombre y descripción
+        detalles = producto.nombre || 'Sin nombre';
+        if (producto.descripcion) {
+          detalles += ` - ${producto.descripcion}`;
+        }
+      }
+
+      // Detectar si el item tiene información de tacos en la descripción
+      const tacosMatch = item.descripcion.match(/\+ Tacos (RECTO|INCLINADO) (\d+)mm/);
+      if (tacosMatch) {
+        const tipoTaco = tacosMatch[1];
+        const alturaTaco = tacosMatch[2];
+        detalles += `\nTacos: ${tipoTaco} ${alturaTaco}mm`;
       }
 
       const itemData = [
@@ -134,35 +139,35 @@ export async function GET(request, { params: paramsPromise }) {
     let finalY = doc.lastAutoTable.finalY;
 
     if (finalY > 250) {
-        doc.addPage();
-        finalY = 15;
+      doc.addPage();
+      finalY = 15;
     } else {
-        finalY += 15;
+      finalY += 15;
     }
-    
+
     // --- TOTALES DE PESO ---
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     const pesoTotalFormateado = pesoTotalGlobal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
     doc.text(`Peso Total Global:`, 125, finalY);
     doc.text(`${pesoTotalFormateado} kg`, 198, finalY, { align: 'right' });
-    
+
     // --- SECCIÓN DE NOTAS DEL PEDIDO (CORREGIDA Y MEJORADA) ---
     if (order.notas) { // CORREGIDO: order.notas en lugar de order.notes
       const notesY = finalY + 15;
-      
+
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("Notas del Pedido:", 14, notesY);
-      
+
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      
+
       const textLines = doc.splitTextToSize(order.notas, 180);
       const textHeight = textLines.length * (doc.getLineHeight() / doc.internal.scaleFactor);
-      
-      doc.setDrawColor(200, 200, 200); 
-      doc.roundedRect(14, notesY + 3, 182, textHeight + 8, 3, 3, 'D'); 
+
+      doc.setDrawColor(200, 200, 200);
+      doc.roundedRect(14, notesY + 3, 182, textHeight + 8, 3, 3, 'D');
 
       doc.text(order.notas, 18, notesY + 10, { maxWidth: 178 });
     }
@@ -180,6 +185,10 @@ export async function GET(request, { params: paramsPromise }) {
 
   } catch (error) {
     console.error('Error al generar el PDF:', error);
-    return new NextResponse('Error interno al generar el PDF', { status: 500 });
+    console.error('Error stack:', error.stack);
+    return NextResponse.json({
+      message: 'Error interno al generar el PDF',
+      error: error.message
+    }, { status: 500 });
   }
 }

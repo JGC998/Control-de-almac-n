@@ -17,7 +17,6 @@ const fetcher = (url) => fetch(url).then((res) => res.json());
 // --- MODAL DE BÚSQUEDA DE CLIENTES (Restaurado) ---
 function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew, clientes = [], initialSearch = '' }) {
   const [search, setSearch] = useState(initialSearch);
-  useEffect(() => { if (isOpen) setSearch(initialSearch); }, [isOpen, initialSearch]);
 
   const filteredClients = useMemo(() => {
     if (!clientes) return [];
@@ -32,7 +31,7 @@ function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew, clientes =
   if (!isOpen) return null;
 
   return (
-    <div className="modal modal-open z-[9999]">
+    <div className="modal modal-open z-50">
       <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-lg flex items-center gap-2">
@@ -67,7 +66,6 @@ function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew, clientes =
 // --- MODAL DE BÚSQUEDA DE PRODUCTOS (Nuevo) ---
 function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos = [], initialSearch = '' }) {
   const [search, setSearch] = useState(initialSearch);
-  useEffect(() => { if (isOpen) setSearch(initialSearch); }, [isOpen, initialSearch]);
 
   const filteredProducts = useMemo(() => {
     if (!productos) return [];
@@ -82,7 +80,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
   if (!isOpen) return null;
 
   return (
-    <div className="modal modal-open z-[9999]">
+    <div className="modal modal-open z-50">
       <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-lg flex items-center gap-2"><Box className="w-5 h-5" /> Buscar Producto</h3>
@@ -494,9 +492,9 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         </div>
       </form>
 
-      <ClienteSearchModal isOpen={isClientSearchOpen} onClose={() => setIsClientSearchOpen(false)} onSelect={handleSelectClient} onCreateNew={handleOpenCreateClient} clientes={clientes} initialSearch={clienteNombre} />
+      <ClienteSearchModal key={isClientSearchOpen} isOpen={isClientSearchOpen} onClose={() => setIsClientSearchOpen(false)} onSelect={handleSelectClient} onCreateNew={handleOpenCreateClient} clientes={clientes} initialSearch={clienteNombre} />
 
-      <ProductSearchModal isOpen={productSearchState.isOpen} onClose={() => setProductSearchState(prev => ({ ...prev, isOpen: false }))} onSelect={handleProductSelect} onCreateNew={handleOpenCreateProduct} productos={todosProductos} initialSearch={productSearchState.initialSearch} />
+      <ProductSearchModal key={productSearchState.isOpen} isOpen={productSearchState.isOpen} onClose={() => setProductSearchState(prev => ({ ...prev, isOpen: false }))} onSelect={handleProductSelect} onCreateNew={handleOpenCreateProduct} productos={todosProductos} initialSearch={productSearchState.initialSearch} />
 
       {modalState?.type === 'CLIENTE' && (
         <BaseQuickCreateModal isOpen={true} onClose={() => setModalState(null)} onCreated={handleClienteCreado} title="Crear Nuevo Cliente" endpoint="/api/clientes" cacheKey="/api/clientes" fields={[{ name: 'nombre', placeholder: 'Nombre', required: true, defaultValue: modalState.initialName }, { name: 'email', placeholder: 'Email', type: 'email' }, { name: 'telefono', placeholder: 'Teléfono' }]} />

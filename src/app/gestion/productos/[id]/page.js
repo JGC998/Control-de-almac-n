@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Tag, Info, List, FileText, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Tag, Info, List, FileText, Upload, Trash2, Edit } from 'lucide-react';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 

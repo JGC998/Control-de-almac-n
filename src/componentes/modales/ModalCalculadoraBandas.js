@@ -22,7 +22,7 @@ export default function ModalCalculadoraBandas({ isOpen, onClose, onAddItem }) {
                 {/* Content */}
                 <div className="overflow-y-auto flex-1 p-4 bg-base-100">
                     <div className="alert alert-info shadow-sm mb-4 text-xs">
-                        <span>Calcula el precio y dimensiones de la banda. Al hacer clic en "Añadir Banda", se insertará como una línea en el pedido.</span>
+                        <span>Calcula el precio y dimensiones de la banda. Al hacer clic en &quot;Añadir Banda&quot;, se insertará como una línea en el pedido.</span>
                     </div>
 
                     <div className="flex justify-center">

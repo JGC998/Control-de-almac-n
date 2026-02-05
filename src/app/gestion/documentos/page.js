@@ -18,10 +18,6 @@ const initialFormData = {
 function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos = [], fabricantes = [], initialSearch = '' }) {
     const [search, setSearch] = useState(initialSearch);
 
-    useEffect(() => {
-        if (isOpen) setSearch(initialSearch);
-    }, [isOpen, initialSearch]);
-
     const filteredProducts = useMemo(() => {
         if (!productos) return [];
         return productos.filter(p => {
@@ -38,7 +34,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
     if (!isOpen) return null;
 
     return (
-        <div className="modal modal-open z-[9999]">
+        <div className="modal modal-open z-50">
             <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-lg flex items-center gap-2">
@@ -80,7 +76,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
                                     <td colSpan={4} className="text-center py-10 text-gray-500">
                                         <p>No se encontraron productos.</p>
                                         <button onClick={() => onCreateNew(search)} className="btn btn-link btn-sm mt-2">
-                                            Crear "{search}" ahora
+                                            Crear &quot;{search}&quot; ahora
                                         </button>
                                     </td>
                                 </tr>
@@ -118,10 +114,6 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
     const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
     const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
     const [quickCreateInitialRef, setQuickCreateInitialRef] = useState('');
-
-    useEffect(() => {
-        setFormData(initialData);
-    }, [initialData]);
 
     const handleFileChange = useCallback((file) => {
         if (file) {
@@ -327,6 +319,7 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
 
             {/* MODALES SECUNDARIOS */}
             <ProductSearchModal
+                key={isProductSearchOpen}
                 isOpen={isProductSearchOpen}
                 onClose={() => setIsProductSearchOpen(false)}
                 onSelect={handleSelectProduct}
@@ -508,6 +501,7 @@ export default function GestionDocumentos() {
             </div>
 
             <DocumentoModal
+                key={isModalOpen ? (currentDocumento.id || 'new') : 'closed'}
                 isOpen={isModalOpen}
                 onClose={closeModal}
                 initialData={currentDocumento}

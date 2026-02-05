@@ -3,6 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { Package, X, Save } from 'lucide-react';
 
+const initialFormState = {
+    nombre: '',
+    descripcion: '',
+    precio: '',
+    stock: 0,
+    categoria: ''
+};
+
 export default function QuickProductForm({
     isOpen,
     onClose,
@@ -10,14 +18,7 @@ export default function QuickProductForm({
     productoAEditar = null
 }) {
     // Estado inicial simplificado para el nuevo modelo
-    const initialFormState = {
-        nombre: '',
-        descripcion: '',
-        precio: '',
-        stock: 0,
-        categoria: ''
-    };
-
+    // Estado inicial simplificado
     const [formData, setFormData] = useState(initialFormState);
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);

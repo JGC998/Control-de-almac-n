@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db'; 
+import { db } from '@/lib/db';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable"; // Aseguramos que se use autoTable
 import fs from 'fs/promises';
@@ -14,13 +14,13 @@ const COMPANY_PHONE = '957 68 28 19';
 
 export async function GET(request, { params: paramsPromise }) {
   try {
-    const { id } = await paramsPromise; 
+    const { id } = await paramsPromise;
 
     // 1. Obtener todos los datos de la BD en una sola consulta
     const quote = await db.presupuesto.findUnique({
       where: { id: id },
       include: {
-        cliente: true, 
+        cliente: true,
         items: true,
       },
     });
@@ -28,11 +28,11 @@ export async function GET(request, { params: paramsPromise }) {
     if (!quote) {
       return new NextResponse('Presupuesto no encontrado', { status: 404 });
     }
-    
+
     // 2. Obtener la configuración (IVA) y las reglas de Margen
     const [configIva, margenes] = await Promise.all([
-        db.config.findUnique({ where: { key: 'iva_rate' } }),
-        db.reglaMargen.findMany(),
+      db.config.findUnique({ where: { key: 'iva_rate' } }),
+      db.reglaMargen.findMany(),
     ]);
 
     const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;
@@ -42,23 +42,23 @@ export async function GET(request, { params: paramsPromise }) {
     // --- LÓGICA DE PRORRATEO Y CÁLCULO DE PRECIO DE VENTA UNITARIO ---
     const multiplicador = marginRule?.multiplicador || 1;
     const gastoFijoTotal = marginRule?.gastoFijo || 0;
-    
+
     // Calcular la cantidad total de unidades para el prorrateo del gasto fijo
     const totalQuantity = (quote.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
     const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
-    
+
     const calculatedItems = (quote.items || []).map(item => {
-        // item.unitPrice contiene el COSTO BASE (materia prima por pieza)
-        const costoUnitario = item.unitPrice || 0; 
-        
-        // Precio Venta Unitario = Costo Unitario * Multiplicador + Gasto Fijo Prorrateado
-        const precioUnitarioVenta = (costoUnitario * multiplicador) + gastoFijoUnitarioProrrateado;
-        
-        return {
-            ...item,
-            unitPriceVenta: precioUnitarioVenta,
-            totalVentaItem: precioUnitarioVenta * (item.quantity || 0),
-        };
+      // item.unitPrice contiene el COSTO BASE (materia prima por pieza)
+      const costoUnitario = item.unitPrice || 0;
+
+      // Precio Venta Unitario = Costo Unitario * Multiplicador + Gasto Fijo Prorrateado
+      const precioUnitarioVenta = (costoUnitario * multiplicador) + gastoFijoUnitarioProrrateado;
+
+      return {
+        ...item,
+        unitPriceVenta: precioUnitarioVenta,
+        totalVentaItem: precioUnitarioVenta * (item.quantity || 0),
+      };
     });
     // -----------------------------------------------------------
 
@@ -82,7 +82,7 @@ export async function GET(request, { params: paramsPromise }) {
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    
+
     // DETALLES DE LA EMPRESA 
     doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
     doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
@@ -114,10 +114,19 @@ export async function GET(request, { params: paramsPromise }) {
     // Usamos las columnas de VENTA para el cliente (Precio Unit. Venta y Total Venta)
     const tableColumn = ["Descripción", "Cantidad", "P. Unit. (Venta)", "Total (Venta)"];
     const tableRows = [];
-    
+
     calculatedItems.forEach(item => {
+      // Detectar si el item tiene información de tacos
+      let descripcion = item.descripcion;
+      const tacosMatch = item.descripcion.match(/\+ Tacos (RECTO|INCLINADO) (\d+)mm/);
+      if (tacosMatch) {
+        const tipoTaco = tacosMatch[1];
+        const alturaTaco = tacosMatch[2];
+        descripcion += `\n(Incluye tacos ${tipoTaco} ${alturaTaco}mm)`;
+      }
+
       const itemData = [
-        item.descripcion,
+        descripcion,
         item.quantity,
         // USAMOS EL PRECIO DE VENTA PRORRATEADO
         `${(item.unitPriceVenta || 0).toFixed(2)} €`,
@@ -129,13 +138,13 @@ export async function GET(request, { params: paramsPromise }) {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 90, 
+      startY: 90,
       theme: 'grid'
     });
 
     const finalY = doc.lastAutoTable.finalY;
     doc.setFontSize(10);
-    
+
     // Usamos los totales ya guardados que vienen del cliente y que son correctos
     doc.text(`Subtotal:`, 145, finalY + 10);
     doc.text(`${(quote.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
@@ -147,10 +156,10 @@ export async function GET(request, { params: paramsPromise }) {
     doc.setFont("helvetica", "bold");
     doc.text(`TOTAL:`, 145, finalY + 24);
     doc.text(`${(quote.total || 0).toFixed(2)} €`, 198, finalY + 24, { align: 'right' });
-    
+
     // NOTAS ADICIONALES (Validez y notas del presupuesto)
     let notesY = finalY + 35;
-    
+
     // Nota de validez de 15 días (Requerido)
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
