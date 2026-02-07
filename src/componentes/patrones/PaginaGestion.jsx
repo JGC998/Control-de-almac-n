@@ -1,12 +1,12 @@
 "use client";
 import React from 'react';
 import Link from 'next/link';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Download } from 'lucide-react';
 
 import { useGestionCRUD } from '../hooks';
 import { FormularioModal } from '../compuestos/FormularioEntidad';
 import TablaDatos from '../compuestos/TablaDatos';
-import { ContenedorCargando } from '../ui';
+import { ContenedorCargando, Paginacion, FiltroBusqueda } from '../ui';
 import { useConfirmacion } from '../ui/ModalConfirmacion';
 
 /**
@@ -91,6 +91,7 @@ export default function PaginaGestion({
     transformarParaEditar = null,
     accionesExtra = null,
     filtrosExtra = null,
+    exportModel = null,
     className = '',
 }) {
     // Generar campos iniciales automáticamente si no se proporcionan
@@ -116,6 +117,11 @@ export default function PaginaGestion({
         guardando,
         errorGuardado,
         recargar,
+        pagina,
+        setPagina,
+        meta,
+        busqueda,
+        setBusqueda,
     } = useGestionCRUD({
         recursoApi,
         camposIniciales: camposInicialesGenerados,
@@ -180,8 +186,14 @@ export default function PaginaGestion({
                     {Icono && <Icono className="w-8 h-8" />}
                     {titulo}
                 </h1>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    <FiltroBusqueda valorInicial={busqueda} alBuscar={setBusqueda} />
                     {accionesExtra}
+                    {exportModel && (
+                        <a href={`/api/export/csv?model=${exportModel}`} className="btn btn-outline btn-success gap-2" target="_blank">
+                            <Download className="w-4 h-4" /> Exportar CSV
+                        </a>
+                    )}
                     {mostrarBotonNuevo && (
                         <button onClick={abrirModalNuevo} className="btn btn-primary">
                             <PlusCircle className="w-4 h-4" />
@@ -210,10 +222,19 @@ export default function PaginaGestion({
                             datos={datos}
                             columnas={columnasConAcciones}
                             rutaBase={rutaDetalle}
-                            mostrarAccionVer={!!rutaDetalle}
                         />
                     </div>
                 </div>
+
+                {meta && meta.totalPages > 1 && (
+                    <Paginacion
+                        paginaActual={pagina || 1}
+                        totalPaginas={meta.totalPages}
+                        totalRegistros={meta.total}
+                        tamanioPagina={meta.limit}
+                        alCambiarPagina={setPagina}
+                    />
+                )}
             </ContenedorCargando>
 
             {/* Modal de formulario */}

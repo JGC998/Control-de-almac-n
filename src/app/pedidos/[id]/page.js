@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, Download, Truck, FileText, DollarSign, CheckCircle, Package } from 'lucide-react';
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
+import EmailButton from '@/componentes/presupuestos/EmailButton';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -219,6 +220,8 @@ export default function PedidoDetalle() {
       {error && <div className="alert alert-error shadow-lg mb-4">{error}</div>}
 
       <div className="flex flex-wrap gap-2 mb-6">
+        <EmailButton id={order.id} emailCliente={order.cliente?.email} />
+
         <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary">
           <Download className="w-4 h-4" /> Descargar PDF
         </button>
@@ -294,7 +297,6 @@ export default function PedidoDetalle() {
             initialData={order}
             onSuccess={() => { mutate(`/api/pedidos/${id}`); closeEditModal(); }}
             onCancel={closeEditModal}
-            isEdit={true}
             formType="PEDIDO"
           />
         </div>

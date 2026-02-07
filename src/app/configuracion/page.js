@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Settings, DollarSign, Layers, TrendingUp, Package, Wrench } from 'lucide-react';
+import { Settings, DollarSign, Layers, TrendingUp, Package, Wrench, Download } from 'lucide-react';
 import Link from 'next/link';
 import GestorCatalogo from '@/componentes/productos/GestorCatalogo';
 import RuleEditorModal from '@/componentes/modales/ModalEditorReglas';
@@ -208,9 +208,17 @@ export default function ConfiguracionPage() {
             <Wrench className="mr-2" /> Configuración del Sistema
           </h2>
 
-          <div className="alert alert-info lg:col-span-2">
+          <div className="card bg-base-100 shadow px-6 py-4 lg:col-span-2">
+            <h3 className="font-bold text-lg mb-2">Copia de Seguridad</h3>
+            <p className="mb-4">Descarga una copia completa de la configuración actual (tarifas, márgenes, reglas) en formato JSON.</p>
+            <a href="/api/config/backup" target="_blank" className="btn btn-primary gap-2 w-fit">
+              <Download className="w-4 h-4" /> Descargar Backup Completo
+            </a>
+          </div>
+
+          <div className="alert alert-info lg:col-span-2 mt-4">
             <Wrench className="w-5 h-5" />
-            <span>Configuraciones generales del sistema próximamente disponibles</span>
+            <span>Más configuraciones del sistema próximamente disponibles</span>
           </div>
         </div>
       )}

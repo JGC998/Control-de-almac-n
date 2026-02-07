@@ -12,6 +12,7 @@ const manejadores = crearManejadoresCRUD('cliente', {
     telefono: data.telefono,
     tier: data.categoria, // Mapea 'categoria' del frontend a 'tier' del modelo
   }),
+  camposBusqueda: ['nombre', 'email', 'telefono'], // Campos buscables
 }, '/gestion/clientes');
 
 export const GET = manejadores.GET;

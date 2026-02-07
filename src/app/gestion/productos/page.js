@@ -77,6 +77,7 @@ export default function GestionProductosPage() {
       rutaDetalle="/gestion/productos"
       tituloNuevo="Nuevo Producto"
       tituloEditar="Editar Producto"
+      exportModel="producto"
     />
   );
 }

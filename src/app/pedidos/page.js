@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Package, PlusCircle, CheckCircle, Clock } from 'lucide-react';
+import { Package, PlusCircle, CheckCircle, Clock, Download } from 'lucide-react';
 import { db } from '@/lib/db';
 import TablaDatos from '@/componentes/compuestos/TablaDatos';
 
@@ -23,24 +23,38 @@ const columnasPedido = [
   },
 ];
 
-export default async function PedidosPage() {
-  // Obtener todos los pedidos ordenados por fecha
-  const allPedidos = await db.pedido.findMany({
-    include: {
-      cliente: {
-        select: { nombre: true },
-      },
-    },
-    orderBy: { fechaCreacion: 'desc' },
-  });
+export const dynamic = 'force-dynamic';
+import { PaginacionServidor, FiltroEstado } from '@/componentes/ui';
 
-  // Dividir en Activos e Históricos
-  const pedidosActivos = allPedidos.filter(p =>
-    p.estado !== 'Completado' && p.estado !== 'Cancelado'
-  );
-  const pedidosHistoricos = allPedidos.filter(p =>
-    p.estado === 'Completado' || p.estado === 'Cancelado'
-  );
+export default async function PedidosPage({ searchParams: searchParamsPromise }) {
+  // Await searchParams before accessing properties
+  const searchParams = await searchParamsPromise;
+
+  const page = parseInt(searchParams?.page || '1');
+  const limit = parseInt(searchParams?.limit || '20');
+  const skip = (page - 1) * limit;
+
+  // Obtener pedidos paginados
+  const [pedidos, total] = await Promise.all([
+    db.pedido.findMany({
+      skip,
+      take: limit,
+      include: {
+        cliente: {
+          select: { nombre: true },
+        },
+      },
+      orderBy: { fechaCreacion: 'desc' },
+    }),
+    db.pedido.count(),
+  ]);
+
+  const meta = {
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -49,31 +63,32 @@ export default async function PedidosPage() {
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Package className="w-8 h-8" /> Pedidos
         </h1>
-        <Link href="/pedidos/nuevo" className="btn btn-primary">
-          <PlusCircle className="w-4 h-4" /> Nuevo Pedido
-        </Link>
+        <div className="flex gap-2 items-center">
+          <FiltroEstado />
+          <a href="/api/pedidos/export" target="_blank" className="btn btn-outline btn-success gap-2">
+            <Download className="w-4 h-4" /> Exportar Excel
+          </a>
+          <Link href="/pedidos/nuevo" className="btn btn-primary">
+            <PlusCircle className="w-4 h-4" /> Nuevo Pedido
+          </Link>
+        </div>
       </div>
 
-      {/* Tablas de pedidos */}
-      <div className="space-y-6">
-        <TablaDatos
-          datos={pedidosActivos}
-          columnas={columnasPedido}
-          titulo="Pedidos Activos"
-          icono={Clock}
-          rutaBase="/pedidos"
-          mensajeVacio="No hay pedidos activos actualmente."
-        />
+      {/* Tabla Unificada con Paginación */}
+      <div className="card bg-base-100 shadow-xl border border-base-200">
+        <div className="card-body p-0">
+          <TablaDatos
+            datos={pedidos}
+            columnas={columnasPedido}
+            rutaBase="/pedidos"
+            mensajeVacio="No hay pedidos registrados."
+          />
+        </div>
+      </div>
 
-        <TablaDatos
-          datos={pedidosHistoricos}
-          columnas={columnasPedido}
-          titulo="Pedidos Históricos"
-          icono={CheckCircle}
-          rutaBase="/pedidos"
-          colapsable
-          colapsadoInicial={true}
-        />
+      {/* Paginación */}
+      <div className="mt-4">
+        <PaginacionServidor meta={meta} />
       </div>
     </div>
   );

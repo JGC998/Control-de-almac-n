@@ -1,0 +1,37 @@
+[
+  {
+    "id": "33426899-ca5f-47d7-8d1d-4f05a5081c5e",
+    "nombre": "Siban",
+    "email": "",
+    "telefono": "+34 900 100 200",
+    "direccion": "Pol. Ind. Central, Nave 5"
+  },
+  {
+    "id": "39088cf4-3970-4f61-ba9e-65dc54c95573",
+    "nombre": "Aeroma Industrial ",
+    "email": "no@no",
+    "telefono": null,
+    "direccion": null
+  },
+  {
+    "id": "625c8af6-a838-4c7d-a186-c6a756fbd17b",
+    "nombre": "Esbelt",
+    "email": "",
+    "telefono": "932 07 33 11",
+    "direccion": "Carrer de Provença, 385, L'Eixample, 08025 Barcelona"
+  },
+  {
+    "id": "e0926350-c8e6-470b-8fc4-192d3ad37e88",
+    "nombre": "Fuda China",
+    "email": "",
+    "telefono": "",
+    "direccion": "Ciudad de Tiantai, Provincia de Zhejiang, 317210."
+  },
+  {
+    "id": "ec01cbac-1d7b-4cf5-9c6a-116740be6543",
+    "nombre": "Indubanda",
+    "email": "indubanda@gmail.com",
+    "telefono": "986  48 15 06",
+    "direccion": "Polígono, Miraflores-Sárdoma, 4, 36214 Vigo, Pontevedra"
+  }
+]

@@ -11,4 +11,8 @@ export { default as BarraBusqueda } from './BarraBusqueda';
 export { default as ListaInfo } from './ListaInfo';
 export { default as TablaGenerica } from './TablaGenerica';
 export { default as TablaGestionDatos } from './TablaGestionDatos';
+export { default as Paginacion } from './Paginacion';
+export { default as PaginacionServidor } from './PaginacionServidor';
+export { default as FiltroBusqueda } from './FiltroBusqueda';
+export { default as FiltroEstado } from './FiltroEstado';
 export { default as ProveedorTema } from './ProveedorTema';

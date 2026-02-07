@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { PlusCircle, FileText, CheckCircle, Clock } from 'lucide-react';
+import { PlusCircle, FileText, CheckCircle, Clock, Download } from 'lucide-react';
 import { db } from '@/lib/db';
 import TablaDatos from '@/componentes/compuestos/TablaDatos';
 
@@ -44,9 +44,14 @@ export default async function PresupuestosPage() {
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <FileText className="w-8 h-8" /> Presupuestos
         </h1>
-        <Link href="/presupuestos/nuevo" className="btn btn-primary">
-          <PlusCircle className="w-4 h-4" /> Nuevo Presupuesto
-        </Link>
+        <div className="flex gap-2">
+          <a href="/api/presupuestos/export" target="_blank" className="btn btn-outline btn-success gap-2">
+            <Download className="w-4 h-4" /> Exportar Excel
+          </a>
+          <Link href="/presupuestos/nuevo" className="btn btn-primary">
+            <PlusCircle className="w-4 h-4" /> Nuevo Presupuesto
+          </Link>
+        </div>
       </div>
 
       {/* Tablas de presupuestos */}

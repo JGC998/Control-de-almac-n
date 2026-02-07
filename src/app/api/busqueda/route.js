@@ -23,13 +23,12 @@ export async function GET(request) {
       take: 5,
     };
 
-    // Configuración específica para productos (nombre, descripción, categoría)
+    // Configuración específica para productos
     const productSearchConfig = {
       where: {
         OR: [
           { nombre: { contains: query, mode: 'insensitive' } },
-          { descripcion: { contains: query, mode: 'insensitive' } },
-          { categoria: { contains: query, mode: 'insensitive' } }
+          { referenciaFabricante: { contains: query, mode: 'insensitive' } }
         ]
       },
       take: 5

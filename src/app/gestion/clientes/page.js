@@ -72,6 +72,7 @@ export default function GestionClientesPage() {
       rutaDetalle="/gestion/clientes"
       tituloNuevo="Nuevo Cliente"
       tituloEditar="Editar Cliente"
+      exportModel="cliente"
     />
   );
 }

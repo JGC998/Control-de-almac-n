@@ -38,7 +38,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [selectedMarginId, setSelectedMarginId] = useState('');
     const [tipoConfeccion, setTipoConfeccion] = useState('ABIERTA');
 
-    const [unidades, setUnidades] = useState('');
+    const [unidades, setUnidades] = useState('1');
     const [ancho, setAncho] = useState('');
     const [largo, setLargo] = useState('');
 
@@ -140,7 +140,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             precioTotal: precioUnitario * unas,
             pesoTotal: (tarifa.peso * area) * unas
         };
-    }, [tarifas, selectedMaterial, selectedEspesor, selectedMargin, unidades, ancho, largo, tipoConfeccion, costeVulcanizadoMetro, costeAportacion, costeGrapaMetro, configuracionTacos]);
+    }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, selectedMargin, unidades, ancho, largo, tipoConfeccion, costeVulcanizadoMetro, costeAportacion, costeGrapaMetro, configuracionTacos, isPVC]);
 
     // --- HANDLER ---
     const handleAdd = () => {

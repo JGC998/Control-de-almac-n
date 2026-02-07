@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise;
-    console.log(`[PEDIDOS-API:GET] Solicitando pedido: ${id}`);
+
 
     // Incluimos las relaciones confirmadas en el modelo Pedido
     const order = await db.pedido.findUnique({
@@ -30,7 +30,21 @@ export async function GET(request, { params: paramsPromise }) {
       return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     }
 
-    return NextResponse.json(order);
+    // Serializar Decimals a números
+    const orderSerializado = {
+      ...order,
+      subtotal: order.subtotal ? Number(order.subtotal) : 0,
+      tax: order.tax ? Number(order.tax) : 0,
+      total: order.total ? Number(order.total) : 0,
+      items: order.items.map(item => ({
+        ...item,
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
+        pesoUnitario: item.pesoUnitario ? Number(item.pesoUnitario) : 0,
+        quantity: item.quantity ? Number(item.quantity) : 0,
+      })),
+    };
+
+    return NextResponse.json(orderSerializado);
 
   } catch (error) {
     console.error('Error al obtener pedido:', error);
@@ -62,7 +76,7 @@ export async function PUT(request, { params: paramsPromise }) {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         pesoUnitario: item.pesoUnitario || 0,
-        productoId: item.productoId ? parseInt(item.productoId) : null,
+        productoId: item.productoId || null, // UUID, no parseInt
         pedidoId: id, // Asegura la referencia
       }));
       await tx.pedidoItem.createMany({ data: newItems });
@@ -91,7 +105,21 @@ export async function PUT(request, { params: paramsPromise }) {
       return order;
     });
 
-    return NextResponse.json(updatedOrder);
+    // Serializar Decimals
+    const orderSerializado = {
+      ...updatedOrder,
+      subtotal: updatedOrder.subtotal ? Number(updatedOrder.subtotal) : 0,
+      tax: updatedOrder.tax ? Number(updatedOrder.tax) : 0,
+      total: updatedOrder.total ? Number(updatedOrder.total) : 0,
+      items: updatedOrder.items.map(item => ({
+        ...item,
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
+        pesoUnitario: item.pesoUnitario ? Number(item.pesoUnitario) : 0,
+        quantity: item.quantity ? Number(item.quantity) : 0,
+      })),
+    };
+
+    return NextResponse.json(orderSerializado);
 
   } catch (error) {
     console.error(`Error al actualizar el pedido ${id}:`, error);
@@ -106,7 +134,7 @@ export async function PUT(request, { params: paramsPromise }) {
 export async function DELETE(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise;
-    console.log(`[PEDIDOS-API:DELETE] Eliminando pedido: ${id}`); // Debug log
+
 
     await db.$transaction(async (tx) => {
       await tx.pedidoItem.deleteMany({
@@ -119,7 +147,7 @@ export async function DELETE(request, { params: paramsPromise }) {
 
     // Revalidamos la lista tras eliminar
     revalidatePath('/pedidos');
-    console.log(`[PEDIDOS-API:DELETE] Pedido eliminado y caché revalidada.`); // Debug log
+
 
     return NextResponse.json({ message: 'Pedido eliminado correctamente' }, { status: 200 });
   } catch (error) {

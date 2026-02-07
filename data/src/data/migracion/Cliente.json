@@ -1,0 +1,498 @@
+[
+  {
+    "id": "00694038-f2f9-4375-8f43-44f07f09cd61",
+    "nombre": "BORJA PEREZ CONSTRUMAQ",
+    "email": "construmaq123@gmail.com",
+    "direccion": null,
+    "telefono": "605142737",
+    "tier": null
+  },
+  {
+    "id": "00a48cdb-648f-4bc7-b1c6-10df0f6c1cf7",
+    "nombre": "NOLI",
+    "email": "contact@noli.es",
+    "direccion": "Av. Juan Carlos I, 34, 14520 Fernán Núñez, Córdoba",
+    "telefono": "957 38 01 50",
+    "tier": "FABRICANTE"
+  },
+  {
+    "id": "087fc3ca-a46e-4446-b78d-af8ba10efc5f",
+    "nombre": "MARTRIN ALLON",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "677349269",
+    "tier": null
+  },
+  {
+    "id": "0b845d78-299e-4b62-a248-9a390dcd011d",
+    "nombre": "AGROSERVCICOS LOS RUMANOS ",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "627025033",
+    "tier": null
+  },
+  {
+    "id": "0c0e29fe-f742-4d15-970d-6f18b3752798",
+    "nombre": "TALLERES MATA CAMPOS",
+    "email": "tmatacampos-tmc@hotmail.com",
+    "direccion": null,
+    "telefono": "653883967",
+    "tier": null
+  },
+  {
+    "id": "0c830507-4d6f-47ec-bf30-6d4ac7c4e1ea",
+    "nombre": "SCA SAN JUAN BAUTISTA (SOLERA)",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "953 39 40 37",
+    "tier": null
+  },
+  {
+    "id": "116b9cc5-b1f2-4e5e-ae4f-57da25b58de0",
+    "nombre": "AGROVINDEL SC",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "652389328",
+    "tier": null
+  },
+  {
+    "id": "134edd07-8789-46b9-9efd-1d46e4b42ad3",
+    "nombre": "FRANCISCO MIGUEL (ESPEJO)",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "663365758",
+    "tier": null
+  },
+  {
+    "id": "1ae1103e-aa67-4f95-a219-3f445352a3ae",
+    "nombre": "AGROTORRES ",
+    "email": "m.pedraza@serrot.net",
+    "direccion": null,
+    "telefono": "660 80 49 13",
+    "tier": null
+  },
+  {
+    "id": "28998a4d-f858-40fe-b480-3d0a651f0ddd",
+    "nombre": "ANTONIO LOPEZ",
+    "email": "admon.ajlopezjimenez@gmail.com",
+    "direccion": null,
+    "telefono": "660710373",
+    "tier": null
+  },
+  {
+    "id": "2a89316f-920d-4283-ae84-54eac545fc9c",
+    "nombre": "FERNANDO (ALICUN DE ORTEGA)",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "656 96 04 27",
+    "tier": null
+  },
+  {
+    "id": "3672d58d-9ef9-469d-b8ea-b6f4ca1fbf78",
+    "nombre": "IBERBAG",
+    "email": "administracion@iberbacgrup.com",
+    "direccion": null,
+    "telefono": "918095121",
+    "tier": null
+  },
+  {
+    "id": "38ff84ff-8dc5-434e-ada3-3ff4b6a777f5",
+    "nombre": "TARIFA",
+    "email": "TARIFA@TARIFA",
+    "direccion": null,
+    "telefono": "1",
+    "tier": null
+  },
+  {
+    "id": "3a5b2c4a-90c6-4308-a609-c27cc70eeeb2",
+    "nombre": "ANGEL MELLADO",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "606960002",
+    "tier": null
+  },
+  {
+    "id": "4028c8c9-3905-4598-8638-d5b0cee90fdf",
+    "nombre": "ESPEJO VIDELSUR",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "606967997",
+    "tier": null
+  },
+  {
+    "id": "403fe7ae-36dc-414d-8ae3-3216178d7037",
+    "nombre": "HMNOS ANDREU BOSQUE",
+    "email": "NO@NO",
+    "direccion": "Calle Martires 4544640, Torrecilla De Alcañiz (Teruel). España",
+    "telefono": "676156557",
+    "tier": ""
+  },
+  {
+    "id": "49100c22-9f14-4443-affd-6f10378fbec8",
+    "nombre": "Guadagri",
+    "email": "guadagri@gmail.com",
+    "direccion": null,
+    "telefono": "957610089",
+    "tier": null
+  },
+  {
+    "id": "4a7f2f37-6947-4bb2-b83f-b02168bbb67d",
+    "nombre": "RAFAEL BELDA MARTINEZ",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "696391964",
+    "tier": null
+  },
+  {
+    "id": "4fee21ba-1568-4d03-af15-6ad65b7d3d3f",
+    "nombre": "BENIGNO ",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "630 04 27 61",
+    "tier": null
+  },
+  {
+    "id": "5351fb6f-6041-4b5c-a19b-107e91212ec7",
+    "nombre": "FRANCISCO JIMNEZ ",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "627907700",
+    "tier": null
+  },
+  {
+    "id": "5e98ffb7-1f10-4b35-bbb5-8a5cd8610b6b",
+    "nombre": "TECNIAGRI",
+    "email": "tecniagri@gmail.com",
+    "direccion": null,
+    "telefono": "651990277",
+    "tier": null
+  },
+  {
+    "id": "63a00178-ec99-484e-8156-d99cbefc777a",
+    "nombre": "JOAMORENO",
+    "email": "ferreteriajoamoreno@gmail.com",
+    "direccion": null,
+    "telefono": "00000000",
+    "tier": null
+  },
+  {
+    "id": "63f5cd0c-05d1-494d-bf06-a869033f403c",
+    "nombre": "OLIOJAEN",
+    "email": "administracion@suminsitrosoliojaen.com",
+    "direccion": null,
+    "telefono": "625564682",
+    "tier": null
+  },
+  {
+    "id": "665e2b41-dd0f-458d-bbc0-6566746ea6e1",
+    "nombre": "AGROSERVCIOS  FERNAN NUÑEZ",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "6879425332",
+    "tier": null
+  },
+  {
+    "id": "6787643f-bc05-4b7e-bda2-1f9029130b6c",
+    "nombre": "METALICAS EL PORTEZUELO",
+    "email": "metalicas.elportezuelo@gmail.com",
+    "direccion": null,
+    "telefono": "665557106",
+    "tier": null
+  },
+  {
+    "id": "78462b6d-d724-4520-b1d7-a454e237a220",
+    "nombre": "AGRO RONCHA ",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "618312531",
+    "tier": null
+  },
+  {
+    "id": "789cbaf1-e18d-43c3-89a9-e025bbbea7d4",
+    "nombre": "AUTORECAMBIOS MANSILLA ",
+    "email": "auto@recambiosmansilla.com",
+    "direccion": null,
+    "telefono": "638155822",
+    "tier": null
+  },
+  {
+    "id": "79d88d0e-02b8-46ae-adab-cdfbf1aa1852",
+    "nombre": "PROMAGRI",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "1",
+    "tier": null
+  },
+  {
+    "id": "7b582b63-ca45-4009-ac24-2c5418a8804d",
+    "nombre": "ANTONIO FRANCISCO TRUJILLO (COOP LUCENA)",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "696626707",
+    "tier": null
+  },
+  {
+    "id": "80101bde-86cc-49de-85ba-933d37fc06a6",
+    "nombre": "JOSE IGNACIO ESPINOSA",
+    "email": "joseignacioespinosaruiz@gmail.com",
+    "direccion": null,
+    "telefono": "676792901",
+    "tier": null
+  },
+  {
+    "id": "80746e2a-2335-4a47-95b4-6846e555d4ed",
+    "nombre": "INDUSTRIAS BARRAZA",
+    "email": "compras@industriasbarraza.com",
+    "direccion": null,
+    "telefono": "645838169",
+    "tier": null
+  },
+  {
+    "id": "83ba58db-a8ef-4fe0-a5c3-d1b7a7a2a400",
+    "nombre": "HERMANOS MOLINA",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "659058998",
+    "tier": null
+  },
+  {
+    "id": "84766839-76ed-484a-aa38-670f8b4701d5",
+    "nombre": "CRISPE",
+    "email": "crispemaquinaria@gmail.com",
+    "direccion": null,
+    "telefono": "653279332",
+    "tier": null
+  },
+  {
+    "id": "8fe63149-1e66-489f-b407-035ae1063f6b",
+    "nombre": "LOS LUCAS",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "651449482",
+    "tier": null
+  },
+  {
+    "id": "91b73195-3e34-43ce-87a3-1d2a76ccf7d2",
+    "nombre": "ANGEL (MADRID-ESPEJO)",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "639703475",
+    "tier": null
+  },
+  {
+    "id": "939d4c8d-5f60-4d45-9b27-1635415d318c",
+    "nombre": "CONSTRUCCIONES VAZQUEZ SOTO",
+    "email": "info@metalicasvazquez.com",
+    "direccion": null,
+    "telefono": "660 80 49 13",
+    "tier": null
+  },
+  {
+    "id": "955dd746-8273-4124-844c-dabce3d42e64",
+    "nombre": "PANDI TALLERES ",
+    "email": "elpandi2000@gmail.com",
+    "direccion": null,
+    "telefono": "623 01 04 70",
+    "tier": null
+  },
+  {
+    "id": "a5fe074d-8f24-43c6-b501-419e6e56183e",
+    "nombre": "LUIS (CASTELLAR DE SANTIAGO)",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "696531846",
+    "tier": null
+  },
+  {
+    "id": "b1d76bef-25be-4297-8f8c-20b0fa0c957a",
+    "nombre": "HIJOS DE RUIZ VELA ",
+    "email": "hijosruizvela@hotmail.es",
+    "direccion": null,
+    "telefono": "630098202",
+    "tier": null
+  },
+  {
+    "id": "b1da9fc8-4dad-487b-9cc5-57ab85f33f89",
+    "nombre": "CORTIJOS CC",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "646565057",
+    "tier": null
+  },
+  {
+    "id": "b2d7089b-68ec-408a-b595-2157ff3e4dfe",
+    "nombre": "EUGENIO (CASTELLAR DE SANTIAGO)",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "638622881",
+    "tier": null
+  },
+  {
+    "id": "ba20c1ab-b8d1-47aa-bd85-6a64ec85ca49",
+    "nombre": "SIMON (MONTERRUBIO DE LA SERENA)",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "677102510",
+    "tier": null
+  },
+  {
+    "id": "bde60a9a-68ac-49ec-87cb-9e225ceabc00",
+    "nombre": "BAUTISTA SANTILLANA",
+    "email": "compras@bautistasantillana.com",
+    "direccion": null,
+    "telefono": "00000000",
+    "tier": null
+  },
+  {
+    "id": "be2d3103-a0c4-4358-b63f-92d3a33388d0",
+    "nombre": "JUAN JOSE GARCIA ARENAS ",
+    "email": "ALBORREA@NO",
+    "direccion": null,
+    "telefono": "696090479",
+    "tier": null
+  },
+  {
+    "id": "bee657aa-a176-4556-9178-e5845c3ec978",
+    "nombre": "AGROISA",
+    "email": "compras@agroisa.com",
+    "direccion": null,
+    "telefono": "958335003",
+    "tier": null
+  },
+  {
+    "id": "c7472f46-7e69-452b-b53e-3a49788f78b5",
+    "nombre": "JYC TUBERIAS ",
+    "email": "administracion@jyc-ta.com",
+    "direccion": null,
+    "telefono": "633122910",
+    "tier": null
+  },
+  {
+    "id": "cli-001",
+    "nombre": "ALDAMA",
+    "email": "info@vibradoresaldama.com",
+    "direccion": "Crta. Autonómica A-386 KM. 21,5  14540 La Rambla (Córdoba)",
+    "telefono": "627 29 26 05   -  610 96 40 93  -   620 07 50 26",
+    "tier": ""
+  },
+  {
+    "id": "cli-003",
+    "nombre": "AGRUIZ",
+    "email": "",
+    "direccion": "",
+    "telefono": "113",
+    "tier": "FABRICANTE"
+  },
+  {
+    "id": "cli-004",
+    "nombre": "MORESIL",
+    "email": "moresil@contacto.es",
+    "direccion": "Carretera de Córdoba, km. 31, 14730 Palma del Río, Córdoba",
+    "telefono": "957 63 02 43",
+    "tier": "FABRICANTE"
+  },
+  {
+    "id": "cli-005",
+    "nombre": "FERRETERIA UBETENSE",
+    "email": "ubetense@ferreteria.es",
+    "direccion": "Ctra. Córdoba-Valencia, 23400 Úbeda, Jaén",
+    "telefono": "953 75 09 22",
+    "tier": "INTERMEDIARIO"
+  },
+  {
+    "id": "cli-006",
+    "nombre": "LA PREFERIDA",
+    "email": "castillero@maquinarialapreferida.com",
+    "direccion": "Ctra. La Rambla, 2 14548 - Montalbán (Córdoba) España",
+    "telefono": "336",
+    "tier": "CLIENTE FINAL"
+  },
+  {
+    "id": "cli-007",
+    "nombre": "ANTONIO ARTUGAL",
+    "email": "info@maquinariaartugal.com",
+    "direccion": "Polígono Los Lucas, Parcela 52 14548 - Montalbán de Córdoba España",
+    "telefono": "957 310 683 / 660 710 373",
+    "tier": "CLIENTE FINAL"
+  },
+  {
+    "id": "d08b5107-11a9-40f3-abf8-9b666f397914",
+    "nombre": "ANA MARIA BARQUERO",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "666784332",
+    "tier": null
+  },
+  {
+    "id": "d69395af-b2d5-4ce1-bdb5-7c289a6ac118",
+    "nombre": "SALAGRI CB",
+    "email": "salagrimontalban@hotmail.com",
+    "direccion": null,
+    "telefono": "00000000",
+    "tier": null
+  },
+  {
+    "id": "d7d5aa31-c00a-44c6-9a6e-158c602af336",
+    "nombre": "MAQUINARIA GARRIDO",
+    "email": "compras@topavi.es",
+    "direccion": null,
+    "telefono": " 941 390 360",
+    "tier": null
+  },
+  {
+    "id": "dd35e1d3-16b7-45fa-a566-341c5d56307c",
+    "nombre": "JACOBO AGRICULTURA MANCHEGA",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "646290993",
+    "tier": null
+  },
+  {
+    "id": "e6b51638-5da4-442d-b883-e89c09917449",
+    "nombre": "JOSE MARIA LOPEZ LOPEZ ",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "660068898",
+    "tier": null
+  },
+  {
+    "id": "e721783e-2e31-4ca6-aa8c-cb9b1fbcdf6e",
+    "nombre": "INDUAGRO",
+    "email": "NO@NO",
+    "direccion": null,
+    "telefono": "692092429",
+    "tier": null
+  },
+  {
+    "id": "ea058e6f-acc3-4d15-8ee2-3b47f46abe59",
+    "nombre": "EXPORT AGRICOLA",
+    "email": "exportagricola@yahoo.es",
+    "direccion": null,
+    "telefono": "953280000",
+    "tier": null
+  },
+  {
+    "id": "f24b8421-ecc0-4a98-9e91-62af124426c2",
+    "nombre": "AGRICOLA DON NARCISO ",
+    "email": "agricoladonnarciso@gmail.com",
+    "direccion": null,
+    "telefono": "686 68 78 64",
+    "tier": null
+  },
+  {
+    "id": "f7607589-8128-409c-a4c1-128b79cf7731",
+    "nombre": "VIBROMART",
+    "email": "",
+    "direccion": "Av. del Parque, 120, 18330 Chauchina, Granada",
+    "telefono": "958 44 74 31",
+    "tier": ""
+  },
+  {
+    "id": "fc7b3659-89fa-4c03-a690-262e6f1a82ba",
+    "nombre": "BANDAS ROBERO ",
+    "email": "administracion@robero.es",
+    "direccion": null,
+    "telefono": "670311211",
+    "tier": null
+  }
+]

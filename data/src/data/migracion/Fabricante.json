@@ -1,0 +1,98 @@
+[
+  {
+    "id": "9684945d-bdac-4cef-b582-6d0f52ed749b",
+    "nombre": "Agruiz"
+  },
+  {
+    "id": "142c6a37-5523-40cf-91f1-e89ef8daf256",
+    "nombre": "Aldama"
+  },
+  {
+    "id": "10a448b4-134c-44c1-8008-057f99118b8f",
+    "nombre": "ARCUSIN"
+  },
+  {
+    "id": "af115af4-4e2b-4a9e-8e66-e4ae5522db61",
+    "nombre": "ARTUGAL"
+  },
+  {
+    "id": "657d4304-81f5-41ba-b16f-36345613812d",
+    "nombre": "Bautista Santillana"
+  },
+  {
+    "id": "67fe8445-32f2-4b3a-b6ea-c01d873be592",
+    "nombre": "CASTILLERO INFANTE"
+  },
+  {
+    "id": "bed69565-4946-41db-8fe0-c9d4f80d0323",
+    "nombre": "Crispe "
+  },
+  {
+    "id": "7870feb9-485f-4846-8837-8d9d9a8d08b1",
+    "nombre": "FIELTRO"
+  },
+  {
+    "id": "dcfd8882-136e-414d-be69-c04ccaed67fc",
+    "nombre": "Halcon"
+  },
+  {
+    "id": "c145f1a4-40d1-4c0b-a932-d9e32b6e7def",
+    "nombre": "Industrias Barraza"
+  },
+  {
+    "id": "b00293a9-f63c-435b-abf0-9d4b9179e901",
+    "nombre": "MAI"
+  },
+  {
+    "id": "08ddba14-4aef-4fdb-a054-787890a5e3bd",
+    "nombre": "MARTIN BOHORQUEZ"
+  },
+  {
+    "id": "2cf46054-7aa7-4e4d-8c8a-98f929cfc1cc",
+    "nombre": "METRAJE CAUCHO"
+  },
+  {
+    "id": "5a897571-79ed-4838-870d-b69fcda0decc",
+    "nombre": "Moresil"
+  },
+  {
+    "id": "6dca7196-e784-4e9c-b51c-0426ff12481a",
+    "nombre": "Noli"
+  },
+  {
+    "id": "9a41ec85-62b4-4143-9a10-11f899a390a4",
+    "nombre": "PELLENC"
+  },
+  {
+    "id": "de99a3d9-daff-49f4-a2a6-9403024c7832",
+    "nombre": "PROMAGRI"
+  },
+  {
+    "id": "960454c8-41f1-4130-9dbe-3768cae85787",
+    "nombre": "PVC"
+  },
+  {
+    "id": "52ffe75e-5258-464f-8c34-4f7573058db3",
+    "nombre": "ROLLO FIELTRO"
+  },
+  {
+    "id": "7aa286b7-85e6-4b01-9529-bf82d7033454",
+    "nombre": "SOLANO HORIZONTES"
+  },
+  {
+    "id": "a47d6b67-80bc-44c2-a632-debffc165460",
+    "nombre": "TALLERES MATA CAMPOS"
+  },
+  {
+    "id": "f77a0d4d-51aa-463c-9ff9-18bce94a3273",
+    "nombre": "Topavi"
+  },
+  {
+    "id": "5ad3cb21-198f-4e6c-84b5-0642631474b2",
+    "nombre": "Vibromart"
+  },
+  {
+    "id": "7121de23-fc0f-4546-b8a8-5e81c8b3d4bb",
+    "nombre": "VIDELSUR"
+  }
+]

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,11 +26,11 @@ export async function POST(request) {
     // Validación explícita de campos obligatorios
     if (!descripcion || !tipo || isNaN(parsedMultiplicador) || parsedMultiplicador <= 0) {
       return NextResponse.json(
-        { message: 'Datos de margen incompletos o inválidos. Se requiere descripción, tipo y un multiplicador numérico positivo.' }, 
+        { message: 'Datos de margen incompletos o inválidos. Se requiere descripción, tipo y un multiplicador numérico positivo.' },
         { status: 400 }
       );
     }
-    
+
     const nuevaRegla = await db.reglaMargen.create({
       data: {
         descripcion: descripcion,
@@ -38,14 +39,24 @@ export async function POST(request) {
         multiplicador: parsedMultiplicador,
         gastoFijo: parseFloat(gastoFijo) || 0,
         categoria: categoria,
-        tierCliente: tierCliente, 
+        tierCliente: tierCliente,
       },
     });
+
+    // Audit Log
+    try {
+      const { logCreate } = await import('@/lib/audit');
+      await logCreate('ReglaMargen', nuevaRegla.id, nuevaRegla, 'Admin');
+    } catch (e) { console.error(e); }
+
+    const url = new URL('/api/pricing/margenes', request.url);
+    revalidatePath(url.pathname); // Revalidate cache
+
     return NextResponse.json(nuevaRegla, { status: 201 });
   } catch (error) {
     console.error(error);
-    if (error.code === 'P2002') { 
-        return NextResponse.json({ message: 'Ya existe una regla con este identificador base' }, { status: 409 });
+    if (error.code === 'P2002') {
+      return NextResponse.json({ message: 'Ya existe una regla con este identificador base' }, { status: 409 });
     }
     return NextResponse.json({ message: 'Error al crear margen' }, { status: 500 });
   }

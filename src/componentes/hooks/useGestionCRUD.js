@@ -38,6 +38,11 @@ export function useGestionCRUD({
     transformarParaEnviar = null,
     transformarParaEditar = null,
 }) {
+    // Estado de paginación
+    const [pagina, setPagina] = useState(1);
+    const [limite, setLimite] = useState(20);
+    const [busqueda, setBusqueda] = useState('');
+
     // Estado del modal
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modoEdicion, setModoEdicion] = useState(false);
@@ -50,15 +55,41 @@ export function useGestionCRUD({
     const [guardando, setGuardando] = useState(false);
     const [errorGuardado, setErrorGuardado] = useState(null);
 
-    // Fetch de datos con SWR
+    // Resetear página al buscar
+    const setBusquedaYResetear = useCallback((q) => {
+        setBusqueda(q);
+        setPagina(1);
+    }, []);
+
+    // Fetch de datos con SWR (soporta paginación y búsqueda)
+    const queryParams = new URLSearchParams();
+    queryParams.set('page', pagina);
+    queryParams.set('limit', limite);
+    if (busqueda) queryParams.set('q', busqueda);
+
     const {
-        data: datos,
+        data: responseData,
         error,
         isLoading,
         mutate: refrescar
-    } = useSWR(recursoApi, fetcher);
+    } = useSWR(
+        `${recursoApi}?${queryParams.toString()}`,
+        fetcher,
+        {
+            keepPreviousData: true
+        }
+    );
 
-    // Resetear formulario
+    // Normalizar datos (soporta tanto array directo como respuesta paginada { data, meta })
+    const datos = Array.isArray(responseData) ? responseData : (responseData?.data || []);
+    const meta = responseData?.meta || {
+        total: datos.length,
+        page: pagina,
+        limit: limite,
+        totalPages: 1
+    };
+
+    // Resetear formulario y volver a primera página al crear
     const resetearFormulario = useCallback(() => {
         setFormData(camposIniciales);
         setEntidadActual(null);
@@ -224,6 +255,11 @@ export function useGestionCRUD({
         guardando,
         errorGuardado,
         setErrorGuardado,
+        pagina,
+        setPagina,
+        meta,
+        busqueda,
+        setBusqueda: setBusquedaYResetear,
     };
 }
 

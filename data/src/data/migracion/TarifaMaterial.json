@@ -1,0 +1,121 @@
+[
+  {
+    "id": "09b86807-ff92-40e3-b274-84b6df9ede59",
+    "material": "ROLLO FIELTRO",
+    "espesor": 15.12,
+    "precio": 167,
+    "peso": 43.32
+  },
+  {
+    "id": "0c07156f-dfec-4980-bc92-13559e14b9fa",
+    "material": "ROLLO FIELTRO",
+    "espesor": 10.12,
+    "precio": 112,
+    "peso": 26.64
+  },
+  {
+    "id": "10803e01-b97a-4638-afef-c6d5a632a8cb",
+    "material": "GOMA",
+    "espesor": 10,
+    "precio": 24.67,
+    "peso": 11.8
+  },
+  {
+    "id": "2b9af1a1-508a-471a-b266-1dc83db8e27a",
+    "material": "FIELTRO",
+    "espesor": 15,
+    "precio": 13.89,
+    "peso": 3.61
+  },
+  {
+    "id": "34a988e7-0b15-4097-a34e-9f4c9aefa0e6",
+    "material": "GOMA",
+    "espesor": 15,
+    "precio": 38.46,
+    "peso": 19
+  },
+  {
+    "id": "44bdeabe-d90c-4d7b-8e6d-e2703c039fcd",
+    "material": "FIELTRO",
+    "espesor": 10,
+    "precio": 9.33,
+    "peso": 2.22
+  },
+  {
+    "id": "5f0f9629-b2cb-4923-b524-c15b13297a6d",
+    "material": "GOMA",
+    "espesor": 6,
+    "precio": 13.4,
+    "peso": 6.4
+  },
+  {
+    "id": "6a595ad5-745f-49d3-8b88-1db8fbcd9c9a",
+    "material": "ROLLO FIELTRO",
+    "espesor": 10.06,
+    "precio": 56,
+    "peso": 13.32
+  },
+  {
+    "id": "6ab649ce-ed7d-48a0-938a-6ed5af6f3fc7",
+    "material": "GOMA BLANDA",
+    "espesor": 12,
+    "precio": 45.04,
+    "peso": 13.06
+  },
+  {
+    "id": "7a731093-48b8-41fd-aade-ac9031f9111d",
+    "material": "GOMA",
+    "espesor": 12,
+    "precio": 33,
+    "peso": 14.75
+  },
+  {
+    "id": "8ab16d44-f4e7-4716-ba41-37733f706da3",
+    "material": "ROLLO FIELTRO",
+    "espesor": 10.18,
+    "precio": 168,
+    "peso": 39.96
+  },
+  {
+    "id": "b1348b9e-775b-4510-bdc4-df13c06dc99f",
+    "material": "CARAMELO",
+    "espesor": 12,
+    "precio": 63.18,
+    "peso": 13.06
+  },
+  {
+    "id": "b1c147da-2822-48a3-8cda-9f2d445482b2",
+    "material": "ROLLO FIELTRO",
+    "espesor": 15.06,
+    "precio": 83,
+    "peso": 21.66
+  },
+  {
+    "id": "ba5a2764-186d-461a-8287-bbc8c8f2d004",
+    "material": "VERDE",
+    "espesor": 10,
+    "precio": 38.06,
+    "peso": 10.89
+  },
+  {
+    "id": "ca5d6093-1a59-4a25-9865-db7dbbe29f72",
+    "material": "ROLLO FIELTRO",
+    "espesor": 15.18,
+    "precio": 250,
+    "peso": 64.98
+  },
+  {
+    "id": "e3b35dfc-2072-48d0-a5c6-34ea1bf46972",
+    "material": "CARAMELO",
+    "espesor": 8,
+    "precio": 45.6,
+    "peso": 8.71
+  },
+  {
+    "id": "f9354053-ae08-455d-ab17-32fad13163ad",
+    "material": "GOMA",
+    "espesor": 8,
+    "precio": 18.54,
+    "peso": 8.9
+  }
+]

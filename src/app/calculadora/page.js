@@ -273,11 +273,11 @@ export default function CalculadoraPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="label pt-0"><span className="label-text">Ancho (mm)</span></label>
-                    <input type="number" className="input input-bordered w-full" value={ancho} onChange={(e) => setAncho(parseFloat(e.target.value) || 0)} />
+                    <input type="number" className="input input-bordered w-full" value={ancho} onChange={(e) => setAncho(e.target.value)} placeholder="0" />
                   </div>
                   <div>
                     <label className="label pt-0"><span className="label-text">Largo (mm)</span></label>
-                    <input type="number" className="input input-bordered w-full" value={largo} onChange={(e) => setLargo(parseFloat(e.target.value) || 0)} />
+                    <input type="number" className="input input-bordered w-full" value={largo} onChange={(e) => setLargo(e.target.value)} placeholder="0" />
                   </div>
                 </div>
 

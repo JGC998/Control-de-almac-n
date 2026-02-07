@@ -4,13 +4,14 @@ import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import {
   Plus, X, UserPlus, Save, CheckCircle,
-  Trash2, Package, XCircle, Search, ArrowRight, User, Box
+  Trash2, Package, XCircle, Search, ArrowRight, User, Box, FileText
 } from 'lucide-react';
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 import QuickProductForm from "@/componentes/productos/FormularioProductoRapido";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
 import EditorFilaItem from './EditorFilaItem';
 import { Ruler } from 'lucide-react';
+import TemplateManager from '@/componentes/presupuestos/TemplateManager';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -124,6 +125,8 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
 export default function FormularioPedidoCliente({ initialData = null, formType = "PRESUPUESTO", onSuccess, onCancel }) {
   const router = useRouter();
   const isMarginRequired = formType === "PRESUPUESTO" || formType === "PEDIDO";
+  const isEditMode = !!initialData;
+
 
   const [clienteId, setClienteId] = useState(initialData?.clienteId || '');
   const [clienteNombre, setClienteNombre] = useState(initialData?.cliente?.nombre || '');
@@ -283,6 +286,21 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     setIsBandaModalOpen(false);
   };
 
+  const handleLoadTemplate = (template) => {
+    if (!template.items || !Array.isArray(template.items)) return;
+
+    // Regenerar IDs para evitar conflictos
+    const newItems = template.items.map(item => ({
+      ...item,
+      id: Date.now() + Math.random(),
+    }));
+
+    setItems(newItems);
+    if (template.marginId) {
+      setSelectedMarginId(template.marginId);
+    }
+  };
+
   // --- TOTALES ---
   const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado } = useMemo(() => {
     const subtotalBase = items.reduce((acc, item) =>
@@ -342,7 +360,6 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       marginId: selectedMarginId,
     };
 
-    const isEditMode = !!initialData;
     const endpoint = formType === 'PRESUPUESTO'
       ? (isEditMode ? `/api/presupuestos/${initialData.id}` : '/api/presupuestos')
       : (isEditMode ? `/api/pedidos/${initialData.id}` : '/api/pedidos');
@@ -376,7 +393,25 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
-            <h2 className="card-title text-primary">Información Principal</h2>
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="card-title text-primary">Información Principal</h2>
+                <p className="text-sm opacity-70">
+                  {isEditMode ? `Editando ${formType === 'PRESUPUESTO' ? 'Presupuesto' : 'Pedido'}` : `Nuevo ${formType === 'PRESUPUESTO' ? 'Presupuesto' : 'Pedido'}`}
+                </p>
+              </div>
+
+              <div className="flex gap-2 items-center">
+                {formType === 'PRESUPUESTO' && (
+                  <TemplateManager
+                    onLoadTemplate={handleLoadTemplate}
+                    currentItems={items}
+                    currentMarginId={selectedMarginId}
+                  />
+                )}
+              </div>
+            </div>
+
             {isCatalogLoading && <span className="loading loading-spinner loading-sm"></span>}
 
             <div className="grid grid-cols-1 gap-4">

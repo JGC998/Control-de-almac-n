@@ -2,65 +2,52 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
+import { getNextNumber } from '@/lib/sequence';
+import { pedidoSchema } from '@/lib/validations';
 
-/**
- * Genera el siguiente número secuencial para un pedido (ej. PED-2025-001)
- * de forma concurrente y segura para MySQL/MariaDB.
- */
-async function getNextPedidoNumber() {
-  const sequenceName = 'pedido';
-
-  try {
-    const newNumber = await db.$transaction(async (tx) => {
-      const sequence = await tx.sequence.findUnique({
-        where: { name: sequenceName },
-      });
-
-      if (!sequence) {
-        await tx.sequence.create({
-          data: { name: sequenceName, value: 1 },
-        });
-        return 1;
-      }
-
-      const nextValue = sequence.value + 1;
-
-      await tx.sequence.update({
-        where: { name: sequenceName },
-        data: { value: nextValue },
-      });
-
-      return nextValue;
-    });
-
-    const year = new Date().getFullYear();
-    const prefix = `PED-${year}-`;
-    const nextNumberPadded = String(newNumber).padStart(3, '0');
-
-    return `${prefix}${nextNumberPadded}`;
-  } catch (error) {
-    console.error('Error al generar el número de pedido:', error);
-    throw new Error('No se pudo generar el número de pedido.');
-  }
-}
-
-// GET /api/pedidos - Obtiene todos los pedidos
+// GET /api/pedidos - Obtiene todos los pedidos con paginación opcional
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get('clientId');
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
 
     const whereClause = {};
     if (clientId) {
       whereClause.clienteId = clientId;
     }
 
+    // Comportamiento paginado si se solicitan parámetros
+    if (pageParam || limitParam) {
+      const page = parseInt(pageParam || '1');
+      const limit = parseInt(limitParam || '50');
+      const skip = (page - 1) * limit;
+
+      const [pedidos, total] = await Promise.all([
+        db.pedido.findMany({
+          where: whereClause,
+          take: limit,
+          skip: skip,
+          include: {
+            cliente: { select: { nombre: true } },
+          },
+          orderBy: { fechaCreacion: 'desc' },
+        }),
+        db.pedido.count({ where: whereClause })
+      ]);
+
+      return NextResponse.json({
+        data: pedidos,
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) }
+      });
+    }
+
+    // Comportamiento legado: devolver array completo
     const pedidos = await db.pedido.findMany({
       where: whereClause,
       include: {
-        cliente: {
-          select: { nombre: true },
-        },
+        cliente: { select: { nombre: true } },
       },
       orderBy: { fechaCreacion: 'desc' },
     });
@@ -76,20 +63,27 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { clienteId, items, notas, subtotal, tax, total, estado, marginId } = data;
 
-    if (!clienteId || !items || items.length === 0) {
-      return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
+    // Validar con Zod
+    const validation = pedidoSchema.safeParse(data);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Validación fallida',
+          details: validation.error.errors.map(err => ({
+            field: err.path.join('.'),
+            message: err.message
+          }))
+        },
+        { status: 400 }
+      );
     }
 
-    // VALIDACIÓN DE TIPOS NUMÉRICOS
-    for (const item of items) {
-      if (typeof item.quantity !== 'number' || typeof item.unitPrice !== 'number') {
-        return NextResponse.json({ message: `El item "${item.description}" tiene valores no numéricos para cantidad o precio.` }, { status: 400 });
-      }
-    }
+    const { clienteId, items, notas, subtotal, tax, total, estado, marginId } = validation.data;
 
-    const newOrderNumber = await getNextPedidoNumber();
+    // Generar número de pedido con reset anual
+    const newOrderNumber = await getNextNumber('pedido');
 
     const newOrder = await db.pedido.create({
       data: {

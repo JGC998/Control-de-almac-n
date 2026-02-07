@@ -4,6 +4,8 @@ import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, Download, DollarSign, FileText } from 'lucide-react';
+import EmailButton from '@/componentes/presupuestos/EmailButton';
+
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -233,6 +235,8 @@ export default function PresupuestoDetalle() {
 
       {/* Acciones */}
       <div className="flex flex-wrap gap-2 mb-6">
+        <EmailButton id={quote.id} emailCliente={quote.cliente?.email} />
+
         <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary">
           <Download className="w-4 h-4" /> Descargar PDF
         </button>

@@ -17,9 +17,10 @@ export default function RootLayout({ children }) {
         <SWRConfig
           value={{
             fetcher,
-            revalidateOnFocus: true,
+            revalidateOnFocus: false, // Evitar recargas al cambiar de ventana para reducir carga
             revalidateOnReconnect: true,
-            refreshInterval: 0,
+            dedupingInterval: 5000, // Evitar peticiones duplicadas en 5s
+            keepPreviousData: true, // Mantener datos mientras se recarga
             provider: () => new Map()
           }}
         >
