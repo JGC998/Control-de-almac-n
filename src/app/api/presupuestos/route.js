@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
 import { presupuestoSchema } from '@/lib/validations';
@@ -43,9 +42,10 @@ export async function GET(request) {
       });
     }
 
-    // Comportamiento legado: devolver array completo
+    // Comportamiento legado: cap de seguridad para evitar full-table scans
     const quotes = await db.presupuesto.findMany({
       where: whereClause,
+      take: 500,
       include: {
         cliente: { select: { nombre: true } },
       },
@@ -71,7 +71,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error: 'Validación fallida',
-          details: validation.error.errors.map(err => ({
+          details: validation.error.issues.map(err => ({
             field: err.path.join('.'),
             message: err.message
           }))
@@ -88,9 +88,7 @@ export async function POST(request) {
 
     const newQuote = await db.presupuesto.create({
       data: {
-        id: uuidv4(),
         numero: newQuoteNumber,
-        fechaCreacion: new Date().toISOString(),
         estado: estado || 'Borrador',
 
         cliente: { connect: { id: clienteId } },
@@ -106,7 +104,7 @@ export async function POST(request) {
             descripcion: item.descripcion,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            productoId: item.productoId ? parseInt(item.productoId) : null,
+            productoId: item.productoId || null,
             pesoUnitario: item.pesoUnitario || 0,
           })),
         },

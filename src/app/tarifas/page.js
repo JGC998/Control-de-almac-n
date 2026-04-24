@@ -1,50 +1,35 @@
 "use client";
 import React, { useState } from 'react';
-import useSWR, { mutate } from 'swr';
-import { Table, FileSpreadsheet, TrendingUp } from 'lucide-react'; // Importa TrendingUp
+import { FileSpreadsheet, DollarSign, ScrollText } from 'lucide-react';
 import TablaTarifas from '@/componentes/productos/TablaTarifas';
-import BulkPriceUpdateModal from '@/componentes/modales/ModalActualizacionPrecios'; // Importa el Modal
-
-const fetcher = (url) => fetch(url).then((res) => res.json());
+import TablaTarifasRollo from '@/componentes/productos/TablaTarifasRollo';
 
 export default function TarifasPage() {
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false); // Estado para el modal
-
-  const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios', fetcher);
-  const { data: materiales, error: materialesError } = useSWR('/api/materiales', fetcher);
-
-  const handleDataChange = () => {
-    mutate('/api/precios');
-  };
-
-  if (tarifasError || materialesError) return <div className="text-red-500">Error al cargar los datos.</div>;
-  if (tarifasLoading) return <div className="flex justify-center p-8"><span className="loading loading-spinner loading-lg"></span></div>;
+  const [activeTab, setActiveTab] = useState('m2');
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold flex items-center">
-          <FileSpreadsheet className="mr-2 text-primary" /> Gestión de Tarifas
-        </h1>
+      <h1 className="text-3xl font-bold flex items-center gap-2 mb-6">
+        <FileSpreadsheet className="text-primary" /> Gestión de Tarifas
+      </h1>
 
-
+      <div className="tabs tabs-boxed mb-6 gap-1">
+        <button
+          className={`tab gap-2 ${activeTab === 'm2' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('m2')}
+        >
+          <DollarSign className="w-4 h-4" /> Tarifas por m²
+        </button>
+        <button
+          className={`tab gap-2 ${activeTab === 'rollo' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('rollo')}
+        >
+          <ScrollText className="w-4 h-4" /> Tarifas por rollo
+        </button>
       </div>
 
-      <div className="bg-base-100 rounded-lg shadow-xl p-6">
-        <TablaTarifas
-          initialTarifas={tarifas}
-          materiales={materiales}
-          onDataChange={handleDataChange}
-        />
-      </div>
-
-      {/* MODAL DE ACTUALIZACIÓN MASIVA */}
-      <BulkPriceUpdateModal
-        isOpen={isBulkModalOpen}
-        onClose={() => setIsBulkModalOpen(false)}
-        materiales={materiales}
-        onSuccess={handleDataChange}
-      />
+      {activeTab === 'm2' && <TablaTarifas />}
+      {activeTab === 'rollo' && <TablaTarifasRollo />}
     </div>
   );
 }

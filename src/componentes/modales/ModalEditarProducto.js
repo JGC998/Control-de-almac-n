@@ -4,28 +4,30 @@ import FormularioEntidad from '@/componentes/compuestos/FormularioEntidad';
 
 const camposProducto = [
     { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
-    { clave: 'categoria', etiqueta: 'Categoría', placeholder: 'Ej: Goma, Fieltro...' },
     {
-        clave: 'precio',
-        etiqueta: 'Precio (€)',
+        clave: 'precioUnitario',
+        etiqueta: 'Precio unitario (€)',
         tipo: 'numero',
         requerido: true,
         min: 0,
         step: '0.01'
     },
     {
-        clave: 'stock',
-        etiqueta: 'Stock',
+        clave: 'costoUnitario',
+        etiqueta: 'Costo unitario (€)',
         tipo: 'numero',
         min: 0,
-        step: '1'
+        step: '0.01'
     },
     {
-        clave: 'descripcion',
-        etiqueta: 'Descripción',
-        tipo: 'textarea',
-        filas: 3
+        clave: 'pesoUnitario',
+        etiqueta: 'Peso unitario (kg)',
+        tipo: 'numero',
+        min: 0,
+        step: '0.001'
     },
+    { clave: 'color', etiqueta: 'Color', placeholder: 'Ej: VERDE, NEGRO...' },
+    { clave: 'referenciaFabricante', etiqueta: 'Referencia fabricante' },
 ];
 
 const ModalEditarProducto = ({ producto, isOpen, onClose, onUpdate }) => {
@@ -37,10 +39,11 @@ const ModalEditarProducto = ({ producto, isOpen, onClose, onUpdate }) => {
         if (producto) {
             setFormData({
                 nombre: producto.nombre || '',
-                categoria: producto.categoria || '',
-                precio: producto.precio || 0,
-                stock: producto.stock || 0,
-                descripcion: producto.descripcion || '',
+                precioUnitario: producto.precioUnitario ?? 0,
+                costoUnitario: producto.costoUnitario ?? 0,
+                pesoUnitario: producto.pesoUnitario ?? 0,
+                color: producto.color || '',
+                referenciaFabricante: producto.referenciaFabricante || '',
             });
         }
     }, [producto]);
@@ -61,8 +64,9 @@ const ModalEditarProducto = ({ producto, isOpen, onClose, onUpdate }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...formData,
-                    precio: parseFloat(formData.precio),
-                    stock: parseInt(formData.stock)
+                    precioUnitario: parseFloat(formData.precioUnitario),
+                    costoUnitario: formData.costoUnitario ? parseFloat(formData.costoUnitario) : undefined,
+                    pesoUnitario: parseFloat(formData.pesoUnitario),
                 }),
             });
 

@@ -3,10 +3,9 @@ import React from 'react';
 import useSWR from 'swr';
 import { X, History } from 'lucide-react';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function MovimientoStockModal({ stockId, materialNombre, onClose }) {
-  const { data: movimientos, error, isLoading } = useSWR(stockId ? `/api/movimientos?stockId=${stockId}` : null, fetcher);
+  const { data: movimientos, error, isLoading } = useSWR(stockId ? `/api/movimientos?stockId=${stockId}` : null);
 
   return (
     <div className="modal modal-open z-50">

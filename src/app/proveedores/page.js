@@ -5,7 +5,6 @@ import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit, Anchor, Eye, Trash2,
 import Link from 'next/link';
 import PedidoProveedorDetalleModal from '@/componentes/pedidos/ModalDetallePedidoProveedor';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Mapa de URLs de seguimiento
 const trackingUrls = {
@@ -125,7 +124,7 @@ export default function ProveedoresPage() {
     const [activeTab, setActiveTab] = useState('NACIONAL');
     const [detallePedido, setDetallePedido] = useState(null);
 
-    const { data: pedidos, error: pedidosError, isLoading } = useSWR('/api/pedidos-proveedores-data', fetcher);
+    const { data: pedidos, error: pedidosError, isLoading } = useSWR('/api/pedidos-proveedores-data');
 
     const handleReceiveOrder = async (pedidoId) => {
         if (confirm('¿Estás seguro de que quieres recibir este pedido? Esto añadirá las bobinas al stock con el coste calculado.')) {

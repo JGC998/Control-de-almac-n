@@ -124,6 +124,6 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Error en POST /api/almacen-stock:', error);
-    return NextResponse.json({ message: error.message || 'Error interno al crear/procesar stock.' }, { status: 500 });
+    return NextResponse.json({ message: 'Error interno al procesar stock' }, { status: 500 });
   }
 }

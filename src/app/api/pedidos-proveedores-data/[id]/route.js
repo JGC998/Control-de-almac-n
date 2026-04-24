@@ -166,6 +166,6 @@ export async function DELETE(request, { params }) {
         if (error.code === 'P2025') {
             return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
         }
-        return NextResponse.json({ message: error.message || 'Error interno al eliminar el pedido.' }, { status: 500 });
+        return NextResponse.json({ message: 'Error interno al eliminar el pedido' }, { status: 500 });
     }
 }

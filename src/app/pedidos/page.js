@@ -33,10 +33,18 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
   const page = parseInt(searchParams?.page || '1');
   const limit = parseInt(searchParams?.limit || '20');
   const skip = (page - 1) * limit;
+  const estado = searchParams?.estado;
+
+  // Construir filtro
+  const where = {};
+  if (estado) {
+    where.estado = estado;
+  }
 
   // Obtener pedidos paginados
   const [pedidos, total] = await Promise.all([
     db.pedido.findMany({
+      where,
       skip,
       take: limit,
       include: {
@@ -46,7 +54,7 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
       },
       orderBy: { fechaCreacion: 'desc' },
     }),
-    db.pedido.count(),
+    db.pedido.count({ where }),
   ]);
 
   const meta = {

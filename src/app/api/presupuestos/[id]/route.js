@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { calculateTotalsBackend } from '@/lib/utilidades-precios';
 
 
 
@@ -67,7 +66,7 @@ export async function PUT(request, { params }) {
             descripcion: item.descripcion,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            productoId: item.productoId ? parseInt(item.productoId) : null,
+            productoId: item.productoId || null,
             pesoUnitario: item.pesoUnitario || 0, // Verificado: Se guarda correctamente
             presupuestoId: id,
           })),
@@ -91,19 +90,9 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
 
-    await db.$transaction(async (tx) => {
-      // 1. Eliminar todos los items asociados
-      await tx.presupuestoItem.deleteMany({
-        where: { presupuestoId: id },
-      });
+    await db.presupuesto.delete({ where: { id } });
 
-      // 2. Eliminar el presupuesto principal
-      await tx.presupuesto.delete({
-        where: { id: id },
-      });
-    });
-
-    revalidatePath('/presupuestos'); // Invalidate the list page
+    revalidatePath('/presupuestos');
     return NextResponse.json({ message: 'Presupuesto eliminado correctamente' }, { status: 200 });
   } catch (error) {
     console.error('Error al eliminar el presupuesto:', error);

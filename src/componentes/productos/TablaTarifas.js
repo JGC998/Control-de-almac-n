@@ -7,14 +7,13 @@ import { Download, Settings } from 'lucide-react'; // Importar Settings
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function TablaTarifas() {
   const [selectedMarginId, setSelectedMarginId] = useState('');
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
 
-  const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios', fetcher);
-  const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes', fetcher);
+  const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
+  const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
 
   const isLoading = tarifasLoading || margenesLoading;
 

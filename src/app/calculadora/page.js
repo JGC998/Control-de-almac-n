@@ -3,11 +3,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { Calculator, Plus, Trash2, Download, Info } from 'lucide-react';
-import { formatCurrency, formatWeight } from '@/utils/utils';
+import { formatCurrency, formatWeight } from '@/utils/utilidades';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const TotalDisplay = ({ label, value, unit }) => (
   <div className="stat bg-base-200 border border-base-300 rounded-lg p-4">
@@ -31,9 +30,9 @@ export default function CalculadoraPage() {
   const [isAddingItem, setIsAddingItem] = useState(false);
 
   // 1. Cargar datos
-  const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios', fetcher);
-  const { data: materiales, error: materialesError, isLoading: materialesLoading } = useSWR('/api/materiales', fetcher);
-  const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes', fetcher);
+  const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
+  const { data: materiales, error: materialesError, isLoading: materialesLoading } = useSWR('/api/materiales');
+  const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
 
   const isLoading = tarifasLoading || materialesLoading || margenesLoading;
 

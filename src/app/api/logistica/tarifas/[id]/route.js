@@ -6,7 +6,7 @@ import { logUpdate } from '@/lib/audit';
 // PUT: Actualizar una tarifa específica
 export async function PUT(request, { params }) {
     try {
-        const { id } = params;
+        const { id } = await params;
         const data = await request.json();
 
         // Obtener la tarifa anterior para el log
@@ -53,6 +53,6 @@ export async function PUT(request, { params }) {
         return NextResponse.json(updated);
     } catch (error) {
         console.error('Error updating tarifa:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }

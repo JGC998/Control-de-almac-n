@@ -6,14 +6,13 @@ import { revalidatePath } from 'next/cache';
 export async function GET(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise;
-    const productoId = parseInt(id);
-
-    if (isNaN(productoId)) {
-      return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
-    }
 
     const producto = await db.producto.findUnique({
-      where: { id: productoId },
+      where: { id },
+      include: {
+        fabricante: { select: { nombre: true } },
+        material: { select: { nombre: true } },
+      },
     });
 
     if (!producto) {
@@ -31,22 +30,24 @@ export async function GET(request, { params: paramsPromise }) {
 export async function PUT(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise;
-    const productoId = parseInt(id);
-    if (isNaN(productoId)) {
-      return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
-    }
-
     const data = await request.json();
 
     const updateData = {};
     if (data.nombre !== undefined) updateData.nombre = data.nombre;
-    if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
-    if (data.precio !== undefined) updateData.precio = parseFloat(data.precio);
-    if (data.stock !== undefined) updateData.stock = parseInt(data.stock);
-    if (data.categoria !== undefined) updateData.categoria = data.categoria;
+    if (data.precioUnitario !== undefined) updateData.precioUnitario = parseFloat(data.precioUnitario);
+    if (data.costoUnitario !== undefined) updateData.costoUnitario = parseFloat(data.costoUnitario);
+    if (data.pesoUnitario !== undefined) updateData.pesoUnitario = parseFloat(data.pesoUnitario);
+    if (data.espesor !== undefined) updateData.espesor = data.espesor ? parseFloat(data.espesor) : null;
+    if (data.largo !== undefined) updateData.largo = data.largo ? parseFloat(data.largo) : null;
+    if (data.ancho !== undefined) updateData.ancho = data.ancho ? parseFloat(data.ancho) : null;
+    if (data.color !== undefined) updateData.color = data.color;
+    if (data.referenciaFabricante !== undefined) updateData.referenciaFabricante = data.referenciaFabricante;
+    if (data.tieneTroquel !== undefined) updateData.tieneTroquel = Boolean(data.tieneTroquel);
+    if (data.fabricanteId !== undefined) updateData.fabricanteId = data.fabricanteId || null;
+    if (data.materialId !== undefined) updateData.materialId = data.materialId || null;
 
     const updatedProducto = await db.producto.update({
-      where: { id: productoId },
+      where: { id },
       data: updateData,
     });
 
@@ -66,13 +67,9 @@ export async function PUT(request, { params: paramsPromise }) {
 export async function DELETE(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise;
-    const productoId = parseInt(id);
-    if (isNaN(productoId)) {
-      return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
-    }
 
     await db.producto.delete({
-      where: { id: productoId },
+      where: { id },
     });
     revalidatePath('/gestion/productos');
     return NextResponse.json({ message: 'Producto eliminado' }, { status: 200 });

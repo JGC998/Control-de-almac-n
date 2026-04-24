@@ -9,10 +9,11 @@ const DEFAULT_THEME = "forest"; // Establecemos 'forest' como tema por defecto p
 export default function ProveedorTema({ children }) {
     const [theme, setTheme] = useState("");
 
-    const applyTheme = (theme) => {
-        setTheme(theme);
-        document.documentElement.setAttribute("data-theme", theme);
-        localStorage.setItem("theme", theme);
+    // Declarar applyTheme antes de usarla
+    const applyTheme = (themeValue) => {
+        setTheme(themeValue);
+        document.documentElement.setAttribute("data-theme", themeValue);
+        localStorage.setItem("theme", themeValue);
     };
 
     useEffect(() => {

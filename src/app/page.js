@@ -10,7 +10,6 @@ import KPICard from '@/componentes/ui/TarjetaKPI';
 // 👈 Importar el nuevo componente
 import TablonNotas from '@/componentes/TablonNotas'; 
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Mapa de iconos para usar en KPICard (incluye todos los posibles)
 const iconMap = {
@@ -23,8 +22,8 @@ const iconMap = {
 };
 
 export default function Dashboard() {
-  const { data, error, isLoading } = useSWR('/api/dashboard', fetcher, {
-    refreshInterval: 30000 
+  const { data, error, isLoading } = useSWR('/api/dashboard', {
+    refreshInterval: 30000
   });
 
   if (isLoading || !data) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;

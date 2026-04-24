@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { calculateTotalsBackend } from '@/lib/utilidades-precios';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +47,7 @@ export async function GET(request, { params: paramsPromise }) {
 
   } catch (error) {
     console.error('Error al obtener pedido:', error);
-    return NextResponse.json({ message: `Error interno al obtener pedido: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ message: "Error interno al obtener pedido" }, { status: 500 });
   }
 }
 
@@ -126,7 +125,7 @@ export async function PUT(request, { params: paramsPromise }) {
     if (error.code === 'P2025') {
       return NextResponse.json({ message: 'Error: El pedido o un registro relacionado no fue encontrado.' }, { status: 404 });
     }
-    return NextResponse.json({ message: `Error interno al actualizar pedido: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ message: "Error interno al actualizar pedido" }, { status: 500 });
   }
 }
 
@@ -136,16 +135,8 @@ export async function DELETE(request, { params: paramsPromise }) {
     const { id } = await paramsPromise;
 
 
-    await db.$transaction(async (tx) => {
-      await tx.pedidoItem.deleteMany({
-        where: { pedidoId: id },
-      });
-      await tx.pedido.delete({
-        where: { id: id },
-      });
-    });
+    await db.pedido.delete({ where: { id } });
 
-    // Revalidamos la lista tras eliminar
     revalidatePath('/pedidos');
 
 

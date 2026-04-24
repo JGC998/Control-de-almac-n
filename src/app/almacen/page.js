@@ -4,7 +4,6 @@ import useSWR, { mutate } from 'swr';
 import { Warehouse, PlusCircle, ArrowRightLeft, MinusCircle, History } from 'lucide-react';
 import MovimientoStockModal from '@/componentes/productos/ModalMovimientoStock'; // Importar el nuevo modal
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function AlmacenPage() {
   const [formData, setFormData] = useState({ material: '', espesor: '', metrosDisponibles: '', proveedor: '' });
@@ -16,8 +15,8 @@ export default function AlmacenPage() {
   // Estado para el modal de historial
   const [historyModalState, setHistoryModalState] = useState({ isOpen: false, stockId: null, materialNombre: '' });
 
-  const { data, error: stockError, isLoading: stockLoading } = useSWR('/api/almacen-stock', fetcher);
-  const { data: movimientos, error: movError, isLoading: movLoading } = useSWR('/api/movimientos', fetcher);
+  const { data, error: stockError, isLoading: stockLoading } = useSWR('/api/almacen-stock');
+  const { data: movimientos, error: movError, isLoading: movLoading } = useSWR('/api/movimientos');
 
   const isLoading = stockLoading || movLoading;
 
@@ -119,7 +118,7 @@ export default function AlmacenPage() {
         }
       }
 
-      await mutate('/api/almacen-stock', fetcher('/api/almacen-stock'));
+      await mutate('/api/almacen-stock');
       await mutate('/api/movimientos');
       closeWithdrawalModal();
     } catch (err) {

@@ -7,7 +7,6 @@ import { ArrowLeft, Edit, Trash2, Download, Truck, FileText, DollarSign, CheckCi
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
 import EmailButton from '@/componentes/presupuestos/EmailButton';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Componente para manejar el desglose del total y los cálculos por item.
 const PedidoTotalsAndItems = ({ order, margenes, config }) => {
@@ -135,9 +134,9 @@ export default function PedidoDetalle() {
   const openEditModal = () => setIsEditModalOpen(true);
   const closeEditModal = () => setIsEditModalOpen(false);
 
-  const { data: order, error: orderError, isLoading: orderLoading, mutate } = useSWR(id ? `/api/pedidos/${id}` : null, fetcher);
-  const { data: margenes } = useSWR('/api/pricing/margenes', fetcher);
-  const { data: config } = useSWR('/api/config', fetcher);
+  const { data: order, error: orderError, isLoading: orderLoading, mutate } = useSWR(id ? `/api/pedidos/${id}` : null);
+  const { data: margenes } = useSWR('/api/pricing/margenes');
+  const { data: config } = useSWR('/api/config');
 
 
   const handleDelete = async () => {

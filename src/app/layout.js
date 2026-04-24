@@ -5,7 +5,16 @@ import BarraLateral from '@/componentes/layout/BarraLateral';
 import Encabezado from '@/componentes/layout/Encabezado';
 import { SWRConfig } from 'swr';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
+const fetcher = async (url) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = new Error('Error en la respuesta del servidor');
+    err.status = res.status;
+    try { err.info = await res.json(); } catch {}
+    throw err;
+  }
+  return res.json();
+};
 
 export default function RootLayout({ children }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);

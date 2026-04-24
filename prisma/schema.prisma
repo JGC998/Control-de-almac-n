@@ -200,6 +200,19 @@ model TarifaMaterial {
   @@unique([material, espesor, color])
 }
 
+model TarifaRollo {
+  id            String  @id @default(uuid())
+  material      String
+  espesor       Float
+  ancho         Float?  // mm, null = sin restricción de ancho
+  color         String?
+  metrajeMinimo Float   @default(10)
+  precioBase    Float   // €/m²
+  peso          Float   // kg/m²
+
+  @@unique([material, espesor, color])
+}
+
 model Documento {
   id               String   @id @default(uuid())
   tipo             String

@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { Package, Truck, Calculator, Info, Settings } from 'lucide-react';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function CalculadoraLogistica({ onAddToOrder }) {
     const [provincia, setProvincia] = useState('');
+    const [provinciaInput, setProvinciaInput] = useState('');
+    const [showProvincias, setShowProvincias] = useState(false);
     const [peso, setPeso] = useState('');
     const [altura, setAltura] = useState('');
     const [tipoPale, setTipoPale] = useState('EUROPEO');
@@ -14,9 +15,20 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/logistica/tarifas', fetcher);
+    const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/logistica/tarifas');
 
     const provincias = tarifas?.map(t => t.provincia).sort() || [];
+
+    // Filtrar provincias basado en el input
+    const provinciasFiltradas = provincias.filter(p =>
+        p.toLowerCase().includes(provinciaInput.toLowerCase())
+    );
+
+    const handleSelectProvincia = (prov) => {
+        setProvincia(prov);
+        setProvinciaInput(prov);
+        setShowProvincias(false);
+    };
 
     const handleCalcular = async () => {
         setLoading(true);
@@ -106,21 +118,49 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
                             </div>
                         </div>
 
-                        {/* Provincia */}
+                        {/* Provincia con Autocomplete */}
                         <div className="form-control mt-2">
                             <label className="label">
                                 <span className="label-text">Provincia Destino</span>
                             </label>
-                            <select
-                                className="select select-bordered w-full"
-                                value={provincia}
-                                onChange={(e) => setProvincia(e.target.value)}
-                            >
-                                <option value="">Seleccionar provincia...</option>
-                                {provincias.map(p => (
-                                    <option key={p} value={p}>{p}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    className="input input-bordered w-full"
+                                    value={provinciaInput}
+                                    onChange={(e) => {
+                                        setProvinciaInput(e.target.value);
+                                        setProvincia('');
+                                        setShowProvincias(true);
+                                    }}
+                                    onFocus={() => setShowProvincias(true)}
+                                    placeholder="Escribe para buscar..."
+                                />
+                                {showProvincias && provinciaInput && provinciasFiltradas.length > 0 && (
+                                    <div className="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                        {provinciasFiltradas.slice(0, 20).map(p => (
+                                            <button
+                                                key={p}
+                                                type="button"
+                                                className="w-full text-left px-4 py-2 hover:bg-base-200 transition-colors"
+                                                onClick={() => handleSelectProvincia(p)}
+                                            >
+                                                {p}
+                                            </button>
+                                        ))}
+                                        {provinciasFiltradas.length > 20 && (
+                                            <div className="px-4 py-2 text-sm text-gray-500 italic">
+                                                +{provinciasFiltradas.length - 20} más... Sigue escribiendo para filtrar
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            {provincia && (
+                                <label className="label">
+                                    <span className="label-text-alt text-success">✓ {provincia}</span>
+                                </label>
+                            )}
                         </div>
 
                         {/* Peso y Altura */}

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { productoSchema } from '@/lib/validations';
+import { logCreate } from '@/lib/audit';
 
 // GET /api/productos - Obtiene todos los productos con paginación opcional
 export async function GET(request) {
@@ -64,9 +66,10 @@ export async function GET(request) {
       });
     }
 
-    // Comportamiento legado: devolver array completo
+    // Comportamiento legado: cap de seguridad para evitar full-table scans
     const productos = await db.producto.findMany({
       where: whereClause,
+      take: 500,
       orderBy: { nombre: 'asc' },
       include: {
         fabricante: true,
@@ -91,49 +94,49 @@ export async function GET(request) {
     return NextResponse.json(productosSerializados);
   } catch (error) {
     console.error('Error al obtener productos:', error);
-    return NextResponse.json({ message: 'Error al obtener productos', error: error.message }, { status: 500 });
+    return NextResponse.json({ message: 'Error al obtener productos' }, { status: 500 });
   }
 }
-
-import { logCreate } from '@/lib/audit';
 
 // POST /api/productos - Crea un nuevo producto
 export async function POST(request) {
   try {
     const data = await request.json();
 
-    // Validación básica
-    if (!data.nombre) {
-      return NextResponse.json({ message: 'Nombre es requerido' }, { status: 400 });
+    const validation = productoSchema.safeParse(data);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Validación fallida', details: validation.error.issues.map(e => ({ field: e.path.join('.'), message: e.message })) },
+        { status: 400 }
+      );
     }
 
+    const d = validation.data;
     const nuevoProducto = await db.producto.create({
       data: {
-        nombre: data.nombre,
-        referenciaFabricante: data.referenciaFabricante || null,
-        espesor: data.espesor ? parseFloat(data.espesor) : null,
-        largo: data.largo ? parseFloat(data.largo) : null,
-        ancho: data.ancho ? parseFloat(data.ancho) : null,
-        precioUnitario: data.precioUnitario ? parseFloat(data.precioUnitario) : 0,
-        pesoUnitario: data.pesoUnitario ? parseFloat(data.pesoUnitario) : 0,
-        costoUnitario: data.costoUnitario ? parseFloat(data.costoUnitario) : null,
-        tieneTroquel: data.tieneTroquel || false,
-        color: data.color || null,
-        fabricanteId: data.fabricanteId || null,
-        materialId: data.materialId || null,
-        precioVentaFab: data.precioVentaFab ? parseFloat(data.precioVentaFab) : 0,
-        precioVentaInt: data.precioVentaInt ? parseFloat(data.precioVentaInt) : 0,
-        precioVentaFin: data.precioVentaFin ? parseFloat(data.precioVentaFin) : 0,
+        nombre: d.nombre,
+        referenciaFabricante: d.referenciaFabricante ?? null,
+        espesor: d.espesor ?? null,
+        largo: d.largo ?? null,
+        ancho: d.ancho ?? null,
+        precioUnitario: d.precioUnitario,
+        pesoUnitario: d.pesoUnitario ?? 0,
+        costoUnitario: d.costoUnitario ?? null,
+        tieneTroquel: d.tieneTroquel ?? false,
+        color: d.color ?? null,
+        fabricanteId: d.fabricanteId ?? null,
+        materialId: d.materialId ?? null,
+        precioVentaFab: d.precioVentaFab ?? 0,
+        precioVentaInt: d.precioVentaInt ?? 0,
+        precioVentaFin: d.precioVentaFin ?? 0,
       },
     });
 
-    // Registrar creación en Audit Log
     await logCreate('Producto', nuevoProducto.id, nuevoProducto, 'Admin');
-
     revalidatePath('/gestion/productos');
     return NextResponse.json(nuevoProducto, { status: 201 });
   } catch (error) {
     console.error('Error al crear el producto:', error);
-    return NextResponse.json({ message: 'Error al crear el producto', error: error.message }, { status: 500 });
+    return NextResponse.json({ message: 'Error al crear el producto' }, { status: 500 });
   }
 }

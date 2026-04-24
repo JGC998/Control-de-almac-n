@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,7 +13,6 @@ import EditorFilaItem from './EditorFilaItem';
 import { Ruler } from 'lucide-react';
 import TemplateManager from '@/componentes/presupuestos/TemplateManager';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // --- MODAL DE BÚSQUEDA DE CLIENTES (Restaurado) ---
 function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew, clientes = [], initialSearch = '' }) {
@@ -73,8 +72,8 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
     return productos.filter(p => {
       const term = search.toLowerCase();
       return p.nombre?.toLowerCase().includes(term) ||
-        p.descripcion?.toLowerCase().includes(term) ||
-        p.categoria?.toLowerCase().includes(term);
+        p.referenciaFabricante?.toLowerCase().includes(term) ||
+        p.color?.toLowerCase().includes(term);
     }).slice(0, 50);
   }, [productos, search]);
 
@@ -88,12 +87,12 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
           <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
         </div>
         <div className="join w-full mb-4">
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, descripción, categoría..." className="input input-bordered join-item w-full" autoFocus />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, color, referencia fabricante..." className="input input-bordered join-item w-full" autoFocus />
           <button className="btn btn-primary join-item" onClick={() => onCreateNew(search)}><Plus className="w-4 h-4" /> Nuevo</button>
         </div>
         <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
           <table className="table table-pin-rows w-full">
-            <thead><tr><th>Nombre</th><th>Categoría</th><th>Stock</th><th>Precio</th><th className="text-right">Acción</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Color</th><th>Referencia</th><th>Precio unit.</th><th className="text-right">Acción</th></tr></thead>
             <tbody>
               {filteredProducts.length === 0 ? (
                 <tr><td colSpan={5} className="text-center py-10 text-gray-500">No se encontraron productos.</td></tr>
@@ -101,13 +100,9 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
                 filteredProducts.map((prod) => (
                   <tr key={prod.id} className="hover:bg-base-200 cursor-pointer" onClick={() => onSelect(prod)}>
                     <td className="font-bold">{prod.nombre}</td>
-                    <td className="text-sm">{prod.categoria || '-'}</td>
-                    <td>
-                      <span className={`badge badge-sm ${prod.stock > 0 ? 'badge-success' : 'badge-error'}`}>
-                        {prod.stock}
-                      </span>
-                    </td>
-                    <td>{parseFloat(prod.precio).toFixed(2)}€</td>
+                    <td className="text-sm">{prod.color || '-'}</td>
+                    <td className="text-sm">{prod.referenciaFabricante || '-'}</td>
+                    <td>{prod.precioUnitario != null ? parseFloat(prod.precioUnitario).toFixed(2) + '€' : '-'}</td>
                     <td className="text-right"><button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button></td>
                   </tr>
                 ))
@@ -152,8 +147,15 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
   const [notes, setNotes] = useState(initialData?.notas || '');
 
+  // Solo re-sincroniza cuando initialData cambia DESPUÉS del montaje inicial
+  // (evita el render extra en modo creación/edición al abrir el formulario)
+  const isMountedRef = useRef(false);
   useEffect(() => {
-    if (initialData && initialData.items) {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      return;
+    }
+    if (initialData?.items) {
       setItems(initialData.items.map(item => ({
         ...item,
         id: item.id || Date.now() + Math.random(),
@@ -163,10 +165,10 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     }
   }, [initialData]);
 
-  const { data: clientes, error: clientesError } = useSWR('/api/clientes', fetcher);
-  const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null, fetcher);
-  const { data: todosProductos, error: prodError } = useSWR('/api/productos', fetcher);
-  const { data: config } = useSWR('/api/config', fetcher);
+  const { data: clientes, error: clientesError } = useSWR('/api/clientes');
+  const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null);
+  const { data: todosProductos, error: prodError } = useSWR('/api/productos');
+  const { data: config } = useSWR('/api/config');
 
   const isCatalogLoading = !clientes || (isMarginRequired && !margenes) || !todosProductos;
 
@@ -527,9 +529,9 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         </div>
       </form>
 
-      <ClienteSearchModal key={isClientSearchOpen} isOpen={isClientSearchOpen} onClose={() => setIsClientSearchOpen(false)} onSelect={handleSelectClient} onCreateNew={handleOpenCreateClient} clientes={clientes} initialSearch={clienteNombre} />
+      <ClienteSearchModal isOpen={isClientSearchOpen} onClose={() => setIsClientSearchOpen(false)} onSelect={handleSelectClient} onCreateNew={handleOpenCreateClient} clientes={clientes} initialSearch={clienteNombre} />
 
-      <ProductSearchModal key={productSearchState.isOpen} isOpen={productSearchState.isOpen} onClose={() => setProductSearchState(prev => ({ ...prev, isOpen: false }))} onSelect={handleProductSelect} onCreateNew={handleOpenCreateProduct} productos={todosProductos} initialSearch={productSearchState.initialSearch} />
+      <ProductSearchModal isOpen={productSearchState.isOpen} onClose={() => setProductSearchState(prev => ({ ...prev, isOpen: false }))} onSelect={handleProductSelect} onCreateNew={handleOpenCreateProduct} productos={todosProductos} initialSearch={productSearchState.initialSearch} />
 
       {modalState?.type === 'CLIENTE' && (
         <BaseQuickCreateModal isOpen={true} onClose={() => setModalState(null)} onCreated={handleClienteCreado} title="Crear Nuevo Cliente" endpoint="/api/clientes" cacheKey="/api/clientes" fields={[{ name: 'nombre', placeholder: 'Nombre', required: true, defaultValue: modalState.initialName }, { name: 'email', placeholder: 'Email', type: 'email' }, { name: 'telefono', placeholder: 'Teléfono' }]} />

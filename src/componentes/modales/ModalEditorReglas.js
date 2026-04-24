@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import useSWR from 'swr'; // Para cargar clientes y productos
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 // Tiers definidos por el negocio
 const TIER_OPTIONS = ['FABRICANTE', 'INTERMEDIARIO', 'CLIENTE FINAL']; 
 
@@ -12,8 +11,8 @@ export default function RuleEditorModal({ isOpen, onClose, onSave, rule, ruleTyp
     const [formData, setFormData] = useState(rule);
 
     // Cargar datos para selectores en precios especiales
-    const { data: clientes } = useSWR(ruleType === 'specialPrices' ? '/api/clientes' : null, fetcher);
-    const { data: productos } = useSWR(ruleType === 'specialPrices' ? '/api/productos' : null, fetcher);
+    const { data: clientes } = useSWR(ruleType === 'specialPrices' ? '/api/clientes' : null);
+    const { data: productos } = useSWR(ruleType === 'specialPrices' ? '/api/productos' : null);
 
     useEffect(() => {
         // Actualizar el estado del formulario si la regla a editar cambia

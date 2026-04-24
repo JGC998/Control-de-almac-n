@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { Calculator, DollarSign, ArrowDown, Info } from 'lucide-react';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function CalculadoraInversa() {
     const [targetPrice, setTargetPrice] = useState('');
@@ -13,7 +12,7 @@ export default function CalculadoraInversa() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes', fetcher);
+    const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
 
     const handleCalcular = async () => {
         setLoading(true);

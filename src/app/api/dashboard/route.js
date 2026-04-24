@@ -104,6 +104,6 @@ export async function GET() {
 
   } catch (error) {
     console.error("Error completo fetching dashboard data:", error);
-    return NextResponse.json({ message: "Error fetching dashboard data", details: error.message }, { status: 500 });
+    return NextResponse.json({ message: "Error al obtener datos del dashboard" }, { status: 500 });
   }
 }

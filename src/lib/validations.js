@@ -43,7 +43,7 @@ const pedidoItemSchema = z.object({
     descripcion: z.string().min(1, 'Descripción requerida'),
     quantity: z.number().int().positive('Cantidad debe ser positiva'),
     unitPrice: z.number().nonnegative('Precio unitario no puede ser negativo'),
-    productoId: z.number().int().optional().nullable(),
+    productoId: z.string().uuid().optional().nullable(),
     pesoUnitario: z.number().nonnegative().optional()
 });
 
@@ -66,19 +66,19 @@ const presupuestoItemSchema = z.object({
     descripcion: z.string().min(1, 'Descripción requerida'),
     quantity: z.number().int().positive('Cantidad debe ser positiva'),
     unitPrice: z.number().nonnegative('Precio unitario no puede ser negativo'),
-    productoId: z.number().int().optional().nullable()
+    productoId: z.string().uuid().optional().nullable(),
+    pesoUnitario: z.number().nonnegative().optional()
 });
 
 export const presupuestoSchema = z.object({
     clienteId: z.string().uuid('ID de cliente inválido').optional().nullable(),
-    estado: z.enum(['Borrador', 'Enviado', 'Aprobado', 'Rechazado']).optional(),
+    estado: z.enum(['Borrador', 'Enviado', 'Aprobado', 'Rechazado', 'Aceptado']).optional(),
     items: z.array(presupuestoItemSchema).min(1, 'Debe haber al menos un item'),
     subtotal: z.number().nonnegative('Subtotal no puede ser negativo'),
     tax: z.number().nonnegative('Tax no puede ser negativo'),
     total: z.number().nonnegative('Total no puede ser negativo'),
     marginId: z.string().uuid().optional().nullable(),
-    notas: z.string().optional().nullable(),
-    validoHasta: z.string().datetime().optional().nullable()
+    notas: z.string().optional().nullable()
 });
 
 // ============================================
@@ -87,10 +87,20 @@ export const presupuestoSchema = z.object({
 
 export const productoSchema = z.object({
     nombre: z.string().min(1, 'Nombre requerido'),
-    descripcion: z.string().optional().nullable(),
-    precio: z.number().positive('Precio debe ser positivo'),
-    stock: z.number().int().nonnegative('Stock no puede ser negativo'),
-    categoria: z.string().optional().nullable()
+    referenciaFabricante: z.string().optional().nullable(),
+    espesor: z.number().positive().optional().nullable(),
+    largo: z.number().positive().optional().nullable(),
+    ancho: z.number().positive().optional().nullable(),
+    precioUnitario: z.number().nonnegative('Precio unitario no puede ser negativo'),
+    pesoUnitario: z.number().nonnegative().optional(),
+    costoUnitario: z.number().nonnegative().optional().nullable(),
+    tieneTroquel: z.boolean().optional(),
+    color: z.string().optional().nullable(),
+    fabricanteId: z.string().uuid().optional().nullable(),
+    materialId: z.string().uuid().optional().nullable(),
+    precioVentaFab: z.number().nonnegative().optional().nullable(),
+    precioVentaInt: z.number().nonnegative().optional().nullable(),
+    precioVentaFin: z.number().nonnegative().optional().nullable()
 });
 
 // ============================================
@@ -113,14 +123,17 @@ export const clienteSchema = z.object({
 export const tarifaMaterialSchema = z.object({
     material: z.string().min(1, 'Material requerido'),
     espesor: z.number().positive('Espesor debe ser positivo'),
-    color: z.string().min(1, 'Color requerido'),
-    precioKg: z.number().positive('Precio por kg debe ser positivo')
+    precio: z.number().nonnegative('Precio no puede ser negativo'),
+    peso: z.number().nonnegative('Peso no puede ser negativo'),
+    color: z.string().optional().nullable()
 });
 
 export const reglaMargenSchema = z.object({
-    nombre: z.string().min(1, 'Nombre requerido'),
+    base: z.string().min(1, 'Base requerida'),
     multiplicador: z.number().positive('Multiplicador debe ser positivo'),
-    activo: z.boolean().optional()
+    gastoFijo: z.number().nonnegative().optional().nullable(),
+    descripcion: z.string().min(1, 'Descripción requerida'),
+    tierCliente: z.string().optional().nullable()
 });
 
 // ============================================

@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    if (!id || id === 'undefined') return new NextResponse('ID requerido', { status: 400 });
 
     const quote = await db.presupuesto.findUnique({
       where: { id },
@@ -57,6 +58,6 @@ export async function GET(request, { params }) {
 
   } catch (error) {
     console.error('Error al generar el PDF (API):', error);
-    return new NextResponse(JSON.stringify({ message: `Error interno: ${error.message}` }), { status: 500 });
+    return new NextResponse(JSON.stringify({ message: "Error interno al generar el PDF" }), { status: 500 });
   }
 }

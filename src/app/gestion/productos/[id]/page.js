@@ -5,7 +5,6 @@ import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Package, DollarSign, Tag, Info, List, FileText, Upload, Trash2, Edit } from 'lucide-react';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const InfoCard = ({ title, value, unit = '', icon: Icon = Package }) => (
   <div className="flex items-center p-4 bg-base-200 rounded-lg shadow-inner">
@@ -156,8 +155,8 @@ export default function ProductoDetallePage() {
   const router = useRouter(); // <-- AÑADIDO: router
   const { id } = params;
 
-  const { data: producto, error, isLoading, mutate } = useSWR(id ? `/api/productos/${id}` : null, fetcher); // <-- AÑADIDO: mutate
-  const { data: documentos = [], isLoading: docsLoading } = useSWR(id ? `/api/documentos?productoId=${id}` : null, fetcher);
+  const { data: producto, error, isLoading, mutate } = useSWR(id ? `/api/productos/${id}` : null); // <-- AÑADIDO: mutate
+  const { data: documentos = [], isLoading: docsLoading } = useSWR(id ? `/api/documentos?productoId=${id}` : null);
 
   // Estado para el modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -207,14 +206,14 @@ export default function ProductoDetallePage() {
               <div>
                 <h1 className="text-4xl font-extrabold text-base-content">{producto.nombre}</h1>
                 <div className="flex gap-2 mt-2">
-                  {producto.categoria && <span className="badge badge-secondary badge-outline">{producto.categoria}</span>}
-                  <span className={`badge ${producto.stock > 0 ? 'badge-success' : 'badge-error'}`}>{producto.stock > 0 ? 'En Stock' : 'Agotado'}</span>
+                  {producto.color && <span className="badge badge-secondary badge-outline">{producto.color}</span>}
+                  {producto.material?.nombre && <span className="badge badge-outline">{producto.material.nombre}</span>}
                 </div>
               </div>
             </div>
             <div className="text-right">
               <div className="text-sm text-base-content/60 uppercase font-bold tracking-wider">Precio</div>
-              <div className="text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precio))} €</div>
+              <div className="text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario))} €</div>
               <div className="flex justify-end gap-2 mt-2">
                 <button onClick={openEditModal} className="btn btn-sm btn-outline btn-info">
                   <Edit className="w-4 h-4" /> Editar
@@ -240,17 +239,22 @@ export default function ProductoDetallePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div className="bg-base-200/50 p-6 rounded-xl">
               <h3 className="flex items-center gap-2 font-bold text-lg mb-4 text-secondary">
-                <Info className="w-5 h-5" /> Descripción
+                <Info className="w-5 h-5" /> Detalles técnicos
               </h3>
-              <p className="text-base-content/80 leading-relaxed whitespace-pre-wrap">
-                {producto.descripcion || 'Sin descripción disponible.'}
-              </p>
+              <div className="space-y-2 text-base-content/80 text-sm">
+                {producto.referenciaFabricante && <p><span className="font-semibold">Ref. Fabricante:</span> {producto.referenciaFabricante}</p>}
+                {producto.fabricante?.nombre && <p><span className="font-semibold">Fabricante:</span> {producto.fabricante.nombre}</p>}
+                {producto.material?.nombre && <p><span className="font-semibold">Material:</span> {producto.material.nombre}</p>}
+                {producto.espesor && <p><span className="font-semibold">Espesor:</span> {producto.espesor} mm</p>}
+                {producto.ancho && <p><span className="font-semibold">Ancho:</span> {producto.ancho} mm</p>}
+                {producto.largo && <p><span className="font-semibold">Largo:</span> {producto.largo} m</p>}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 content-start">
-              <InfoCard title="Categoría" value={producto.categoria || 'Sin clasificar'} icon={Tag} />
-              <InfoCard title="Stock Disponible" value={producto.stock} unit="unidades" icon={List} />
-              <InfoCard title="Precio Unitario" value={formatValue(parseFloat(producto.precio))} unit="€" icon={DollarSign} />
+              <InfoCard title="Precio Unitario" value={formatValue(parseFloat(producto.precioUnitario))} unit="€" icon={DollarSign} />
+              <InfoCard title="Costo Unitario" value={formatValue(parseFloat(producto.costoUnitario ?? 0))} unit="€" icon={DollarSign} />
+              <InfoCard title="Peso Unitario" value={formatValue(parseFloat(producto.pesoUnitario ?? 0))} unit="kg" icon={List} />
             </div>
           </div>
 

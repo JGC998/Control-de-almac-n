@@ -9,6 +9,12 @@ Aplicación web para la gestión de un taller especializado en la fabricación d
 *   **Gestión de Estado:** Hooks de React (`useState`, `useEffect`, `useMemo`) y `localStorage` para persistencia de datos en el cliente.
 *   **Exportación a PDF:** jsPDF y jspdf-autotable.
 
+## Entorno de Desarrollo
+
+Para ejecutar este proyecto de forma local, es necesario configurar las variables de entorno:
+1. Copia el archivo `.env.example` y renómbralo a `.env.local`.
+2. Completa las credenciales de la variable `DATABASE_URL` para conectar tu base de datos PostgreSQL.
+
 ## 📋 Módulos Principales
 
 El proyecto se compone de las siguientes secciones accesibles desde la barra de navegación:

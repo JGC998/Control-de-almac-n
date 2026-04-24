@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag } from 'lucide-react'; // <-- AÑADIDO: Tag
 import ClientEditModal from '@/componentes/modales/ModalEditarCliente';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const InfoCard = ({ title, value, icon }) => (
   <div className="flex items-center p-4 bg-base-200 rounded-lg">
@@ -48,9 +47,9 @@ export default function ClienteDetalle() {
   const params = useParams();
   const { id } = params;
 
-  const { data: cliente, error: clienteError, isLoading: clienteLoading, mutate } = useSWR(id ? `/api/clientes/${id}` : null, fetcher);
-  const { data: pedidos, error: pedidosError, isLoading: pedidosLoading } = useSWR(id ? `/api/pedidos?clientId=${id}` : null, fetcher);
-  const { data: presupuestos, error: presupuestosError, isLoading: presupuestosLoading } = useSWR(id ? `/api/presupuestos?clientId=${id}` : null, fetcher);
+  const { data: cliente, error: clienteError, isLoading: clienteLoading, mutate } = useSWR(id ? `/api/clientes/${id}` : null);
+  const { data: pedidos, error: pedidosError, isLoading: pedidosLoading } = useSWR(id ? `/api/pedidos?clientId=${id}` : null);
+  const { data: presupuestos, error: presupuestosError, isLoading: presupuestosLoading } = useSWR(id ? `/api/presupuestos?clientId=${id}` : null);
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 

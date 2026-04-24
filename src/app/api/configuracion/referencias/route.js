@@ -102,7 +102,7 @@ export async function DELETE(request) {
     if (error.code === 'P2003') {
       return NextResponse.json({ 
         error: 'No se puede eliminar esta referencia porque está siendo utilizada en un pedido de proveedor (FK Constraint). Debe eliminar o modificar el pedido de proveedor primero.', 
-        details: error.message 
+        details: undefined 
       }, { status: 409 });
     }
     return NextResponse.json({ error: 'Error al eliminar la referencia de bobina.' }, { status: 500 });

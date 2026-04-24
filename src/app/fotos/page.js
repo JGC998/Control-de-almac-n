@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 
 const FotosPage = () => {
   const [isMobile, setIsMobile] = useState(false);
@@ -141,7 +142,7 @@ const FotosPage = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {photos.map((photoPath, index) => (
               <div key={index} className="relative">
-                <img src={photoPath} alt={`Foto ${index + 1}`} className="w-full h-auto rounded-lg shadow-md" />
+                <Image src={photoPath} alt={`Foto ${index + 1}`} width={400} height={300} className="w-full h-auto rounded-lg shadow-md" />
               </div>
             ))}
           </div>

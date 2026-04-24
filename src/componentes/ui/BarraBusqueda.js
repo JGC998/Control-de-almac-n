@@ -5,7 +5,6 @@ import { Search, User, Package, FileText } from 'lucide-react';
 import useSWR from 'swr'; // Importar SWR para la búsqueda en tiempo real
 import Link from 'next/link';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Componente para renderizar un solo resultado
 const ResultItem = ({ item, onClick }) => {
@@ -58,7 +57,7 @@ export default function BarraBusqueda() {
 
   // Llamada a la API de búsqueda: solo si la consulta tiene al menos 2 caracteres
   const queryUrl = query.trim().length >= 2 ? `/api/busqueda?q=${encodeURIComponent(query)}` : null;
-  const { data: results, isLoading } = useSWR(queryUrl, fetcher, {
+  const { data: results, isLoading } = useSWR(queryUrl, {
     revalidateOnFocus: false,
     dedupingInterval: 500,
     shouldRetryOnError: false,

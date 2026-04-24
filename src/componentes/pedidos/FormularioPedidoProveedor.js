@@ -9,7 +9,6 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // --- MODAL DE BÚSQUEDA DE PROVEEDORES (NUEVO) ---
 function ProveedorSearchModal({ isOpen, onClose, onSelect, onCreateNew, proveedores = [], initialSearch = '' }) {
@@ -248,10 +247,10 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
     if (initialData?.proveedor?.nombre) setProveedorBusqueda(initialData.proveedor.nombre);
   }, [initialData, parseInitialData]);
 
-  const { data: proveedores } = useSWR('/api/proveedores', fetcher);
-  const { data: materiales, error: matError } = useSWR('/api/materiales', fetcher);
-  const { data: referencias } = useSWR('/api/configuracion/referencias', fetcher);
-  const { data: tarifas, error: tarifasError } = useSWR('/api/precios', fetcher);
+  const { data: proveedores } = useSWR('/api/proveedores');
+  const { data: materiales, error: matError } = useSWR('/api/materiales');
+  const { data: referencias } = useSWR('/api/configuracion/referencias');
+  const { data: tarifas, error: tarifasError } = useSWR('/api/precios');
 
   const pvcColors = ['Blanco', 'Verde', 'Azul', 'Rojo'];
 

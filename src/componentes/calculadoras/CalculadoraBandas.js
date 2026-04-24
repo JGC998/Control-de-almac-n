@@ -2,10 +2,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
 import { Plus, Settings, Info, Layers } from 'lucide-react';
-import { formatCurrency } from '@/utils/utils';
+import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const CostInput = ({ label, value, onChange, unit = '€', description }) => (
     <div className="form-control w-full">
@@ -32,11 +31,11 @@ const CostInput = ({ label, value, onChange, unit = '€', description }) => (
 
 export default function CalculadoraBandas({ onAddItem, className = "" }) {
     // --- Estado Item ---
-    const [selectedMaterial, setSelectedMaterial] = useState('');
+    const [selectedMaterial] = useState('PVC'); // Siempre PVC
     const [selectedEspesor, setSelectedEspesor] = useState('');
     const [selectedColor, setSelectedColor] = useState(''); // Nuevo: color para PVC
     const [selectedMarginId, setSelectedMarginId] = useState('');
-    const [tipoConfeccion, setTipoConfeccion] = useState('ABIERTA');
+    const [tipoConfeccion, setTipoConfeccion] = useState('VULCANIZADA');
 
     const [unidades, setUnidades] = useState('1');
     const [ancho, setAncho] = useState('');
@@ -44,7 +43,6 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
     // --- Configuración de Costes (Defaults editables) ---
     const [costeVulcanizadoMetro, setCosteVulcanizadoMetro] = useState(50);
-    const [costeAportacion, setCosteAportacion] = useState(15);
     const [costeGrapaMetro, setCosteGrapaMetro] = useState(30);
     const [mostrarConfigCostes, setMostrarConfigCostes] = useState(false);
 
@@ -53,9 +51,9 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
 
     // --- Carga de Datos ---
-    const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios', fetcher);
-    const { data: materiales, isLoading: materialesLoading } = useSWR('/api/materiales', fetcher);
-    const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes', fetcher);
+    const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
+    const { data: materiales, isLoading: materialesLoading } = useSWR('/api/materiales');
+    const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
 
     const uniqueMaterials = materiales?.map(m => m.nombre).sort() || [];
 
@@ -65,11 +63,12 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
     const availableEspesores = useMemo(() => {
         if (!tarifas || !selectedMaterial) return [];
+        // Mostrar todos los espesores de PVC sin filtrar por color
         const espesores = tarifas
-            .filter(t => t.material === selectedMaterial && (!isPVC || t.color === selectedColor))
+            .filter(t => t.material === selectedMaterial)
             .map(t => String(t.espesor));
         return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
-    }, [tarifas, selectedMaterial, selectedColor, isPVC]);
+    }, [tarifas, selectedMaterial]);
 
     const selectedMargin = useMemo(() => {
         if (!margenes || !selectedMarginId) return null;
@@ -116,8 +115,8 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
         if (tipoConfeccion === 'VULCANIZADA') {
             const costeVulcanizado = costeVulcanizadoMetro * ancM;
-            costeConfeccion = costeVulcanizado + costeAportacion;
-            desglose = `Vulcanizado (${formatCurrency(costeVulcanizado)}) + Aportación (${formatCurrency(costeAportacion)})`;
+            costeConfeccion = costeVulcanizado;
+            desglose = `Vulcanizado (${formatCurrency(costeVulcanizado)})`;
         } else if (tipoConfeccion === 'GRAPA') {
             const costeGrapa = costeGrapaMetro * ancM;
             costeConfeccion = costeGrapa;
@@ -140,14 +139,13 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             precioTotal: precioUnitario * unas,
             pesoTotal: (tarifa.peso * area) * unas
         };
-    }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, selectedMargin, unidades, ancho, largo, tipoConfeccion, costeVulcanizadoMetro, costeAportacion, costeGrapaMetro, configuracionTacos, isPVC]);
+    }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, selectedMargin, unidades, ancho, largo, tipoConfeccion, costeVulcanizadoMetro, costeGrapaMetro, configuracionTacos, isPVC]);
 
     // --- HANDLER ---
     const handleAdd = () => {
         if (!currentCalculation.isValid) return;
 
         const tipoLabel = {
-            'ABIERTA': 'Abierta (Corte)',
             'VULCANIZADA': 'Cerrada Sin Fin',
             'GRAPA': 'Cerrada con Grapa'
         }[tipoConfeccion];
@@ -189,36 +187,20 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             <div className="card-body">
                 <h2 className="card-title text-sm uppercase text-gray-400">Configuración de Banda</h2>
 
-                {/* Material & Espesor */}
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="form-control w-full">
-                        <label className="label"><span className="label-text">Material</span></label>
-                        <select className="select select-bordered w-full" value={selectedMaterial} onChange={e => {
-                            setSelectedMaterial(e.target.value);
-                            setSelectedEspesor('');
-                            setSelectedColor(''); // Reset color al cambiar material
-                        }}>
-                            <option value="">Seleccionar...</option>
-                            {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                    </div>
-                    <div className="form-control w-full">
-                        <label className="label"><span className="label-text">Espesor</span></label>
-                        <select className="select select-bordered w-full" value={selectedEspesor} onChange={e => setSelectedEspesor(e.target.value)} disabled={!selectedMaterial || (isPVC && !selectedColor)}>
-                            <option value="">...</option>
-                            {availableEspesores.map(e => <option key={e} value={e}>{e} mm</option>)}
-                        </select>
-                    </div>
+                {/* Espesor (Material PVC fijo) */}
+                <div className="form-control w-full">
+                    <label className="label"><span className="label-text">Espesor (PVC)</span></label>
+                    <select className="select select-bordered w-full" value={selectedEspesor} onChange={e => setSelectedEspesor(e.target.value)}>
+                        <option value="">Seleccionar espesor...</option>
+                        {availableEspesores.map(e => <option key={e} value={e}>{e} mm</option>)}
+                    </select>
                 </div>
 
                 {/* Color selector - Solo para PVC */}
                 {isPVC ? (
                     <div key="color-selector" className="form-control w-full mt-2">
                         <label className="label"><span className="label-text">Color</span></label>
-                        <select className="select select-bordered w-full" value={selectedColor} onChange={e => {
-                            setSelectedColor(e.target.value);
-                            setSelectedEspesor(''); // Reset espesor al cambiar color
-                        }}>
+                        <select className="select select-bordered w-full" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}>
                             <option value="">Seleccionar color...</option>
                             {coloresPVC.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
@@ -251,8 +233,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 {/* Tipo Confección */}
                 <div className="form-control">
                     <label className="label"><span className="label-text font-bold">Tipo de Confección</span></label>
-                    <div className="join w-full grid grid-cols-3">
-                        <input className="join-item btn btn-sm" type="radio" name="options" aria-label="Abierta" checked={tipoConfeccion === 'ABIERTA'} onChange={() => setTipoConfeccion('ABIERTA')} />
+                    <div className="join w-full grid grid-cols-2">
                         <input className="join-item btn btn-sm" type="radio" name="options" aria-label="Sin Fin" checked={tipoConfeccion === 'VULCANIZADA'} onChange={() => setTipoConfeccion('VULCANIZADA')} />
                         <input className="join-item btn btn-sm" type="radio" name="options" aria-label="Grapa" checked={tipoConfeccion === 'GRAPA'} onChange={() => setTipoConfeccion('GRAPA')} />
                     </div>
@@ -290,22 +271,18 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     </div>
                     <div className="collapse-content space-y-3">
                         <CostInput
-                            label="Vulcanizado (Metro Lineal)"
+                            label="Coste Vulcanizado"
                             value={costeVulcanizadoMetro}
                             onChange={setCosteVulcanizadoMetro}
-                            description="Precio por metro de ancho. Se multiplica por el ancho de la banda."
+                            unit="€/m"
+                            description="Precio por metro lineal de vulcanizado"
                         />
                         <CostInput
-                            label="Aportación (Fijo)"
-                            value={costeAportacion}
-                            onChange={setCosteAportacion}
-                            description="Coste fijo por empalme, independiente de las medidas."
-                        />
-                        <CostInput
-                            label="Grapa (Metro Lineal)"
+                            label="Coste Grapa"
                             value={costeGrapaMetro}
                             onChange={setCosteGrapaMetro}
-                            description="Precio por metro de ancho. Coste de grapa e instalación."
+                            unit="€/m"
+                            description="Precio por metro lineal de grapa"
                         />
                     </div>
                 </div>

@@ -62,7 +62,7 @@ export async function POST(request) {
             return NextResponse.json(
                 {
                     error: 'Validación fallida',
-                    details: validation.error.errors.map(err => ({
+                    details: validation.error.issues.map(err => ({
                         field: err.path.join('.'),
                         message: err.message
                     }))
@@ -145,7 +145,7 @@ export async function POST(request) {
     } catch (error) {
         console.error('Error en cálculo logístico:', error);
         return NextResponse.json(
-            { error: 'Error interno del servidor', details: error.message },
+            { error: 'Error interno del servidor', details: undefined },
             { status: 500 }
         );
     }

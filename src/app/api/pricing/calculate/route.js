@@ -153,6 +153,6 @@ export async function POST(request) {
     return NextResponse.json(calculatedItems);
   } catch (error) {
     console.error('Error en el motor de precios:', error);
-    return NextResponse.json({ message: error.message || 'Error al calcular precios' }, { status: 500 });
+    return NextResponse.json({ message: "Error al calcular precios" }, { status: 500 });
   }
 }

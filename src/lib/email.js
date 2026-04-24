@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789'); // Fallback para evitar crash si no hay key
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 /**
  * Enviar un email genérico
@@ -10,7 +10,7 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789'); // Fall
  * @param {Array} attachments - Lista de adjuntos [{ filename, content }]
  */
 export async function sendEmail({ to, subject, html, attachments = [] }) {
-    if (!process.env.RESEND_API_KEY) {
+    if (!resend) {
         console.warn('⚠️ RESEND_API_KEY no configurada. Simulando envío de email.');
         console.log(`📧 Simulando envío a: ${to} | Asunto: ${subject}`);
         return { success: true, simulated: true };

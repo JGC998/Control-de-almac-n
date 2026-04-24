@@ -4,7 +4,6 @@ import useSWR from 'swr';
 import FormularioPedidoCliente from "@/componentes/pedidos/FormularioPedidoCliente";
 import { Edit } from "lucide-react";
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function EditarPresupuestoPage() {
   const params = useParams();
@@ -12,7 +11,7 @@ export default function EditarPresupuestoPage() {
   const { id } = params;
 
   // Cargar los datos iniciales del presupuesto
-  const { data: initialData, error, isLoading } = useSWR(id ? `/api/presupuestos/${id}` : null, fetcher);
+  const { data: initialData, error, isLoading } = useSWR(id ? `/api/presupuestos/${id}` : null);
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (error) return <div className="text-red-500 text-center">Error al cargar el presupuesto para editar.</div>;

@@ -1,0 +1,254 @@
+AUDITORÍA DE CÓDIGO - CRM Control de Almacén
+Fecha: 2026-04-24
+=============================================
+
+
+== PROBLEMAS CRÍTICOS (mayor impacto) ===================================================
+
+
+--- 1. ARCHIVOS GIGANTES CON MEZCLA DE RESPONSABILIDADES ---
+
+Archivo                                          Líneas   Problema
+src/app/configuracion/page.js                    ~696     4 componentes inline mezclados (GestionTacos, GestionTarifasRollo, GestionMateriales, GestionPreciosEspeciales)
+src/componentes/pedidos/FormularioPedidoProveedor.js  ~682  Data fetching + 3 modales + lógica de precios
+src/componentes/pedidos/FormularioPedidoCliente.js    ~546  Igual que el anterior
+
+Solución: Extraer cada sección inline a su propio archivo en src/componentes/configuracion/:
+  - SeccionTacos.jsx
+  - SeccionTarifasRollo.jsx
+  - SeccionMateriales.jsx
+  - SeccionPreciosEspeciales.jsx
+
+Para los formularios de pedido:
+  - ModalSeleccionCliente.jsx
+  - ModalSeleccionProducto.jsx
+  - TablaItemsPedido.jsx
+
+
+--- 2. MODALES DE BÚSQUEDA DUPLICADOS 4 VECES ---
+
+Archivos afectados:
+  - src/componentes/pedidos/FormularioPedidoCliente.js  → ClienteSearchModal + ProductSearchModal
+  - src/componentes/pedidos/FormularioPedidoProveedor.js → ProveedorSearchModal
+  - src/app/gestion/documentos/page.js → ProductSearchModal
+
+Problema: Son prácticamente idénticos — mismo esqueleto de modal, mismo input de búsqueda,
+misma tabla con useMemo + .filter().slice(0,50). Unos ~400 líneas duplicadas.
+
+Patrón repetido en todos:
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
+    return items.filter(item => {
+      const term = search.toLowerCase();
+      return item.campo1?.toLowerCase().includes(term) || item.campo2?.includes(term);
+    }).slice(0, 50);
+  }, [items, search]);
+
+Solución: Crear un componente genérico src/componentes/ui/ModalBusqueda.jsx:
+  export function ModalBusqueda({ isOpen, onClose, onSelect, items, titulo, placeholder, filterFn, columns }) {
+    const [search, setSearch] = useState('');
+    const filtered = useMemo(() => items.filter(i => filterFn(i, search)).slice(0, 50), [items, search]);
+    // Render modal genérico con columnas dinámicas
+  }
+
+
+--- 3. MANEJO DE ERRORES PRISMA DUPLICADO EN 20+ RUTAS API ---
+
+Problema: Cada [id]/route.js repite manualmente:
+  if (error.code === 'P2025') return NextResponse.json({ message: '...' }, { status: 404 });
+  if (error.code === 'P2002') return NextResponse.json({ message: '...' }, { status: 409 });
+
+Archivos afectados (entre otros):
+  - src/app/api/tacos/[id]/route.js
+  - src/app/api/tarifas-rollo/[id]/route.js
+  - src/app/api/productos/[id]/route.js
+  - src/app/api/clientes/[id]/route.js
+  - (y todos los demás [id]/route.js)
+
+Solución: Añadir a src/lib/manejadores-api.js (ya existe el archivo):
+  export function handlePrismaError(error) {
+    if (error.code === 'P2025') return NextResponse.json({ message: 'Registro no encontrado' }, { status: 404 });
+    if (error.code === 'P2002') return NextResponse.json({ message: 'Registro duplicado' }, { status: 409 });
+    if (error.code === 'P2003') return NextResponse.json({ message: 'Registro tiene dependencias' }, { status: 409 });
+    console.error(error);
+    return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 });
+  }
+
+Uso en cada ruta:
+  } catch (error) {
+    return handlePrismaError(error);
+  }
+
+
+--- 4. FORMATO DE RESPUESTAS API INCONSISTENTE ---
+
+Problema: Distintas rutas devuelven formatos distintos para errores:
+  - { message: 'Error' }      ← la mayoría
+  - { error: 'Error' }        ← algunas
+  - objeto directo             ← rutas GET
+  Esto dificulta el manejo uniforme en el cliente.
+
+Solución: Crear src/lib/api-response.js con un wrapper:
+  export const ApiResponse = {
+    ok:       (data, status = 200) => NextResponse.json(data, { status }),
+    created:  (data)               => NextResponse.json(data, { status: 201 }),
+    notFound: (msg = 'No encontrado') => NextResponse.json({ message: msg }, { status: 404 }),
+    conflict: (msg = 'Conflicto')     => NextResponse.json({ message: msg }, { status: 409 }),
+    badRequest:(msg)                  => NextResponse.json({ message: msg }, { status: 400 }),
+    serverError:(msg = 'Error interno') => NextResponse.json({ message: msg }, { status: 500 }),
+  };
+
+
+== PROBLEMAS MEDIOS ====================================================================
+
+
+--- 5. PATRÓN useMessage DUPLICADO EN 10+ COMPONENTES ---
+
+Problema: Este bloque se repite en casi todos los componentes con formulario:
+  const [message, setMessage] = useState(null);
+  // ...
+  setMessage({ type: 'success', text: 'Guardado correctamente' });
+  // ...
+  {message && <div className={`alert alert-${message.type}`}>{message.text}</div>}
+
+Solución: Crear src/hooks/useMessage.js:
+  export function useMessage(autoClearMs = 4000) {
+    const [message, setMessage] = useState(null);
+    const show = useCallback((type, text) => {
+      setMessage({ type, text });
+      if (autoClearMs) setTimeout(() => setMessage(null), autoClearMs);
+    }, [autoClearMs]);
+    return {
+      message,
+      showSuccess: (text) => show('success', text),
+      showError:   (text) => show('error', text),
+      showWarning: (text) => show('warning', text),
+      Alert: () => message
+        ? <div className={`alert alert-${message.type} mb-4`}>{message.text}</div>
+        : null,
+    };
+  }
+
+Uso:
+  const { showSuccess, showError, Alert } = useMessage();
+  // ...
+  <Alert />
+
+
+--- 6. COERCIÓN DE TIPOS DISPERSA EN LAS RUTAS API ---
+
+Problema: parseFloat / parseInt manual en cada ruta sin validación previa.
+  Ejemplo en src/app/api/tarifas-rollo/[id]/route.js:
+    ...(metrajeMinimo !== undefined && { metrajeMinimo: parseFloat(metrajeMinimo) }),
+    ...(precioBase !== undefined    && { precioBase: parseFloat(precioBase) }),
+    ...(peso !== undefined          && { peso: parseFloat(peso) }),
+    ...(ancho !== undefined         && { ancho: ancho ? parseFloat(ancho) : null }),
+
+  Zod ya está instalado en el proyecto pero no se usa en tacos ni tarifas-rollo.
+
+Solución: Añadir schemas en src/lib/validaciones.js (ya existe):
+  export const tacoSchema = z.object({
+    tipo:        z.enum(['RECTO', 'INCLINADO']),
+    altura:      z.number().positive(),
+    precioMetro: z.number().nonnegative(),
+  });
+
+  export const tarifaRolloSchema = z.object({
+    material:      z.string().min(1),
+    espesor:       z.number().positive(),
+    ancho:         z.number().positive().nullable().optional(),
+    color:         z.string().nullable().optional(),
+    metrajeMinimo: z.number().positive().default(10),
+    precioBase:    z.number().nonnegative(),
+    peso:          z.number().nonnegative(),
+  });
+
+Uso en la ruta:
+  const parsed = tacoSchema.safeParse(await request.json());
+  if (!parsed.success) return ApiResponse.badRequest(parsed.error.issues[0].message);
+  const { tipo, altura, precioMetro } = parsed.data; // ya tipado y validado
+
+
+--- 7. INCONSISTENCIA EN PARAMS (await params) ---
+
+Problema: Los [id]/route.js del proyecto mezclan formas de leer params:
+  - const { id } = await params;                     ← correcto (Next.js 15+)
+  - const { id } = await paramsPromise;              ← variante válida pero inconsistente
+  - const { id } = params; (sin await)               ← incorrecto en Next.js 15+
+
+Solución: Estandarizar a siempre usar:
+  const { id } = await params;
+
+
+--- 8. revalidatePath INCONSISTENTE ---
+
+Problema: Unas rutas llaman revalidatePath tras mutaciones, otras no.
+  - src/app/api/materiales/route.js → sí lo usa
+  - src/app/api/productos/route.js → sí lo usa
+  - src/app/api/tacos/route.js → NO lo usa
+  - src/app/api/tarifas-rollo/route.js → NO lo usa
+
+Impacto: Con SWR en cliente esto no es crítico (el cliente revalida via mutate()), pero
+es inconsistente y puede afectar si se añaden server components en el futuro.
+
+Solución: O añadirlo sistemáticamente a todas las rutas mutantes, o eliminarlo de todas
+(dejando solo la revalidación por SWR en cliente). Elegir una estrategia y ser consistente.
+
+
+--- 9. SERIALIZACIÓN DE DECIMALES DISPERSA ---
+
+Problema: Cada ruta que devuelve precios/pesos convierte Decimal de Prisma a Number manualmente:
+  precioUnitario: p.precioUnitario ? Number(p.precioUnitario) : 0,
+  pesoUnitario:   p.pesoUnitario   ? Number(p.pesoUnitario)   : 0,
+  Esto aparece repetido en productos/route.js, materiales/route.js, etc.
+
+Solución: Añadir a src/lib/manejadores-api.js:
+  export function serializeDecimals(obj, fields) {
+    return { ...obj, ...Object.fromEntries(fields.map(f => [f, obj[f] ? Number(obj[f]) : 0])) };
+  }
+  // Uso: serializeDecimals(producto, ['precioUnitario', 'pesoUnitario'])
+
+
+== PROBLEMAS BAJOS (quick wins) ========================================================
+
+
+--- 10. IMPORTS SIN USAR ---
+
+Recomendación: Ejecutar ESLint con eslint-plugin-unused-imports para identificar
+y limpiar automáticamente imports no utilizados en todos los archivos.
+  npm install -D eslint-plugin-unused-imports
+  // Añadir a .eslintrc: "unused-imports/no-unused-imports": "error"
+
+
+--- 11. PARÁMETROS DE FUNCIÓN SIN USAR EN RUTAS API ---
+
+Ejemplo: src/app/api/pedidos/[id]/route.js → parámetro `request` no usado en GET handler.
+Recomendación: Prefijarlo con _ para indicar que es intencional: `_request`.
+
+
+== ORDEN DE IMPLEMENTACIÓN RECOMENDADO =================================================
+
+1. handlePrismaError en lib/manejadores-api.js           → 30 min, afecta 20+ rutas, bajo riesgo
+2. Hook useMessage                                        → 20 min, elimina boilerplate en 10+ componentes
+3. ApiResponse wrapper en lib/api-response.js            → 30 min, unifica respuestas API
+4. ModalBusqueda genérico                                 → 1h, elimina ~400 líneas duplicadas
+5. Split configuracion/page.js en 4 subcomponentes       → 2h, mejora legibilidad drásticamente
+6. Split FormularioPedidoCliente y Proveedor             → 2-3h, más complejo pero muy necesario
+7. Schemas Zod para tacos y tarifas-rollo                → 30 min, mejora validación y tipos
+
+
+== RESUMEN EJECUTIVO ====================================================================
+
+Total de líneas auditadas: ~19.000
+Rutas API: 51 archivos
+Componentes: 35+ archivos
+
+Problema principal: El proyecto tiene buenas bases (lib/manejadores-api.js, hooks/useGestionCRUD.js,
+lib/validaciones.js ya existen) pero no se usan de forma consistente en todo el código nuevo.
+Los patrones correctos están, pero cada nueva feature se ha añadido sin reutilizarlos,
+generando duplicación creciente.
+
+Ganancia estimada si se aplican todos los cambios:
+  - Reducción de ~1.500-2.000 líneas de código duplicado
+  - Mantenimiento centralizado de lógica de errores y respuestas
+  - Archivos grandes divididos en unidades testables independientemente

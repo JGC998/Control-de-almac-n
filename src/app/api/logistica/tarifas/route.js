@@ -9,6 +9,6 @@ export async function GET() {
         return NextResponse.json(tarifas);
     } catch (error) {
         console.error('Error fetching tarifas:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }

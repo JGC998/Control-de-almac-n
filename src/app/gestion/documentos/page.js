@@ -8,7 +8,6 @@ import { es } from 'date-fns/locale';
 
 import QuickProductForm from '@/componentes/modales/ModalCreacionRapida';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const initialFormData = {
     id: null, tipo: 'PLANO', referencia: '', descripcion: '', rutaArchivo: '', productoId: '', maquinaUbicacion: '', file: null, productoNombre: ''
@@ -355,11 +354,11 @@ export default function GestionDocumentos() {
 
     const [filtroReferencia, setFiltroReferencia] = useState('');
 
-    const { data: documentos, error: docsError, isLoading: docsLoading } = useSWR(`/api/documentos?tipo=PLANO&referencia=${filtroReferencia}`, fetcher);
-    const { data: productos, error: prodError, isLoading: prodLoading } = useSWR('/api/productos', fetcher);
-    const { data: fabricantes, error: fabError, isLoading: fabLoading } = useSWR('/api/fabricantes', fetcher);
-    const { data: materiales, error: matError, isLoading: matLoading } = useSWR('/api/materiales', fetcher);
-    const { data: tarifas } = useSWR('/api/precios', fetcher);
+    const { data: documentos, error: docsError, isLoading: docsLoading } = useSWR(`/api/documentos?tipo=PLANO&referencia=${filtroReferencia}`);
+    const { data: productos, error: prodError, isLoading: prodLoading } = useSWR('/api/productos');
+    const { data: fabricantes, error: fabError, isLoading: fabLoading } = useSWR('/api/fabricantes');
+    const { data: materiales, error: matError, isLoading: matLoading } = useSWR('/api/materiales');
+    const { data: tarifas } = useSWR('/api/precios');
 
 
     const isLoading = docsLoading || prodLoading || fabLoading || matLoading;

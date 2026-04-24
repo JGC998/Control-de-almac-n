@@ -5,7 +5,8 @@ import { sendEmail } from '@/lib/email';
 
 export async function POST(request, { params }) {
     try {
-        const { id } = params;
+        const { id } = await params;
+        if (!id || id === 'undefined') return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
         const { to } = await request.json();
 
         const order = await db.pedido.findUnique({

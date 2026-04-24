@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { User, Package, FileText } from 'lucide-react';
 import React, { Suspense } from 'react'; // Importar Suspense
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const ResultItem = ({ item }) => {
   let icon, title, path;
@@ -53,7 +52,7 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
 
-  const { data: results, error, isLoading } = useSWR(query ? `/api/busqueda?q=${encodeURIComponent(query)}` : null, fetcher);
+  const { data: results, error, isLoading } = useSWR(query ? `/api/busqueda?q=${encodeURIComponent(query)}` : null);
 
   if (!query) {
     return notFound();

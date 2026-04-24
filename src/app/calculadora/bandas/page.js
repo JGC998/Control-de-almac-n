@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Calculator, Download, Trash2, FileText, ClipboardList } from 'lucide-react';
-import { formatCurrency, formatWeight } from '@/utils/utils';
+import { formatCurrency, formatWeight } from '@/utils/utilidades';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CalculadoraBandas from '@/componentes/calculadoras/CalculadoraBandas';

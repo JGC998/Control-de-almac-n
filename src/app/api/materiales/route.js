@@ -68,7 +68,7 @@ export async function DELETE(request) {
     if (error.code === 'P2003') {
       return NextResponse.json({ 
         error: 'No se puede eliminar el material porque está enlazado a uno o varios productos. Elimine los productos dependientes de este material en "Gestión de Productos" y vuelva a intentarlo.', 
-        details: error.message 
+        details: undefined 
       }, { status: 409 });
     }
     return NextResponse.json({ error: 'Error al eliminar el material.' }, { status: 500 });

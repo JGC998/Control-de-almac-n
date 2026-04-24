@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 // GET: Obtener plantilla específica
 export async function GET(request, { params }) {
     try {
-        const { id } = params;
+        const { id } = await params;
         const template = await db.presupuestoTemplate.findUnique({
             where: { id }
         });
@@ -22,7 +22,7 @@ export async function GET(request, { params }) {
 // PUT: Actualizar plantilla
 export async function PUT(request, { params }) {
     try {
-        const { id } = params;
+        const { id } = await params;
         const data = await request.json();
         const { nombre, descripcion, items, marginId } = data;
 
@@ -48,7 +48,7 @@ export async function PUT(request, { params }) {
 // DELETE: Eliminar plantilla
 export async function DELETE(request, { params }) {
     try {
-        const { id } = params;
+        const { id } = await params;
         await db.presupuestoTemplate.delete({
             where: { id }
         });

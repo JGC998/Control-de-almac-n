@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
 import { pedidoSchema } from '@/lib/validations';
@@ -43,9 +42,10 @@ export async function GET(request) {
       });
     }
 
-    // Comportamiento legado: devolver array completo
+    // Comportamiento legado: cap de seguridad para evitar full-table scans
     const pedidos = await db.pedido.findMany({
       where: whereClause,
+      take: 500,
       include: {
         cliente: { select: { nombre: true } },
       },
@@ -71,7 +71,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error: 'Validación fallida',
-          details: validation.error.errors.map(err => ({
+          details: validation.error.issues.map(err => ({
             field: err.path.join('.'),
             message: err.message
           }))
@@ -87,9 +87,7 @@ export async function POST(request) {
 
     const newOrder = await db.pedido.create({
       data: {
-        id: uuidv4(),
         numero: newOrderNumber,
-        fechaCreacion: new Date().toISOString(),
         estado: estado || 'Pendiente',
         cliente: { connect: { id: clienteId } },
         notas: notas,
@@ -103,7 +101,7 @@ export async function POST(request) {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             pesoUnitario: item.pesoUnitario || 0,
-            productoId: item.productoId ? parseInt(item.productoId) : null,
+            productoId: item.productoId || null,
           })),
         },
       },

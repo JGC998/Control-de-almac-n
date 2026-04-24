@@ -3,7 +3,6 @@ import React, { useState, useCallback } from 'react';
 import useSWR from 'swr';
 import { Plus, Edit, Trash2, Save, X, RotateCw } from 'lucide-react';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Helper para determinar el tipo de input basado en el tipo de dato
 const getInputType = (dataType) => {
@@ -19,7 +18,7 @@ const getInputType = (dataType) => {
 };
 
 const DataManagerTable = ({ apiEndpoint, modelName, fields, idField = 'id' }) => {
-  const { data, error, isLoading, mutate } = useSWR(apiEndpoint, fetcher);
+  const { data, error, isLoading, mutate } = useSWR(apiEndpoint);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentRecord, setCurrentRecord] = useState(null);
   const [formState, setFormState] = useState({});

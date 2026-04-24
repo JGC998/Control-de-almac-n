@@ -4,14 +4,13 @@ import useSWR, { mutate } from 'swr';
 // Importamos 'X' para el botón de eliminar
 import { MessageSquare, Send, X } from 'lucide-react';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function TablonNotas() {
   const [newNote, setNewNote] = useState('');
   const [error, setError] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { data: notas, error: notasError, isLoading } = useSWR('/api/notas', fetcher);
+  const { data: notas, error: notasError, isLoading } = useSWR('/api/notas');
 
   const handleSubmit = async (e) => {
     e.preventDefault();

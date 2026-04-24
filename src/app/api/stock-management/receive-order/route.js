@@ -99,6 +99,6 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Error al recibir pedido:', error);
-    return NextResponse.json({ message: error.message || 'Error interno' }, { status: 500 });
+    return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }
 }

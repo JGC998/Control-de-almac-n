@@ -4,7 +4,6 @@ import useSWR, { mutate } from 'swr';
 import { PlusCircle, Edit, Trash2, Save, X } from 'lucide-react';
 import TablaGenerica from '@/componentes/ui/TablaGenerica';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Componente para gestionar CRUD de modelos simples (Material, Fabricante, Proveedor)
 export default function GestorCatalogo({ title, endpoint, columns, initialForm }) {
@@ -15,10 +14,10 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
   // Clave SWR para la mutación
   const cacheKey = endpoint;
 
-  const { data: items, error: swrError, isLoading } = useSWR(cacheKey, fetcher);
+  const { data: items, error: swrError, isLoading } = useSWR(cacheKey);
 
   // Carga adicional de materiales para el selector en Tarifas
-  const { data: materiales } = useSWR(title === 'Tarifas de Material' ? '/api/materiales' : null, fetcher);
+  const { data: materiales } = useSWR(title === 'Tarifas de Material' ? '/api/materiales' : null);
 
 
   const openModal = (item = null) => {

@@ -44,6 +44,6 @@ export async function PUT(request) {
         return NextResponse.json(updated);
     } catch (error) {
         console.error('Error updating config paletizado:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }

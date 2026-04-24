@@ -4,7 +4,6 @@ import useSWR, { mutate } from 'swr';
 import { Settings, Save, Package, Truck, AlertCircle, CheckCircle, Download } from 'lucide-react';
 import Link from 'next/link';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 function ConfigPaletizadoForm({ config, onSave }) {
     const [formData, setFormData] = useState(config);
@@ -273,8 +272,8 @@ function TablaTarifas({ tarifas }) {
 }
 
 export default function ConfiguracionLogisticaPage() {
-    const { data: configsPaletizado, isLoading: loadingPaletizado } = useSWR('/api/logistica/config-paletizado', fetcher);
-    const { data: tarifas, isLoading: loadingTarifas } = useSWR('/api/logistica/tarifas', fetcher);
+    const { data: configsPaletizado, isLoading: loadingPaletizado } = useSWR('/api/logistica/config-paletizado');
+    const { data: tarifas, isLoading: loadingTarifas } = useSWR('/api/logistica/tarifas');
 
     return (
         <div className="container mx-auto p-4 max-w-7xl">

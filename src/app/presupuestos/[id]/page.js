@@ -7,7 +7,6 @@ import { ArrowLeft, Edit, Trash2, Download, DollarSign, FileText } from 'lucide-
 import EmailButton from '@/componentes/presupuestos/EmailButton';
 
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Componente para manejar el desglose del total y los cálculos por item.
 const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
@@ -148,9 +147,9 @@ export default function PresupuestoDetalle() {
   const [error, setError] = useState(null);
 
   // Cargamos el presupuesto y la información necesaria para el cálculo
-  const { data: quote, error: quoteError, isLoading: quoteLoading } = useSWR(id ? `/api/presupuestos/${id}` : null, fetcher);
-  const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes', fetcher);
-  const { data: config, isLoading: configLoading } = useSWR('/api/config', fetcher);
+  const { data: quote, error: quoteError, isLoading: quoteLoading } = useSWR(id ? `/api/presupuestos/${id}` : null);
+  const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
+  const { data: config, isLoading: configLoading } = useSWR('/api/config');
 
 
   const handleDelete = async () => {

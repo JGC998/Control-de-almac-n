@@ -2,16 +2,15 @@
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import { X, Plus, Info } from 'lucide-react';
-import { formatCurrency } from '@/utils/utils';
+import { formatCurrency } from '@/utils/utilidades';
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function ModalConfiguracionTacos({ isOpen, onClose, onConfirm, anchoBanda, largoBanda }) {
     const [tipoTaco, setTipoTaco] = useState('RECTO');
     const [alturaTaco, setAlturaTaco] = useState('');
     const [pasoEntreTacos, setPasoEntreTacos] = useState('');
 
-    const { data: tacos, isLoading } = useSWR('/api/tacos', fetcher);
+    const { data: tacos, isLoading } = useSWR('/api/tacos');
 
     // Filtrar tacos por tipo seleccionado
     const tacosDisponibles = useMemo(() => {

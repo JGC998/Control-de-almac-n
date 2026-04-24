@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
-// Esta variable 'db' será tu nuevo 'dataManager'
-// Se encarga de la conexión y es segura para concurrencia.
-export const db = new PrismaClient();
+const globalForPrisma = globalThis;
+
+export const db = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;

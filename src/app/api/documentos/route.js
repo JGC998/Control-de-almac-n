@@ -156,7 +156,7 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Ya existe un documento con la misma Referencia y Ruta de Archivo.' }, { status: 409 });
     }
 
-    return NextResponse.json({ message: `Error en la subida y registro: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ message: "Error en la subida y registro del documento" }, { status: 500 });
   }
 }
 

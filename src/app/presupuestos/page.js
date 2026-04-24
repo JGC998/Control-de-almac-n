@@ -1,8 +1,11 @@
 import React from 'react';
 import Link from 'next/link';
-import { PlusCircle, FileText, CheckCircle, Clock, Download } from 'lucide-react';
+import { FileText, PlusCircle, Download } from 'lucide-react';
 import { db } from '@/lib/db';
 import TablaDatos from '@/componentes/compuestos/TablaDatos';
+import { PaginacionServidor } from '@/componentes/ui';
+import FiltroEstadoPresupuesto from '@/componentes/ui/FiltroEstadoPresupuesto';
+import FiltroBusqueda from '@/componentes/ui/FiltroBusqueda';
 
 // Definición de columnas para la tabla de presupuestos
 const columnasPresupuesto = [
@@ -22,20 +25,54 @@ const columnasPresupuesto = [
   },
 ];
 
-export default async function PresupuestosPage() {
-  // Obtener todos los presupuestos ordenados por fecha
-  const allPresupuestos = await db.presupuesto.findMany({
-    include: {
-      cliente: {
-        select: { nombre: true },
-      },
-    },
-    orderBy: { fechaCreacion: 'desc' },
-  });
+export const dynamic = 'force-dynamic';
 
-  // Dividir por estado
-  const presupuestosAceptados = allPresupuestos.filter(p => p.estado === 'Aceptado');
-  const presupuestosBorrador = allPresupuestos.filter(p => p.estado === 'Borrador');
+export default async function PresupuestosPage({ searchParams: searchParamsPromise }) {
+  // Await searchParams before accessing properties
+  const searchParams = await searchParamsPromise;
+
+  const page = parseInt(searchParams?.page || '1');
+  const limit = parseInt(searchParams?.limit || '20');
+  const skip = (page - 1) * limit;
+  const estado = searchParams?.estado;
+  const busqueda = searchParams?.busqueda;
+
+  // Construir filtro
+  const where = {};
+
+  if (estado) {
+    where.estado = estado;
+  }
+
+  if (busqueda) {
+    where.OR = [
+      { numero: { contains: busqueda, mode: 'insensitive' } },
+      { cliente: { nombre: { contains: busqueda, mode: 'insensitive' } } },
+    ];
+  }
+
+  // Obtener presupuestos paginados
+  const [presupuestos, total] = await Promise.all([
+    db.presupuesto.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        cliente: {
+          select: { nombre: true },
+        },
+      },
+      orderBy: { fechaCreacion: 'desc' },
+    }),
+    db.presupuesto.count({ where }),
+  ]);
+
+  const meta = {
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -54,27 +91,29 @@ export default async function PresupuestosPage() {
         </div>
       </div>
 
-      {/* Tablas de presupuestos */}
-      <div className="space-y-4">
-        <TablaDatos
-          datos={presupuestosAceptados}
-          columnas={columnasPresupuesto}
-          titulo="Aceptados"
-          icono={CheckCircle}
-          rutaBase="/presupuestos"
-          colapsable
-          colapsadoInicial={false}
-        />
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-4 mb-4">
+        <div className="flex-1 min-w-[200px]">
+          <FiltroBusqueda placeholder="Buscar por cliente o número..." />
+        </div>
+        <div className="w-full sm:w-auto">
+          <FiltroEstadoPresupuesto />
+        </div>
+      </div>
 
-        <TablaDatos
-          datos={presupuestosBorrador}
-          columnas={columnasPresupuesto}
-          titulo="Borradores"
-          icono={Clock}
-          rutaBase="/presupuestos"
-          colapsable
-          colapsadoInicial={false}
-        />
+      {/* Tabla unificada */}
+      <TablaDatos
+        datos={presupuestos}
+        columnas={columnasPresupuesto}
+        titulo={`Presupuestos (${total})`}
+        icono={FileText}
+        rutaBase="/presupuestos"
+        colapsable={false}
+      />
+
+      {/* Paginación */}
+      <div className="mt-4">
+        <PaginacionServidor meta={meta} />
       </div>
     </div>
   );

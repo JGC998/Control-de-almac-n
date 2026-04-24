@@ -7,19 +7,29 @@ import path from 'path';
 const COMPANY_ADDRESS = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
 const COMPANY_PHONE = '957 68 28 19';
 
+// Caché de logo en memoria: se lee una sola vez por proceso
+let _logoBase64 = null;
+async function getLogoBase64() {
+    if (_logoBase64) return _logoBase64;
+    try {
+        const logoPath = path.join(process.cwd(), 'public', 'logo-crm.png');
+        const buffer = await fs.readFile(logoPath);
+        _logoBase64 = buffer.toString('base64');
+        return _logoBase64;
+    } catch {
+        return null;
+    }
+}
+
 export async function generateBudgetPDF(quote, ivaRate = 0.21) {
     try {
         const doc = new jsPDF();
         const client = quote.cliente;
 
-        // --- Añadir Logo ---
-        try {
-            const logoPath = path.join(process.cwd(), 'public', 'logo-crm.png');
-            const logoBuffer = await fs.readFile(logoPath);
-            const logoBase64 = logoBuffer.toString('base64');
+        // --- Añadir Logo (cacheado en memoria) ---
+        const logoBase64 = await getLogoBase64();
+        if (logoBase64) {
             doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
-        } catch (error) {
-            console.error("No se pudo cargar el logo:", error);
         }
 
         // --- Header ---
@@ -148,14 +158,10 @@ export async function generateOrderPDF(order) {
         const doc = new jsPDF();
         const client = order.cliente;
 
-        // --- Añadir Logo ---
-        try {
-            const logoPath = path.join(process.cwd(), 'public', 'logo-crm.png');
-            const logoBuffer = await fs.readFile(logoPath);
-            const logoBase64 = logoBuffer.toString('base64');
+        // --- Añadir Logo (cacheado en memoria) ---
+        const logoBase64 = await getLogoBase64();
+        if (logoBase64) {
             doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
-        } catch (error) {
-            console.error("No se pudo cargar el logo:", error);
         }
 
         // --- Header ---

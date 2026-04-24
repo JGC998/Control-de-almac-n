@@ -4,13 +4,12 @@ import useSWR from 'swr';
 import PedidoProveedorForm from "@/componentes/pedidos/FormularioPedidoProveedor";
 import { Edit } from "lucide-react";
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function EditarPedidoProveedorPage() {
   const params = useParams();
   const { id } = params;
 
-  const { data: initialData, error, isLoading } = useSWR(id ? `/api/pedidos-proveedores-data/${id}` : null, fetcher);
+  const { data: initialData, error, isLoading } = useSWR(id ? `/api/pedidos-proveedores-data/${id}` : null);
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (error) return notFound();
