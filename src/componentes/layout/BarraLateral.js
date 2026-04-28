@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator,
-  Users, Settings, Layers, Factory, ChevronDown
+  Users, Settings, Layers, Factory, ChevronDown, BarChart2
 } from 'lucide-react';
 
 const menuStructure = [
@@ -73,6 +73,14 @@ const menuStructure = [
     single: true,
     links: [
       { href: '/tarifas', label: 'Tarifas Materiales', icon: DollarSign }
+    ]
+  },
+  {
+    category: 'Informes',
+    icon: BarChart2,
+    single: true,
+    links: [
+      { href: '/informes', label: 'Informes', icon: BarChart2 }
     ]
   },
   {

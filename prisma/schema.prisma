@@ -56,13 +56,14 @@ model Pedido {
 }
 
 model PedidoItem {
-  id           String  @id @default(uuid())
-  descripcion  String
-  quantity     Int
-  unitPrice    Float
-  pesoUnitario Float   @default(0)
-  pedidoId     String
-  productoId   String?
+  id               String  @id @default(uuid())
+  descripcion      String
+  quantity         Int
+  unitPrice        Float
+  pesoUnitario     Float   @default(0)
+  detallesTecnicos String?
+  pedidoId         String
+  productoId       String?
 
   pedido   Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
@@ -90,13 +91,14 @@ model Presupuesto {
 }
 
 model PresupuestoItem {
-  id            String  @id @default(uuid())
-  descripcion   String
-  quantity      Int
-  unitPrice     Float
-  pesoUnitario  Float   @default(0)
-  presupuestoId String
-  productoId    String?
+  id               String  @id @default(uuid())
+  descripcion      String
+  quantity         Int
+  unitPrice        Float
+  pesoUnitario     Float   @default(0)
+  detallesTecnicos String?
+  presupuestoId    String
+  productoId       String?
 
   presupuesto Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
   producto    Producto?   @relation(fields: [productoId], references: [id], onDelete: SetNull)
@@ -311,6 +313,17 @@ model Taco {
   updatedAt   DateTime @updatedAt
 
   @@unique([tipo, altura])
+}
+
+model Grapa {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  fabricante  String?
+  descripcion String?
+  precioMetro Float    @default(0)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model TarifaTransporte {

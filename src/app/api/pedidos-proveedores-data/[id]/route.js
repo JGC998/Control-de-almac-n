@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { handlePrismaError } from '@/lib/manejadores-api';
 
 
 
@@ -91,11 +92,7 @@ export async function PUT(request, { params }) {
     revalidatePath(`/pedidos-proveedores-data/${id}`);
     return NextResponse.json(updatedPedido, { status: 200 });
   } catch (error) {
-    console.error('Error al actualizar el pedido:', error);
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
-    }
-    return NextResponse.json({ message: 'Error interno al actualizar el pedido' }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'Pedido no encontrado' });
   }
 }
 
@@ -162,10 +159,6 @@ export async function DELETE(request, { params }) {
         revalidatePath('/');
         return NextResponse.json({ message: 'Pedido de proveedor y stock asociado eliminados correctamente' }, { status: 200 });
     } catch (error) {
-        console.error('Error al eliminar el pedido de proveedor:', error);
-        if (error.code === 'P2025') {
-            return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
-        }
-        return NextResponse.json({ message: 'Error interno al eliminar el pedido' }, { status: 500 });
+        return handlePrismaError(error, { notFound: 'Pedido no encontrado' });
     }
 }

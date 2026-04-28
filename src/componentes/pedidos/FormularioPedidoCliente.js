@@ -3,14 +3,13 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import {
-  Plus, X, UserPlus, Save, CheckCircle,
-  Trash2, Package, XCircle, Search, ArrowRight, User, Box, FileText
+  Plus, X, Save,
+  Package, Search, ArrowRight, User, Box, ChevronDown, Ruler
 } from 'lucide-react';
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 import QuickProductForm from "@/componentes/productos/FormularioProductoRapido";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
 import EditorFilaItem from './EditorFilaItem';
-import { Ruler } from 'lucide-react';
 import TemplateManager from '@/componentes/presupuestos/TemplateManager';
 
 
@@ -244,7 +243,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     const newItems = [...items];
     newItems[index].descripcion = product.nombre;
     newItems[index].productoId = product.id;
-    newItems[index].unitPrice = parseFloat(product.precio); // Usar precio base
+    newItems[index].unitPrice = parseFloat(product.precio) || 0;
     newItems[index].producto = product; // Guardar referencia completa para stock display
 
     setItems(newItems);
@@ -263,7 +262,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       const newItems = [...items];
       newItems[index].descripcion = newProduct.nombre;
       newItems[index].productoId = newProduct.id;
-      newItems[index].unitPrice = parseFloat(newProduct.precio);
+      newItems[index].unitPrice = parseFloat(newProduct.precio) || 0;
       newItems[index].producto = newProduct;
       setItems(newItems);
     }
@@ -282,7 +281,13 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       productoId: null, // Producto a medida
       producto: null,
       pesoUnitario: bandaItem.pesoUnitario,
-      detallesTecnicos: JSON.stringify(bandaItem.dimensiones) // Opcional, si quisiéramos guardarlo
+      detallesTecnicos: JSON.stringify({
+        dimensiones: bandaItem.dimensiones,
+        color: bandaItem.color || null,
+        tipoConfeccion: bandaItem.tipoConfeccion,
+        grapa: bandaItem.grapa || null,
+        tacos: bandaItem.tacos || null,
+      }),
     };
     setItems(prev => [...prev, newItem]);
     setIsBandaModalOpen(false);
@@ -349,12 +354,16 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     const dataPayload = {
       clienteId,
       estado: initialData?.estado || 'Borrador',
-      items: items.map(item => ({
-        descripcion: item.descripcion,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        productoId: item.productoId,
-      })),
+      items: items
+        .filter(item => item.descripcion && parseFloat(item.quantity) > 0)
+        .map(item => ({
+          descripcion: item.descripcion,
+          quantity: Math.round(parseFloat(item.quantity)) || 1,
+          unitPrice: parseFloat(item.unitPrice) || 0,
+          productoId: item.productoId || null,
+          pesoUnitario: parseFloat(item.pesoUnitario) || 0,
+          detallesTecnicos: item.detallesTecnicos || null,
+        })),
       subtotal: subtotalConMargen,
       tax: tax,
       total: total,
@@ -433,10 +442,40 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="card-title text-primary">Items del Pedido</h2>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setIsBandaModalOpen(true)} className="btn btn-secondary btn-sm"><Ruler className="w-4 h-4" /> Banda PVC</button>
-                <button type="button" onClick={addItem} className="btn btn-primary btn-sm"><Plus className="w-4 h-4" /> Añadir Fila</button>
+              <div>
+                <h2 className="card-title text-primary">
+                  Líneas del {formType === 'PRESUPUESTO' ? 'presupuesto' : 'pedido'}
+                </h2>
+                <p className="text-xs text-base-content/40">
+                  {items.length} línea{items.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {/* Menú unificado para añadir líneas */}
+              <div className="dropdown dropdown-end">
+                <button type="button" tabIndex={0} className="btn btn-primary btn-sm gap-1 m-1">
+                  <Plus className="w-4 h-4" /> Añadir línea <ChevronDown className="w-3 h-3 opacity-70" />
+                </button>
+                <ul tabIndex={0} className="dropdown-content z-50 menu p-1.5 shadow-xl bg-base-100 rounded-box border border-base-300 w-60 mt-1 gap-0.5">
+                  <li>
+                    <button type="button" onClick={addItem} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-base-200">
+                      <Package className="w-4 h-4 text-primary shrink-0" />
+                      <div className="text-left">
+                        <div className="text-sm font-medium">Producto del catálogo</div>
+                        <div className="text-xs text-base-content/50">Buscar por nombre o referencia</div>
+                      </div>
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" onClick={() => setIsBandaModalOpen(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-base-200">
+                      <Ruler className="w-4 h-4 text-secondary shrink-0" />
+                      <div className="text-left">
+                        <div className="text-sm font-medium">Banda PVC</div>
+                        <div className="text-xs text-base-content/50">Calculadora a medida</div>
+                      </div>
+                    </button>
+                  </li>
+                </ul>
               </div>
             </div>
 

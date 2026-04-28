@@ -4,40 +4,32 @@
 import { useEffect, useState } from "react";
 import { themeChange } from "theme-change";
 
-const DEFAULT_THEME = "forest"; // Establecemos 'forest' como tema por defecto para un tono verdoso oscuro
+const DEFAULT_THEME = "forest";
 
 export default function ProveedorTema({ children }) {
-    const [theme, setTheme] = useState("");
+    const [theme, setTheme] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem("theme") || DEFAULT_THEME;
+        }
+        return DEFAULT_THEME;
+    });
 
-    // Declarar applyTheme antes de usarla
-    const applyTheme = (themeValue) => {
-        setTheme(themeValue);
-        document.documentElement.setAttribute("data-theme", themeValue);
-        localStorage.setItem("theme", themeValue);
-    };
+    // Sincronizar DOM cuando cambia el tema
+    useEffect(() => {
+        document.documentElement.setAttribute("data-theme", theme);
+        localStorage.setItem("theme", theme);
+    }, [theme]);
 
     useEffect(() => {
-        themeChange(false); // 👆 false parameter is required for react project
+        themeChange(false);
 
-        // Si hay un tema guardado en localStorage, úsalo
-        const saved = localStorage.getItem("theme");
-
-        if (saved) {
-            applyTheme(saved);
-        } else {
-            // Aplicar el tema por defecto (forest) si no hay uno guardado,
-            // forzando el tono verdoso oscuro.
-            applyTheme(DEFAULT_THEME);
-        }
-
-        // Escuchar cambios entre pestañas
+        // Sincronizar cambios de tema desde otras pestañas
         const handleStorage = (e) => {
             if (e.key === "theme" && e.newValue) {
-                applyTheme(e.newValue);
+                setTheme(e.newValue);
             }
         };
         window.addEventListener("storage", handleStorage);
-
         return () => window.removeEventListener("storage", handleStorage);
     }, []);
 

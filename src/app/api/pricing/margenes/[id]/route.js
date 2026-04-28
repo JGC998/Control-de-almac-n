@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { handlePrismaError } from '@/lib/manejadores-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,14 +48,10 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json(updatedRegla);
   } catch (error) {
-    console.error('Error al actualizar margen:', error);
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Regla de margen no encontrada' }, { status: 404 });
-    }
-    if (error.code === 'P2002') {
-      return NextResponse.json({ message: 'Ya existe una regla con este identificador base' }, { status: 409 });
-    }
-    return NextResponse.json({ message: 'Error al actualizar margen' }, { status: 500 });
+    return handlePrismaError(error, {
+      notFound: 'Regla de margen no encontrada',
+      conflict: 'Ya existe una regla con este identificador base',
+    });
   }
 }
 
@@ -79,10 +76,6 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ message: 'Regla de margen eliminada' }, { status: 200 });
   } catch (error) {
-    console.error('Error al eliminar margen:', error);
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Regla de margen no encontrada' }, { status: 404 });
-    }
-    return NextResponse.json({ message: 'Error al eliminar margen' }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'Regla de margen no encontrada' });
   }
 }

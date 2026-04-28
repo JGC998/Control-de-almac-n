@@ -1,10 +1,9 @@
 "use client";
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { Plus, Settings, Info, Layers } from 'lucide-react';
+import { Plus, Settings, Info, Layers, Link2 } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
-
 
 const CostInput = ({ label, value, onChange, unit = '€', description }) => (
     <div className="form-control w-full">
@@ -21,75 +20,61 @@ const CostInput = ({ label, value, onChange, unit = '€', description }) => (
             />
             <span className="btn btn-sm join-item no-animation bg-base-200 border-base-300 pointer-events-none">{unit}</span>
         </div>
-        {description ? (
-            <div key="cost-description" className="px-1 pt-1 opacity-70">
-                <p className="text-[10px] leading-tight text-gray-500">{description}</p>
-            </div>
-        ) : null}
+        {description && (
+            <p className="text-[10px] leading-tight text-gray-500 px-1 pt-1 opacity-70">{description}</p>
+        )}
     </div>
 );
 
 export default function CalculadoraBandas({ onAddItem, className = "" }) {
-    // --- Estado Item ---
-    const [selectedMaterial] = useState('PVC'); // Siempre PVC
+    const [selectedMaterial] = useState('PVC');
     const [selectedEspesor, setSelectedEspesor] = useState('');
-    const [selectedColor, setSelectedColor] = useState(''); // Nuevo: color para PVC
-    const [selectedMarginId, setSelectedMarginId] = useState('');
+    const [selectedColor, setSelectedColor] = useState('');
     const [tipoConfeccion, setTipoConfeccion] = useState('VULCANIZADA');
+    const [selectedGrapaId, setSelectedGrapaId] = useState('');
 
     const [unidades, setUnidades] = useState('1');
     const [ancho, setAncho] = useState('');
     const [largo, setLargo] = useState('');
 
-    // --- Configuración de Costes (Defaults editables) ---
     const [costeVulcanizadoMetro, setCosteVulcanizadoMetro] = useState(50);
-    const [costeGrapaMetro, setCosteGrapaMetro] = useState(30);
     const [mostrarConfigCostes, setMostrarConfigCostes] = useState(false);
 
-    // --- Estado Tacos ---
     const [configuracionTacos, setConfiguracionTacos] = useState(null);
     const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
 
-    // --- Carga de Datos ---
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
-    const { data: materiales, isLoading: materialesLoading } = useSWR('/api/materiales');
-    const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
+    const { data: grapas, isLoading: grapasLoading } = useSWR('/api/grapas');
 
-    const uniqueMaterials = materiales?.map(m => m.nombre).sort() || [];
-
-    // Colores disponibles para PVC
     const coloresPVC = ['VERDE', 'BLANCO', 'AZUL', 'NEGRO'];
     const isPVC = selectedMaterial === 'PVC';
 
     const availableEspesores = useMemo(() => {
         if (!tarifas || !selectedMaterial) return [];
-        // Mostrar todos los espesores de PVC sin filtrar por color
         const espesores = tarifas
             .filter(t => t.material === selectedMaterial)
             .map(t => String(t.espesor));
         return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
     }, [tarifas, selectedMaterial]);
 
-    const selectedMargin = useMemo(() => {
-        if (!margenes || !selectedMarginId) return null;
-        return margenes.find(m => m.id === selectedMarginId);
-    }, [margenes, selectedMarginId]);
+    const selectedGrapa = useMemo(() => {
+        if (!grapas || !selectedGrapaId) return null;
+        return grapas.find(g => g.id === parseInt(selectedGrapaId));
+    }, [grapas, selectedGrapaId]);
 
-
-
-    // --- CÁLCULO ---
     const currentCalculation = useMemo(() => {
         const unas = parseInt(unidades) || 0;
         const ancMm = parseFloat(ancho) || 0;
         const larMm = parseFloat(largo) || 0;
 
-        if (!tarifas || !selectedMaterial || !selectedEspesor || unas <= 0 || ancMm <= 0 || larMm <= 0) {
-            return { isValid: false, precioUnitario: 0, precioTotal: 0 };
+        if (!tarifas || !selectedEspesor || unas <= 0 || ancMm <= 0 || larMm <= 0) {
+            return { isValid: false };
         }
-
-        // Para PVC, también necesitamos el color
         if (isPVC && !selectedColor) {
             return { isValid: false, errorMessage: 'Selecciona un color para PVC' };
+        }
+        if (tipoConfeccion === 'GRAPA' && !selectedGrapa) {
+            return { isValid: false, errorMessage: 'Selecciona un tipo de grapa' };
         }
 
         const tarifa = tarifas.find(t =>
@@ -97,97 +82,77 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             Number(t.espesor) === Number(selectedEspesor) &&
             (!isPVC || t.color === selectedColor)
         );
-        if (!tarifa) return { isValid: false, errorMessage: 'Tarifa no encontrada' };
+        if (!tarifa) return { isValid: false, errorMessage: 'Tarifa no encontrada para esa combinación' };
 
         const ancM = ancMm / 1000;
         const larM = larMm / 1000;
         const area = ancM * larM;
 
-        // 0. Margen
-        const multiplicador = selectedMargin?.multiplicador || 1;
+        const costeMaterialBase = tarifa.precio * area;
 
-        // 1. Coste Material Base
-        const costeMaterialBase = (tarifa.precio * multiplicador) * area;
-
-        // 2. Coste Confección
         let costeConfeccion = 0;
-        let desglose = '';
+        let desgloseConfeccion = '';
 
         if (tipoConfeccion === 'VULCANIZADA') {
-            const costeVulcanizado = costeVulcanizadoMetro * ancM;
-            costeConfeccion = costeVulcanizado;
-            desglose = `Vulcanizado (${formatCurrency(costeVulcanizado)})`;
-        } else if (tipoConfeccion === 'GRAPA') {
-            const costeGrapa = costeGrapaMetro * ancM;
-            costeConfeccion = costeGrapa;
-            desglose = `Grapa (${formatCurrency(costeGrapa)})`;
+            costeConfeccion = costeVulcanizadoMetro * ancM;
+            desgloseConfeccion = `Vulcanizado (${formatCurrency(costeConfeccion)})`;
+        } else if (tipoConfeccion === 'GRAPA' && selectedGrapa) {
+            costeConfeccion = selectedGrapa.precioMetro * ancM;
+            desgloseConfeccion = `Grapa: ${selectedGrapa.nombre} (${formatCurrency(costeConfeccion)})`;
         }
 
-        // 3. Coste Tacos (si están configurados)
-        const costeTacos = configuracionTacos ? configuracionTacos.costeTacos : 0;
-
+        const costeTacos = configuracionTacos?.costeTacos ?? 0;
         const precioUnitario = costeMaterialBase + costeConfeccion + costeTacos;
 
         return {
             isValid: true,
-            precioBaseM2: tarifa.precio,
             precioMaterial: costeMaterialBase,
             costeConfeccion,
-            desgloseConfeccion: desglose,
+            desgloseConfeccion,
             costeTacos,
             precioUnitario,
             precioTotal: precioUnitario * unas,
-            pesoTotal: (tarifa.peso * area) * unas
+            pesoTotal: (tarifa.peso * area) * unas,
         };
-    }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, selectedMargin, unidades, ancho, largo, tipoConfeccion, costeVulcanizadoMetro, costeGrapaMetro, configuracionTacos, isPVC]);
+    }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, selectedGrapa, tipoConfeccion, unidades, ancho, largo, costeVulcanizadoMetro, configuracionTacos, isPVC]);
 
-    // --- HANDLER ---
     const handleAdd = () => {
         if (!currentCalculation.isValid) return;
 
-        const tipoLabel = {
-            'VULCANIZADA': 'Cerrada Sin Fin',
-            'GRAPA': 'Cerrada con Grapa'
-        }[tipoConfeccion];
-
+        const tipoLabel = tipoConfeccion === 'VULCANIZADA' ? 'Cerrada Sin Fin' : 'Cerrada con Grapa';
         let descripcion = `${selectedMaterial} ${selectedEspesor}mm`;
-        if (isPVC && selectedColor) {
-            descripcion += ` ${selectedColor}`;
-        }
+        if (isPVC && selectedColor) descripcion += ` ${selectedColor}`;
         descripcion += ` - ${tipoLabel}`;
+        if (configuracionTacos) descripcion += ` + Tacos ${configuracionTacos.tipo} ${configuracionTacos.altura}mm`;
 
-        if (configuracionTacos) {
-            descripcion += ` + Tacos ${configuracionTacos.tipo} ${configuracionTacos.altura}mm`;
-        }
-
+        const uds = parseInt(unidades);
         const item = {
             descripcion,
-            detalles: `${ancho}x${largo}mm`,
             dimensiones: { ancho, largo, espesor: selectedEspesor },
+            color: selectedColor,
             material: selectedMaterial,
             tipoConfeccion,
-            medidas: `${ancho}x${largo}`,
-            unidades: parseInt(unidades),
+            grapa: tipoConfeccion === 'GRAPA' ? selectedGrapa : null,
+            unidades: uds,
             precioUnitario: currentCalculation.precioUnitario,
             precioTotal: currentCalculation.precioTotal,
             pesoTotal: currentCalculation.pesoTotal,
-            pesoUnitario: currentCalculation.pesoTotal / parseInt(unidades),
-            tacos: configuracionTacos // Incluir configuración de tacos si existe
+            pesoUnitario: currentCalculation.pesoTotal / uds,
+            tacos: configuracionTacos || null,
         };
 
         onAddItem(item);
-        // Reset tacos después de añadir
         setConfiguracionTacos(null);
     };
 
-    if (tarifasLoading || materialesLoading) return <div className="p-10 text-center"><span className="loading loading-dots loading-lg"></span></div>;
+    if (tarifasLoading) return <div className="p-10 text-center"><span className="loading loading-dots loading-lg"></span></div>;
 
     return (
         <div className={`card bg-base-100 shadow-xl h-fit ${className}`}>
             <div className="card-body">
                 <h2 className="card-title text-sm uppercase text-gray-400">Configuración de Banda</h2>
 
-                {/* Espesor (Material PVC fijo) */}
+                {/* Espesor */}
                 <div className="form-control w-full">
                     <label className="label"><span className="label-text">Espesor (PVC)</span></label>
                     <select className="select select-bordered w-full" value={selectedEspesor} onChange={e => setSelectedEspesor(e.target.value)}>
@@ -196,25 +161,16 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     </select>
                 </div>
 
-                {/* Color selector - Solo para PVC */}
-                {isPVC ? (
-                    <div key="color-selector" className="form-control w-full mt-2">
+                {/* Color */}
+                {isPVC && (
+                    <div className="form-control w-full mt-2">
                         <label className="label"><span className="label-text">Color</span></label>
                         <select className="select select-bordered w-full" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}>
                             <option value="">Seleccionar color...</option>
                             {coloresPVC.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
-                ) : null}
-
-                {/* Margen Selector */}
-                <div className="form-control w-full mt-2">
-                    <label className="label"><span className="label-text">Margen / Tarifa</span></label>
-                    <select className="select select-bordered w-full" value={selectedMarginId} onChange={e => setSelectedMarginId(e.target.value)}>
-                        <option value="">x1.00 (Base)</option>
-                        {margenes?.map(m => <option key={m.id} value={m.id}>{m.descripcion} (x{m.multiplicador})</option>)}
-                    </select>
-                </div>
+                )}
 
                 {/* Dimensiones */}
                 <div className="grid grid-cols-2 gap-2 mt-2">
@@ -234,16 +190,44 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 <div className="form-control">
                     <label className="label"><span className="label-text font-bold">Tipo de Confección</span></label>
                     <div className="join w-full grid grid-cols-2">
-                        <input className="join-item btn btn-sm" type="radio" name="options" aria-label="Sin Fin" checked={tipoConfeccion === 'VULCANIZADA'} onChange={() => setTipoConfeccion('VULCANIZADA')} />
-                        <input className="join-item btn btn-sm" type="radio" name="options" aria-label="Grapa" checked={tipoConfeccion === 'GRAPA'} onChange={() => setTipoConfeccion('GRAPA')} />
+                        <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Sin Fin"
+                            checked={tipoConfeccion === 'VULCANIZADA'} onChange={() => { setTipoConfeccion('VULCANIZADA'); setSelectedGrapaId(''); }} />
+                        <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Grapa"
+                            checked={tipoConfeccion === 'GRAPA'} onChange={() => setTipoConfeccion('GRAPA')} />
                     </div>
                 </div>
+
+                {/* Selector de Grapa (visible solo cuando confección = GRAPA) */}
+                {tipoConfeccion === 'GRAPA' && (
+                    <div className="form-control w-full mt-2">
+                        <label className="label">
+                            <span className="label-text font-bold flex items-center gap-1">
+                                <Link2 className="w-3.5 h-3.5 text-primary" /> Tipo de Grapa
+                            </span>
+                        </label>
+                        {grapasLoading ? (
+                            <span className="loading loading-spinner loading-sm"></span>
+                        ) : !grapas || grapas.length === 0 ? (
+                            <div className="alert alert-warning text-xs py-2">
+                                No hay grapas configuradas. Ve a Configuración → Grapas.
+                            </div>
+                        ) : (
+                            <select className="select select-bordered w-full" value={selectedGrapaId} onChange={e => setSelectedGrapaId(e.target.value)}>
+                                <option value="">Seleccionar grapa...</option>
+                                {grapas.map(g => (
+                                    <option key={g.id} value={g.id}>
+                                        {g.nombre}{g.fabricante ? ` — ${g.fabricante}` : ''} ({formatCurrency(g.precioMetro)}/m)
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+                )}
 
                 {/* Botón Configurar Tacos */}
                 <div className="mt-2">
                     <button
-                        className={`btn btn-sm w-full ${configuracionTacos ? 'btn-success' : 'btn-outline'
-                            }`}
+                        className={`btn btn-sm w-full ${configuracionTacos ? 'btn-success' : 'btn-outline'}`}
                         onClick={() => setMostrarModalTacos(true)}
                         disabled={!ancho || !largo}
                     >
@@ -252,18 +236,14 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                             ? `Tacos: ${configuracionTacos.tipo} ${configuracionTacos.altura}mm (${configuracionTacos.cantidadTacos} uds)`
                             : 'Configurar Tacos (Opcional)'}
                     </button>
-                    {configuracionTacos ? (
-                        <button
-                            key="remove-tacos-btn"
-                            className="btn btn-xs btn-ghost w-full mt-1"
-                            onClick={() => setConfiguracionTacos(null)}
-                        >
+                    {configuracionTacos && (
+                        <button className="btn btn-xs btn-ghost w-full mt-1" onClick={() => setConfiguracionTacos(null)}>
                             Quitar Tacos
                         </button>
-                    ) : null}
+                    )}
                 </div>
 
-                {/* Costes Extra (Colapsable) */}
+                {/* Costes Extra (Colapsable) — solo vulcanizado */}
                 <div className="collapse collapse-arrow bg-base-200 mt-4 border border-base-300">
                     <input type="checkbox" checked={mostrarConfigCostes} onChange={() => setMostrarConfigCostes(!mostrarConfigCostes)} />
                     <div className="collapse-title text-sm font-medium flex items-center gap-2">
@@ -276,13 +256,6 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                             onChange={setCosteVulcanizadoMetro}
                             unit="€/m"
                             description="Precio por metro lineal de vulcanizado"
-                        />
-                        <CostInput
-                            label="Coste Grapa"
-                            value={costeGrapaMetro}
-                            onChange={setCosteGrapaMetro}
-                            unit="€/m"
-                            description="Precio por metro lineal de grapa"
                         />
                     </div>
                 </div>
@@ -319,10 +292,10 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                 </div>
                             )}
                         </div>
+                    ) : currentCalculation.errorMessage ? (
+                        <div className="text-center text-sm text-warning py-2">{currentCalculation.errorMessage}</div>
                     ) : (
-                        <div className="text-center text-sm text-gray-400 py-2">
-                            Completa los datos para calcular
-                        </div>
+                        <div className="text-center text-sm text-gray-400 py-2">Completa los datos para calcular</div>
                     )}
                 </div>
 
@@ -331,7 +304,6 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 </button>
             </div>
 
-            {/* Modal de Configuración de Tacos */}
             <ModalConfiguracionTacos
                 isOpen={mostrarModalTacos}
                 onClose={() => setMostrarModalTacos(false)}

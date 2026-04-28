@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { handlePrismaError } from '@/lib/manejadores-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,8 +76,9 @@ export async function PUT(request, { params: paramsPromise }) {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         pesoUnitario: item.pesoUnitario || 0,
-        productoId: item.productoId || null, // UUID, no parseInt
-        pedidoId: id, // Asegura la referencia
+        productoId: item.productoId || null,
+        detallesTecnicos: item.detallesTecnicos || null,
+        pedidoId: id,
       }));
       await tx.pedidoItem.createMany({ data: newItems });
 
@@ -121,31 +123,18 @@ export async function PUT(request, { params: paramsPromise }) {
     return NextResponse.json(orderSerializado);
 
   } catch (error) {
-    console.error(`Error al actualizar el pedido ${id}:`, error);
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Error: El pedido o un registro relacionado no fue encontrado.' }, { status: 404 });
-    }
-    return NextResponse.json({ message: "Error interno al actualizar pedido" }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'El pedido o un registro relacionado no fue encontrado.' });
   }
 }
 
 // DELETE: Eliminar un pedido
-export async function DELETE(request, { params: paramsPromise }) {
+export async function DELETE(request, { params }) {
   try {
-    const { id } = await paramsPromise;
-
-
+    const { id } = await params;
     await db.pedido.delete({ where: { id } });
-
     revalidatePath('/pedidos');
-
-
-    return NextResponse.json({ message: 'Pedido eliminado correctamente' }, { status: 200 });
+    return NextResponse.json({ message: 'Pedido eliminado correctamente' });
   } catch (error) {
-    console.error('Error al eliminar el pedido:', error);
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
-    }
-    return NextResponse.json({ message: 'Error interno al eliminar los datos' }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'Pedido no encontrado' });
   }
 }

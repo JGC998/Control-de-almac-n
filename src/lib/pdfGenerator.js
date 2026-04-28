@@ -153,7 +153,11 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
     }
 }
 
-export async function generateOrderPDF(order) {
+function formatMm(value) {
+    return Math.round(parseFloat(value) || 0).toLocaleString('de-DE') + ' mm';
+}
+
+export async function generateOrderPDF(order, config = {}) {
     try {
         const doc = new jsPDF();
         const client = order.cliente;
@@ -273,6 +277,110 @@ export async function generateOrderPDF(order) {
             doc.setDrawColor(200, 200, 200);
             doc.roundedRect(14, notesY + 3, 182, textHeight + 8, 3, 3, 'D');
             doc.text(order.notas, 18, notesY + 10, { maxWidth: 178 });
+        }
+
+        // --- Ficha Técnica PVC (segunda página, si hay bandas PVC) ---
+        const bandasPVC = (order.items || [])
+            .map(item => {
+                if (!item.detallesTecnicos) return null;
+                try {
+                    return { descripcion: item.descripcion, quantity: item.quantity, dt: JSON.parse(item.detallesTecnicos) };
+                } catch { return null; }
+            })
+            .filter(Boolean);
+
+        if (bandasPVC.length > 0) {
+            const longitudBarra = config.longitud_barra_tacos ?? 2; // metros
+            doc.addPage();
+
+            if (logoBase64) {
+                doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
+            }
+
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text("DETALLES TÉCNICOS PVC", 14, 22);
+
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Pedido Nº: ${order.numero}`, 14, 30);
+            doc.text(new Date(order.fechaCreacion).toLocaleDateString('es-ES'), 14, 36);
+            if (order.cliente) doc.text(`Cliente: ${order.cliente.nombre}`, 14, 42);
+
+            let y = 52;
+
+            bandasPVC.forEach((item, idx) => {
+                const { dt } = item;
+                const dim = dt.dimensiones || {};
+                const tacos = dt.tacos || null;
+                const grapa = dt.grapa || null;
+                const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin (Vulcanizado)' : 'Con Grapa';
+
+                // Cabecera de banda
+                doc.setFillColor(45, 45, 45);
+                doc.rect(14, y, 182, 9, 'F');
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(255, 255, 255);
+                doc.text(`Banda ${idx + 1}   ×${item.quantity} ud.`, 17, y + 6);
+                doc.setTextColor(0, 0, 0);
+                y += 13;
+
+                // Tabla de datos de banda
+                const bandaRows = [
+                    ['Descripción', item.descripcion],
+                    ['Material', 'PVC'],
+                    ['Espesor', dim.espesor ? `${dim.espesor} mm` : '—'],
+                    ['Color', dt.color || '—'],
+                    ['Ancho', dim.ancho ? formatMm(dim.ancho) : '—'],
+                    ['Largo', dim.largo ? formatMm(dim.largo) : '—'],
+                    ['Tipo confección', confLabel],
+                ];
+
+                if (grapa) {
+                    bandaRows.push(['Grapa', `${grapa.nombre}${grapa.fabricante ? ` (${grapa.fabricante})` : ''}`]);
+                }
+
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Parámetro', 'Valor']],
+                    body: bandaRows,
+                    theme: 'grid',
+                    styles: { fontSize: 9 },
+                    headStyles: { fillColor: [80, 80, 80], textColor: 255, fontStyle: 'bold' },
+                    columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+                });
+                y = doc.lastAutoTable.finalY + 6;
+
+                // Tabla de tacos (si existen)
+                if (tacos) {
+                    const numBarras = Math.ceil(tacos.metrosLineales / longitudBarra);
+                    autoTable(doc, {
+                        startY: y,
+                        head: [['Configuración de Tacos', '']],
+                        body: [
+                            ['Tipo de taco', tacos.tipo],
+                            ['Altura del taco', formatMm(tacos.altura)],
+                            ['Paso entre tacos', formatMm(tacos.paso)],
+                            ['Longitud del taco', formatMm(tacos.longitudTaco)],
+                            ['Cantidad de tacos', `${tacos.cantidadTacos} uds`],
+                            ['Metros lineales totales', `${tacos.metrosLineales.toFixed(2)} m`],
+                            ['Barras necesarias', `${numBarras} barra${numBarras !== 1 ? 's' : ''} de ${longitudBarra} m`],
+                        ],
+                        theme: 'grid',
+                        styles: { fontSize: 9 },
+                        headStyles: { fillColor: [40, 100, 160], textColor: 255, fontStyle: 'bold', colSpan: 2 },
+                        columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+                    });
+                    y = doc.lastAutoTable.finalY + 6;
+                }
+
+                y += 8;
+                if (idx < bandasPVC.length - 1) {
+                    doc.setDrawColor(180, 180, 180);
+                    doc.line(14, y - 4, 196, y - 4);
+                }
+            });
         }
 
         return doc.output('arraybuffer');

@@ -21,7 +21,14 @@ export async function GET(request, { params }) {
       return new NextResponse('Pedido no encontrado', { status: 404 });
     }
 
-    const pdfBuffer = await generateOrderPDF(order);
+    const configList = await db.config.findMany();
+    const config = configList.reduce((acc, s) => {
+      const n = parseFloat(s.value);
+      acc[s.key] = isNaN(n) ? s.value : n;
+      return acc;
+    }, {});
+
+    const pdfBuffer = await generateOrderPDF(order, config);
 
     return new NextResponse(pdfBuffer, {
       status: 200,

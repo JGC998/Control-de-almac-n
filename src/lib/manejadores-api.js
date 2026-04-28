@@ -1,5 +1,19 @@
 // src/lib/manejadores-api.js
 import { db } from '@/lib/db';
+
+export function handlePrismaError(error, { notFound, conflict, hasRelated } = {}) {
+  if (error.code === 'P2025') {
+    return NextResponse.json({ message: notFound || 'Registro no encontrado' }, { status: 404 });
+  }
+  if (error.code === 'P2002') {
+    return NextResponse.json({ message: conflict || 'Ya existe un registro con esos datos' }, { status: 409 });
+  }
+  if (error.code === 'P2003') {
+    return NextResponse.json({ message: hasRelated || 'No se puede eliminar: tiene registros relacionados' }, { status: 409 });
+  }
+  console.error(error);
+  return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 });
+}
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache'; // Import revalidatePath
 import { manejarErrorApi } from '@/utils/utilidades';

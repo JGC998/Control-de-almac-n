@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { promises as fs } from 'fs'; // AÑADIDO: Módulo File System
-import path from 'path'; // AÑADIDO: Módulo Path
+import { promises as fs } from 'fs';
+import path from 'path';
+import { handlePrismaError } from '@/lib/manejadores-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,11 +52,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ message: 'Documento y archivo eliminados' }, { status: 200 });
   } catch (error) {
-    console.error('Error al eliminar documento:', error);
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Documento no encontrado' }, { status: 404 });
-    }
-    return NextResponse.json({ message: 'Error al eliminar documento' }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'Documento no encontrado' });
   }
 }
 
@@ -77,8 +74,7 @@ export async function GET(request, { params }) {
     }
     return NextResponse.json(documento);
   } catch (error) {
-    console.error('Error al obtener documento:', error);
-    return NextResponse.json({ message: 'Error al obtener documento' }, { status: 500 });
+    return handlePrismaError(error);
   }
 }
 
@@ -107,13 +103,9 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json(updatedDocumento);
   } catch (error) {
-    console.error('Error al actualizar documento:', error);
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Documento no encontrado' }, { status: 404 });
-    }
-    if (error.code === 'P2002') {
-      return NextResponse.json({ message: 'Ya existe un documento con la misma Referencia y Ruta de Archivo.' }, { status: 409 });
-    }
-    return NextResponse.json({ message: 'Error al actualizar documento' }, { status: 500 });
+    return handlePrismaError(error, {
+      notFound: 'Documento no encontrado',
+      conflict: 'Ya existe un documento con la misma Referencia y Ruta de Archivo.',
+    });
   }
 }

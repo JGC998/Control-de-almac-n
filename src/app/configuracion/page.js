@@ -229,6 +229,244 @@ function GestionTacos() {
   );
 }
 
+// ─── Configuración de longitud de barra ──────────────────────────────────
+function ConfigLongitudBarra() {
+  const { data: config, isLoading } = useSWR('/api/config');
+  const [valor, setValor] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  React.useEffect(() => {
+    if (config?.longitud_barra_tacos !== undefined) {
+      setValor(String(config.longitud_barra_tacos));
+    }
+  }, [config]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ longitud_barra_tacos: parseFloat(valor) || 2 }),
+      });
+      if (!res.ok) throw new Error();
+      setMsg({ type: 'success', text: 'Guardado correctamente' });
+      mutate('/api/config');
+    } catch {
+      setMsg({ type: 'error', text: 'Error al guardar' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <div className="card bg-base-200 mb-6">
+      <div className="card-body py-4">
+        <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+          <Layers className="w-4 h-4" /> Longitud estándar de barra de tacos
+        </h3>
+        <div className="flex items-end gap-3">
+          <div className="form-control">
+            <label className="label py-0 pb-1"><span className="label-text text-xs">Longitud (metros)</span></label>
+            <div className="join">
+              <input
+                type="number" min="0.1" step="0.1"
+                value={valor}
+                onChange={e => setValor(e.target.value)}
+                className="input input-bordered input-sm w-28 join-item"
+              />
+              <span className="btn btn-sm join-item no-animation bg-base-100 border-base-300 pointer-events-none">m</span>
+            </div>
+          </div>
+          <button className="btn btn-primary btn-sm gap-1" onClick={handleSave} disabled={saving}>
+            {saving ? <span className="loading loading-spinner loading-xs"></span> : <Save className="w-4 h-4" />}
+            Guardar
+          </button>
+        </div>
+        <p className="text-xs text-base-content/50 mt-1">
+          Usado para calcular cuántas barras de tacos se necesitan al imprimir la ficha técnica.
+        </p>
+        {msg && <div className={`alert alert-${msg.type} py-1 mt-2 text-xs`}><span>{msg.text}</span></div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Gestión inline de Grapas ─────────────────────────────────────────────
+function GestionGrapas() {
+  const { data: grapas, isLoading, error } = useSWR('/api/grapas');
+  const [editedPrices, setEditedPrices] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [newGrapa, setNewGrapa] = useState({ nombre: '', fabricante: '', descripcion: '', precioMetro: '' });
+  const [creating, setCreating] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const hasChanges = Object.keys(editedPrices).length > 0;
+  const getCurrentPrice = (g) => editedPrices[g.id] !== undefined ? editedPrices[g.id] : g.precioMetro;
+
+  const handleCreate = async () => {
+    if (!newGrapa.nombre || newGrapa.precioMetro === '') {
+      setMessage({ type: 'warning', text: 'Nombre y precio son obligatorios' });
+      return;
+    }
+    setCreating(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/grapas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newGrapa),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      setNewGrapa({ nombre: '', fabricante: '', descripcion: '', precioMetro: '' });
+      setMessage({ type: 'success', text: 'Grapa añadida correctamente' });
+      mutate('/api/grapas');
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Error al crear la grapa' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/grapas/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      const next = { ...editedPrices };
+      delete next[id];
+      setEditedPrices(next);
+      mutate('/api/grapas');
+    } catch {
+      setMessage({ type: 'error', text: 'Error al eliminar la grapa' });
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const handleSavePrices = async () => {
+    if (!hasChanges) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const updates = Object.entries(editedPrices).map(([id, precioMetro]) => ({ id: parseInt(id), precioMetro }));
+      const res = await fetch('/api/grapas', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      if (!res.ok) throw new Error();
+      setEditedPrices({});
+      setMessage({ type: 'success', text: `${updates.length} precios guardados` });
+      mutate('/api/grapas');
+    } catch {
+      setMessage({ type: 'error', text: 'Error al guardar los cambios' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center p-10"><span className="loading loading-spinner loading-lg"></span></div>;
+  if (error) return <div className="alert alert-error"><span>Error al cargar las grapas</span></div>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-base-content/60">Tipos de grapa usados en la confección de bandas PVC</p>
+        <div className="flex gap-2">
+          {hasChanges && (
+            <button onClick={() => setEditedPrices({})} className="btn btn-ghost btn-sm gap-1">
+              <RefreshCw className="w-4 h-4" /> Descartar
+            </button>
+          )}
+          <button onClick={handleSavePrices} className="btn btn-primary btn-sm gap-1" disabled={!hasChanges || saving}>
+            {saving ? <span className="loading loading-spinner loading-xs"></span> : <Save className="w-4 h-4" />}
+            Guardar precios
+          </button>
+        </div>
+      </div>
+
+      {message && <div className={`alert alert-${message.type} mb-4 py-2`}><span className="text-sm">{message.text}</span></div>}
+
+      {/* Formulario de alta */}
+      <div className="card bg-base-200 mb-6">
+        <div className="card-body py-4">
+          <h3 className="font-semibold text-sm flex items-center gap-1 mb-3"><Plus className="w-4 h-4" /> Añadir nuevo tipo de grapa</h3>
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="form-control">
+              <label className="label py-0 pb-1"><span className="label-text text-xs">Nombre / Modelo *</span></label>
+              <input type="text" placeholder="Ej: Flexco R2 1.5"
+                value={newGrapa.nombre}
+                onChange={e => setNewGrapa(p => ({ ...p, nombre: e.target.value }))}
+                className="input input-bordered input-sm w-44" />
+            </div>
+            <div className="form-control">
+              <label className="label py-0 pb-1"><span className="label-text text-xs">Fabricante</span></label>
+              <input type="text" placeholder="Ej: Flexco"
+                value={newGrapa.fabricante}
+                onChange={e => setNewGrapa(p => ({ ...p, fabricante: e.target.value }))}
+                className="input input-bordered input-sm w-32" />
+            </div>
+            <div className="form-control">
+              <label className="label py-0 pb-1"><span className="label-text text-xs">Precio €/m *</span></label>
+              <input type="number" min="0" step="0.01" placeholder="Ej: 2.50"
+                value={newGrapa.precioMetro}
+                onChange={e => setNewGrapa(p => ({ ...p, precioMetro: e.target.value }))}
+                className="input input-bordered input-sm w-28" />
+            </div>
+            <button className="btn btn-primary btn-sm gap-1" onClick={handleCreate} disabled={creating}>
+              {creating ? <span className="loading loading-spinner loading-xs"></span> : <Plus className="w-4 h-4" />}
+              Añadir
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabla */}
+      <div className="card bg-base-100 shadow mb-6">
+        <div className="card-body py-4">
+          <table className="table table-zebra table-sm mt-2">
+            <thead>
+              <tr><th>Nombre / Modelo</th><th>Fabricante</th><th>Precio / metro lineal</th><th></th></tr>
+            </thead>
+            <tbody>
+              {!grapas || grapas.length === 0 ? (
+                <tr><td colSpan={4} className="text-center text-base-content/40 py-6">Sin grapas — añade una arriba</td></tr>
+              ) : grapas.map(g => (
+                <tr key={g.id} className={editedPrices[g.id] !== undefined ? 'bg-warning/10' : ''}>
+                  <td className="font-bold">{g.nombre}</td>
+                  <td className="text-base-content/60">{g.fabricante || '—'}</td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <input type="number" step="0.01" min="0"
+                        value={getCurrentPrice(g)}
+                        onChange={e => setEditedPrices(prev => ({ ...prev, [g.id]: parseFloat(e.target.value) || 0 }))}
+                        className="input input-bordered input-sm w-28"
+                      />
+                      <span className="text-base-content/50 text-sm">€/m</span>
+                      {editedPrices[g.id] !== undefined && <span className="badge badge-warning badge-sm">Modificado</span>}
+                    </div>
+                  </td>
+                  <td className="text-right">
+                    <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDelete(g.id)} disabled={deleting === g.id}>
+                      {deleting === g.id ? <span className="loading loading-spinner loading-xs"></span> : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Gestión inline de Tarifas por Rollo ──────────────────────────────────
 function GestionTarifasRollo({ margenes }) {
   const { data: tarifas, isLoading, error } = useSWR('/api/tarifas-rollo');
@@ -570,7 +808,7 @@ const TABS = [
   { id: 'margenes', label: 'Márgenes',      icon: TrendingUp },
   { id: 'tarifas',  label: 'Tarifas m²',    icon: DollarSign },
   { id: 'rollos',   label: 'Tarifas rollo', icon: ScrollText },
-  { id: 'tacos',    label: 'Tacos',         icon: Layers },
+  { id: 'confpvc',  label: 'Confección PVC', icon: Layers },
   { id: 'bobinas',  label: 'Bobinas',       icon: AlignJustify },
   { id: 'sistema',  label: 'Sistema',       icon: Wrench },
 ];
@@ -651,8 +889,28 @@ export default function ConfiguracionPage() {
       {/* ── TARIFAS ROLLO ────────────────────────────────────────────────── */}
       {activeTab === 'rollos' && <GestionTarifasRollo margenes={margenes} />}
 
-      {/* ── TACOS ────────────────────────────────────────────────────────── */}
-      {activeTab === 'tacos' && <GestionTacos />}
+      {/* ── CONFECCIÓN PVC ───────────────────────────────────────────────── */}
+      {activeTab === 'confpvc' && (
+        <div className="space-y-8">
+          <ConfigLongitudBarra />
+
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+              <Layers className="w-5 h-5" /> Tacos
+            </h2>
+            <GestionTacos />
+          </div>
+
+          <div className="divider"></div>
+
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+              <Package className="w-5 h-5" /> Grapas
+            </h2>
+            <GestionGrapas />
+          </div>
+        </div>
+      )}
 
       {/* ── BOBINAS ──────────────────────────────────────────────────────── */}
       {activeTab === 'bobinas' && (

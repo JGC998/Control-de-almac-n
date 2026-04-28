@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { handlePrismaError } from '@/lib/manejadores-api';
 
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const { metrajeMinimo, precioBase, peso, ancho } = await request.json();
-
     const tarifa = await db.tarifaRollo.update({
       where: { id },
       data: {
@@ -17,11 +17,7 @@ export async function PUT(request, { params }) {
     });
     return NextResponse.json(tarifa);
   } catch (error) {
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Tarifa no encontrada' }, { status: 404 });
-    }
-    console.error('Error al actualizar tarifa de rollo:', error);
-    return NextResponse.json({ message: 'Error al actualizar la tarifa' }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'Tarifa no encontrada' });
   }
 }
 
@@ -31,10 +27,6 @@ export async function DELETE(request, { params }) {
     await db.tarifaRollo.delete({ where: { id } });
     return NextResponse.json({ message: 'Tarifa eliminada correctamente' });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Tarifa no encontrada' }, { status: 404 });
-    }
-    console.error('Error al eliminar tarifa de rollo:', error);
-    return NextResponse.json({ message: 'Error al eliminar la tarifa' }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'Tarifa no encontrada' });
   }
 }

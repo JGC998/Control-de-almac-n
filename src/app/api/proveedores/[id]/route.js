@@ -1,56 +1,37 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { handlePrismaError } from '@/lib/manejadores-api';
 
-
-
-// PUT /api/proveedores/[id]
-export async function PUT(request, { params: paramsPromise }) {
+export async function PUT(request, { params }) {
   try {
-    	const { id } = await paramsPromise;
+    const { id } = await params;
     const data = await request.json();
-
     const updatedItem = await db.proveedor.update({
-      where: { id: id },
-      data: { 
-        nombre: data.nombre, 
-        email: data.email, 
-        telefono: data.telefono,
-        direccion: data.direccion,
-      },
+      where: { id },
+      data: { nombre: data.nombre, email: data.email, telefono: data.telefono, direccion: data.direccion },
     });
     revalidatePath('/proveedores');
     revalidatePath(`/proveedores/${id}`);
     return NextResponse.json(updatedItem);
   } catch (error) {
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Proveedor no encontrado' }, { status: 404 });
-    }
-     if (error.code === 'P2002') { 
-      return NextResponse.json({ message: 'El proveedor ya existe' }, { status: 409 });
-    }
-    console.error(error);
-    return NextResponse.json({ message: 'Error al actualizar proveedor' }, { status: 500 });
+    return handlePrismaError(error, {
+      notFound: 'Proveedor no encontrado',
+      conflict: 'El proveedor ya existe',
+    });
   }
 }
 
-// DELETE /api/proveedores/[id]
-export async function DELETE(request, { params: paramsPromise }) {
+export async function DELETE(request, { params }) {
   try {
-    	const { id } = await paramsPromise;
-    await db.proveedor.delete({
-      where: { id: id },
-    });
+    const { id } = await params;
+    await db.proveedor.delete({ where: { id } });
     revalidatePath('/proveedores');
-    return NextResponse.json({ message: 'Proveedor eliminado' }, { status: 200 });
+    return NextResponse.json({ message: 'Proveedor eliminado' });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Proveedor no encontrado' }, { status: 404 });
-    }
-    if (error.code === 'P2003') {
-        return NextResponse.json({ message: 'No se puede eliminar: el proveedor tiene pedidos asociados.' }, { status: 409 });
-    }
-    console.error(error);
-    return NextResponse.json({ message: 'Error al eliminar proveedor' }, { status: 500 });
+    return handlePrismaError(error, {
+      notFound: 'Proveedor no encontrado',
+      hasRelated: 'No se puede eliminar: el proveedor tiene pedidos asociados.',
+    });
   }
 }

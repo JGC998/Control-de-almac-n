@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { handlePrismaError } from '@/lib/manejadores-api';
 
 
 
@@ -67,7 +68,8 @@ export async function PUT(request, { params }) {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             productoId: item.productoId || null,
-            pesoUnitario: item.pesoUnitario || 0, // Verificado: Se guarda correctamente
+            pesoUnitario: item.pesoUnitario || 0,
+            detallesTecnicos: item.detallesTecnicos || null,
             presupuestoId: id,
           })),
         });
@@ -95,10 +97,6 @@ export async function DELETE(request, { params }) {
     revalidatePath('/presupuestos');
     return NextResponse.json({ message: 'Presupuesto eliminado correctamente' }, { status: 200 });
   } catch (error) {
-    console.error('Error al eliminar el presupuesto:', error);
-    if (error.code === 'P2025') {
-      return NextResponse.json({ message: 'Presupuesto no encontrado' }, { status: 404 });
-    }
-    return NextResponse.json({ message: 'Error interno al eliminar los datos' }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'Presupuesto no encontrado' });
   }
 }

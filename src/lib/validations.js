@@ -44,7 +44,8 @@ const pedidoItemSchema = z.object({
     quantity: z.number().int().positive('Cantidad debe ser positiva'),
     unitPrice: z.number().nonnegative('Precio unitario no puede ser negativo'),
     productoId: z.string().uuid().optional().nullable(),
-    pesoUnitario: z.number().nonnegative().optional()
+    pesoUnitario: z.number().nonnegative().optional(),
+    detallesTecnicos: z.string().optional().nullable(),
 });
 
 export const pedidoSchema = z.object({
@@ -67,7 +68,8 @@ const presupuestoItemSchema = z.object({
     quantity: z.number().int().positive('Cantidad debe ser positiva'),
     unitPrice: z.number().nonnegative('Precio unitario no puede ser negativo'),
     productoId: z.string().uuid().optional().nullable(),
-    pesoUnitario: z.number().nonnegative().optional()
+    pesoUnitario: z.number().nonnegative().optional(),
+    detallesTecnicos: z.string().optional().nullable(),
 });
 
 export const presupuestoSchema = z.object({

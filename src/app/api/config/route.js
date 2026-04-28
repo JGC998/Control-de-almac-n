@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-
-
 // GET /api/config - Obtiene la configuración como un objeto
 export async function GET() {
   try {
@@ -20,5 +18,26 @@ export async function GET() {
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: 'Error al obtener configuración' }, { status: 500 });
+  }
+}
+
+// PUT /api/config - Guarda o actualiza una o varias claves de configuración
+export async function PUT(request) {
+  try {
+    const data = await request.json(); // { key: value, ... }
+    const entries = Object.entries(data);
+    await Promise.all(
+      entries.map(([key, value]) =>
+        db.config.upsert({
+          where: { key },
+          update: { value: String(value) },
+          create: { key, value: String(value) },
+        })
+      )
+    );
+    return NextResponse.json({ message: `${entries.length} clave(s) guardada(s)` });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ message: 'Error al guardar configuración' }, { status: 500 });
   }
 }
