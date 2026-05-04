@@ -142,7 +142,7 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
             key={field.name}
             name={field.name}
             value={formData[field.name]}
-            onChange={handleChange}
+            onChange={e => { handleChange(e); if (e.target.value !== 'PVC') setFormData(p => ({ ...p, color: '' })); }}
             className="select select-bordered w-full"
             required
           >
@@ -151,6 +151,25 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
               <option key={m.id} value={m.nombre}>{m.nombre}</option>
             ))}
           </select>
+        );
+      }
+
+      if (isTarifas && field.name === 'color') {
+        const esPVC = formData.material === 'PVC';
+        return (
+          <div key={field.name}>
+            <input
+              type="text"
+              name={field.name}
+              value={formData[field.name] || ''}
+              onChange={handleChange}
+              placeholder={esPVC ? 'Color (ej: VERDE, BLANCO, AZUL…)' : 'Color — solo para PVC'}
+              className="input input-bordered w-full"
+              disabled={!esPVC}
+              required={esPVC}
+            />
+            {esPVC && <p className="text-xs text-warning mt-1">Requerido para PVC. Usa mayúsculas: VERDE, BLANCO, AZUL, NEGRO…</p>}
+          </div>
         );
       }
 

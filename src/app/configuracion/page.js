@@ -869,10 +869,11 @@ export default function ConfiguracionPage() {
           <GestorCatalogo
             title="Tarifas de Material — por metro cuadrado"
             endpoint="/api/precios"
-            initialForm={{ material: '', espesor: '', precio: '', peso: '' }}
+            initialForm={{ material: '', espesor: '', precio: '', peso: '', color: '' }}
             columns={[
               { key: 'material', label: 'Material' },
               { key: 'espesor', label: 'Espesor (mm)' },
+              { key: 'color', label: 'Color' },
               { key: 'precio', label: 'Precio (€/m²)' },
               { key: 'peso', label: 'Peso (kg/m²)' },
             ]}

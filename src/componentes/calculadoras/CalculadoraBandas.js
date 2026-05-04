@@ -46,8 +46,17 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
     const { data: grapas, isLoading: grapasLoading } = useSWR('/api/grapas');
 
-    const coloresPVC = ['VERDE', 'BLANCO', 'AZUL', 'NEGRO'];
     const isPVC = selectedMaterial === 'PVC';
+
+    const coloresPVC = useMemo(() => {
+        if (!tarifas) return [];
+        return [...new Set(
+            tarifas
+                .filter(t => t.material === 'PVC' && (!selectedEspesor || Number(t.espesor) === Number(selectedEspesor)))
+                .map(t => t.color)
+                .filter(Boolean)
+        )].sort();
+    }, [tarifas, selectedEspesor]);
 
     const availableEspesores = useMemo(() => {
         if (!tarifas || !selectedMaterial) return [];
