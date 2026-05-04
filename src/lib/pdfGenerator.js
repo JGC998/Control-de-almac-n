@@ -314,7 +314,7 @@ export async function generateOrderPDF(order, config = {}) {
                 const dim = dt.dimensiones || {};
                 const tacos = dt.tacos || null;
                 const grapa = dt.grapa || null;
-                const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin (Vulcanizado)' : 'Con Grapa';
+                const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin (Vulcanizado)' : dt.tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta';
 
                 // Cabecera de banda
                 doc.setFillColor(45, 45, 45);

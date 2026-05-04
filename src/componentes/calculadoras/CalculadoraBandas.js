@@ -119,7 +119,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const handleAdd = () => {
         if (!currentCalculation.isValid) return;
 
-        const tipoLabel = tipoConfeccion === 'VULCANIZADA' ? 'Cerrada Sin Fin' : 'Cerrada con Grapa';
+        const tipoLabel = tipoConfeccion === 'VULCANIZADA' ? 'Cerrada Sin Fin' : tipoConfeccion === 'GRAPA' ? 'Cerrada con Grapa' : 'Abierta';
         let descripcion = `${selectedMaterial} ${selectedEspesor}mm`;
         if (isPVC && selectedColor) descripcion += ` ${selectedColor}`;
         descripcion += ` - ${tipoLabel}`;
@@ -189,11 +189,13 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 {/* Tipo Confección */}
                 <div className="form-control">
                     <label className="label"><span className="label-text font-bold">Tipo de Confección</span></label>
-                    <div className="join w-full grid grid-cols-2">
+                    <div className="join w-full grid grid-cols-3">
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Sin Fin"
                             checked={tipoConfeccion === 'VULCANIZADA'} onChange={() => { setTipoConfeccion('VULCANIZADA'); setSelectedGrapaId(''); }} />
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Grapa"
                             checked={tipoConfeccion === 'GRAPA'} onChange={() => setTipoConfeccion('GRAPA')} />
+                        <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Abierta"
+                            checked={tipoConfeccion === 'ABIERTA'} onChange={() => { setTipoConfeccion('ABIERTA'); setSelectedGrapaId(''); }} />
                     </div>
                 </div>
 
@@ -244,7 +246,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 </div>
 
                 {/* Costes Extra (Colapsable) — solo vulcanizado */}
-                <div className="collapse collapse-arrow bg-base-200 mt-4 border border-base-300">
+                {tipoConfeccion === 'VULCANIZADA' && <div className="collapse collapse-arrow bg-base-200 mt-4 border border-base-300">
                     <input type="checkbox" checked={mostrarConfigCostes} onChange={() => setMostrarConfigCostes(!mostrarConfigCostes)} />
                     <div className="collapse-title text-sm font-medium flex items-center gap-2">
                         <Settings className="w-4 h-4" /> Configuración de Costes
@@ -258,7 +260,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                             description="Precio por metro lineal de vulcanizado"
                         />
                     </div>
-                </div>
+                </div>}
 
                 {/* Cantidad y Resultado */}
                 <div className="mt-4 bg-base-200/50 p-4 rounded-lg border border-base-300">
