@@ -111,16 +111,16 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
         }
 
         const costeTacos = configuracionTacos?.costeTacos ?? 0;
-        const precioUnitario = costeMaterialBase + costeConfeccion + costeTacos;
+        const precioUnitario = Math.round((costeMaterialBase + costeConfeccion + costeTacos) * 100) / 100;
 
         return {
             isValid: true,
-            precioMaterial: costeMaterialBase,
-            costeConfeccion,
+            precioMaterial: Math.round(costeMaterialBase * 100) / 100,
+            costeConfeccion: Math.round(costeConfeccion * 100) / 100,
             desgloseConfeccion,
-            costeTacos,
+            costeTacos: Math.round(costeTacos * 100) / 100,
             precioUnitario,
-            precioTotal: precioUnitario * unas,
+            precioTotal: Math.round(precioUnitario * unas * 100) / 100,
             pesoTotal: (tarifa.peso * area) * unas,
         };
     }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, selectedGrapa, tipoConfeccion, unidades, ancho, largo, costeVulcanizadoMetro, configuracionTacos, isPVC]);
