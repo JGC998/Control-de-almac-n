@@ -3,9 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
+
 
 model Cliente {
   id           String        @id @default(uuid())
@@ -34,16 +35,16 @@ model Material {
 }
 
 model Pedido {
-  id            String   @id @default(uuid())
-  numero        String   @unique
-  fechaCreacion DateTime @default(now())
+  id            String    @id @default(uuid())
+  numero        String    @unique
+  fechaCreacion DateTime  @default(now())
   estado        String
   notas         String?
   subtotal      Float
   tax           Float
   total         Float
   clienteId     String?
-  presupuestoId String?  @unique
+  presupuestoId String?   @unique
   marginId      String?
 
   cliente     Cliente?     @relation(fields: [clienteId], references: [id])
@@ -61,7 +62,7 @@ model PedidoItem {
   quantity         Int
   unitPrice        Float
   pesoUnitario     Float   @default(0)
-  detallesTecnicos String?
+  detallesTecnicos String? @db.Text 
   pedidoId         String
   productoId       String?
 
@@ -70,9 +71,9 @@ model PedidoItem {
 }
 
 model Presupuesto {
-  id            String   @id @default(uuid())
-  numero        String   @unique
-  fechaCreacion DateTime @default(now())
+  id            String    @id @default(uuid())
+  numero        String    @unique
+  fechaCreacion DateTime  @default(now())
   estado        String
   notas         String?
   subtotal      Float
@@ -96,7 +97,7 @@ model PresupuestoItem {
   quantity         Int
   unitPrice        Float
   pesoUnitario     Float   @default(0)
-  detallesTecnicos String?
+  detallesTecnicos String? @db.Text
   presupuestoId    String
   productoId       String?
 
@@ -140,8 +141,7 @@ model PedidoProveedor {
   estado      String
   proveedorId String
 
-  // Campos añadidos
-  tipo                 String    @default("NACIONAL") // 'NACIONAL' o 'IMPORTACION'
+  tipo                 String    @default("NACIONAL")
   notas                String?
   numeroFactura        String?
   gastosTotales        Float     @default(0)
@@ -155,36 +155,37 @@ model PedidoProveedor {
 }
 
 model BobinaPedido {
-  id       String          @id @default(uuid())
-  cantidad Int             @default(1)
-  pedidoId String
-  pedido   PedidoProveedor @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  id          String @id @default(uuid())
+  cantidad    Int    @default(1)
+  pedidoId    String
+  pedido      PedidoProveedor @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
 
-  // Campos extendidos para detalle de bobina en pedido
   ancho       Float?
   largo       Float?
   espesor     Float?
   precioMetro Float  @default(0)
 
-  // Relación con Referencia Maestro
   referenciaId String?
   referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
 }
 
 model ReferenciaBobina {
   id                 String         @id @default(uuid())
-  referencia         String
+  referencia         String         @default("") 
+  nombre             String?        // VOLVEMOS A AÑADIRLO PARA MAIN
   ancho              Float?
-  lonas              Float?
+  lonas              Float?         // Se cambiará a Double, esto no suele romper main
   pesoPorMetroLineal Float?
   bobinas            BobinaPedido[]
 
-  @@unique([referencia, ancho, lonas]) // Constraint para evitar duplicados lógicos (opcional pero recomendado)
+  @@unique([referencia, ancho, lonas])
 }
+
 
 model ReglaMargen {
   id            String  @id @default(uuid())
   base          String  @unique
+  tipo          String? // VOLVEMOS A AÑADIRLO PARA MAIN
   multiplicador Float
   gastoFijo     Float?
   descripcion   String
@@ -197,7 +198,7 @@ model TarifaMaterial {
   espesor  Float
   precio   Float
   peso     Float
-  color    String? // "VERDE", "BLANCO", "AZUL", "NEGRO" para PVC, null para otros materiales
+  color    String?
 
   @@unique([material, espesor, color])
 }
@@ -206,11 +207,11 @@ model TarifaRollo {
   id            String  @id @default(uuid())
   material      String
   espesor       Float
-  ancho         Float?  // mm, null = sin restricción de ancho
+  ancho         Float?
   color         String?
   metrajeMinimo Float   @default(10)
-  precioBase    Float   // €/m²
-  peso          Float   // kg/m²
+  precioBase    Float
+  peso          Float
 
   @@unique([material, espesor, color])
 }
@@ -245,7 +246,8 @@ model Config {
 
 model Sequence {
   name  String
-  year  Int
+  // CORRECCIÓN: Se añade default para registros existentes
+  year  Int    @default(2026) 
   value Int
 
   @@id([name, year])
@@ -254,11 +256,11 @@ model Sequence {
 
 model AuditLog {
   id        String   @id @default(uuid())
-  action    String // CREATE, UPDATE, DELETE
-  entity    String // Producto, Tarifa, Cliente, etc.
-  entityId  String? // ID de la entidad afectada
-  details   Json? // Detalles del cambio (anterior/nuevo)
-  user      String? // Usuario que realizó la acción (o "System")
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  user      String?
   createdAt DateTime @default(now())
 
   @@index([entity])
@@ -282,15 +284,14 @@ model Producto {
   fabricanteId         String?
   materialId           String?
 
-  // Precios calculados por tier
   precioVentaFab Float? @default(0)
   precioVentaInt Float? @default(0)
   precioVentaFin Float? @default(0)
 
-  creadoEn    DateTime @default(now())
-  actualizado DateTime @updatedAt
+  creadoEn     DateTime @default(now())
+  // CORRECCIÓN: Se añade default(now()) para que los registros viejos tengan fecha
+  actualizado  DateTime @default(now()) @updatedAt 
 
-  // Relaciones
   fabricante Fabricante? @relation(fields: [fabricanteId], references: [id])
   material   Material?   @relation(fields: [materialId], references: [id])
 
@@ -305,9 +306,9 @@ model Producto {
 
 model Taco {
   id          Int      @id @default(autoincrement())
-  tipo        String // "RECTO" o "INCLINADO"
-  altura      Int // 10, 20, 30, 40, 50, 60, 70, 80, 100
-  precioMetro Float // Precio por metro lineal
+  tipo        String
+  altura      Int
+  precioMetro Float
   activo      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -346,11 +347,11 @@ model TarifaTransporte {
 
 model ConfigPaletizado {
   id            String @id @default(uuid())
-  tipo          String @unique // "EUROPEO" o "MEDIO"
+  tipo          String @unique
   costePale     Float
-  costeFilm     Float  @default(0.538) // 10% de 5.38€
-  costeFleje    Float  @default(0.183) // 0.3% de 61€
-  costePrecinto Float  @default(0.0147) // 1% de 1.47€
+  costeFilm     Float  @default(0.538)
+  costeFleje    Float  @default(0.183)
+  costePrecinto Float  @default(0.0147)
 
   @@map("ConfigPaletizado")
 }
@@ -359,8 +360,10 @@ model PresupuestoTemplate {
   id          String   @id @default(uuid())
   nombre      String   @unique
   descripcion String?
-  items       Json // Array de items guardados
+  items       Json
   marginId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+
