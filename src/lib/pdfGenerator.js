@@ -144,6 +144,93 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
             doc.text(quote.notes, 14, notesY + 4, { maxWidth: 180 });
         }
 
+        // --- Desglose Bandas PVC (segunda página, si hay) ---
+        const bandasPVC = (quote.items || [])
+            .map(item => {
+                if (!item.detallesTecnicos) return null;
+                try {
+                    return { quantity: item.quantity, dt: JSON.parse(item.detallesTecnicos) };
+                } catch { return null; }
+            })
+            .filter(Boolean);
+
+        if (bandasPVC.length > 0) {
+            doc.addPage();
+
+            if (logoBase64) {
+                doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
+            }
+
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text("DESGLOSE DE BANDAS PVC", 14, 22);
+
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Presupuesto Nº: ${quote.numero}`, 14, 30);
+            doc.text(new Date(quote.fechaCreacion).toLocaleDateString('es-ES'), 14, 36);
+            if (client) doc.text(`Cliente: ${client.nombre}`, 14, 42);
+
+            let y = 52;
+
+            bandasPVC.forEach((item, idx) => {
+                const { dt } = item;
+                const dim = dt.dimensiones || {};
+                const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin (Vulcanizado)' : dt.tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta (sin vulcanizado)';
+                const headerTitle = `Banda ${idx + 1} — PVC${dim.espesor ? ' ' + dim.espesor + 'mm' : ''}${dt.color ? ' ' + dt.color : ''}`;
+
+                doc.setFillColor(45, 45, 45);
+                doc.rect(14, y, 182, 9, 'F');
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(255, 255, 255);
+                doc.text(`${headerTitle}   ×${item.quantity} ud.`, 17, y + 6);
+                doc.setTextColor(0, 0, 0);
+                y += 13;
+
+                const precioMaterial = dt.precioMaterial ?? 0;
+                const costeVulcanizado = dt.costeVulcanizado ?? 0;
+                const costeTacos = dt.costeTacos ?? 0;
+                const precioUnitario = precioMaterial + costeVulcanizado + costeTacos;
+                const precioTotal = precioUnitario * item.quantity;
+
+                const bandaRows = [
+                    ['Ancho', dim.ancho ? formatMm(dim.ancho) : '—'],
+                    ['Largo', dim.largo ? formatMm(dim.largo) : '—'],
+                    ['Espesor', dim.espesor ? `${dim.espesor} mm` : '—'],
+                    ['Tipo de vulcanizado', confLabel],
+                    ['Unidades', `${item.quantity} ud.`],
+                    ['Material', `${precioMaterial.toFixed(2)} €`],
+                ];
+
+                if (costeVulcanizado > 0) {
+                    const vulcLabel = dt.tipoConfeccion === 'GRAPA' ? 'Confección (Grapa)' : 'Vulcanizado';
+                    bandaRows.push([vulcLabel, `${costeVulcanizado.toFixed(2)} €`]);
+                }
+                if (costeTacos > 0) {
+                    bandaRows.push(['Tacos', `${costeTacos.toFixed(2)} €`]);
+                }
+                bandaRows.push(['Precio Unitario', `${precioUnitario.toFixed(2)} €`]);
+                bandaRows.push([`Total (×${item.quantity} ud.)`, `${precioTotal.toFixed(2)} €`]);
+
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Concepto', 'Valor']],
+                    body: bandaRows,
+                    theme: 'grid',
+                    styles: { fontSize: 9 },
+                    headStyles: { fillColor: [80, 80, 80], textColor: 255, fontStyle: 'bold' },
+                    columnStyles: { 0: { cellWidth: 80, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+                });
+                y = doc.lastAutoTable.finalY + 14;
+
+                if (idx < bandasPVC.length - 1) {
+                    doc.setDrawColor(180, 180, 180);
+                    doc.line(14, y - 7, 196, y - 7);
+                }
+            });
+        }
+
         // Retorna Buffer (ArrayBuffer)
         return doc.output('arraybuffer');
 
@@ -314,7 +401,8 @@ export async function generateOrderPDF(order, config = {}) {
                 const dim = dt.dimensiones || {};
                 const tacos = dt.tacos || null;
                 const grapa = dt.grapa || null;
-                const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin (Vulcanizado)' : dt.tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta';
+                const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin (Vulcanizado)' : dt.tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta (sin vulcanizado)';
+                const headerTitle = `Banda ${idx + 1} — PVC${dim.espesor ? ' ' + dim.espesor + 'mm' : ''}${dt.color ? ' ' + dt.color : ''}`;
 
                 // Cabecera de banda
                 doc.setFillColor(45, 45, 45);
@@ -322,19 +410,19 @@ export async function generateOrderPDF(order, config = {}) {
                 doc.setFontSize(10);
                 doc.setFont("helvetica", "bold");
                 doc.setTextColor(255, 255, 255);
-                doc.text(`Banda ${idx + 1}   ×${item.quantity} ud.`, 17, y + 6);
+                doc.text(`${headerTitle}   ×${item.quantity} ud.`, 17, y + 6);
                 doc.setTextColor(0, 0, 0);
                 y += 13;
 
                 // Tabla de datos de banda
                 const bandaRows = [
-                    ['Descripción', item.descripcion],
+                    ['Unidades', `${item.quantity} ud.`],
                     ['Material', 'PVC'],
                     ['Espesor', dim.espesor ? `${dim.espesor} mm` : '—'],
                     ['Color', dt.color || '—'],
                     ['Ancho', dim.ancho ? formatMm(dim.ancho) : '—'],
                     ['Largo', dim.largo ? formatMm(dim.largo) : '—'],
-                    ['Tipo confección', confLabel],
+                    ['Tipo de vulcanizado', confLabel],
                 ];
 
                 if (grapa) {

@@ -148,6 +148,9 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             pesoTotal: currentCalculation.pesoTotal,
             pesoUnitario: currentCalculation.pesoTotal / uds,
             tacos: configuracionTacos || null,
+            precioMaterial: currentCalculation.precioMaterial,
+            costeVulcanizado: currentCalculation.costeConfeccion,
+            costeTacos: currentCalculation.costeTacos,
         };
 
         onAddItem(item);
@@ -197,7 +200,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
                 {/* Tipo Confección */}
                 <div className="form-control">
-                    <label className="label"><span className="label-text font-bold">Tipo de Confección</span></label>
+                    <label className="label"><span className="label-text font-bold">Tipo de Vulcanizado</span></label>
                     <div className="join w-full grid grid-cols-3">
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Sin Fin"
                             checked={tipoConfeccion === 'VULCANIZADA'} onChange={() => { setTipoConfeccion('VULCANIZADA'); setSelectedGrapaId(''); }} />
