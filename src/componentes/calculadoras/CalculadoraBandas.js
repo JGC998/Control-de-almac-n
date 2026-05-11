@@ -44,6 +44,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
     const [guardandoCatalogo, setGuardandoCatalogo] = useState(false);
     const [catalogoGuardado, setCatalogoGuardado] = useState(false);
+    const [referenciaBanda, setReferenciaBanda] = useState('');
 
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
     const { data: grapas, isLoading: grapasLoading } = useSWR('/api/grapas');
@@ -163,7 +164,8 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
         if (!currentCalculation.isValid) return;
         setGuardandoCatalogo(true);
         const tipoLabel = tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin' : tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta';
-        let nombre = `PVC ${selectedEspesor}mm`;
+        let nombre = referenciaBanda.trim() ? `${referenciaBanda.trim()} — ` : '';
+        nombre += `PVC ${selectedEspesor}mm`;
         if (selectedColor) nombre += ` ${selectedColor}`;
         nombre += ` - ${tipoLabel} - ${ancho}×${largo}mm`;
         if (configuracionTacos) nombre += ` + Tacos ${configuracionTacos.tipo} ${configuracionTacos.altura}mm`;
@@ -175,6 +177,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     nombre,
+                    referenciaFabricante: 'BANDA_PVC',
                     color: selectedColor || null,
                     espesor: parseFloat(selectedEspesor),
                     ancho: parseFloat(ancho),
@@ -350,7 +353,20 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     )}
                 </div>
 
-                <div className="flex gap-2 mt-4">
+                {currentCalculation.isValid && (
+                    <div className="form-control mt-4">
+                        <label className="label py-1"><span className="label-text text-xs">Referencia (opcional, para guardar en catálogo)</span></label>
+                        <input
+                            type="text"
+                            className="input input-sm input-bordered w-full"
+                            placeholder="Ej: Cliente ABC, Banda estándar…"
+                            value={referenciaBanda}
+                            onChange={e => setReferenciaBanda(e.target.value)}
+                        />
+                    </div>
+                )}
+
+                <div className="flex gap-2 mt-2">
                     <button className="btn btn-primary flex-1" onClick={handleAdd} disabled={!currentCalculation.isValid}>
                         <Plus className="w-4 h-4" /> Añadir Banda
                     </button>

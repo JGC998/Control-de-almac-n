@@ -9,6 +9,7 @@ import {
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 import QuickProductForm from "@/componentes/productos/FormularioProductoRapido";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
+import ModalBusquedaBandasPVC from "@/componentes/modales/ModalBusquedaBandasPVC";
 import EditorFilaItem from './EditorFilaItem';
 import TemplateManager from '@/componentes/presupuestos/TemplateManager';
 
@@ -129,7 +130,8 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   // Estados para Modales
   const [modalState, setModalState] = useState(null);
   const [isClientSearchOpen, setIsClientSearchOpen] = useState(false);
-  const [isBandaModalOpen, setIsBandaModalOpen] = useState(false); // Modal Bandas
+  const [isBandaModalOpen, setIsBandaModalOpen] = useState(false);
+  const [isBandaCatalogoOpen, setIsBandaCatalogoOpen] = useState(false);
   const [productSearchState, setProductSearchState] = useState({ isOpen: false, rowIndex: null, initialSearch: '' });
 
   const [error, setError] = useState(null);
@@ -272,13 +274,12 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   };
 
   const handleBandaAdded = (bandaItem) => {
-    // Convertir ítem de calculadora a formato PedidoItem
     const newItem = {
       id: Date.now() + Math.random(),
-      descripcion: bandaItem.descripcion, // Ya viene formateada: "PVC 5mm - Cerrada (Sin Fin)"
+      descripcion: bandaItem.descripcion,
       quantity: bandaItem.unidades,
-      unitPrice: bandaItem.precioUnitario, // Precio unitario TOTAL (incluye servicios)
-      productoId: null, // Producto a medida
+      unitPrice: bandaItem.precioUnitario,
+      productoId: null,
       producto: null,
       pesoUnitario: bandaItem.pesoUnitario,
       detallesTecnicos: JSON.stringify({
@@ -287,10 +288,27 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         tipoConfeccion: bandaItem.tipoConfeccion,
         grapa: bandaItem.grapa || null,
         tacos: bandaItem.tacos || null,
+        precioMaterial: bandaItem.precioMaterial ?? 0,
+        costeVulcanizado: bandaItem.costeVulcanizado ?? 0,
+        costeTacos: bandaItem.costeTacos ?? 0,
       }),
     };
     setItems(prev => [...prev, newItem]);
     setIsBandaModalOpen(false);
+  };
+
+  const handleBandaCatalogoSelected = (product) => {
+    const newItem = {
+      id: Date.now() + Math.random(),
+      descripcion: product.nombre,
+      quantity: 1,
+      unitPrice: product.precioUnitario || 0,
+      productoId: product.id,
+      producto: product,
+      pesoUnitario: product.pesoUnitario || 0,
+    };
+    setItems(prev => [...prev, newItem]);
+    setIsBandaCatalogoOpen(false);
   };
 
   const handleLoadTemplate = (template) => {
@@ -475,6 +493,15 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                       </div>
                     </button>
                   </li>
+                  <li>
+                    <button type="button" onClick={() => setIsBandaCatalogoOpen(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-base-200">
+                      <Ruler className="w-4 h-4 text-accent shrink-0" />
+                      <div className="text-left">
+                        <div className="text-sm font-medium">Banda PVC guardada</div>
+                        <div className="text-xs text-base-content/50">Buscar por filtros</div>
+                      </div>
+                    </button>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -581,6 +608,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       )}
 
       <ModalCalculadoraBandas isOpen={isBandaModalOpen} onClose={() => setIsBandaModalOpen(false)} onAddItem={handleBandaAdded} />
+      <ModalBusquedaBandasPVC isOpen={isBandaCatalogoOpen} onClose={() => setIsBandaCatalogoOpen(false)} onSelect={handleBandaCatalogoSelected} />
     </>
   );
 }
