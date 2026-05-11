@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { Plus, Settings, Info, Layers, Link2, BookmarkPlus, Check } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
@@ -187,11 +187,15 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     tieneTroquel: false,
                 }),
             });
-            if (!res.ok) throw new Error('Error al guardar');
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || err.error || 'Error al guardar');
+            }
+            await mutate('/api/productos');
             setCatalogoGuardado(true);
             setTimeout(() => setCatalogoGuardado(false), 3000);
-        } catch {
-            alert('No se pudo guardar en el catálogo.');
+        } catch (err) {
+            alert(`No se pudo guardar en el catálogo: ${err.message}`);
         } finally {
             setGuardandoCatalogo(false);
         }

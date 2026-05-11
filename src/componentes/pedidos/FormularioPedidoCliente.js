@@ -4,7 +4,7 @@ import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import {
   Plus, X, Save,
-  Package, Search, ArrowRight, User, Box, ChevronDown, Ruler
+  Package, Search, ArrowRight, User, Box, Ruler
 } from 'lucide-react';
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 import QuickProductForm from "@/componentes/productos/FormularioProductoRapido";
@@ -469,40 +469,17 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                 </p>
               </div>
 
-              {/* Menú unificado para añadir líneas */}
-              <div className="dropdown dropdown-end">
-                <button type="button" tabIndex={0} className="btn btn-primary btn-sm gap-1 m-1">
-                  <Plus className="w-4 h-4" /> Añadir línea <ChevronDown className="w-3 h-3 opacity-70" />
+              {/* Botones de añadir línea */}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={addItem} className="btn btn-sm btn-outline btn-primary gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Añadir producto
                 </button>
-                <ul tabIndex={0} className="dropdown-content z-50 menu p-1.5 shadow-xl bg-base-100 rounded-box border border-base-300 w-60 mt-1 gap-0.5">
-                  <li>
-                    <button type="button" onClick={addItem} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-base-200">
-                      <Package className="w-4 h-4 text-primary shrink-0" />
-                      <div className="text-left">
-                        <div className="text-sm font-medium">Producto del catálogo</div>
-                        <div className="text-xs text-base-content/50">Buscar por nombre o referencia</div>
-                      </div>
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" onClick={() => setIsBandaModalOpen(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-base-200">
-                      <Ruler className="w-4 h-4 text-secondary shrink-0" />
-                      <div className="text-left">
-                        <div className="text-sm font-medium">Banda PVC</div>
-                        <div className="text-xs text-base-content/50">Calculadora a medida</div>
-                      </div>
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" onClick={() => setIsBandaCatalogoOpen(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-base-200">
-                      <Ruler className="w-4 h-4 text-accent shrink-0" />
-                      <div className="text-left">
-                        <div className="text-sm font-medium">Banda PVC guardada</div>
-                        <div className="text-xs text-base-content/50">Buscar por filtros</div>
-                      </div>
-                    </button>
-                  </li>
-                </ul>
+                <button type="button" onClick={() => setIsBandaCatalogoOpen(true)} className="btn btn-sm btn-outline btn-secondary gap-1">
+                  <Ruler className="w-3.5 h-3.5" /> Añadir Banda PVC
+                </button>
+                <button type="button" onClick={() => setIsBandaModalOpen(true)} className="btn btn-sm btn-outline btn-accent gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Crear Banda PVC nueva
+                </button>
               </div>
             </div>
 
