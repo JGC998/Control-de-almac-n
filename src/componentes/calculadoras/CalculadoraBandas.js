@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { Plus, Settings, Info, Layers, Link2 } from 'lucide-react';
+import { Plus, Settings, Info, Layers, Link2, BookmarkPlus, Check } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
 
@@ -42,6 +42,8 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
     const [configuracionTacos, setConfiguracionTacos] = useState(null);
     const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
+    const [guardandoCatalogo, setGuardandoCatalogo] = useState(false);
+    const [catalogoGuardado, setCatalogoGuardado] = useState(false);
 
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
     const { data: grapas, isLoading: grapasLoading } = useSWR('/api/grapas');
@@ -155,6 +157,41 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
         onAddItem(item);
         setConfiguracionTacos(null);
+    };
+
+    const handleGuardarEnCatalogo = async () => {
+        if (!currentCalculation.isValid) return;
+        setGuardandoCatalogo(true);
+        const tipoLabel = tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin' : tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta';
+        let nombre = `PVC ${selectedEspesor}mm`;
+        if (selectedColor) nombre += ` ${selectedColor}`;
+        nombre += ` - ${tipoLabel} - ${ancho}×${largo}mm`;
+        if (configuracionTacos) nombre += ` + Tacos ${configuracionTacos.tipo} ${configuracionTacos.altura}mm`;
+
+        const uds = parseInt(unidades) || 1;
+        try {
+            const res = await fetch('/api/productos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nombre,
+                    color: selectedColor || null,
+                    espesor: parseFloat(selectedEspesor),
+                    ancho: parseFloat(ancho),
+                    largo: parseFloat(largo),
+                    precioUnitario: currentCalculation.precioUnitario,
+                    pesoUnitario: currentCalculation.pesoTotal / uds,
+                    tieneTroquel: false,
+                }),
+            });
+            if (!res.ok) throw new Error('Error al guardar');
+            setCatalogoGuardado(true);
+            setTimeout(() => setCatalogoGuardado(false), 3000);
+        } catch {
+            alert('No se pudo guardar en el catálogo.');
+        } finally {
+            setGuardandoCatalogo(false);
+        }
     };
 
     if (tarifasLoading) return <div className="p-10 text-center"><span className="loading loading-dots loading-lg"></span></div>;
@@ -313,9 +350,21 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     )}
                 </div>
 
-                <button className="btn btn-primary w-full mt-4" onClick={handleAdd} disabled={!currentCalculation.isValid}>
-                    <Plus className="w-4 h-4" /> Añadir Banda
-                </button>
+                <div className="flex gap-2 mt-4">
+                    <button className="btn btn-primary flex-1" onClick={handleAdd} disabled={!currentCalculation.isValid}>
+                        <Plus className="w-4 h-4" /> Añadir Banda
+                    </button>
+                    {onAddItem && (
+                        <button
+                            className={`btn btn-outline ${catalogoGuardado ? 'btn-success' : 'btn-secondary'}`}
+                            onClick={handleGuardarEnCatalogo}
+                            disabled={!currentCalculation.isValid || guardandoCatalogo}
+                            title="Guardar esta banda en el catálogo de productos"
+                        >
+                            {guardandoCatalogo ? <span className="loading loading-spinner loading-xs" /> : catalogoGuardado ? <Check className="w-4 h-4" /> : <BookmarkPlus className="w-4 h-4" />}
+                        </button>
+                    )}
+                </div>
             </div>
 
             <ModalConfiguracionTacos

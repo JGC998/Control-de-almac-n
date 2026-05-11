@@ -44,6 +44,7 @@ export async function POST(request) {
         espesor: getSafeFloat(data.espesor),
         precio: getSafeFloat(data.precio),
         peso: getSafeFloat(data.peso),
+        color: data.color || null,
       },
     });
     revalidatePath('/tarifas'); // Invalidate cache after create
@@ -72,6 +73,7 @@ export async function PUT(request) {
         espesor: getSafeFloat(data.espesor),
         precio: getSafeFloat(data.precio),
         peso: getSafeFloat(data.peso),
+        color: data.color || null,
       },
     });
     revalidatePath('/tarifas'); // Invalidate cache after update

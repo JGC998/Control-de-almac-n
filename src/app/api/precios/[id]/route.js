@@ -21,6 +21,7 @@ export async function PUT(request, { params }) {
         espesor: parseFloat(data.espesor),
         precio: parseFloat(data.precio),
         peso: parseFloat(data.peso),
+        color: data.color || null,
       },
     });
     return NextResponse.json(updatedItem);
