@@ -1,23 +1,44 @@
-# Excluir dependencias de Node
+# Dependencias
 node_modules/
 
-# Excluir la carpeta de caché y build de Next.js
+# Build y caché de Next.js
 .next/
 
-# Excluir logs y otros archivos temporales
+# Logs
 *.log
 
-# Excluir variables de entorno locales
-.env.local
-
-/src/generated/prisma
+# Variables de entorno (contienen credenciales)
 .env
+.env.local
+.env*.local
+
+# Prisma
+/src/generated/prisma
 prisma/dev.db
 
-
-# Ignorar bases de datos y backups
+# Bases de datos y backups
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
 /backups/
+
+# ── Datos sensibles ─────────────────────────────────────────────────────────
+# Datos operativos: clientes, pedidos, presupuestos, precios, márgenes, etc.
+src/data/
+
+# Exportaciones de configuración: tarifas, márgenes, transporte…
+data/configuracion/
+
+# JSONs de migración con datos reales
+data/src/
+
+# Backups SQL de la base de datos
+data/*.sql
+
+# Configuración local del editor / IA
+.claude/
+
+# PDFs generados de pedidos y simulaciones (no son activos estáticos)
+public/planos/*.pdf
+public/planos/*.PDF

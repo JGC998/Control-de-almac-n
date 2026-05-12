@@ -52,7 +52,7 @@ export default function TablaTarifasRollo() {
       : 'Sin margen (precio base)';
     doc.text(`Filtro: ${selectedMaterial}   ·   ${margenText}   ·   Impreso el ${fecha}`, 14, 23);
 
-    const columns = ['Material', 'Espesor', 'Ancho', 'Color', 'Metros mín.', 'Precio base rollo', 'Precio final rollo', 'Peso (kg/m²)'];
+    const columns = ['Material', 'Espesor', 'Ancho', 'Color', 'Metro por rollo', 'Precio base rollo', 'Precio final rollo', 'Kilos por rollo'];
     const rows = filteredTarifas.map(t => {
       const pf = t.precioBase * (selectedMargin?.multiplicador || 1);
       return [
@@ -156,10 +156,10 @@ export default function TablaTarifasRollo() {
                 <th>Espesor</th>
                 <th>Ancho</th>
                 <th>Color</th>
-                <th>Metros mín.</th>
+                <th>Metro por rollo</th>
                 <th>Precio base rollo</th>
                 <th className="font-bold">Precio final rollo</th>
-                <th>Peso (kg/m²)</th>
+                <th>Kilos por rollo</th>
               </tr>
             </thead>
             <tbody>
