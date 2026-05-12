@@ -38,28 +38,21 @@ export default function TablaTarifasRollo() {
       return;
     }
 
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const fecha = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    doc.setFontSize(18);
+    doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
-    doc.text('Tabla de Tarifas por Rollo / Metraje', 14, 22);
+    doc.text('Tabla de Tarifas por Rollo / Metraje', 14, 16);
 
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     const margenText = selectedMargin
-      ? `Margen: ${selectedMargin.descripcion} (x${selectedMargin.multiplicador})`
-      : 'Margen: Ninguno (Precio Base)';
-    doc.text(`Filtro: ${selectedMaterial}`, 14, 30);
-    doc.text(margenText, 14, 36);
+      ? `Margen: ${selectedMargin.descripcion} (×${selectedMargin.multiplicador})`
+      : 'Sin margen (precio base)';
+    doc.text(`Filtro: ${selectedMaterial}   ·   ${margenText}   ·   Impreso el ${fecha}`, 14, 23);
 
-    const columns = [
-      'Material', 'Espesor', 'Ancho', 'Color',
-      'Metros mín.',
-      `Precio base rollo`,
-      `Precio final rollo`,
-      'Peso (kg/m²)',
-    ];
-
+    const columns = ['Material', 'Espesor', 'Ancho', 'Color', 'Metros mín.', 'Precio base rollo', 'Precio final rollo', 'Peso (kg/m²)'];
     const rows = filteredTarifas.map(t => {
       const pf = t.precioBase * (selectedMargin?.multiplicador || 1);
       return [
@@ -68,13 +61,32 @@ export default function TablaTarifasRollo() {
         t.ancho ? `${t.ancho} mm` : '—',
         t.color || '—',
         `${t.metrajeMinimo} m`,
-        `${t.precioBase.toFixed(2)} €  (${t.metrajeMinimo}m)`,
-        `${pf.toFixed(2)} €  (${t.metrajeMinimo}m)`,
+        `${t.precioBase.toFixed(2)} € (${t.metrajeMinimo}m)`,
+        `${pf.toFixed(2)} € (${t.metrajeMinimo}m)`,
         `${t.peso.toFixed(3)} kg`,
       ];
     });
 
-    autoTable(doc, { head: [columns], body: rows, startY: 45, theme: 'grid' });
+    autoTable(doc, {
+      head: [columns],
+      body: rows,
+      startY: 28,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 32 },
+        1: { cellWidth: 22, halign: 'center' },
+        2: { cellWidth: 24, halign: 'center' },
+        3: { cellWidth: 22, halign: 'center' },
+        4: { cellWidth: 24, halign: 'center' },
+        5: { cellWidth: 'auto', halign: 'right' },
+        6: { cellWidth: 'auto', halign: 'right', fontStyle: 'bold' },
+        7: { cellWidth: 28, halign: 'right' },
+      },
+    });
 
     const suffix = new Date().toISOString().slice(0, 10);
     const name = selectedMaterial === 'Todos'

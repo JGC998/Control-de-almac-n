@@ -40,33 +40,29 @@ export default function TablaTarifas() {
       return;
     }
 
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const fecha = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    doc.setFontSize(18);
+    doc.setFontSize(15);
     doc.setFont("helvetica", "bold");
-    doc.text("Tabla de Tarifas de Materiales", 14, 22);
+    doc.text("Tabla de Tarifas de Materiales (por m²)", 14, 16);
 
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-
     const margenText = selectedMargin
-      ? `Margen Aplicado: ${selectedMargin.descripcion} (x${selectedMargin.multiplicador})`
-      : 'Margen Aplicado: Ninguno (Precio Base)';
+      ? `Margen: ${selectedMargin.descripcion} (×${selectedMargin.multiplicador})`
+      : 'Sin margen (precio base)';
+    doc.text(`Filtro: ${selectedMaterial}   ·   ${margenText}   ·   Impreso el ${fecha}`, 14, 23);
 
-    doc.text(`Filtro: ${selectedMaterial}`, 14, 30);
-    doc.text(margenText, 14, 36);
-
-    // Columnas ajustadas para incluir Precio Base
-    const tableColumn = ["Material", "Espesor (mm)", "Precio Base (€/m²)", "Precio Final (€/m²)", "Peso (kg/m²)"];
-
-    // Filas ajustadas
+    const tableColumn = ["Material", "Espesor (mm)", "Color", "Precio Base (€/m²)", "Precio Final (€/m²)", "Peso (kg/m²)"];
     const tableRows = filteredTarifas.map(row => {
       const finalPrice = row.precio * (selectedMargin?.multiplicador || 1);
       return [
         row.material,
         row.espesor.toFixed(2),
-        row.precio.toFixed(2) + ' €', // Precio Base
-        finalPrice.toFixed(2) + ' €', // Precio Final
+        row.color || '—',
+        row.precio.toFixed(2) + ' €',
+        finalPrice.toFixed(2) + ' €',
         row.peso.toFixed(2) + ' kg',
       ];
     });
@@ -74,17 +70,27 @@ export default function TablaTarifas() {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 45,
+      startY: 28,
       theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 4 },
+      headStyles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      margin: { left: 14, right: 14 },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 30, halign: 'center' },
+        2: { cellWidth: 30, halign: 'center' },
+        3: { cellWidth: 'auto', halign: 'right' },
+        4: { cellWidth: 'auto', halign: 'right', fontStyle: 'bold' },
+        5: { cellWidth: 35, halign: 'right' },
+      },
     });
 
     const fileName = selectedMaterial === 'Todos'
-      ? `tarifas-completas-${new Date().toISOString().slice(0, 10)}.pdf`
-      : `tarifa-${selectedMaterial.toLowerCase().replace(/\s/g, '-')}-${new Date().toISOString().slice(0, 10)}.pdf`;
-
+      ? `tarifas-m2-${new Date().toISOString().slice(0, 10)}.pdf`
+      : `tarifa-m2-${selectedMaterial.toLowerCase().replace(/\s/g, '-')}-${new Date().toISOString().slice(0, 10)}.pdf`;
     doc.save(fileName);
   };
-  // --- FIN NUEVA FUNCIÓN ---
 
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
