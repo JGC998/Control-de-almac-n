@@ -213,7 +213,7 @@ model TarifaRollo {
   precioBase    Float
   peso          Float
 
-  @@unique([material, espesor, color])
+  @@unique([material, espesor, color, ancho])
 }
 
 model Documento {

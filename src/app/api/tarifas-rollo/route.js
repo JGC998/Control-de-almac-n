@@ -39,7 +39,7 @@ export async function POST(request) {
   } catch (error) {
     if (error.code === 'P2002') {
       return NextResponse.json(
-        { message: 'Ya existe una tarifa con ese material, espesor y color' },
+        { message: 'Ya existe una tarifa con ese material, espesor, color y ancho' },
         { status: 409 }
       );
     }

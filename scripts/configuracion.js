@@ -34,7 +34,7 @@ const TABLAS = [
     modelo:   'tarifaRollo',
     archivo:  'tarifas-rollo.json',
     orderBy:  [{ material: 'asc' }, { espesor: 'asc' }, { color: 'asc' }],
-    upsertWhere: r => ({ material_espesor_color: { material: r.material, espesor: r.espesor, color: r.color ?? null } }),
+    upsertWhere: r => ({ material_espesor_color_ancho: { material: r.material, espesor: r.espesor, color: r.color ?? null, ancho: r.ancho ?? null } }),
   },
   {
     alias:    'margenes',
