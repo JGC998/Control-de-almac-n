@@ -11,16 +11,15 @@ export async function GET(request, { params: paramsPromise }) {
     const { id } = await paramsPromise;
 
 
-    // Incluimos las relaciones confirmadas en el modelo Pedido
     const order = await db.pedido.findUnique({
       where: { id },
       include: {
-        cliente: true,
-        presupuesto: true, // Corregido a singular
+        cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, tier: true } },
+        presupuesto: { select: { id: true, numero: true, estado: true, total: true } },
         items: {
           orderBy: { descripcion: 'asc' },
           include: {
-            producto: true, // Necesario para obtener los datos completos del producto
+            producto: { select: { id: true, nombre: true, referenciaFabricante: true } },
           },
         },
       },
@@ -96,10 +95,10 @@ export async function PUT(request, { params: paramsPromise }) {
           presupuestoId: presupuestoId,
         },
         include: {
-          cliente: true,
-          presupuesto: true,
+          cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, tier: true } },
+          presupuesto: { select: { id: true, numero: true, estado: true, total: true } },
           items: {
-            include: { producto: true },
+            include: { producto: { select: { id: true, nombre: true, referenciaFabricante: true } } },
           },
         },
       });

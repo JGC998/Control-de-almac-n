@@ -68,6 +68,9 @@ model PedidoItem {
 
   pedido   Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([pedidoId])
+  @@index([productoId])
 }
 
 model Presupuesto {
@@ -103,6 +106,9 @@ model PresupuestoItem {
 
   presupuesto Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
   producto    Producto?   @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([presupuestoId])
+  @@index([productoId])
 }
 
 model Proveedor {

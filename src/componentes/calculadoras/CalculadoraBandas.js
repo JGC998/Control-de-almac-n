@@ -71,7 +71,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
     const selectedGrapa = useMemo(() => {
         if (!grapas || !selectedGrapaId) return null;
-        return grapas.find(g => g.id === parseInt(selectedGrapaId));
+        return grapas.find(g => g.id === parseInt(selectedGrapaId, 10));
     }, [grapas, selectedGrapaId]);
 
     const currentCalculation = useMemo(() => {
