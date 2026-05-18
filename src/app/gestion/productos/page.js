@@ -14,7 +14,7 @@ const columnasProducto = [
   { clave: 'id', etiqueta: 'ID' },
   { clave: 'nombre', etiqueta: 'Nombre' },
   { clave: 'categoria', etiqueta: 'Categoría' },
-  { clave: 'precio', etiqueta: 'Precio', formato: 'moneda' },
+  { clave: 'precioUnitario', etiqueta: 'Precio', formato: 'moneda' },
   {
     clave: 'stock',
     etiqueta: 'Stock',
