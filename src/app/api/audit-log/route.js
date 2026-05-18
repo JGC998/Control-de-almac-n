@@ -4,15 +4,25 @@ import { NextResponse } from 'next/server';
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
-        const page = parseInt(searchParams.get('page') || '1');
-        const limit = parseInt(searchParams.get('limit') || '50');
+        const page = parseInt(searchParams.get('page') || '1', 10);
+        const limit = parseInt(searchParams.get('limit') || '50', 10);
         const entity = searchParams.get('entity');
         const action = searchParams.get('action');
+        const dateFrom = searchParams.get('dateFrom');
+        const dateTo = searchParams.get('dateTo');
 
-        // Filtros dinámicos
         const where = {};
         if (entity) where.entity = entity;
         if (action) where.action = action;
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+            if (dateTo) {
+                const end = new Date(dateTo);
+                end.setHours(23, 59, 59, 999);
+                where.createdAt.lte = end;
+            }
+        }
 
         const skip = (page - 1) * limit;
 

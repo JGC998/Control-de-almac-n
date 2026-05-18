@@ -23,12 +23,12 @@ const ResultItem = ({ item, onClick }) => {
       break;
     case 'pedido':
       icon = <Package className="w-4 h-4 text-purple-500" />;
-      typeText = `Pedido ${item.numero}`;
+      typeText = 'Pedido';
       path = `/pedidos/${item.id}`;
       break;
     case 'presupuesto':
       icon = <FileText className="w-4 h-4 text-yellow-500" />;
-      typeText = `Presupuesto ${item.numero}`;
+      typeText = 'Presupuesto';
       path = `/presupuestos/${item.id}`;
       break;
     default:
@@ -37,12 +37,17 @@ const ResultItem = ({ item, onClick }) => {
 
   return (
     <li>
-      <Link href={path} onClick={onClick} className="flex items-center justify-between p-2 hover:bg-base-200">
-        <div className="flex items-center">
+      <Link href={path} onClick={onClick} className="flex items-center justify-between p-2 hover:bg-base-200 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {icon}
-          <span className="ml-2 font-medium">{item.nombre || item.numero}</span>
+          <div className="min-w-0">
+            <div className="font-medium truncate">{item.nombre || item.numero}</div>
+            {item.clienteNombre && (
+              <div className="text-xs text-base-content/50 truncate">{item.clienteNombre}</div>
+            )}
+          </div>
         </div>
-        <span className="badge badge-sm badge-outline">{typeText}</span>
+        <span className="badge badge-sm badge-outline shrink-0">{typeText}</span>
       </Link>
     </li>
   );

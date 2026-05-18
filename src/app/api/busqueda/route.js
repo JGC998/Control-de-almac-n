@@ -46,17 +46,23 @@ export async function GET(request) {
 
     // Buscar en paralelo
     const [clientes, productos, pedidos, presupuestos] = await Promise.all([
-      db.cliente.findMany(searchConfig),
-      db.producto.findMany(productSearchConfig),
-      db.pedido.findMany(numSearchConfig('numero')),
-      db.presupuesto.findMany(numSearchConfig('numero')),
+      db.cliente.findMany({ ...searchConfig, select: { id: true, nombre: true, email: true } }),
+      db.producto.findMany({ ...productSearchConfig, select: { id: true, nombre: true, referenciaFabricante: true } }),
+      db.pedido.findMany({
+        ...numSearchConfig('numero'),
+        select: { id: true, numero: true, estado: true, total: true, cliente: { select: { nombre: true } } },
+      }),
+      db.presupuesto.findMany({
+        ...numSearchConfig('numero'),
+        select: { id: true, numero: true, estado: true, total: true, cliente: { select: { nombre: true } } },
+      }),
     ]);
 
     const results = [
-      ...clientes.map(c => ({ ...c, type: 'cliente' })),
-      ...productos.map(p => ({ ...p, type: 'producto' })),
-      ...pedidos.map(p => ({ ...p, type: 'pedido' })),
-      ...presupuestos.map(q => ({ ...q, type: 'presupuesto' })),
+      ...clientes.map(c => ({ id: c.id, nombre: c.nombre, email: c.email, type: 'cliente' })),
+      ...productos.map(p => ({ id: p.id, nombre: p.nombre, referencia: p.referenciaFabricante, type: 'producto' })),
+      ...pedidos.map(p => ({ id: p.id, numero: p.numero, estado: p.estado, total: p.total, clienteNombre: p.cliente?.nombre, type: 'pedido' })),
+      ...presupuestos.map(q => ({ id: q.id, numero: q.numero, estado: q.estado, total: q.total, clienteNombre: q.cliente?.nombre, type: 'presupuesto' })),
     ];
 
     // Ordenar los resultados para priorizar los que coinciden al principio, si fuera necesario.

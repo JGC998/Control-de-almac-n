@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { logCreate } from '@/lib/audit';
 
 export async function GET() {
   try {
@@ -35,6 +36,7 @@ export async function POST(request) {
         peso: parseFloat(peso),
       },
     });
+    await logCreate('TarifaRollo', tarifa.id, tarifa, 'Admin');
     return NextResponse.json(tarifa, { status: 201 });
   } catch (error) {
     if (error.code === 'P2002') {

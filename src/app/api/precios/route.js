@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { logCreate, logUpdate, logDelete } from '@/lib/audit';
 
 // Función para obtener un número de forma segura o null si es inválido/vacío
 const getSafeFloat = (value) => {
@@ -47,7 +48,8 @@ export async function POST(request) {
         color: data.color || null,
       },
     });
-    revalidatePath('/tarifas'); // Invalidate cache after create
+    await logCreate('TarifaMaterial', newTarifa.id, newTarifa, 'Admin');
+    revalidatePath('/tarifas');
     return NextResponse.json(newTarifa, { status: 201 });
   } catch (error) {
     console.error('Error creating tarifa:', error);
@@ -66,6 +68,7 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'ID de la tarifa es requerido para actualizar.' }, { status: 400 });
     }
 
+    const tarifaAnterior = await db.tarifaMaterial.findUnique({ where: { id } });
     const updatedTarifa = await db.tarifaMaterial.update({
       where: { id: id },
       data: {
@@ -76,7 +79,8 @@ export async function PUT(request) {
         color: data.color || null,
       },
     });
-    revalidatePath('/tarifas'); // Invalidate cache after update
+    await logUpdate('TarifaMaterial', id, tarifaAnterior, updatedTarifa, 'Admin');
+    revalidatePath('/tarifas');
     return NextResponse.json(updatedTarifa, { status: 200 });
   } catch (error) {
     console.error('Error updating tarifa:', error);
@@ -98,10 +102,10 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'ID de la tarifa es requerido para eliminar.' }, { status: 400 });
     }
 
-    await db.tarifaMaterial.delete({
-      where: { id: id },
-    });
-    revalidatePath('/tarifas'); // Invalidate cache after delete
+    const tarifaAnterior = await db.tarifaMaterial.findUnique({ where: { id } });
+    await db.tarifaMaterial.delete({ where: { id: id } });
+    await logDelete('TarifaMaterial', id, tarifaAnterior, 'Admin');
+    revalidatePath('/tarifas');
     return NextResponse.json({ message: 'Tarifa eliminada.' }, { status: 200 });
   } catch (error) {
     console.error('Error deleting tarifa:', error);

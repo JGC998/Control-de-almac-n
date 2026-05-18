@@ -10,18 +10,21 @@ import { es } from 'date-fns/locale';
 
 const fetcher = url => fetch(url).then(r => r.json());
 
-export default function LogViewer() {
+export default function LogViewer({ defaultEntity = '' }) {
     const [page, setPage] = useState(1);
     const [limit] = useState(20);
-    const [entityFilter, setEntityFilter] = useState('');
+    const [entityFilter, setEntityFilter] = useState(defaultEntity);
     const [actionFilter, setActionFilter] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
-    // Construir URL con filtros
     const queryParams = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
         ...(entityFilter && { entity: entityFilter }),
         ...(actionFilter && { action: actionFilter }),
+        ...(dateFrom && { dateFrom }),
+        ...(dateTo && { dateTo }),
     });
 
     const { data, isLoading } = useSWR(`/api/audit-log?${queryParams}`, fetcher);
@@ -83,11 +86,13 @@ export default function LogViewer() {
                         onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }}
                     >
                         <option value="">Todas</option>
+                        <option value="TarifaMaterial">Tarifa m²</option>
+                        <option value="TarifaRollo">Tarifa Rollo</option>
                         <option value="Producto">Producto</option>
+                        <option value="Cliente">Cliente</option>
+                        <option value="ReglaMargen">Regla Margen</option>
                         <option value="TarifaTransporte">Tarifa Transporte</option>
                         <option value="ConfigPaletizado">Config Paletizado</option>
-                        <option value="ReglaMargen">Regla Margen</option>
-                        <option value="Cliente">Cliente</option>
                     </select>
                 </div>
 
@@ -106,6 +111,42 @@ export default function LogViewer() {
                         <option value="DELETE">Eliminación</option>
                     </select>
                 </div>
+
+                <div className="form-control w-full sm:w-auto">
+                    <label className="label">
+                        <span className="label-text flex items-center gap-2"><Clock size={14} /> Desde</span>
+                    </label>
+                    <input
+                        type="date"
+                        className="input input-bordered input-sm"
+                        value={dateFrom}
+                        onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+                    />
+                </div>
+
+                <div className="form-control w-full sm:w-auto">
+                    <label className="label">
+                        <span className="label-text flex items-center gap-2"><Clock size={14} /> Hasta</span>
+                    </label>
+                    <input
+                        type="date"
+                        className="input input-bordered input-sm"
+                        value={dateTo}
+                        onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+                    />
+                </div>
+
+                {(entityFilter || actionFilter || dateFrom || dateTo) && (
+                    <div className="form-control w-full sm:w-auto justify-end">
+                        <label className="label"><span className="label-text opacity-0">.</span></label>
+                        <button
+                            className="btn btn-sm btn-ghost"
+                            onClick={() => { setEntityFilter(defaultEntity); setActionFilter(''); setDateFrom(''); setDateTo(''); setPage(1); }}
+                        >
+                            Limpiar filtros
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Tabla */}

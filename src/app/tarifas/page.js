@@ -1,8 +1,9 @@
 "use client";
 import React, { useState } from 'react';
-import { FileSpreadsheet, DollarSign, ScrollText } from 'lucide-react';
+import { FileSpreadsheet, DollarSign, ScrollText, History } from 'lucide-react';
 import TablaTarifas from '@/componentes/productos/TablaTarifas';
 import TablaTarifasRollo from '@/componentes/productos/TablaTarifasRollo';
+import LogViewer from '@/componentes/admin/LogViewer';
 
 export default function TarifasPage() {
   const [activeTab, setActiveTab] = useState('m2');
@@ -26,10 +27,27 @@ export default function TarifasPage() {
         >
           <ScrollText className="w-4 h-4" /> Tarifas por rollo
         </button>
+        <button
+          className={`tab gap-2 ${activeTab === 'historial' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('historial')}
+        >
+          <History className="w-4 h-4" /> Historial de cambios
+        </button>
       </div>
 
       {activeTab === 'm2' && <TablaTarifas />}
       {activeTab === 'rollo' && <TablaTarifasRollo />}
+      {activeTab === 'historial' && (
+        <div className="card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title mb-2">Historial de cambios en tarifas</h2>
+            <p className="text-sm text-base-content/60 mb-4">
+              Registro de todas las altas, modificaciones y eliminaciones de precios.
+            </p>
+            <LogViewer defaultEntity="TarifaMaterial" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
