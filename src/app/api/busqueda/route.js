@@ -14,33 +14,22 @@ export async function GET(request) {
     }
 
     const searchConfig = {
+      where: { nombre: { contains: query } },
+      take: 5,
+    };
+
+    const productSearchConfig = {
       where: {
-        nombre: {
-          contains: query,
-          mode: 'insensitive',
-        },
+        OR: [
+          { nombre: { contains: query } },
+          { referenciaFabricante: { contains: query } },
+        ],
       },
       take: 5,
     };
 
-    // Configuración específica para productos
-    const productSearchConfig = {
-      where: {
-        OR: [
-          { nombre: { contains: query, mode: 'insensitive' } },
-          { referenciaFabricante: { contains: query, mode: 'insensitive' } }
-        ]
-      },
-      take: 5
-    };
-
     const numSearchConfig = (field) => ({
-      where: {
-        [field]: {
-          contains: query,
-          mode: 'insensitive',
-        },
-      },
+      where: { [field]: { contains: query } },
       take: 5,
     });
 
