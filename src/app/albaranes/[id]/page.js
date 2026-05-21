@@ -5,7 +5,7 @@ import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import {
   ArrowLeft, Download, Trash2, CheckCircle, Package,
-  Clipboard, AlertTriangle, ExternalLink,
+  Clipboard, AlertTriangle, ExternalLink, Receipt, Plus,
 } from 'lucide-react';
 
 const ESTADO_BADGE = {
@@ -35,6 +35,21 @@ export default function AlbaranDetallePage() {
   const [error, setError] = useState(null);
 
   const { data: albaran, isLoading } = useSWR(id ? `/api/albaranes/${id}` : null);
+  const [generandoFactura, setGenerandoFactura] = useState(false);
+
+  async function handleGenerarFactura() {
+    setGenerandoFactura(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/albaranes/${id}/factura`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al generar factura');
+      router.push(`/facturas/${data.id}`);
+    } catch (e) {
+      setError(e.message);
+      setGenerandoFactura(false);
+    }
+  }
 
   async function cambiarEstado(nuevoEstado) {
     setLoading(true);
@@ -128,6 +143,23 @@ export default function AlbaranDetallePage() {
               {ESTADO_LABEL[est]}
             </button>
           ))}
+
+          {!albaran.factura && albaran.estado !== 'CANCELADO' && (
+            <button onClick={handleGenerarFactura} disabled={generandoFactura}
+              className="btn btn-sm btn-outline gap-1">
+              {generandoFactura
+                ? <span className="loading loading-spinner loading-xs" />
+                : <Receipt className="w-4 h-4" />
+              }
+              Generar factura
+            </button>
+          )}
+
+          {albaran.factura && (
+            <Link href={`/facturas/${albaran.factura.id}`} className="btn btn-sm btn-ghost gap-1">
+              <Receipt className="w-4 h-4" /> Ver factura
+            </Link>
+          )}
 
           <a
             href={`/api/albaranes/${id}/pdf`}

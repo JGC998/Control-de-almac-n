@@ -24,7 +24,7 @@ const NAV = [
           { href: '/presupuestos/nuevo', label: 'Nuevo presupuesto', icon: FilePlus },
           { href: '/pedidos/nuevo',      label: 'Nuevo pedido',      icon: PackagePlus },
           { href: '/albaranes/nuevo', label: 'Nuevo albarán', icon: Clipboard },
-          { href: '#', label: 'Nueva factura',  icon: Receipt,   disabled: true },
+          { href: '/facturas/nuevo', label: 'Nueva factura', icon: Receipt },
         ]
       },
       {
@@ -33,7 +33,7 @@ const NAV = [
           { href: '/presupuestos', label: 'Presupuestos', icon: FileText },
           { href: '/pedidos',      label: 'Pedidos',      icon: Package },
           { href: '/albaranes', label: 'Albaranes', icon: Clipboard },
-          { href: '#', label: 'Facturas',  icon: Receipt,   disabled: true },
+          { href: '/facturas', label: 'Facturas', icon: Receipt },
         ]
       }
     ]

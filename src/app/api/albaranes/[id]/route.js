@@ -10,8 +10,9 @@ export async function GET(request, { params }) {
       where: { id },
       include: {
         cliente: true,
-        pedido: { select: { id: true, numero: true, estado: true } },
-        items: { include: { producto: true } },
+        pedido:  { select: { id: true, numero: true, estado: true } },
+        factura: { select: { id: true, numero: true, estado: true } },
+        items:   { include: { producto: true } },
       },
     });
 

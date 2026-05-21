@@ -479,6 +479,153 @@ export async function generateOrderPDF(order, config = {}) {
     }
 }
 
+export async function generateFacturaPDF(factura) {
+    try {
+        const doc = new jsPDF();
+        const client = factura.cliente;
+
+        const logoBase64 = await getLogoBase64();
+        if (logoBase64) {
+            doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
+        }
+
+        // --- Cabecera ---
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("FACTURA", 14, 22);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(COMPANY_ADDRESS, 200, 30, { align: 'right' });
+        doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 36, { align: 'right' });
+
+        // --- Datos factura ---
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text('Número:', 14, 34);
+        doc.setFont("helvetica", "normal");
+        doc.text(factura.numero, 38, 34);
+
+        doc.setFont("helvetica", "bold");
+        doc.text('Fecha:', 14, 40);
+        doc.setFont("helvetica", "normal");
+        doc.text(new Date(factura.fechaCreacion).toLocaleDateString('es-ES'), 38, 40);
+
+        if (factura.fechaVencimiento) {
+            doc.setFont("helvetica", "bold");
+            doc.text('Vencimiento:', 14, 46);
+            doc.setFont("helvetica", "normal");
+            doc.text(new Date(factura.fechaVencimiento).toLocaleDateString('es-ES'), 46, 46);
+        }
+
+        const refY = factura.fechaVencimiento ? 52 : 46;
+        if (factura.albaran) {
+            doc.setFont("helvetica", "bold");
+            doc.text('Albarán:', 14, refY);
+            doc.setFont("helvetica", "normal");
+            doc.text(factura.albaran.numero, 38, refY);
+        } else if (factura.pedido) {
+            doc.setFont("helvetica", "bold");
+            doc.text('Pedido:', 14, refY);
+            doc.setFont("helvetica", "normal");
+            doc.text(factura.pedido.numero, 38, refY);
+        }
+
+        // --- Recuadro cliente ---
+        const clientBoxY = refY + 6;
+        doc.rect(14, clientBoxY, 90, 28);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text('Cliente:', 20, clientBoxY + 7);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        if (client) {
+            doc.text(client.nombre || '', 20, clientBoxY + 13);
+            const dir = doc.splitTextToSize(client.direccion || '', 80);
+            doc.text(dir, 20, clientBoxY + 19);
+        }
+
+        // --- Tabla de ítems ---
+        const tableRows = (factura.items || []).map(item => [
+            item.descripcion,
+            item.quantity,
+            `${item.unitPrice.toFixed(2)} €`,
+            `${(item.quantity * item.unitPrice).toFixed(2)} €`,
+        ]);
+
+        autoTable(doc, {
+            head: [["Descripción", "Cant.", "P. Unit.", "Total"]],
+            body: tableRows,
+            startY: clientBoxY + 32,
+            theme: 'grid',
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold' },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 20, halign: 'center' },
+                2: { cellWidth: 32, halign: 'right' },
+                3: { cellWidth: 32, halign: 'right' },
+            },
+        });
+
+        const finalY = doc.lastAutoTable.finalY;
+
+        // --- Desglose IVA (recuadro) ---
+        const ivaBoxX = 120;
+        const ivaBoxY = finalY + 8;
+        doc.setDrawColor(180, 180, 180);
+        doc.roundedRect(ivaBoxX, ivaBoxY, 76, 32, 2, 2);
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text('Base imponible:', ivaBoxX + 4, ivaBoxY + 8);
+        doc.text(`${(factura.subtotal || 0).toFixed(2)} €`, ivaBoxX + 72, ivaBoxY + 8, { align: 'right' });
+
+        doc.text('IVA (21%):', ivaBoxX + 4, ivaBoxY + 15);
+        doc.text(`${(factura.tax || 0).toFixed(2)} €`, ivaBoxX + 72, ivaBoxY + 15, { align: 'right' });
+
+        doc.setDrawColor(100, 100, 100);
+        doc.line(ivaBoxX + 4, ivaBoxY + 19, ivaBoxX + 72, ivaBoxY + 19);
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text('TOTAL:', ivaBoxX + 4, ivaBoxY + 26);
+        doc.text(`${(factura.total || 0).toFixed(2)} €`, ivaBoxX + 72, ivaBoxY + 26, { align: 'right' });
+
+        // --- Notas ---
+        if (factura.notas) {
+            const notesY = ivaBoxY + 40;
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text('Notas:', 14, notesY);
+            doc.setFont("helvetica", "normal");
+            doc.text(factura.notas, 14, notesY + 5, { maxWidth: 100 });
+        }
+
+        // --- Espacio para VeriFactu QR (Fase D) ---
+        // Reservado: esquina inferior derecha de la primera página
+        const qrPlaceholderY = Math.max(ivaBoxY + 42, 245);
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(180, 180, 180);
+        doc.text('Verificación fiscal (VeriFactu) — próximamente', 14, qrPlaceholderY);
+        doc.setTextColor(0, 0, 0);
+
+        // --- Firma ---
+        const firmaY = qrPlaceholderY + 10;
+        doc.setFontSize(9);
+        doc.line(14, firmaY, 80, firmaY);
+        doc.line(120, firmaY, 196, firmaY);
+        doc.text('Conforme — firma del cliente', 14, firmaY + 4);
+        doc.text('Sello y firma empresa', 120, firmaY + 4);
+
+        return doc.output('arraybuffer');
+    } catch (error) {
+        console.error('Error generating Factura PDF:', error);
+        throw error;
+    }
+}
+
 export async function generateAlbaranPDF(albaran) {
     try {
         const doc = new jsPDF();

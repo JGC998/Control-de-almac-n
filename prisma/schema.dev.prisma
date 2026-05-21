@@ -18,6 +18,7 @@ model Cliente {
   pedidos      Pedido[]
   presupuestos Presupuesto[]
   albaranes    Albaran[]
+  facturas     Factura[]
 
   @@index([email])
 }
@@ -51,6 +52,7 @@ model Pedido {
   presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id])
   items       PedidoItem[]
   albaranes   Albaran[]
+  facturas    Factura[]
 
   @@index([clienteId])
   @@index([estado])
@@ -69,14 +71,57 @@ model Albaran {
   clienteId     String?
   pedidoId      String?
 
-  cliente Cliente?      @relation(fields: [clienteId], references: [id])
-  pedido  Pedido?       @relation(fields: [pedidoId], references: [id])
-  items   AlbaranItem[]
+  cliente  Cliente?      @relation(fields: [clienteId], references: [id])
+  pedido   Pedido?       @relation(fields: [pedidoId], references: [id])
+  items    AlbaranItem[]
+  factura  Factura?
 
   @@index([clienteId])
   @@index([pedidoId])
   @@index([estado])
   @@index([fechaCreacion])
+}
+
+model Factura {
+  id               String    @id @default(uuid())
+  numero           String    @unique
+  fechaCreacion    DateTime  @default(now())
+  fechaVencimiento DateTime?
+  estado           String
+  notas            String?
+  subtotal         Float
+  tax              Float
+  total            Float
+  clienteId        String?
+  albaranId        String?   @unique
+  pedidoId         String?
+
+  cliente Cliente?      @relation(fields: [clienteId], references: [id])
+  albaran Albaran?      @relation(fields: [albaranId], references: [id])
+  pedido  Pedido?       @relation(fields: [pedidoId], references: [id])
+  items   FacturaItem[]
+
+  @@index([clienteId])
+  @@index([pedidoId])
+  @@index([estado])
+  @@index([fechaCreacion])
+}
+
+model FacturaItem {
+  id               String  @id @default(uuid())
+  descripcion      String
+  quantity         Int
+  unitPrice        Float
+  pesoUnitario     Float   @default(0)
+  detallesTecnicos String?
+  facturaId        String
+  productoId       String?
+
+  factura  Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([facturaId])
+  @@index([productoId])
 }
 
 model AlbaranItem {
@@ -338,10 +383,11 @@ model Producto {
   fabricante Fabricante? @relation(fields: [fabricanteId], references: [id])
   material   Material?   @relation(fields: [materialId], references: [id])
 
-  itemsPedido  PedidoItem[]
-  itemsPresup  PresupuestoItem[]
-  itemsAlbaran AlbaranItem[]
-  documentos   Documento[]
+  itemsPedido   PedidoItem[]
+  itemsPresup   PresupuestoItem[]
+  itemsAlbaran  AlbaranItem[]
+  itemsFactura  FacturaItem[]
+  documentos    Documento[]
 
   @@index([nombre])
   @@index([fabricanteId])

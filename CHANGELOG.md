@@ -74,14 +74,14 @@ Registro diario de cambios, mejoras y tareas pendientes.
 - ✅ ~~PDF de albarán~~
 - ✅ ~~Activar enlaces "Nuevo albarán" y "Albaranes" en nav~~
 
-### Fase C — Facturas
-- ⏳ Modelo Prisma: `Factura`, `FacturaItem`
-- ⏳ Migración de base de datos
-- ⏳ API `/api/facturas/`
-- ⏳ Página `/facturas` (listado)
-- ⏳ Flujo: Albarán → generar Factura / Pedido → generar Factura directa
-- ⏳ PDF de factura (con desglose IVA)
-- ⏳ Activar enlaces "Nueva factura" y "Facturas" en nav
+### Fase C — Facturas ✅
+- ✅ ~~Modelo Prisma: `Factura`, `FacturaItem`~~
+- ✅ ~~Migración de base de datos~~
+- ✅ ~~API `/api/facturas/`~~
+- ✅ ~~Página `/facturas` (listado)~~
+- ✅ ~~Flujo: Albarán → generar Factura~~
+- ✅ ~~PDF de factura (con desglose IVA + espacio reservado VeriFactu QR)~~
+- ✅ ~~Activar enlaces "Nueva factura" y "Facturas" en nav~~
 
 ### Fase D — VeriFactu (obligatorio antes del 01/01/2027)
 - ⏳ Configuración del emisor (NIF, nombre fiscal, dirección)

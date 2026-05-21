@@ -36,12 +36,11 @@ export default function VentasHub() {
               accion: 'Crear albarán',
             },
             {
-              href: '#',
+              href: '/facturas/nuevo',
               icon: Receipt,
               titulo: 'Nueva factura',
-              descripcion: 'Emite una factura desde un albarán o directamente desde un pedido.',
+              descripcion: 'Emite una factura desde un albarán emitido.',
               accion: 'Crear factura',
-              disabled: true,
             },
           ]
         },
@@ -70,12 +69,11 @@ export default function VentasHub() {
               accion: 'Ver albaranes',
             },
             {
-              href: '#',
+              href: '/facturas',
               icon: Receipt,
               titulo: 'Facturas',
               descripcion: 'Listado de facturas emitidas, pagadas y pendientes.',
               accion: 'Ver facturas',
-              disabled: true,
             },
           ]
         }
