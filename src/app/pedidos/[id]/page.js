@@ -1,11 +1,10 @@
 "use client";
 import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
-import useSWR from 'swr';
+import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, Truck, FileText, DollarSign, CheckCircle, Package } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, FileText, DollarSign, CheckCircle, Package, Clipboard, Plus } from 'lucide-react';
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
-import EmailButton from '@/componentes/presupuestos/EmailButton';
 
 
 // Componente para manejar el desglose del total y los cálculos por item.
@@ -130,6 +129,7 @@ export default function PedidoDetalle() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [generandoAlbaran, setGenerandoAlbaran] = useState(false);
 
   const openEditModal = () => setIsEditModalOpen(true);
   const closeEditModal = () => setIsEditModalOpen(false);
@@ -137,6 +137,23 @@ export default function PedidoDetalle() {
   const { data: order, error: orderError, isLoading: orderLoading, mutate } = useSWR(id ? `/api/pedidos/${id}` : null);
   const { data: margenes } = useSWR('/api/pricing/margenes');
   const { data: config } = useSWR('/api/config');
+  const { data: albaranesData } = useSWR(id ? `/api/albaranes?pedidoId=${id}&limit=20` : null);
+  const albaranes = albaranesData?.data || [];
+
+  const handleGenerarAlbaran = async () => {
+    setGenerandoAlbaran(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/pedidos/${id}/albaran`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al generar albarán');
+      globalMutate(`/api/albaranes?pedidoId=${id}&limit=20`);
+      router.push(`/albaranes/${data.id}`);
+    } catch (err) {
+      setError(err.message);
+      setGenerandoAlbaran(false);
+    }
+  };
 
 
   const handleDelete = async () => {
@@ -219,10 +236,20 @@ export default function PedidoDetalle() {
       {error && <div className="alert alert-error shadow-lg mb-4">{error}</div>}
 
       <div className="flex flex-wrap gap-2 mb-6">
-        <EmailButton id={order.id} emailCliente={order.cliente?.email} />
-
         <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary">
           <Download className="w-4 h-4" /> Descargar PDF
+        </button>
+        <button
+          onClick={handleGenerarAlbaran}
+          disabled={generandoAlbaran || order.estado === 'Cancelado'}
+          className="btn btn-outline gap-1"
+          title="Genera un albarán de entrega a partir de este pedido"
+        >
+          {generandoAlbaran
+            ? <span className="loading loading-spinner loading-xs" />
+            : <Clipboard className="w-4 h-4" />
+          }
+          Generar albarán
         </button>
         <button onClick={openEditModal} className="btn btn-outline btn-primary">
           <Edit className="w-4 h-4" /> Editar Pedido
@@ -284,6 +311,45 @@ export default function PedidoDetalle() {
             {order.notas || 'Sin notas registradas.'}
           </p>
         </div>
+
+        {/* Albaranes vinculados */}
+        {albaranes.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <Clipboard className="w-5 h-5" /> Albaranes generados
+              </h3>
+              <Link href="/albaranes" className="btn btn-ghost btn-xs">Ver todos →</Link>
+            </div>
+            <div className="flex flex-col gap-2">
+              {albaranes.map(alb => (
+                <Link
+                  key={alb.id}
+                  href={`/albaranes/${alb.id}`}
+                  className="flex items-center justify-between bg-base-200 hover:bg-base-300 border border-base-300 rounded-lg px-4 py-2 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Clipboard className="w-4 h-4 opacity-40" />
+                    <span className="font-mono font-semibold text-sm">{alb.numero}</span>
+                    <span className="text-xs text-base-content/50">
+                      {new Date(alb.fechaCreacion).toLocaleDateString('es-ES')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-sm">{alb.total.toFixed(2)} €</span>
+                    <span className={`badge badge-sm ${
+                      alb.estado === 'ENTREGADO' ? 'badge-success' :
+                      alb.estado === 'EMITIDO'   ? 'badge-info' :
+                      alb.estado === 'CANCELADO' ? 'badge-error' : 'badge-ghost'
+                    }`}>
+                      {alb.estado.charAt(0) + alb.estado.slice(1).toLowerCase()}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Edición del Pedido */}

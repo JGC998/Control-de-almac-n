@@ -4,7 +4,7 @@ import { ArrowRight, Clock } from 'lucide-react';
 function HubCard({ item, color }) {
   if (item.disabled) {
     return (
-      <div className="card bg-base-100 border border-base-200 opacity-50 cursor-not-allowed">
+      <div className="card bg-base-200 border border-base-300 opacity-50 cursor-not-allowed">
         <div className="card-body p-5">
           <div className="flex items-start justify-between mb-3">
             <div className={`p-2.5 rounded-xl bg-base-200`}>
@@ -24,7 +24,7 @@ function HubCard({ item, color }) {
   return (
     <Link
       href={item.href}
-      className="card bg-base-100 border border-base-200 hover:border-primary/40 hover:shadow-md transition-all group"
+      className="card bg-base-200 hover:bg-base-300 border border-base-300 hover:border-primary/40 hover:shadow-md transition-all group"
     >
       <div className="card-body p-5">
         <div className="flex items-start justify-between mb-3">

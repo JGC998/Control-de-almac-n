@@ -23,7 +23,7 @@ const NAV = [
         links: [
           { href: '/presupuestos/nuevo', label: 'Nuevo presupuesto', icon: FilePlus },
           { href: '/pedidos/nuevo',      label: 'Nuevo pedido',      icon: PackagePlus },
-          { href: '#', label: 'Nuevo albarán',  icon: Clipboard, disabled: true },
+          { href: '/albaranes/nuevo', label: 'Nuevo albarán', icon: Clipboard },
           { href: '#', label: 'Nueva factura',  icon: Receipt,   disabled: true },
         ]
       },
@@ -32,7 +32,7 @@ const NAV = [
         links: [
           { href: '/presupuestos', label: 'Presupuestos', icon: FileText },
           { href: '/pedidos',      label: 'Pedidos',      icon: Package },
-          { href: '#', label: 'Albaranes', icon: Clipboard, disabled: true },
+          { href: '/albaranes', label: 'Albaranes', icon: Clipboard },
           { href: '#', label: 'Facturas',  icon: Receipt,   disabled: true },
         ]
       }
@@ -179,17 +179,14 @@ function FlatDropdown({ item, pathname }) {
   );
 }
 
-// Wrapper: label como link al hub + toda el área activa como trigger del dropdown hover
-function NavDropdown({ item, pathname }) {
+// Wrapper: label como link al hub + toda el área activa como trigger del dropdown
+function NavDropdown({ item, pathname, isOpen, onOpen }) {
   const active = sectionIsActive(item, pathname);
   const hasGroups = Boolean(item.groups);
 
   return (
-    <div className="dropdown dropdown-hover dropdown-bottom">
-      {/* Trigger: al hacer hover aparece el dropdown; al hacer clic en el texto va al hub */}
+    <div className="relative" onMouseEnter={onOpen}>
       <div
-        tabIndex={0}
-        role="button"
         className={`flex items-center gap-0.5 h-9 px-2 rounded-btn cursor-pointer select-none
           hover:bg-base-200 transition-colors text-sm font-medium
           ${active ? 'text-primary' : 'text-base-content'}`}
@@ -200,18 +197,14 @@ function NavDropdown({ item, pathname }) {
         <ChevronDown className="w-3 h-3 opacity-40 mt-0.5" />
       </div>
 
-      {/* Contenido del dropdown */}
-      <div className="dropdown-content bg-base-100 rounded-box z-50 shadow-xl border border-base-200 mt-0.5 overflow-hidden">
-        {hasGroups
-          ? <GroupedDropdown item={item} pathname={pathname} />
-          : <FlatDropdown item={item} pathname={pathname} />
-        }
-        <div className="border-t border-base-200 px-3 py-1.5">
-          <Link href={item.hub} className="flex items-center gap-1 text-xs text-primary hover:underline">
-            Ver todo en {item.label} →
-          </Link>
+      {isOpen && (
+        <div className="absolute top-full left-0 bg-base-100 rounded-box z-50 shadow-xl border border-base-200 mt-0.5 overflow-hidden">
+          {hasGroups
+            ? <GroupedDropdown item={item} pathname={pathname} />
+            : <FlatDropdown item={item} pathname={pathname} />
+          }
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -219,6 +212,7 @@ function NavDropdown({ item, pathname }) {
 export default function Encabezado() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeNav, setActiveNav] = useState(null);
   const configActive = pathname.startsWith('/configuracion');
 
   return (
@@ -234,7 +228,10 @@ export default function Encabezado() {
         </div>
 
         {/* Desktop nav */}
-        <nav className="flex-1 hidden lg:flex items-center gap-0">
+        <nav
+          className="flex-1 hidden lg:flex items-center gap-0"
+          onMouseLeave={() => setActiveNav(null)}
+        >
           {NAV.map(item =>
             item.single ? (
               <Link
@@ -246,7 +243,13 @@ export default function Encabezado() {
                 {item.label}
               </Link>
             ) : (
-              <NavDropdown key={item.label} item={item} pathname={pathname} />
+              <NavDropdown
+                key={item.label}
+                item={item}
+                pathname={pathname}
+                isOpen={activeNav === item.label}
+                onOpen={() => setActiveNav(item.label)}
+              />
             )
           )}
         </nav>
@@ -262,24 +265,29 @@ export default function Encabezado() {
           </div>
 
           {/* Configuración → hub */}
-          <div className="dropdown dropdown-hover dropdown-bottom dropdown-end hidden lg:block">
+          <div
+            className="relative hidden lg:block"
+            onMouseEnter={() => setActiveNav('__config')}
+            onMouseLeave={() => setActiveNav(null)}
+          >
             <Link
-              tabIndex={0}
               href="/configuracion"
               className={`btn btn-ghost btn-sm btn-circle ${configActive ? 'text-primary' : ''}`}
               title="Configuración"
             >
               <Settings className="w-4 h-4" />
             </Link>
-            <ul tabIndex={0} className="dropdown-content menu bg-base-100 rounded-box z-50 w-56 p-2 shadow-xl border border-base-200 mt-0.5">
-              {CONFIG_LINKS.map(link => (
-                <li key={link.href}>
-                  <Link href={link.href} className={isActive(link.href, pathname) ? 'active' : ''}>
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            {activeNav === '__config' && (
+              <ul className="absolute right-0 top-full menu bg-base-100 rounded-box z-50 w-56 p-2 shadow-xl border border-base-200 mt-0.5">
+                {CONFIG_LINKS.map(link => (
+                  <li key={link.href}>
+                    <Link href={link.href} className={isActive(link.href, pathname) ? 'active' : ''}>
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Hamburguesa móvil */}

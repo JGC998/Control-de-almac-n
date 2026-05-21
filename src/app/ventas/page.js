@@ -29,12 +29,11 @@ export default function VentasHub() {
               accion: 'Crear pedido',
             },
             {
-              href: '#',
+              href: '/albaranes/nuevo',
               icon: Clipboard,
               titulo: 'Nuevo albarán',
               descripcion: 'Genera un albarán de entrega a partir de un pedido confirmado.',
               accion: 'Crear albarán',
-              disabled: true,
             },
             {
               href: '#',
@@ -64,12 +63,11 @@ export default function VentasHub() {
               accion: 'Ver pedidos',
             },
             {
-              href: '#',
+              href: '/albaranes',
               icon: Clipboard,
               titulo: 'Albaranes',
               descripcion: 'Listado de albaranes emitidos y su estado de entrega.',
               accion: 'Ver albaranes',
-              disabled: true,
             },
             {
               href: '#',

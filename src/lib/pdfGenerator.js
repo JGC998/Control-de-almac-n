@@ -478,3 +478,118 @@ export async function generateOrderPDF(order, config = {}) {
         throw error;
     }
 }
+
+export async function generateAlbaranPDF(albaran) {
+    try {
+        const doc = new jsPDF();
+        const client = albaran.cliente;
+
+        const logoBase64 = await getLogoBase64();
+        if (logoBase64) {
+            doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
+        }
+
+        // --- Cabecera ---
+        doc.setFontSize(20);
+        doc.setFont("helvetica", "bold");
+        doc.text("ALBARÁN DE ENTREGA", 14, 22);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
+        doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Número:`, 14, 36);
+        doc.setFont("helvetica", "normal");
+        doc.text(albaran.numero, 38, 36);
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`Fecha:`, 14, 42);
+        doc.setFont("helvetica", "normal");
+        doc.text(new Date(albaran.fechaCreacion).toLocaleDateString('es-ES'), 38, 42);
+
+        if (albaran.pedido) {
+            doc.setFont("helvetica", "bold");
+            doc.text(`Pedido:`, 14, 48);
+            doc.setFont("helvetica", "normal");
+            doc.text(albaran.pedido.numero, 38, 48);
+        }
+
+        // --- Recuadro cliente ---
+        const clientY = albaran.pedido ? 58 : 55;
+        doc.rect(14, clientY, 90, 28);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Cliente:", 20, clientY + 6);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        if (client) {
+            doc.text(client.nombre || '', 20, clientY + 12);
+            const dir = doc.splitTextToSize(client.direccion || 'Dirección no especificada', 80);
+            doc.text(dir, 20, clientY + 18);
+        }
+
+        // --- Tabla de ítems ---
+        const tableRows = (albaran.items || []).map(item => [
+            item.descripcion,
+            item.quantity,
+            `${(item.unitPrice).toFixed(2)} €`,
+            `${(item.quantity * item.unitPrice).toFixed(2)} €`,
+        ]);
+
+        autoTable(doc, {
+            head: [["Descripción", "Cantidad", "P. Unit.", "Total"]],
+            body: tableRows,
+            startY: clientY + 33,
+            theme: 'grid',
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [220, 220, 220], textColor: 40, fontStyle: 'bold' },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 25, halign: 'center' },
+                2: { cellWidth: 30, halign: 'right' },
+                3: { cellWidth: 30, halign: 'right' },
+            },
+        });
+
+        const finalY = doc.lastAutoTable.finalY;
+
+        // --- Totales ---
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Subtotal:`, 145, finalY + 10);
+        doc.text(`${(albaran.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
+        doc.text(`IVA (21%):`, 145, finalY + 16);
+        doc.text(`${(albaran.tax || 0).toFixed(2)} €`, 198, finalY + 16, { align: 'right' });
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(`TOTAL:`, 145, finalY + 24);
+        doc.text(`${(albaran.total || 0).toFixed(2)} €`, 198, finalY + 24, { align: 'right' });
+
+        // --- Notas ---
+        if (albaran.notas) {
+            const notesY = finalY + 35;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.text("Notas:", 14, notesY);
+            doc.setFont("helvetica", "normal");
+            doc.text(albaran.notas, 14, notesY + 6, { maxWidth: 180 });
+        }
+
+        // --- Firma ---
+        const firmaY = Math.max(finalY + 55, 230);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.line(14, firmaY, 80, firmaY);
+        doc.line(120, firmaY, 196, firmaY);
+        doc.text("Firma del receptor", 14, firmaY + 5);
+        doc.text("Sello y firma empresa", 120, firmaY + 5);
+
+        return doc.output('arraybuffer');
+    } catch (error) {
+        console.error("Error generating Albaran PDF:", error);
+        throw error;
+    }
+}

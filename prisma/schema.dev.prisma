@@ -17,6 +17,7 @@ model Cliente {
   categoria    String?
   pedidos      Pedido[]
   presupuestos Presupuesto[]
+  albaranes    Albaran[]
 
   @@index([email])
 }
@@ -49,10 +50,50 @@ model Pedido {
   cliente     Cliente?     @relation(fields: [clienteId], references: [id])
   presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id])
   items       PedidoItem[]
+  albaranes   Albaran[]
 
   @@index([clienteId])
   @@index([estado])
   @@index([fechaCreacion])
+}
+
+model Albaran {
+  id            String   @id @default(uuid())
+  numero        String   @unique
+  fechaCreacion DateTime @default(now())
+  estado        String
+  notas         String?
+  subtotal      Float
+  tax           Float
+  total         Float
+  clienteId     String?
+  pedidoId      String?
+
+  cliente Cliente?      @relation(fields: [clienteId], references: [id])
+  pedido  Pedido?       @relation(fields: [pedidoId], references: [id])
+  items   AlbaranItem[]
+
+  @@index([clienteId])
+  @@index([pedidoId])
+  @@index([estado])
+  @@index([fechaCreacion])
+}
+
+model AlbaranItem {
+  id               String  @id @default(uuid())
+  descripcion      String
+  quantity         Int
+  unitPrice        Float
+  pesoUnitario     Float   @default(0)
+  detallesTecnicos String?
+  albaranId        String
+  productoId       String?
+
+  albaran  Albaran   @relation(fields: [albaranId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([albaranId])
+  @@index([productoId])
 }
 
 model PedidoItem {
@@ -297,9 +338,10 @@ model Producto {
   fabricante Fabricante? @relation(fields: [fabricanteId], references: [id])
   material   Material?   @relation(fields: [materialId], references: [id])
 
-  itemsPedido PedidoItem[]
-  itemsPresup PresupuestoItem[]
-  documentos  Documento[]
+  itemsPedido  PedidoItem[]
+  itemsPresup  PresupuestoItem[]
+  itemsAlbaran AlbaranItem[]
+  documentos   Documento[]
 
   @@index([nombre])
   @@index([fabricanteId])

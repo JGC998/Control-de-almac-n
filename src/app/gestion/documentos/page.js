@@ -318,7 +318,7 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
 
             {/* MODALES SECUNDARIOS */}
             <ProductSearchModal
-                key={isProductSearchOpen}
+                key="modal-product-search"
                 isOpen={isProductSearchOpen}
                 onClose={() => setIsProductSearchOpen(false)}
                 onSelect={handleSelectProduct}

@@ -640,7 +640,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
 
       {/* MODALS */}
       <ReferenciaSearchModal
-        key={refSearchModalOpen}
+        key="modal-referencia"
         isOpen={refSearchModalOpen} onClose={() => setRefSearchModalOpen(false)}
         onSelect={handleSelectReferencia} onCreateNew={handleCreateNewReferencia}
         referencias={referencias} initialSearch={formData.bobinas[activeRowIndex]?.referenciaNombre || ''}
@@ -649,7 +649,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
 
       {/* MODAL DE BÚSQUEDA DE PROVEEDOR (NUEVO) */}
       <ProveedorSearchModal
-        key={provSearchModalOpen}
+        key="modal-proveedor"
         isOpen={provSearchModalOpen} onClose={() => setProvSearchModalOpen(false)}
         onSelect={handleSelectProveedor} onCreateNew={handleCreateNewProveedor}
         proveedores={proveedores} initialSearch={proveedorBusqueda}

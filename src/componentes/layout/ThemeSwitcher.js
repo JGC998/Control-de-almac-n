@@ -46,18 +46,17 @@ const TEMAS = [
 ];
 
 export default function ThemeSwitcher() {
-  const [tema, setTema] = useState('corporate');
+  const [tema, setTema] = useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem('crm-tema') || 'corporate') : 'corporate'
+  );
 
   useEffect(() => {
-    const guardado = localStorage.getItem('crm-tema') || 'corporate';
-    setTema(guardado);
-    document.documentElement.setAttribute('data-theme', guardado);
-  }, []);
+    document.documentElement.setAttribute('data-theme', tema);
+  }, [tema]);
 
   function cambiar(id) {
     setTema(id);
     localStorage.setItem('crm-tema', id);
-    document.documentElement.setAttribute('data-theme', id);
   }
 
   const actual = TEMAS.find(t => t.id === tema);

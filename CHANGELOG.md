@@ -34,16 +34,45 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+---
+
+## 2026-05-21 (sesión 2)
+
+### Rama: `refactorizacion`
+
+#### Correcciones de bugs
+- ✅ `key={boolOpen}` en modales → claves estáticas únicas (FormularioPedidoProveedor, documentos)
+- ✅ `setState` síncrono en `useEffect` → lazy initialization en ThemeSwitcher
+- ✅ Dropdowns del nav: solo un dropdown abierto a la vez (estado JS, no CSS hover)
+- ✅ Quitar "Ver todo en X →" del pie de dropdown (el label ya navega al hub)
+- ✅ Cards del hub: fondo `bg-base-200` para distinguirse del fondo de la página
+
+#### Fase B — Albaranes
+- ✅ Modelos Prisma: `Albaran`, `AlbaranItem`; relaciones en `Pedido`, `Cliente`, `Producto`
+- ✅ BD actualizada (`prisma db push`)
+- ✅ API `GET/POST /api/albaranes`
+- ✅ API `GET/PUT/DELETE /api/albaranes/[id]`
+- ✅ API `GET /api/albaranes/[id]/pdf` (genera PDF con firma, totales, referencia al pedido)
+- ✅ API `POST /api/pedidos/[id]/albaran` — genera albarán desde pedido (transacción)
+- ✅ Página `/albaranes` — listado con filtro por estado y paginación
+- ✅ Página `/albaranes/[id]` — detalle con cambio de estado y descarga PDF
+- ✅ Página `/albaranes/nuevo` — selección de pedido para generar albarán
+- ✅ Página `/pedidos/[id]` — botón "Generar albarán" + sección de albaranes vinculados
+- ✅ Nav: "Nuevo albarán" y "Albaranes" activos (quitado `disabled: true`)
+- ✅ Hub Ventas: cards de Albarán y Albaranes activas
+
+---
+
 ## Backlog — por implementar (futuro)
 
 ### Fase B — Albaranes
-- ⏳ Modelo Prisma: `Albaran`, `AlbaranItem`
-- ⏳ Migración de base de datos
-- ⏳ API `/api/albaranes/`
-- ⏳ Página `/albaranes` (listado)
-- ⏳ Flujo: Pedido → generar Albarán
-- ⏳ PDF de albarán
-- ⏳ Activar enlaces "Nuevo albarán" y "Albaranes" en nav (actualmente *próximamente*)
+- ✅ ~~Modelo Prisma: `Albaran`, `AlbaranItem`~~
+- ✅ ~~Migración de base de datos~~
+- ✅ ~~API `/api/albaranes/`~~
+- ✅ ~~Página `/albaranes` (listado)~~
+- ✅ ~~Flujo: Pedido → generar Albarán~~
+- ✅ ~~PDF de albarán~~
+- ✅ ~~Activar enlaces "Nuevo albarán" y "Albaranes" en nav~~
 
 ### Fase C — Facturas
 - ⏳ Modelo Prisma: `Factura`, `FacturaItem`
