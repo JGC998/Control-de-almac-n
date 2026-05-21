@@ -107,39 +107,33 @@ export default function BarraBusqueda() {
   };
 
   return (
-    // Utilizamos el patrón 'dropdown' de DaisyUI
-    <form onSubmit={handleSearchSubmit} className="dropdown dropdown-bottom dropdown-end w-full" ref={dropdownRef}>
-      <div className="form-control w-full">
-        <div className="input-group w-full">
-          <input
-            type="text"
-            placeholder="Buscar cliente, pedido..."
-            className="input input-bordered w-full"
-            value={query}
-            onChange={handleSearchChange}
-            // 'tabIndex' es necesario para que el div se comporte como el botón del dropdown
-            tabIndex={0}
-          />
-          <button type="submit" className="btn btn-square btn-primary">
-            <Search />
-          </button>
-        </div>
+    <form onSubmit={handleSearchSubmit} className="relative w-full" ref={dropdownRef}>
+      <div className="join w-full">
+        <input
+          type="text"
+          placeholder="Buscar cliente, pedido..."
+          className="input input-bordered input-sm join-item w-full"
+          value={query}
+          onChange={handleSearchChange}
+          tabIndex={0}
+        />
+        <button type="submit" className="btn btn-sm btn-primary join-item px-3">
+          <Search className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Contenido del Dropdown (Resultados) */}
       {isDropdownOpen && (
-        <ul tabIndex={0} className="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box w-full max-w-md mt-1">
+        <ul className="absolute top-full left-0 right-0 z-50 mt-1 bg-base-100 border border-base-300 rounded-box shadow-xl p-1 min-w-72">
           {isLoading ? (
-            <div className="p-4 text-center">
-              <span className="loading loading-spinner loading-sm"></span>
-            </div>
+            <li className="p-4 text-center">
+              <span className="loading loading-spinner loading-sm" />
+            </li>
+          ) : results?.length === 0 ? (
+            <li className="p-3 text-sm text-base-content/50 text-center">Sin resultados para &quot;{query}&quot;</li>
           ) : (
             results?.map((item, index) => (
               <ResultItem key={index} item={item} onClick={handleItemClick} />
             ))
-          )}
-          {results?.length === 0 && (
-            <li className="p-2 text-sm text-gray-500">No hay coincidencias.</li>
           )}
         </ul>
       )}

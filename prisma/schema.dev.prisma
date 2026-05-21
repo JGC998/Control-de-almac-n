@@ -1,0 +1,369 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Cliente {
+  id           String        @id @default(uuid())
+  nombre       String        @unique
+  email        String?
+  direccion    String?
+  telefono     String?
+  tier         String?
+  categoria    String?
+  pedidos      Pedido[]
+  presupuestos Presupuesto[]
+
+  @@index([email])
+}
+
+model Fabricante {
+  id        String     @id @default(uuid())
+  nombre    String     @unique
+  productos Producto[]
+}
+
+model Material {
+  id        String     @id @default(uuid())
+  nombre    String     @unique
+  productos Producto[]
+}
+
+model Pedido {
+  id            String    @id @default(uuid())
+  numero        String    @unique
+  fechaCreacion DateTime  @default(now())
+  estado        String
+  notas         String?
+  subtotal      Float
+  tax           Float
+  total         Float
+  clienteId     String?
+  presupuestoId String?   @unique
+  marginId      String?
+
+  cliente     Cliente?     @relation(fields: [clienteId], references: [id])
+  presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id])
+  items       PedidoItem[]
+
+  @@index([clienteId])
+  @@index([estado])
+  @@index([fechaCreacion])
+}
+
+model PedidoItem {
+  id               String  @id @default(uuid())
+  descripcion      String
+  quantity         Int
+  unitPrice        Float
+  pesoUnitario     Float   @default(0)
+  detallesTecnicos String?
+  pedidoId         String
+  productoId       String?
+
+  pedido   Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([pedidoId])
+  @@index([productoId])
+}
+
+model Presupuesto {
+  id            String    @id @default(uuid())
+  numero        String    @unique
+  fechaCreacion DateTime  @default(now())
+  estado        String
+  notas         String?
+  subtotal      Float
+  tax           Float
+  total         Float
+  clienteId     String?
+  marginId      String?
+
+  cliente Cliente?          @relation(fields: [clienteId], references: [id])
+  items   PresupuestoItem[]
+  pedido  Pedido?
+
+  @@index([clienteId])
+  @@index([estado])
+  @@index([fechaCreacion])
+}
+
+model PresupuestoItem {
+  id               String  @id @default(uuid())
+  descripcion      String
+  quantity         Int
+  unitPrice        Float
+  pesoUnitario     Float   @default(0)
+  detallesTecnicos String?
+  presupuestoId    String
+  productoId       String?
+
+  presupuesto Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+  producto    Producto?   @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([presupuestoId])
+  @@index([productoId])
+}
+
+model Proveedor {
+  id        String            @id @default(uuid())
+  nombre    String            @unique
+  email     String?
+  telefono  String?
+  direccion String?
+  pedidos   PedidoProveedor[]
+}
+
+model Stock {
+  id                String            @id @default(uuid())
+  material          String
+  espesor           Float?
+  metrosDisponibles Float
+  proveedor         String?
+  costoMetro        Float?
+  cantidadBobinas   Int?              @default(0)
+  movimientos       MovimientoStock[]
+}
+
+model MovimientoStock {
+  id        String   @id @default(uuid())
+  tipo      String
+  cantidad  Float
+  fecha     DateTime @default(now())
+  stockId   String?
+  stockItem Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
+}
+
+model PedidoProveedor {
+  id          String   @id @default(uuid())
+  material    String
+  fecha       DateTime @default(now())
+  estado      String
+  proveedorId String
+
+  tipo                 String    @default("NACIONAL")
+  notas                String?
+  numeroFactura        String?
+  gastosTotales        Float     @default(0)
+  tasaCambio           Float     @default(1)
+  numeroContenedor     String?
+  naviera              String?
+  fechaLlegadaEstimada DateTime?
+
+  proveedor Proveedor      @relation(fields: [proveedorId], references: [id])
+  bobinas   BobinaPedido[]
+}
+
+model BobinaPedido {
+  id          String @id @default(uuid())
+  cantidad    Int    @default(1)
+  pedidoId    String
+  pedido      PedidoProveedor @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  ancho       Float?
+  largo       Float?
+  espesor     Float?
+  precioMetro Float  @default(0)
+
+  referenciaId String?
+  referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
+}
+
+model ReferenciaBobina {
+  id                 String         @id @default(uuid())
+  referencia         String         @default("")
+  nombre             String?
+  ancho              Float?
+  lonas              Float?
+  pesoPorMetroLineal Float?
+  bobinas            BobinaPedido[]
+
+  @@unique([referencia, ancho, lonas])
+}
+
+model ReglaMargen {
+  id            String  @id @default(uuid())
+  base          String  @unique
+  tipo          String?
+  multiplicador Float
+  gastoFijo     Float?
+  descripcion   String
+  tierCliente   String?
+}
+
+model TarifaMaterial {
+  id       String  @id @default(uuid())
+  material String
+  espesor  Float
+  precio   Float
+  peso     Float
+  color    String?
+
+  @@unique([material, espesor, color])
+}
+
+model TarifaRollo {
+  id            String  @id @default(uuid())
+  material      String
+  espesor       Float
+  ancho         Float?
+  color         String?
+  metrajeMinimo Float   @default(10)
+  precioBase    Float
+  peso          Float
+
+  @@unique([material, espesor, color, ancho])
+}
+
+model Documento {
+  id               String   @id @default(uuid())
+  tipo             String
+  referencia       String
+  descripcion      String?
+  rutaArchivo      String
+  maquinaUbicacion String?
+  fechaSubida      DateTime @default(now())
+  productoId       String?
+
+  producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@unique([referencia, rutaArchivo])
+  @@map("Documento")
+}
+
+model Nota {
+  id      String   @id @default(uuid())
+  content String
+  fecha   DateTime @default(now())
+}
+
+model Config {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+}
+
+model Sequence {
+  name  String
+  year  Int    @default(2026)
+  value Int
+
+  @@id([name, year])
+  @@map("Sequence")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  user      String?
+  createdAt DateTime @default(now())
+
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+  @@map("AuditLog")
+}
+
+model Producto {
+  id                   String  @id @default(uuid())
+  nombre               String
+  referenciaFabricante String? @map("referencia_fab")
+  espesor              Float?
+  largo                Float?
+  ancho                Float?
+  precioUnitario       Float   @default(0)
+  pesoUnitario         Float   @default(0)
+  costoUnitario        Float?  @map("costo")
+  tieneTroquel         Boolean @default(false)
+  color                String?
+  fabricanteId         String?
+  materialId           String?
+
+  precioVentaFab Float? @default(0)
+  precioVentaInt Float? @default(0)
+  precioVentaFin Float? @default(0)
+
+  creadoEn     DateTime @default(now())
+  actualizado  DateTime @default(now()) @updatedAt
+
+  fabricante Fabricante? @relation(fields: [fabricanteId], references: [id])
+  material   Material?   @relation(fields: [materialId], references: [id])
+
+  itemsPedido PedidoItem[]
+  itemsPresup PresupuestoItem[]
+  documentos  Documento[]
+
+  @@index([nombre])
+  @@index([fabricanteId])
+  @@index([materialId])
+}
+
+model Taco {
+  id          Int      @id @default(autoincrement())
+  tipo        String
+  altura      Int
+  precioMetro Float
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tipo, altura])
+}
+
+model Grapa {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  fabricante  String?
+  descripcion String?
+  precioMetro Float    @default(0)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TarifaTransporte {
+  id           String @id @default(uuid())
+  provincia    String
+  codigoPostal String
+  parcel       Float?
+  miniQuarter  Float?
+  miniLight    Float?
+  quarter      Float?
+  light        Float?
+  half         Float?
+  megaLight    Float?
+  full         Float?
+  megaFull     Float?
+
+  @@unique([provincia, codigoPostal])
+  @@map("TarifaTransporte")
+}
+
+model ConfigPaletizado {
+  id            String @id @default(uuid())
+  tipo          String @unique
+  costePale     Float
+  costeFilm     Float  @default(0.538)
+  costeFleje    Float  @default(0.183)
+  costePrecinto Float  @default(0.0147)
+
+  @@map("ConfigPaletizado")
+}
+
+model PresupuestoTemplate {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  descripcion String?
+  items       String
+  marginId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
