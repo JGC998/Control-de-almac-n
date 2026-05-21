@@ -49,7 +49,7 @@ const pedidoItemSchema = z.object({
 });
 
 export const pedidoSchema = z.object({
-    clienteId: z.string().uuid('ID de cliente inválido').optional().nullable(),
+    clienteId: z.string().min(1, 'ID de cliente inválido').optional().nullable(),
     estado: z.enum(['Borrador', 'Pendiente', 'Enviado', 'Completado', 'Cancelado']).optional(),
     items: z.array(pedidoItemSchema).min(1, 'Debe haber al menos un item'),
     subtotal: z.number().nonnegative('Subtotal no puede ser negativo'),
@@ -73,7 +73,7 @@ const presupuestoItemSchema = z.object({
 });
 
 export const presupuestoSchema = z.object({
-    clienteId: z.string().uuid('ID de cliente inválido').optional().nullable(),
+    clienteId: z.string().min(1, 'ID de cliente inválido').optional().nullable(),
     estado: z.enum(['Borrador', 'Enviado', 'Aprobado', 'Rechazado', 'Aceptado']).optional(),
     items: z.array(presupuestoItemSchema).min(1, 'Debe haber al menos un item'),
     subtotal: z.number().nonnegative('Subtotal no puede ser negativo'),

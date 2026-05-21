@@ -400,7 +400,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dataPayload),
       });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.message); }
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || err.error || 'Error al guardar'); }
 
       const savedData = await res.json();
 
