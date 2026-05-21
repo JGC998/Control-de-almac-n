@@ -4,34 +4,34 @@ import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Clipboard, Package, Search, Plus, AlertTriangle } from 'lucide-react';
+import ModalTipoAlbaran from '@/componentes/albaranes/ModalTipoAlbaran';
 
 export default function NuevoAlbaranPage() {
   const router = useRouter();
-  const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [query, setQuery]           = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState(null);
+  const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
 
-  const { data: result } = useSWR(
-    `/api/pedidos?limit=100`,
-    null,
-    { revalidateOnFocus: false }
-  );
+  const { data: result } = useSWR(`/api/pedidos?limit=100`, null, { revalidateOnFocus: false });
 
   const pedidos = (result?.data || result || []).filter(p => {
     if (p.estado === 'Cancelado') return false;
     if (!query) return true;
     const q = query.toLowerCase();
-    return (
-      p.numero?.toLowerCase().includes(q) ||
-      p.cliente?.nombre?.toLowerCase().includes(q)
-    );
+    return p.numero?.toLowerCase().includes(q) || p.cliente?.nombre?.toLowerCase().includes(q);
   });
 
-  async function generarDesde(pedido) {
+  async function generarDesde(pedido, valorado) {
+    setPedidoSeleccionado(null);
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/pedidos/${pedido.id}/albaran`, { method: 'POST' });
+      const res = await fetch(`/api/pedidos/${pedido.id}/albaran`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valorado }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error al generar albarán');
       router.push(`/albaranes/${data.id}`);
@@ -61,7 +61,6 @@ export default function NuevoAlbaranPage() {
         </div>
       )}
 
-      {/* Buscador */}
       <label className="input input-bordered flex items-center gap-2">
         <Search className="w-4 h-4 opacity-40" />
         <input
@@ -73,7 +72,6 @@ export default function NuevoAlbaranPage() {
         />
       </label>
 
-      {/* Lista de pedidos */}
       <div className="space-y-2">
         {pedidos.length === 0 && (
           <p className="text-center text-base-content/40 py-10">
@@ -81,10 +79,7 @@ export default function NuevoAlbaranPage() {
           </p>
         )}
         {pedidos.map(pedido => (
-          <div
-            key={pedido.id}
-            className="card bg-base-200 border border-base-300 hover:border-primary/40 transition-colors"
-          >
+          <div key={pedido.id} className="card bg-base-200 border border-base-300 hover:border-primary/40 transition-colors">
             <div className="card-body p-4 flex flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Package className="w-5 h-5 text-base-content/40 shrink-0" />
@@ -98,7 +93,7 @@ export default function NuevoAlbaranPage() {
                 </div>
               </div>
               <button
-                onClick={() => generarDesde(pedido)}
+                onClick={() => setPedidoSeleccionado(pedido)}
                 disabled={loading}
                 className="btn btn-primary btn-sm gap-1 shrink-0"
               >
@@ -108,6 +103,14 @@ export default function NuevoAlbaranPage() {
           </div>
         ))}
       </div>
+
+      {pedidoSeleccionado && (
+        <ModalTipoAlbaran
+          pedido={pedidoSeleccionado}
+          onConfirm={(valorado) => generarDesde(pedidoSeleccionado, valorado)}
+          onCancel={() => setPedidoSeleccionado(null)}
+        />
+      )}
     </div>
   );
 }

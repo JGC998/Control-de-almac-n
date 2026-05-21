@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veri*Factu — Resumen para CRM Taller</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #1a1a2e; background: #f8f9fa; }
+    .wrapper { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; }
+    .header h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.25rem; }
+    .header h1 em { color: #60a5fa; font-style: italic; }
+    .header .sub { color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem; }
+
+    /* Sections */
+    section { background: white; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 4px solid #e2e8f0; }
+    section.blue  { border-left-color: #3b82f6; }
+    section.green { border-left-color: #10b981; }
+    section.amber { border-left-color: #f59e0b; }
+    section.red   { border-left-color: #ef4444; }
+    section.purple{ border-left-color: #8b5cf6; }
+    section.slate { border-left-color: #64748b; }
+    h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 99px; font-weight: 600; }
+    .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+    .badge-green  { background: #d1fae5; color: #065f46; }
+    .badge-amber  { background: #fef3c7; color: #92400e; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; }
+    th { background: #f1f5f9; font-weight: 600; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+
+    /* Code */
+    code { font-family: 'Menlo', 'Consolas', monospace; font-size: 0.8rem; background: #f1f5f9; padding: 0.1rem 0.4rem; border-radius: 4px; color: #374151; }
+    pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px; font-size: 0.78rem; overflow-x: auto; margin-top: 0.75rem; line-height: 1.5; }
+
+    /* Lists */
+    ul, ol { padding-left: 1.25rem; margin-top: 0.5rem; }
+    li { margin-bottom: 0.3rem; color: #374151; }
+    li strong { color: #111827; }
+
+    /* Two cols */
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem; }
+    .card { border-radius: 8px; padding: 0.875rem 1rem; }
+    .card-green { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .card-red   { background: #fef2f2; border: 1px solid #fecaca; }
+    .card h4 { font-size: 0.8rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .card-green h4 { color: #15803d; }
+    .card-red   h4 { color: #b91c1c; }
+    .card p { font-size: 0.82rem; color: #374151; }
+
+    /* Alert */
+    .alert { border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.75rem; font-size: 0.85rem; }
+    .alert-amber { background: #fef9c3; border: 1px solid #fde68a; color: #78350f; }
+    .alert-blue  { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .alert-green { background: #f0fdf4; border: 1px solid #bbf7d0; color: #14532d; }
+    .alert-red   { background: #fef2f2; border: 1px solid #fecaca; color: #7f1d1d; }
+
+    /* Phases */
+    .phase { border-radius: 8px; padding: 0.875rem 1rem; margin-bottom: 0.75rem; border: 1px solid; }
+    .phase-d1 { background: #eff6ff; border-color: #bfdbfe; }
+    .phase-d2 { background: #f0fdf4; border-color: #bbf7d0; }
+    .phase-d3 { background: #faf5ff; border-color: #ddd6fe; }
+    .phase h4 { font-weight: 700; font-size: 0.9rem; margin-bottom: 0.35rem; }
+    .phase-d1 h4 { color: #1d4ed8; }
+    .phase-d2 h4 { color: #15803d; }
+    .phase-d3 h4 { color: #6d28d9; }
+
+    /* Chain viz */
+    .chain { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    .chain-box { background: #1e293b; color: #e2e8f0; border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.78rem; font-family: monospace; }
+    .chain-arrow { color: #94a3b8; font-size: 1.2rem; }
+    .chain-box.new { background: #1d4ed8; }
+
+    /* Footer */
+    .footer { text-align: center; color: #94a3b8; font-size: 0.75rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0; }
+
+    /* Print */
+    @media print {
+      body { background: white; }
+      .wrapper { padding: 0; }
+      section { box-shadow: none; border: 1px solid #e2e8f0; page-break-inside: avoid; }
+      .header { border-radius: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    @media (max-width: 600px) {
+      .grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <div style="font-size:0.8rem;color:#60a5fa;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.1em">CRM Taller · Documentación técnica</div>
+    <h1>Veri<em>*</em>Factu</h1>
+    <p style="color:#cbd5e1;margin-top:0.4rem">Sistema de Verificación de Facturas — AEAT</p>
+    <div class="sub">Mayo 2026 · Fuente: RD 1007/2023 + Orden HAC/1177/2024 + RDL 15/2025</div>
+  </div>
+
+  <!-- Qué es -->
+  <section class="blue">
+    <h2>¿Qué es Veri*Factu?</h2>
+    <p>Es la obligación legal de que el software de facturación (SIF) genere registros de facturas con un <strong>hash SHA-256 encadenado</strong> (cada factura incluye el hash de la anterior), garantizando que no se pueden alterar o eliminar facturas sin dejar rastro. Opcionalmente, esos registros se envían a la AEAT en tiempo real.</p>
+    <div class="alert alert-blue" style="margin-top:0.75rem">
+      <strong>Lo que aplica a CRM Taller:</strong> Solo afecta a las <strong>FACTURAS</strong>. Los presupuestos, pedidos y albaranes quedan completamente fuera del sistema VeriFactu. Una factura puede nacer de un albarán o directamente de un pedido — no importa el origen, lo que importa es el documento factura.
+    </div>
+  </section>
+
+  <!-- Plazos -->
+  <section class="amber">
+    <h2>📅 Plazos de obligatoriedad <span class="badge badge-amber">RDL 15/2025</span></h2>
+    <table>
+      <tr><th>Quién</th><th>Fecha límite</th><th>Estado</th></tr>
+      <tr>
+        <td>Fabricantes/comercializadores de SIF (para poder vender el software)</td>
+        <td><strong>29 julio 2025</strong></td>
+        <td><span class="badge badge-green">✅ Ya obligatorio</span></td>
+      </tr>
+      <tr>
+        <td>Sociedades mercantiles (SA, SL, etc.) — Impuesto sobre Sociedades</td>
+        <td><strong>1 enero 2027</strong></td>
+        <td><span class="badge badge-amber">⏳ 19 meses</span></td>
+      </tr>
+      <tr>
+        <td>Autónomos y profesionales (IRPF)</td>
+        <td><strong>1 julio 2027</strong></td>
+        <td><span class="badge badge-amber">⏳ 25 meses</span></td>
+      </tr>
+    </table>
+    <div class="alert alert-amber">
+      CRM Taller como software de facturación debe estar conforme antes del <strong>1 de enero de 2027</strong> (primera fecha en que sus usuarios podrían estar obligados).
+    </div>
+  </section>
+
+  <!-- Cómo funciona: encadenamiento -->
+  <section class="slate">
+    <h2>⛓️ El encadenamiento de hashes</h2>
+    <p>Cada factura emitida incluye el <strong>hash SHA-256 de la factura anterior</strong>. Esto forma una cadena: si alguien modifica o borra una factura intermedia, todos los hashes siguientes quedan invalidados. Es el mismo concepto que una blockchain.</p>
+    <div class="chain">
+      <div class="chain-box">F-001<br><small style="color:#94a3b8">hash: 3C464D…</small></div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-box">F-002<br><small style="color:#94a3b8">incluye hash F-001</small></div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-box">F-003<br><small style="color:#94a3b8">incluye hash F-002</small></div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-box new">F-004 (nueva)<br><small>incluye hash F-003</small></div>
+    </div>
+    <p style="margin-top:0.75rem;font-size:0.85rem;color:#64748b">Los campos que entran en el hash (en este orden exacto): <code>IDEmisorFactura</code>, <code>NumSerieFactura</code>, <code>FechaExpedicionFactura</code>, <code>TipoFactura</code>, <code>CuotaTotal</code>, <code>ImporteTotal</code>, <code>Huella</code> (anterior), <code>FechaHoraHusoGenRegistro</code></p>
+  </section>
+
+  <!-- Modos -->
+  <section class="green">
+    <h2>🔀 Dos modos de operación</h2>
+    <table>
+      <tr><th>Característica</th><th>✅ Modo Veri*Factu (recomendado)</th><th>Modo No-Veri*Factu</th></tr>
+      <tr><td>Envío a la AEAT</td><td>Automático en tiempo real</td><td>No (la AEAT lo puede pedir)</td></tr>
+      <tr><td>Firma electrónica</td><td><strong>No requerida</strong></td><td>Firma XAdES avanzada obligatoria</td></tr>
+      <tr><td>Registro de eventos SIF</td><td>No requerido</td><td>Obligatorio</td></tr>
+      <tr><td>Complejidad</td><td>Media</td><td>Alta</td></tr>
+      <tr><td>Riesgo en auditoría</td><td>Bajo</td><td>Alto</td></tr>
+    </table>
+    <div class="alert alert-green">
+      <strong>Decisión: implementar solo modo Veri*Factu.</strong> Envío automático a la AEAT + sin firma XAdES = mucho más simple.
+    </div>
+  </section>
+
+  <!-- QR -->
+  <section class="blue">
+    <h2>📱 El código QR en la factura</h2>
+    <p>Cada factura debe llevar un QR impreso con esta URL (mínimo 30×30 mm):</p>
+    <pre>https://www2.agenciatributaria.es/wlpl/TIKE-CONT/ValidarQR
+  ?nif=B12345678
+  &numserie=2024F001
+  &fecha=15-01-2024
+  &importe=121.0</pre>
+    <p style="margin-top:0.75rem">Y el texto visible: <strong>"Factura verificable en la AEAT"</strong></p>
+    <p style="margin-top:0.5rem;font-size:0.85rem;color:#64748b">Librería Node.js: <code>npm install qrcode</code> → <code>QRCode.toDataURL(url, { errorCorrectionLevel: 'M', width: 150 })</code></p>
+  </section>
+
+  <!-- Rectificativas -->
+  <section class="purple">
+    <h2>🔄 Facturas rectificativas — tipos</h2>
+    <table>
+      <tr><th>Código</th><th>Tipo</th><th>Uso habitual</th></tr>
+      <tr><td><code>F1</code></td><td>Factura ordinaria completa</td><td>Caso general ✅</td></tr>
+      <tr><td><code>F2</code></td><td>Factura simplificada</td><td>Importe &lt; 400€ o sin NIF destinatario</td></tr>
+      <tr><td><code>R1</code></td><td>Rectificativa (error en datos)</td><td>Error en NIF cliente, descripción, etc.</td></tr>
+      <tr><td><code>R2–R4</code></td><td>Rectificativa art. 80 LIVA</td><td>Concurso, insolvencia, otras causas</td></tr>
+      <tr><td><code>R5</code></td><td>Rectificativa de simplificada</td><td>Rectifica una F2</td></tr>
+    </table>
+    <p style="margin-top:0.75rem;font-size:0.85rem;color:#6d28d9"><strong>Regla clave:</strong> Una factura emitida NUNCA se modifica. Si hay un error, se emite una factura nueva de tipo R1–R5 que referencia a la original. Esto ya está implementado en CRM Taller (facturas en estado EMITIDA/PAGADA son inmutables).</p>
+  </section>
+
+  <!-- Plan de implementación -->
+  <section class="green">
+    <h2>🗺️ Plan de implementación — Fase D</h2>
+
+    <div class="phase phase-d1">
+      <h4>Fase D1 — Hash + QR (sin envío a AEAT) · Fecha objetivo: sept 2026</h4>
+      <ul>
+        <li>Nuevos campos en Factura: <code>tipoFactura</code>, <code>huella</code>, <code>huellaAnterior</code>, <code>fechaHoraGenRegistro</code>, <code>estadoEnvioAeat</code></li>
+        <li>Servicio <code>src/lib/verifactu.js</code>: calcularHuella(), construirURLQR(), generarXMLRegistroAlta()</li>
+        <li>QR en el PDF de factura + texto "Factura verificable en la AEAT"</li>
+        <li>Configuración del emisor (NIF, nombre) en <code>/configuracion</code></li>
+        <li>El hash se calcula en el momento de emitir la factura (BORRADOR → EMITIDA)</li>
+      </ul>
+    </div>
+
+    <div class="phase phase-d2">
+      <h4>Fase D2 — Exportación XML para subida manual a AEAT · Fecha objetivo: nov 2026</h4>
+      <ul>
+        <li>API <code>GET /api/facturas/exportar-aeat</code> → genera <code>RegFactuSistemaFacturacion.xml</code> con facturas pendientes</li>
+        <li>Botón "Exportar XML para AEAT" en la vista de facturas + badge de estado (<code>PENDIENTE / EXPORTADO / CONFIRMADO</code>)</li>
+        <li>Campo para registrar el CSV de confirmación que devuelve la AEAT</li>
+        <li>El certificado FNMT lo usa el usuario en su propio navegador — no toca el servidor</li>
+        <li>Sin SOAP, sin colas, sin gestión de certificados en el servidor</li>
+      </ul>
+    </div>
+
+    <div class="phase phase-d3">
+      <h4>Fase D3 — Rectificativas R1–R5 · Fecha objetivo: dic 2026</h4>
+      <ul>
+        <li>UI para crear factura rectificativa desde una factura emitida</li>
+        <li>Selección tipo (R1–R5) y modalidad (S=Sustitución / I=Diferencias)</li>
+        <li>XML con elemento <code>&lt;FacturasRectificadas&gt;</code> que referencia la original</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Flujo de envío decidido -->
+  <section class="green">
+    <h2>✅ Flujo de envío a AEAT — DECIDIDO: exportación XML manual</h2>
+    <p>En lugar de SOAP automático (complejo, necesita certificado en servidor), el flujo es:</p>
+    <pre style="margin-top:0.75rem">1. Emitir factura → hash calculado → PDF con QR generado → inmutable
+                                              ↓ (cuando el usuario quiera)
+                              Botón "Exportar XML para AEAT"
+                                              ↓
+                              Descarga verifactu-2024-01.xml
+                                              ↓
+                              Usuario sube .xml en portal AEAT con su certificado FNMT
+                                              ↓
+                              AEAT devuelve CSV de confirmación → se registra en CRM</pre>
+    <div class="grid2" style="margin-top:0.75rem">
+      <div class="card card-green">
+        <h4>Ventajas de este enfoque</h4>
+        <p>Sin certificado en el servidor · Sin SOAP · Sin colas · El usuario controla cuándo envía · Mismo XML que el SOAP (válido legalmente)</p>
+      </div>
+      <div class="card card-green">
+        <h4>Entorno de pruebas (AEAT)</h4>
+        <p>Portal: <code>preportal.aeat.es</code><br>QR pruebas: <code>prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR</code><br>Sin cambios en el código, solo cambia la URL base</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Proyectos open source -->
+  <section class="slate">
+    <h2>📦 Librerías open source relevantes</h2>
+    <table>
+      <tr><th>Proyecto</th><th>Lenguaje</th><th>Envía a AEAT</th><th>Referencia</th></tr>
+      <tr><td><code>verifactu-api-nodejs</code></td><td>Node.js</td><td>✅ Sí</td><td>EduardoRuizM — MIT — Docker + MySQL</td></tr>
+      <tr><td><code>verifactu-node-lib</code></td><td>TypeScript/npm</td><td>❌ Solo genera XML</td><td>zarpilla — MIT</td></tr>
+      <tr><td><code>josemmo/Verifactu-PHP</code></td><td>PHP</td><td>✅ Sí</td><td>La más madura y documentada — MIT</td></tr>
+      <tr><td><code>mdiago/VeriFactu</code></td><td>C#/.NET</td><td>✅ Sí</td><td>323 ⭐ — AGPL — La más completa</td></tr>
+      <tr><td><code>hectorsipe/aeat-verifactu</code></td><td>—</td><td>—</td><td>Solo los XSD/WSDL oficiales de la AEAT</td></tr>
+    </table>
+  </section>
+
+  <!-- Problemas que podemos encontrar -->
+  <section class="red">
+    <h2>⚠️ Problemas que podemos encontrarnos</h2>
+    <table>
+      <tr><th>Problema</th><th>Impacto</th><th>Mitigación</th></tr>
+      <tr>
+        <td><strong>Zona horaria incorrecta en timestamp</strong></td>
+        <td>Alto — el campo entra en el hash; si el timezone es incorrecto, el hash falla la validación AEAT</td>
+        <td>Usar siempre <code>Europe/Madrid</code> (Intl API de Node.js) — resuelve automáticamente +01:00 invierno / +02:00 verano.</td>
+      </tr>
+      <tr>
+        <td><strong>Ceros decimales en importes</strong></td>
+        <td>Alto — <code>100.00</code> y <code>100</code> producen hashes distintos</td>
+        <td>Normalizar siempre con <code>parseFloat(n).toString()</code> antes de concatenar en la cadena del hash. Especificado en la ley.</td>
+      </tr>
+      <tr>
+        <td><strong>Facturas creadas antes de activar VeriFactu</strong></td>
+        <td>Bajo — no tienen hash</td>
+        <td>La primera factura tras activar VeriFactu marca <code>&lt;PrimerRegistro&gt;S&lt;/PrimerRegistro&gt;</code>. Las anteriores no necesitan hash retroactivo.</td>
+      </tr>
+      <tr>
+        <td><strong>Cambio de normativa / nuevos XSD de la AEAT</strong></td>
+        <td>Medio — pueden cambiar campos obligatorios o validaciones</td>
+        <td>Toda la lógica VeriFactu en <code>src/lib/verifactu.js</code> aislado. Revisar la web de la AEAT antes del plazo (ene 2027).</td>
+      </tr>
+      <tr>
+        <td><strong>XML rechazado por la AEAT (errores de validación)</strong></td>
+        <td>Medio — la AEAT devuelve un XML de error con código</td>
+        <td>Probar primero en <code>preportal.aeat.es</code>. El fichero <code>Validaciones_Errores_Veri-Factu.pdf</code> lista todos los códigos de error posibles.</td>
+      </tr>
+    </table>
+    <div class="alert alert-red" style="margin-top:0.75rem">
+      <strong>Descartados:</strong> Race condition (mono-usuario, imposible) · Certificado en servidor (flujo manual, el certificado solo lo usa el navegador del usuario)
+    </div>
+  </section>
+
+  <!-- Nota sobre pedidos y VeriFactu -->
+  <section class="blue">
+    <h2>💡 Sobre pedidos que no llegan a factura</h2>
+    <p>Como comentaste: muchos pedidos de cliente no van a generar factura. Esto es perfectamente normal y <strong>no afecta a VeriFactu</strong>. El sistema solo entra en juego cuando se crea una <strong>Factura</strong> (modelo <code>Factura</code> en BD). El flujo puede ser:</p>
+    <ul style="margin-top:0.5rem">
+      <li>Pedido → Albarán → Factura ✅ (pasa por VeriFactu al emitir la factura)</li>
+      <li>Pedido → (sin factura) ✅ (no le afecta VeriFactu)</li>
+      <li>Pedido → Factura directa ✅ (también pasa por VeriFactu)</li>
+    </ul>
+    <div class="alert alert-blue">
+      <strong>Conclusión:</strong> Implementar VeriFactu solo dentro del módulo de Facturas es correcto y es exactamente lo que hace la Orden HAC/1177/2024. Presupuestos, pedidos y albaranes quedan completamente fuera.
+    </div>
+  </section>
+
+  <!-- ¿Es asequible? -->
+  <section class="green">
+    <h2>✅ ¿Es asequible implementar todo esto?</h2>
+    <div class="grid2">
+      <div>
+        <p><strong>Fase D1 (hash + QR):</strong> Sí, muy asequible. Es básicamente:</p>
+        <ul>
+          <li>Una función de 20 líneas (<code>calcularHuella</code>)</li>
+          <li>Una función de 10 líneas (<code>construirURLQR</code>)</li>
+          <li><code>npm install qrcode</code></li>
+          <li>4 campos nuevos en el modelo Factura</li>
+          <li>Modificar el PDF para añadir el QR</li>
+        </ul>
+        <p style="margin-top:0.5rem;color:#15803d"><strong>Estimación: 1 sesión de trabajo</strong></p>
+      </div>
+      <div>
+        <p><strong>Fase D2 (envío AEAT):</strong> Asequible pero requiere más trabajo:</p>
+        <ul>
+          <li>SOAP con Node.js (<code>npm install soap</code>)</li>
+          <li>Gestión del certificado .pfx</li>
+          <li>Cola de envíos + reintentos</li>
+          <li>Nuevo modelo <code>RegistroVeriFactu</code></li>
+        </ul>
+        <p style="margin-top:0.5rem;color:#15803d"><strong>Estimación: 2–3 sesiones de trabajo</strong></p>
+      </div>
+    </div>
+    <div class="alert alert-green" style="margin-top:0.75rem">
+      <strong>Recomendación:</strong> Hacer D1 primero (hash + QR en PDF, sin envío). El usuario puede emitir facturas conformes con QR antes del plazo de 2027. El D2 (envío real a la AEAT) se puede añadir después sin tocar el modelo de datos ni el PDF.
+    </div>
+  </section>
+
+  <!-- Referencias clave -->
+  <section class="slate">
+    <h2>🔗 Referencias clave</h2>
+    <table>
+      <tr><th>Recurso</th><th>URL</th></tr>
+      <tr><td>Portal VeriFactu AEAT</td><td><code>sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu.html</code></td></tr>
+      <tr><td>Orden HAC/1177/2024 (BOE)</td><td><code>boe.es/diario_boe/txt.php?id=BOE-A-2024-22138</code></td></tr>
+      <tr><td>Algoritmo SHA-256 (AEAT)</td><td><code>.../informacion-tecnica/algoritmo-calculo-codificacion-huella-hash.html</code></td></tr>
+      <tr><td>XSD/WSDL oficiales (GitHub)</td><td><code>github.com/hectorsipe/aeat-verifactu</code></td></tr>
+      <tr><td>Validaciones y errores (PDF)</td><td><code>Validaciones_Errores_Veri-Factu.pdf</code> (AEAT Desarrolladores)</td></tr>
+      <tr><td>Portal de pruebas AEAT</td><td><code>preportal.aeat.es</code></td></tr>
+    </table>
+  </section>
+
+  <div class="footer">
+    CRM Taller · Resumen VeriFactu · Mayo 2026 · Ver documentación completa en <code>documentacionVerifactu.md</code>
+  </div>
+
+</div>
+</body>
+</html>

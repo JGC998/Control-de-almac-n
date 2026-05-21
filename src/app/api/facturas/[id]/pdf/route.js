@@ -16,6 +16,7 @@ export async function GET(request, { params }) {
         albaran: { select: { id: true, numero: true } },
         pedido:  { select: { id: true, numero: true } },
         items:   { include: { producto: true } },
+        facturaOriginal: { select: { id: true, numero: true, fechaHoraGenRegistro: true, fechaCreacion: true } },
       },
     });
 

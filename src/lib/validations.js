@@ -56,7 +56,8 @@ export const pedidoSchema = z.object({
     tax: z.number().nonnegative('Tax no puede ser negativo'),
     total: z.number().nonnegative('Total no puede ser negativo'),
     marginId: z.string().uuid().optional().nullable(),
-    notas: z.string().optional().nullable()
+    notas: z.string().optional().nullable(),
+    sinFacturacion: z.boolean().optional(),
 });
 
 // ============================================

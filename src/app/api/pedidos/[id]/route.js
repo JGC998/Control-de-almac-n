@@ -126,6 +126,28 @@ export async function PUT(request, { params: paramsPromise }) {
   }
 }
 
+// PATCH: Actualizaciones parciales (sinFacturacion, estado)
+export async function PATCH(request, { params: paramsPromise }) {
+  const { id } = await paramsPromise;
+  try {
+    const updates = await request.json();
+    const allowed = {};
+    if (typeof updates.sinFacturacion === 'boolean') allowed.sinFacturacion = updates.sinFacturacion;
+    if (updates.estado) allowed.estado = updates.estado;
+
+    if (!Object.keys(allowed).length) {
+      return NextResponse.json({ message: 'Sin campos válidos' }, { status: 400 });
+    }
+
+    const updated = await db.pedido.update({ where: { id }, data: allowed });
+    revalidatePath('/pedidos');
+    revalidatePath(`/pedidos/${id}`);
+    return NextResponse.json(updated);
+  } catch (error) {
+    return handlePrismaError(error, { notFound: 'Pedido no encontrado' });
+  }
+}
+
 // DELETE: Eliminar un pedido
 export async function DELETE(request, { params }) {
   try {

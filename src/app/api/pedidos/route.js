@@ -80,7 +80,7 @@ export async function POST(request) {
       );
     }
 
-    const { clienteId, items, notas, subtotal, tax, total, estado, marginId } = validation.data;
+    const { clienteId, items, notas, subtotal, tax, total, estado, marginId, sinFacturacion } = validation.data;
 
     // Generar número de pedido con reset anual
     const newOrderNumber = await getNextNumber('pedido');
@@ -95,6 +95,7 @@ export async function POST(request) {
         tax: tax,
         total: total,
         marginId: marginId,
+        sinFacturacion: sinFacturacion || false,
         items: {
           create: items.map(item => ({
             descripcion: item.descripcion,

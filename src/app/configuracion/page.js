@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Settings, DollarSign, Truck, Layers, ScrollText } from 'lucide-react';
+import { Settings, DollarSign, Truck, Layers, ScrollText, Building2 } from 'lucide-react';
 
 export const metadata = { title: 'Configuración — CRM Taller' };
 
@@ -11,6 +11,13 @@ export default function ConfiguracionHub() {
       icon={Settings}
       color="neutral"
       items={[
+        {
+          href: '/configuracion/emisor',
+          icon: Building2,
+          titulo: 'Emisor VeriFactu',
+          descripcion: 'NIF, razón social y entorno (pruebas/producción) para la generación del QR y hash SHA-256 en facturas.',
+          accion: 'Configurar emisor',
+        },
         {
           href: '/configuracion/margenes',
           icon: DollarSign,

@@ -14,13 +14,13 @@ node_modules/
 
 # Prisma
 /src/generated/prisma
-prisma/dev.db
 
-# Bases de datos y backups
+# Bases de datos y backups (excepción: dev.db de pruebas)
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
+!prisma/prisma/dev.db
 /backups/
 
 # ── Datos sensibles ─────────────────────────────────────────────────────────
@@ -42,3 +42,7 @@ data/*.sql
 # PDFs generados de pedidos y simulaciones (no son activos estáticos)
 public/planos/*.pdf
 public/planos/*.PDF
+
+ideas.txt
+PENDIENTE.md
+documentacionVerifactu.md

@@ -7,33 +7,43 @@ import { getNextNumber } from '@/lib/sequence';
 export async function POST(request, { params }) {
   try {
     const { id: pedidoId } = await params;
+    const body = await request.json().catch(() => ({}));
+    const valorado = body.valorado !== false; // default true
+
+    // Validaciones fuera de la transacción
+    const pedido = await db.pedido.findUnique({
+      where: { id: pedidoId },
+      include: { items: { include: { producto: true } }, cliente: true },
+    });
+
+    if (!pedido) return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
+    if (pedido.estado === 'Cancelado') {
+      return NextResponse.json({ message: 'No se puede generar albarán de un pedido cancelado' }, { status: 422 });
+    }
+
+    // getNextNumber fuera de la transacción (evita conflicto de bloqueo en SQLite)
+    const numero = await getNextNumber('albaran');
 
     const albaran = await db.$transaction(async (tx) => {
-      const pedido = await tx.pedido.findUnique({
+      // Re-leer dentro de la transacción para consistencia
+      const pedidoTx = await tx.pedido.findUnique({
         where: { id: pedidoId },
         include: { items: { include: { producto: true } }, cliente: true },
       });
-
-      if (!pedido) throw new Error('Pedido no encontrado');
-
-      if (['Cancelado'].includes(pedido.estado)) {
-        throw new Error('No se puede generar albarán de un pedido cancelado');
-      }
-
-      const numero = await getNextNumber('albaran');
 
       const created = await tx.albaran.create({
         data: {
           numero,
           estado: 'BORRADOR',
-          notas: pedido.notas,
-          subtotal: pedido.subtotal,
-          tax: pedido.tax,
-          total: pedido.total,
-          ...(pedido.clienteId && { cliente: { connect: { id: pedido.clienteId } } }),
+          valorado,
+          notas: pedidoTx.notas,
+          subtotal: pedidoTx.subtotal,
+          tax: pedidoTx.tax,
+          total: pedidoTx.total,
+          ...(pedidoTx.clienteId && { cliente: { connect: { id: pedidoTx.clienteId } } }),
           pedido: { connect: { id: pedidoId } },
           items: {
-            create: pedido.items.map(item => ({
+            create: pedidoTx.items.map(item => ({
               descripcion: item.descripcion,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
@@ -46,13 +56,7 @@ export async function POST(request, { params }) {
         include: { items: true, cliente: true },
       });
 
-      // Marcar el pedido como En preparación si estaba Pendiente
-      if (pedido.estado === 'Pendiente') {
-        await tx.pedido.update({
-          where: { id: pedidoId },
-          data: { estado: 'En preparación' },
-        });
-      }
+      // El pedido permanece en "Pendiente" hasta que se genere la factura
 
       return created;
     });

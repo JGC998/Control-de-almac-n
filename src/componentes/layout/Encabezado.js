@@ -4,11 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Warehouse, Package, FileText, Truck, Calculator, Users, Settings,
-  Layers, Factory, ChevronDown, Menu, X, BarChart2, DollarSign,
-  FilePlus, PackagePlus, Clipboard, Receipt, Ship, TrendingDown, Clock
+  Layers, Factory, ChevronDown, Menu, X, DollarSign,
+  FilePlus, PackagePlus, Clipboard, Receipt, Ship, TrendingDown
 } from 'lucide-react';
 import BarraBusqueda from '@/componentes/ui/BarraBusqueda';
-import ThemeSwitcher from '@/componentes/layout/ThemeSwitcher';
 
 // Secciones con grupos (dos bloques en el dropdown)
 // Secciones con links planos (lista simple)
@@ -100,6 +99,7 @@ const NAV = [
 ];
 
 const CONFIG_LINKS = [
+  { href: '/configuracion/emisor',      label: 'Emisor VeriFactu' },
   { href: '/configuracion/margenes',    label: 'Márgenes y Referencias' },
   { href: '/configuracion/logistica',   label: 'Logística' },
   { href: '/configuracion/tacos',       label: 'Tacos' },
@@ -258,10 +258,6 @@ export default function Encabezado() {
         <div className="flex-none flex items-center gap-1.5 ml-auto">
           <div className="hidden lg:block w-52">
             <BarraBusqueda />
-          </div>
-
-          <div className="hidden lg:block">
-            <ThemeSwitcher />
           </div>
 
           {/* Configuración → hub */}

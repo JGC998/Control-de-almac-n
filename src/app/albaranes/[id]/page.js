@@ -120,10 +120,13 @@ export default function AlbaranDetallePage() {
             <Clipboard className="w-6 h-6" />
             {albaran.numero}
           </h1>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className={`badge ${ESTADO_BADGE[albaran.estado] || 'badge-ghost'}`}>
               {albaran.estado.charAt(0) + albaran.estado.slice(1).toLowerCase()}
             </span>
+            {albaran.valorado === false && (
+              <span className="badge badge-warning badge-outline">Sin valorar</span>
+            )}
             <span className="text-sm text-base-content/50">
               {new Date(albaran.fechaCreacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
             </span>

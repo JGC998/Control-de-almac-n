@@ -8,38 +8,43 @@ export async function POST(request, { params }) {
   try {
     const { id: albaranId } = await params;
 
+    // Validaciones y número fuera de la transacción (evita conflicto de bloqueo en SQLite)
+    const albaran = await db.albaran.findUnique({
+      where: { id: albaranId },
+      include: { items: { include: { producto: true } }, cliente: true },
+    });
+
+    if (!albaran) return NextResponse.json({ message: 'Albarán no encontrado' }, { status: 404 });
+    if (albaran.estado === 'CANCELADO') return NextResponse.json({ message: 'No se puede facturar un albarán cancelado' }, { status: 422 });
+
+    const yaFacturado = await db.factura.findUnique({ where: { albaranId } });
+    if (yaFacturado) return NextResponse.json({ message: 'Este albarán ya tiene una factura generada' }, { status: 422 });
+
+    const numero = await getNextNumber('factura');
+    const fechaVencimiento = new Date();
+    fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+
     const factura = await db.$transaction(async (tx) => {
-      const albaran = await tx.albaran.findUnique({
+      // Re-leer dentro de la transacción para consistencia
+      const albaranTx = await tx.albaran.findUnique({
         where: { id: albaranId },
         include: { items: { include: { producto: true } }, cliente: true },
       });
-
-      if (!albaran) throw new Error('Albarán no encontrado');
-      if (albaran.estado === 'CANCELADO') throw new Error('No se puede facturar un albarán cancelado');
-
-      const yaFacturado = await tx.factura.findUnique({ where: { albaranId } });
-      if (yaFacturado) throw new Error('Este albarán ya tiene una factura generada');
-
-      const numero = await getNextNumber('factura');
-
-      // Fecha de vencimiento: 30 días desde hoy
-      const fechaVencimiento = new Date();
-      fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
 
       const created = await tx.factura.create({
         data: {
           numero,
           estado: 'BORRADOR',
-          notas: albaran.notas,
-          subtotal: albaran.subtotal,
-          tax: albaran.tax,
-          total: albaran.total,
+          notas: albaranTx.notas,
+          subtotal: albaranTx.subtotal,
+          tax: albaranTx.tax,
+          total: albaranTx.total,
           fechaVencimiento,
-          ...(albaran.clienteId && { cliente: { connect: { id: albaran.clienteId } } }),
+          ...(albaranTx.clienteId && { cliente: { connect: { id: albaranTx.clienteId } } }),
           albaran: { connect: { id: albaranId } },
-          ...(albaran.pedidoId && { pedido: { connect: { id: albaran.pedidoId } } }),
+          ...(albaranTx.pedidoId && { pedido: { connect: { id: albaranTx.pedidoId } } }),
           items: {
-            create: albaran.items.map(item => ({
+            create: albaranTx.items.map(item => ({
               descripcion:      item.descripcion,
               quantity:         item.quantity,
               unitPrice:        item.unitPrice,
@@ -52,9 +57,12 @@ export async function POST(request, { params }) {
         include: { items: true, cliente: true },
       });
 
-      // Marcar albarán como entregado si estaba emitido
-      if (albaran.estado === 'EMITIDO') {
+      if (albaranTx.estado === 'EMITIDO') {
         await tx.albaran.update({ where: { id: albaranId }, data: { estado: 'ENTREGADO' } });
+      }
+
+      if (albaranTx.pedidoId) {
+        await tx.pedido.update({ where: { id: albaranTx.pedidoId }, data: { estado: 'Facturado' } });
       }
 
       return created;
@@ -62,6 +70,7 @@ export async function POST(request, { params }) {
 
     revalidatePath('/facturas');
     revalidatePath(`/albaranes/${albaranId}`);
+    if (albaran.pedidoId) revalidatePath(`/pedidos/${albaran.pedidoId}`);
     return NextResponse.json(factura, { status: 201 });
   } catch (error) {
     console.error(error);

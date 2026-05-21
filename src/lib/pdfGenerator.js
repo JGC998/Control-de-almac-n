@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import fs from 'fs/promises';
 import path from 'path';
+import QRCode from 'qrcode';
+import { construirURLQR, formatFechaQR } from '@/lib/verifactu';
 
 // --- DATOS DE LA EMPRESA (Hardcodeados según solicitud) ---
 const COMPANY_ADDRESS = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
@@ -490,14 +492,24 @@ export async function generateFacturaPDF(factura) {
         }
 
         // --- Cabecera ---
-        doc.setFontSize(22);
+        const esRectificativa = factura.tipoFactura?.startsWith('R');
+        doc.setFontSize(esRectificativa ? 16 : 22);
         doc.setFont("helvetica", "bold");
-        doc.text("FACTURA", 14, 22);
+        doc.text(esRectificativa ? 'FACTURA RECTIFICATIVA' : 'FACTURA', 14, 22);
+
+        if (esRectificativa) {
+          const TIPO_LABEL = { R1: 'R1 — Error fundado en derecho', R2: 'R2 — Concurso de acreedores', R3: 'R3 — Deudas incobrables', R4: 'R4 — Corrección de errores', R5: 'R5 — Simplificada' };
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(150, 80, 0);
+          doc.text(TIPO_LABEL[factura.tipoFactura] || factura.tipoFactura, 14, 27);
+          doc.setTextColor(0, 0, 0);
+        }
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(COMPANY_ADDRESS, 200, 30, { align: 'right' });
-        doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 36, { align: 'right' });
+        doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
+        doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
 
         // --- Datos factura ---
         doc.setFontSize(11);
@@ -518,7 +530,15 @@ export async function generateFacturaPDF(factura) {
             doc.text(new Date(factura.fechaVencimiento).toLocaleDateString('es-ES'), 46, 46);
         }
 
-        const refY = factura.fechaVencimiento ? 52 : 46;
+        let refY = factura.fechaVencimiento ? 52 : 46;
+        if (esRectificativa && factura.facturaOriginal) {
+            doc.setFont("helvetica", "bold");
+            doc.text('Rectifica:', 14, refY);
+            doc.setFont("helvetica", "normal");
+            doc.text(factura.facturaOriginal.numero, 40, refY);
+            refY += 6;
+        }
+
         if (factura.albaran) {
             doc.setFont("helvetica", "bold");
             doc.text('Albarán:', 14, refY);
@@ -602,17 +622,48 @@ export async function generateFacturaPDF(factura) {
             doc.text(factura.notas, 14, notesY + 5, { maxWidth: 100 });
         }
 
-        // --- Espacio para VeriFactu QR (Fase D) ---
-        // Reservado: esquina inferior derecha de la primera página
-        const qrPlaceholderY = Math.max(ivaBoxY + 42, 245);
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(180, 180, 180);
-        doc.text('Verificación fiscal (VeriFactu) — próximamente', 14, qrPlaceholderY);
-        doc.setTextColor(0, 0, 0);
+        // --- QR VeriFactu ---
+        const qrAreaY = Math.max(ivaBoxY + 42, 240);
+        let firmaOffset = 0;
+
+        if (factura.huella && factura.fechaHoraGenRegistro) {
+          // Obtener entorno del emisor (si no se puede, usar pruebas)
+          let entorno = 'pruebas';
+          let nifEmisor = '';
+          try {
+            const { db } = await import('@/lib/db');
+            const emisor = await db.configuracionEmisor.findUnique({ where: { id: 1 } });
+            entorno = emisor?.entorno || 'pruebas';
+            nifEmisor = emisor?.nif || '';
+          } catch { /* sin config, continuar sin QR */ }
+
+          if (nifEmisor) {
+            const urlQR = construirURLQR({
+              nif:      nifEmisor,
+              numserie: factura.numero,
+              fecha:    formatFechaQR(new Date(factura.fechaHoraGenRegistro)),
+              importe:  factura.total,
+              entorno,
+            });
+
+            try {
+              const qrDataUrl = await QRCode.toDataURL(urlQR, { errorCorrectionLevel: 'M', width: 120, margin: 1 });
+              // QR esquina inferior izquierda (~30x30mm)
+              doc.addImage(qrDataUrl, 'PNG', 14, qrAreaY, 28, 28);
+              doc.setFontSize(6.5);
+              doc.setFont("helvetica", "normal");
+              doc.setTextColor(80, 80, 80);
+              doc.text('Factura verificable en la AEAT', 44, qrAreaY + 5);
+              doc.setTextColor(100, 100, 100);
+              doc.text(`Huella: ${factura.huella.substring(0, 32)}…`, 44, qrAreaY + 11);
+              doc.setTextColor(0, 0, 0);
+              firmaOffset = 32;
+            } catch { /* si falla el QR, no bloquear el PDF */ }
+          }
+        }
 
         // --- Firma ---
-        const firmaY = qrPlaceholderY + 10;
+        const firmaY = qrAreaY + firmaOffset;
         doc.setFontSize(9);
         doc.line(14, firmaY, 80, firmaY);
         doc.line(120, firmaY, 196, firmaY);
@@ -657,15 +708,17 @@ export async function generateAlbaranPDF(albaran) {
         doc.setFont("helvetica", "normal");
         doc.text(new Date(albaran.fechaCreacion).toLocaleDateString('es-ES'), 38, 42);
 
-        if (albaran.pedido) {
+        // Badge "SIN VALORAR" en cabecera si aplica
+        if (albaran.valorado === false) {
+            doc.setFontSize(9);
             doc.setFont("helvetica", "bold");
-            doc.text(`Pedido:`, 14, 48);
-            doc.setFont("helvetica", "normal");
-            doc.text(albaran.pedido.numero, 38, 48);
+            doc.setTextColor(180, 90, 0);
+            doc.text('SIN VALORAR', 14, 49);
+            doc.setTextColor(0, 0, 0);
         }
 
         // --- Recuadro cliente ---
-        const clientY = albaran.pedido ? 58 : 55;
+        const clientY = albaran.valorado === false ? 57 : 54;
         doc.rect(14, clientY, 90, 28);
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
@@ -679,45 +732,45 @@ export async function generateAlbaranPDF(albaran) {
         }
 
         // --- Tabla de ítems ---
-        const tableRows = (albaran.items || []).map(item => [
-            item.descripcion,
-            item.quantity,
-            `${(item.unitPrice).toFixed(2)} €`,
-            `${(item.quantity * item.unitPrice).toFixed(2)} €`,
-        ]);
+        const valorado = albaran.valorado !== false;
+        const tableRows = (albaran.items || []).map(item =>
+            valorado
+                ? [item.descripcion, item.quantity, `${(item.unitPrice).toFixed(2)} €`, `${(item.quantity * item.unitPrice).toFixed(2)} €`]
+                : [item.descripcion, item.quantity]
+        );
 
         autoTable(doc, {
-            head: [["Descripción", "Cantidad", "P. Unit.", "Total"]],
+            head: [valorado ? ["Descripción", "Cantidad", "P. Unit.", "Total"] : ["Descripción", "Cantidad"]],
             body: tableRows,
             startY: clientY + 33,
             theme: 'grid',
             styles: { fontSize: 9 },
             headStyles: { fillColor: [220, 220, 220], textColor: 40, fontStyle: 'bold' },
-            columnStyles: {
-                0: { cellWidth: 'auto' },
-                1: { cellWidth: 25, halign: 'center' },
-                2: { cellWidth: 30, halign: 'right' },
-                3: { cellWidth: 30, halign: 'right' },
-            },
+            columnStyles: valorado
+                ? { 0: { cellWidth: 'auto' }, 1: { cellWidth: 25, halign: 'center' }, 2: { cellWidth: 30, halign: 'right' }, 3: { cellWidth: 30, halign: 'right' } }
+                : { 0: { cellWidth: 'auto' }, 1: { cellWidth: 35, halign: 'center' } },
         });
 
         const finalY = doc.lastAutoTable.finalY;
 
-        // --- Totales ---
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Subtotal:`, 145, finalY + 10);
-        doc.text(`${(albaran.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
-        doc.text(`IVA (21%):`, 145, finalY + 16);
-        doc.text(`${(albaran.tax || 0).toFixed(2)} €`, 198, finalY + 16, { align: 'right' });
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(`TOTAL:`, 145, finalY + 24);
-        doc.text(`${(albaran.total || 0).toFixed(2)} €`, 198, finalY + 24, { align: 'right' });
+        // --- Totales (solo albarán valorado) ---
+        if (valorado) {
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Subtotal:`, 145, finalY + 10);
+            doc.text(`${(albaran.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
+            doc.text(`IVA (21%):`, 145, finalY + 16);
+            doc.text(`${(albaran.tax || 0).toFixed(2)} €`, 198, finalY + 16, { align: 'right' });
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text(`TOTAL:`, 145, finalY + 24);
+            doc.text(`${(albaran.total || 0).toFixed(2)} €`, 198, finalY + 24, { align: 'right' });
+        }
 
         // --- Notas ---
+        const totalesOffset = valorado ? 35 : 15;
         if (albaran.notas) {
-            const notesY = finalY + 35;
+            const notesY = finalY + totalesOffset;
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
             doc.text("Notas:", 14, notesY);
@@ -726,7 +779,7 @@ export async function generateAlbaranPDF(albaran) {
         }
 
         // --- Firma ---
-        const firmaY = Math.max(finalY + 55, 230);
+        const firmaY = Math.max(finalY + totalesOffset + 20, 230);
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         doc.line(14, firmaY, 80, firmaY);

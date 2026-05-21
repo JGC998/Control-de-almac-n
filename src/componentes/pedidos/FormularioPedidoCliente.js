@@ -147,6 +147,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   );
 
   const [notes, setNotes] = useState(initialData?.notas || '');
+  const [sinFacturacion, setSinFacturacion] = useState(initialData?.sinFacturacion || false);
 
   // Solo re-sincroniza cuando initialData cambia DESPUÉS del montaje inicial
   // (evita el render extra en modo creación/edición al abrir el formulario)
@@ -245,8 +246,8 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     const newItems = [...items];
     newItems[index].descripcion = product.nombre;
     newItems[index].productoId = product.id;
-    newItems[index].unitPrice = parseFloat(product.precio) || 0;
-    newItems[index].producto = product; // Guardar referencia completa para stock display
+    newItems[index].unitPrice = parseFloat(product.precioUnitario) || 0;
+    newItems[index].producto = product;
 
     setItems(newItems);
     setProductSearchState({ isOpen: false, rowIndex: null, initialSearch: '' });
@@ -264,7 +265,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       const newItems = [...items];
       newItems[index].descripcion = newProduct.nombre;
       newItems[index].productoId = newProduct.id;
-      newItems[index].unitPrice = parseFloat(newProduct.precio) || 0;
+      newItems[index].unitPrice = parseFloat(newProduct.precioUnitario) || 0;
       newItems[index].producto = newProduct;
       setItems(newItems);
     }
@@ -371,7 +372,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
     const dataPayload = {
       clienteId,
-      estado: initialData?.estado || 'Borrador',
+      estado: initialData?.estado || 'Pendiente',
       items: items
         .filter(item => item.descripcion && parseFloat(item.quantity) > 0)
         .map(item => ({
@@ -387,6 +388,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       total: total,
       notas: notes,
       marginId: selectedMarginId,
+      ...(formType === 'PEDIDO' && !isEditMode ? { sinFacturacion } : {}),
     };
 
     const endpoint = formType === 'PRESUPUESTO'
@@ -453,6 +455,17 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                 </div>
                 {!clienteId && <span className="text-xs text-gray-500 mt-1 ml-1">Clic para buscar o crear</span>}
               </div>
+
+              {formType === 'PEDIDO' && !isEditMode && (
+                <div className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${sinFacturacion ? 'bg-warning/10 border-warning/40' : 'bg-base-200 border-base-300'}`}
+                  onClick={() => setSinFacturacion(v => !v)}>
+                  <input type="checkbox" className="checkbox checkbox-warning" checked={sinFacturacion} onChange={() => setSinFacturacion(v => !v)} onClick={e => e.stopPropagation()} />
+                  <div>
+                    <p className="font-medium text-sm">Pedido interno — no facturable</p>
+                    <p className="text-xs text-base-content/50">No generará albarán ni factura. No entra en la secuencia de AEAT.</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

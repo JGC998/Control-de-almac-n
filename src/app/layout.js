@@ -1,6 +1,7 @@
 "use client";
 import './globals.css';
 import Encabezado from '@/componentes/layout/Encabezado';
+import Toaster from '@/componentes/ui/Toaster';
 import { SWRConfig } from 'swr';
 
 const fetcher = async (url) => {
@@ -33,6 +34,7 @@ export default function RootLayout({ children }) {
             <main className="flex-1 p-4 lg:p-6">
               {children}
             </main>
+            <Toaster />
           </div>
         </SWRConfig>
       </body>

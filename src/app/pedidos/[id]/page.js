@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, FileText, DollarSign, CheckCircle, Package, Clipboard, Plus } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, FileText, DollarSign, CheckCircle, Package, Clipboard, Plus, Ban, ReceiptText } from 'lucide-react';
+import { toast } from '@/lib/toast';
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
+import ModalTipoAlbaran from '@/componentes/albaranes/ModalTipoAlbaran';
 
 
 // Componente para manejar el desglose del total y los cálculos por item.
@@ -130,6 +132,7 @@ export default function PedidoDetalle() {
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [generandoAlbaran, setGenerandoAlbaran] = useState(false);
+  const [modalAlbaranOpen, setModalAlbaranOpen] = useState(false);
 
   const openEditModal = () => setIsEditModalOpen(true);
   const closeEditModal = () => setIsEditModalOpen(false);
@@ -140,11 +143,16 @@ export default function PedidoDetalle() {
   const { data: albaranesData } = useSWR(id ? `/api/albaranes?pedidoId=${id}&limit=20` : null);
   const albaranes = albaranesData?.data || [];
 
-  const handleGenerarAlbaran = async () => {
+  const handleGenerarAlbaran = async (valorado) => {
+    setModalAlbaranOpen(false);
     setGenerandoAlbaran(true);
     setError(null);
     try {
-      const res = await fetch(`/api/pedidos/${id}/albaran`, { method: 'POST' });
+      const res = await fetch(`/api/pedidos/${id}/albaran`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valorado }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error al generar albarán');
       globalMutate(`/api/albaranes?pedidoId=${id}&limit=20`);
@@ -166,8 +174,8 @@ export default function PedidoDetalle() {
           const errData = await res.json();
           throw new Error(errData.message || 'Error al eliminar');
         }
-        mutate('/api/pedidos'); // Actualiza la lista
-        router.push('/pedidos'); // Vuelve a la lista
+        globalMutate('/api/pedidos');
+        router.push('/pedidos');
       } catch (err) {
         setError(err.message);
         setIsDeleting(false);
@@ -194,24 +202,32 @@ export default function PedidoDetalle() {
 
   const handleUpdateStatus = async (newStatus) => {
     try {
-      const { subtotal, tax, total } = order;
-
       const res = await fetch(`/api/pedidos/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...order,
-          estado: newStatus,
-          items: order.items,
-          subtotal, tax, total
-        })
+        body: JSON.stringify({ estado: newStatus }),
       });
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || 'Error al actualizar estado');
       }
       mutate(`/api/pedidos/${id}`);
-      router.refresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleToggleSinFacturacion = async () => {
+    const nuevoValor = !order.sinFacturacion;
+    try {
+      const res = await fetch(`/api/pedidos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sinFacturacion: nuevoValor }),
+      });
+      if (!res.ok) throw new Error('Error al actualizar');
+      mutate(`/api/pedidos/${id}`);
+      toast(nuevoValor ? 'Pedido marcado como sin facturación' : 'Pedido marcado para facturación normal', nuevoValor ? 'info' : 'success');
     } catch (err) {
       setError(err.message);
     }
@@ -240,10 +256,10 @@ export default function PedidoDetalle() {
           <Download className="w-4 h-4" /> Descargar PDF
         </button>
         <button
-          onClick={handleGenerarAlbaran}
-          disabled={generandoAlbaran || order.estado === 'Cancelado'}
+          onClick={() => order.sinFacturacion ? setModalAlbaranOpen(true) && false : setModalAlbaranOpen(true)}
+          disabled={generandoAlbaran || order.estado === 'Cancelado' || order.sinFacturacion}
           className="btn btn-outline gap-1"
-          title="Genera un albarán de entrega a partir de este pedido"
+          title={order.sinFacturacion ? 'Este pedido está marcado como sin facturación' : 'Genera un albarán de entrega a partir de este pedido'}
         >
           {generandoAlbaran
             ? <span className="loading loading-spinner loading-xs" />
@@ -259,11 +275,21 @@ export default function PedidoDetalle() {
             <FileText className="w-4 h-4" /> Ver Presupuesto
           </Link>
         )}
-        {order.estado !== 'Completado' && (
-          <button onClick={() => handleUpdateStatus('Completado')} className="btn btn-success">
-            <CheckCircle className="w-4 h-4" /> Marcar como Completado
+        {order.estado === 'Pendiente' && !order.sinFacturacion && (
+          <button onClick={() => handleUpdateStatus('Facturado')} className="btn btn-success">
+            <CheckCircle className="w-4 h-4" /> Marcar como Facturado
           </button>
         )}
+        <button
+          onClick={handleToggleSinFacturacion}
+          className={`btn btn-sm gap-1 ${order.sinFacturacion ? 'btn-success btn-outline' : 'btn-ghost text-base-content/50 border border-base-300'}`}
+          title={order.sinFacturacion ? 'Quitar marca: se podrá generar albarán y factura' : 'Marcar como pedido interno / no facturable'}
+        >
+          {order.sinFacturacion
+            ? <><ReceiptText className="w-4 h-4" /> Facturar normalmente</>
+            : <><Ban className="w-4 h-4" /> Sin facturación</>
+          }
+        </button>
         <button onClick={handleDelete} className="btn btn-outline btn-error" disabled={isDeleting}>
           {isDeleting ? <span className="loading loading-spinner loading-xs"></span> : <Trash2 className="w-4 h-4" />}
           Eliminar
@@ -275,15 +301,22 @@ export default function PedidoDetalle() {
           <div>
             <h1 className="text-3xl font-bold">Pedido {order.numero}</h1>
             <p className="text-gray-500">Fecha: {order.fechaCreacion ? new Date(order.fechaCreacion).toLocaleDateString() : 'N/A'}</p>
-            <div className="dropdown dropdown-hover mt-2">
-              <div tabIndex={0} role="button" className={`badge ${order.estado === 'Completado' ? 'badge-success' : (order.estado === 'Enviado' ? 'badge-info' : 'badge-warning')}`}>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {order.sinFacturacion && (
+                <span className="badge badge-error badge-outline gap-1 text-xs">
+                  <Ban className="w-3 h-3" /> Sin facturación
+                </span>
+              )}
+            <div className="dropdown dropdown-hover">
+              <div tabIndex={0} role="button" className={`badge ${order.estado === 'Facturado' ? 'badge-success' : order.estado === 'Cancelado' ? 'badge-error' : 'badge-warning'}`}>
                 {order.estado}
               </div>
               <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-52">
                 <li><a onClick={() => handleUpdateStatus('Pendiente')}>Pendiente</a></li>
-                <li><a onClick={() => handleUpdateStatus('Enviado')}>Enviado</a></li>
-                <li><a onClick={() => handleUpdateStatus('Completado')}>Completado</a></li>
+                {!order.sinFacturacion && <li><a onClick={() => handleUpdateStatus('Facturado')}>Facturado</a></li>}
+                <li><a onClick={() => handleUpdateStatus('Cancelado')}>Cancelado</a></li>
               </ul>
+            </div>
             </div>
             {margenAplicado && (
               <div className="flex items-center mt-2 text-sm text-accent">
@@ -351,6 +384,15 @@ export default function PedidoDetalle() {
           </div>
         )}
       </div>
+
+      {/* Modal tipo albarán */}
+      {modalAlbaranOpen && (
+        <ModalTipoAlbaran
+          pedido={order}
+          onConfirm={handleGenerarAlbaran}
+          onCancel={() => setModalAlbaranOpen(false)}
+        />
+      )}
 
       {/* Modal de Edición del Pedido */}
       <dialog id="edit_pedido_modal" className={`modal ${isEditModalOpen ? 'modal-open' : ''}`}>
