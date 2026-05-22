@@ -1,6 +1,16 @@
 import Link from 'next/link';
 import { ArrowRight, Clock } from 'lucide-react';
 
+const COLOR_MAP = {
+  primary:  { bg: 'bg-primary/10',  bgHover: 'group-hover:bg-primary/20',  text: 'text-primary'  },
+  secondary:{ bg: 'bg-secondary/10',bgHover: 'group-hover:bg-secondary/20',text: 'text-secondary' },
+  accent:   { bg: 'bg-accent/10',   bgHover: 'group-hover:bg-accent/20',   text: 'text-accent'   },
+  success:  { bg: 'bg-success/10',  bgHover: 'group-hover:bg-success/20',  text: 'text-success'  },
+  warning:  { bg: 'bg-warning/10',  bgHover: 'group-hover:bg-warning/20',  text: 'text-warning'  },
+  error:    { bg: 'bg-error/10',    bgHover: 'group-hover:bg-error/20',    text: 'text-error'    },
+  info:     { bg: 'bg-info/10',     bgHover: 'group-hover:bg-info/20',     text: 'text-info'     },
+};
+
 function HubCard({ item, color }) {
   if (item.disabled) {
     return (
@@ -21,6 +31,8 @@ function HubCard({ item, color }) {
     );
   }
 
+  const c = COLOR_MAP[color] || COLOR_MAP.primary;
+
   return (
     <Link
       href={item.href}
@@ -28,8 +40,8 @@ function HubCard({ item, color }) {
     >
       <div className="card-body p-5">
         <div className="flex items-start justify-between mb-3">
-          <div className={`p-2.5 rounded-xl bg-${color}/10 group-hover:bg-${color}/20 transition-colors`}>
-            <item.icon className={`w-5 h-5 text-${color}`} />
+          <div className={`p-2.5 rounded-xl ${c.bg} ${c.bgHover} transition-colors`}>
+            <item.icon className={`w-5 h-5 ${c.text}`} />
           </div>
           {item.badge && (
             <span className="badge badge-sm badge-ghost">{item.badge}</span>
@@ -55,14 +67,15 @@ function HubCard({ item, color }) {
  * Uso con grupos:           <HubPage groups={[{ titulo, items }]} ... />
  */
 export default function HubPage({ title, descripcion, icon: Icon, color = 'primary', items, groups }) {
+  const c = COLOR_MAP[color] || COLOR_MAP.primary;
   return (
     <div className="max-w-5xl mx-auto">
 
       {/* Cabecera */}
       <div className="mb-8 pb-6 border-b border-base-200">
         <div className="flex items-center gap-3 mb-1">
-          <div className={`p-2 rounded-xl bg-${color}/10`}>
-            <Icon className={`w-7 h-7 text-${color}`} />
+          <div className={`p-2 rounded-xl ${c.bg}`}>
+            <Icon className={`w-7 h-7 ${c.text}`} />
           </div>
           <h1 className="text-2xl font-bold">{title}</h1>
         </div>

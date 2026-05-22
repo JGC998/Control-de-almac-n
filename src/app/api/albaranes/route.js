@@ -25,8 +25,9 @@ export async function GET(request) {
         take: limit,
         include: {
           cliente: { select: { nombre: true } },
-          pedido: { select: { numero: true } },
-          _count: { select: { items: true } },
+          pedido:  { select: { numero: true } },
+          factura: { select: { id: true } },
+          _count:  { select: { items: true } },
         },
         orderBy: { fechaCreacion: 'desc' },
       }),

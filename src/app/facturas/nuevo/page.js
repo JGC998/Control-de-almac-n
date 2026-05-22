@@ -15,7 +15,7 @@ export default function NuevaFacturaPage() {
   const albaranes = (albResult?.data || []).filter(a => {
     if (a.estado === 'CANCELADO') return false;
     // Solo albaranes sin factura ya generada
-    if (a.facturaId) return false;
+    if (a.factura) return false;
     if (!query) return true;
     const q = query.toLowerCase();
     return a.numero?.toLowerCase().includes(q) || a.cliente?.nombre?.toLowerCase().includes(q);

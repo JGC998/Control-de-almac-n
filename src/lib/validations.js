@@ -112,6 +112,7 @@ export const productoSchema = z.object({
 
 export const clienteSchema = z.object({
     nombre: z.string().min(1, 'Nombre requerido'),
+    nif: z.string().optional().nullable(),
     email: z.string().email('Email inválido').optional().nullable(),
     telefono: z.string().optional().nullable(),
     direccion: z.string().optional().nullable(),
