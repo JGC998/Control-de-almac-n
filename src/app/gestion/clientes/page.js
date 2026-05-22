@@ -36,6 +36,11 @@ const camposCliente = [
     placeholder: 'Nombre del cliente'
   },
   {
+    clave: 'nif',
+    etiqueta: 'NIF / CIF',
+    placeholder: 'B12345678'
+  },
+  {
     clave: 'categoria',
     etiqueta: 'Categoría',
     tipo: 'selector',

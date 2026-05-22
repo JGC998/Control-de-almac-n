@@ -13,7 +13,7 @@ export default function NuevoAlbaranPage() {
   const [error, setError]           = useState(null);
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
 
-  const { data: result } = useSWR(`/api/pedidos?limit=100`, null, { revalidateOnFocus: false });
+  const { data: result } = useSWR(`/api/pedidos?limit=500`, null, { revalidateOnFocus: false });
 
   const pedidos = (result?.data || result || []).filter(p => {
     if (p.estado === 'Cancelado') return false;
@@ -78,30 +78,37 @@ export default function NuevoAlbaranPage() {
             No se encontraron pedidos{query ? ` para "${query}"` : ''}
           </p>
         )}
-        {pedidos.map(pedido => (
-          <div key={pedido.id} className="card bg-base-200 border border-base-300 hover:border-primary/40 transition-colors">
-            <div className="card-body p-4 flex flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Package className="w-5 h-5 text-base-content/40 shrink-0" />
-                <div>
-                  <p className="font-mono font-semibold">{pedido.numero}</p>
-                  <p className="text-sm text-base-content/60">
-                    {pedido.cliente?.nombre ?? 'Sin cliente'} ·{' '}
-                    {new Date(pedido.fechaCreacion).toLocaleDateString('es-ES')} ·{' '}
-                    {pedido.total?.toFixed(2)} €
-                  </p>
+        {pedidos.map(pedido => {
+          const tieneAlbaran = (pedido._count?.albaranes || 0) > 0;
+          return (
+            <div key={pedido.id} className={`card border transition-colors ${tieneAlbaran ? 'bg-warning/5 border-warning/30' : 'bg-base-200 border-base-300 hover:border-primary/40'}`}>
+              <div className="card-body p-4 flex flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <Package className={`w-5 h-5 shrink-0 ${tieneAlbaran ? 'text-warning' : 'text-base-content/40'}`} />
+                  <div>
+                    <p className="font-mono font-semibold">
+                      {pedido.numero}
+                      {tieneAlbaran && <span className="ml-2 badge badge-xs badge-warning">Ya tiene albarán</span>}
+                    </p>
+                    <p className="text-sm text-base-content/60">
+                      {pedido.cliente?.nombre ?? 'Sin cliente'} ·{' '}
+                      {new Date(pedido.fechaCreacion).toLocaleDateString('es-ES')} ·{' '}
+                      {pedido.total?.toFixed(2)} €
+                    </p>
+                  </div>
                 </div>
+                <button
+                  onClick={() => setPedidoSeleccionado(pedido)}
+                  disabled={loading || tieneAlbaran}
+                  className="btn btn-sm gap-1 shrink-0 btn-primary disabled:opacity-50"
+                  title={tieneAlbaran ? 'Este pedido ya tiene un albarán generado' : undefined}
+                >
+                  <Plus className="w-4 h-4" /> Generar albarán
+                </button>
               </div>
-              <button
-                onClick={() => setPedidoSeleccionado(pedido)}
-                disabled={loading}
-                className="btn btn-primary btn-sm gap-1 shrink-0"
-              >
-                <Plus className="w-4 h-4" /> Generar albarán
-              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {pedidoSeleccionado && (

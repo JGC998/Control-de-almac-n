@@ -64,7 +64,6 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
 
     const isValid = provincia && peso && altura && parseFloat(peso) > 0 && parseFloat(altura) > 0;
 
-    // Mapeo de tipologías a nombres legibles
     const tipologiaLabels = {
         parcel: 'PARCEL',
         miniQuarter: 'MINI QUARTER',
@@ -75,6 +74,18 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
         megaLight: 'MEGA LIGHT',
         full: 'FULL',
         megaFull: 'MEGA FULL'
+    };
+
+    const tipologiaLimites = {
+        parcel:      'Medio Palé · peso ≤ 100 kg · altura ≤ 150 cm',
+        miniQuarter: 'peso ≤ 175 kg · altura ≤ 80 cm',
+        quarter:     'peso ≤ 350 kg · altura ≤ 100 cm',
+        miniLight:   'peso ≤ 300 kg · altura ≤ 220 cm',
+        half:        'peso ≤ 650 kg · altura ≤ 140 cm',
+        light:       'peso ≤ 500 kg · altura ≤ 245 cm',
+        megaLight:   'peso ≤ 750 kg · altura ≤ 220 cm',
+        full:        'peso ≤ 900 kg · altura ≤ 200 cm',
+        megaFull:    'supera límites anteriores',
     };
 
     return (
@@ -247,11 +258,16 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
                                     </div>
 
                                     <div className="flex justify-between text-xs opacity-70 pl-6">
-                                        <span>• Tipología:</span>
-                                        <span className="badge badge-sm badge-outline">
+                                        <span>• Tipología seleccionada:</span>
+                                        <span className="badge badge-sm badge-outline font-semibold">
                                             {tipologiaLabels[resultado.tipologia] || resultado.tipologia}
                                         </span>
                                     </div>
+                                    {tipologiaLimites[resultado.tipologia] && (
+                                        <div className="text-xs opacity-50 pl-6 italic">
+                                            ({tipologiaLimites[resultado.tipologia]})
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-xs opacity-70 pl-6">
                                         <span>• Destino:</span>
                                         <span>{resultado.provincia}</span>

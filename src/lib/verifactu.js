@@ -36,9 +36,13 @@ export function formatFechaQR(date = new Date()) {
   return `${get('day')}-${get('month')}-${get('year')}`;
 }
 
-// Formatea un número según la Orden HAC/1177/2024: sin ceros decimales finales.
+// Formatea un número según la Orden HAC/1177/2024: máx 2 decimales, sin ceros finales.
 // 100.00 → "100"  |  123.10 → "123.1"  |  21.05 → "21.05"
-const fmtNum = (n) => parseFloat(n).toString();
+const fmtNum = (n) => {
+  const num = parseFloat(n);
+  if (!isFinite(num)) return '0';
+  return parseFloat(num.toFixed(2)).toString();
+};
 
 // Calcula la huella SHA-256 de un registro de factura.
 // Todos los parámetros son strings o números; se aplica fmtNum a los numéricos.
@@ -52,6 +56,9 @@ export function calcularHuella({
   HuellaAnterior = '',  // SHA-256 del registro anterior (vacío = primera factura)
   FechaHoraHusoGenRegistro, // resultado de getFechaHoraHusoEspana()
 }) {
+  if (!IDEmisorFactura || !NumSerieFactura || !FechaExpedicionFactura || !FechaHoraHusoGenRegistro) {
+    throw new Error('calcularHuella: faltan campos obligatorios para el cálculo de la huella');
+  }
   const cadena = [
     `IDEmisorFactura=${IDEmisorFactura.replace(/\s/g, '')}`,
     `NumSerieFactura=${NumSerieFactura.replace(/\s/g, '')}`,
@@ -96,7 +103,7 @@ function generarRegistroFactura(factura, nif, nombre, prevFactura = null) {
     ? formatFechaQR(new Date(prevFactura.fechaHoraGenRegistro || prevFactura.fechaCreacion))
     : '';
 
-  const encadenamiento = esPrimero
+  const encadenamiento = esPrimero || !prevFactura
     ? `<PrimerRegistro>S</PrimerRegistro>`
     : `<RegistroAnterior>
           <IDEmisorFactura>${nif}</IDEmisorFactura>
@@ -105,26 +112,26 @@ function generarRegistroFactura(factura, nif, nombre, prevFactura = null) {
           <Huella>${factura.huellaAnterior}</Huella>
         </RegistroAnterior>`;
 
-  const destinatario = factura.cliente
+  const destinatario = factura.cliente && factura.cliente.nif
     ? `<Destinatarios>
         <IDDestinatario>
           <NombreRazon>${escXml(factura.cliente.nombre || '')}</NombreRazon>
-          ${factura.cliente.nif ? `<NIF>${escXml(factura.cliente.nif)}</NIF>` : '<IDOtro><IDType>07</IDType><ID>NO-NIF</ID></IDOtro>'}
+          <NIF>${escXml(factura.cliente.nif)}</NIF>
         </IDDestinatario>
       </Destinatarios>`
     : '';
 
   const tipoFactura = factura.tipoFactura || 'F1';
   const esRectificativa = tipoFactura.startsWith('R');
-  const bloqueRectificativa = esRectificativa && factura.facturaOriginal
+  const bloqueRectificativa = esRectificativa
     ? `<TipoRectificativa>${factura.tipoRectificativa || 'I'}</TipoRectificativa>
-      <FacturasRectificadas>
+      ${factura.facturaOriginal ? `<FacturasRectificadas>
         <IDFacturaRectificada>
           <IDEmisorFactura>${nif}</IDEmisorFactura>
           <NumSerieFactura>${escXml(factura.facturaOriginal.numero)}</NumSerieFactura>
           <FechaExpedicionFactura>${formatFechaQR(new Date(factura.facturaOriginal.fechaHoraGenRegistro || factura.facturaOriginal.fechaCreacion))}</FechaExpedicionFactura>
         </IDFacturaRectificada>
-      </FacturasRectificadas>`
+      </FacturasRectificadas>` : ''}`
     : '';
 
   return `  <RegistroFactura>
@@ -143,7 +150,7 @@ function generarRegistroFactura(factura, nif, nombre, prevFactura = null) {
         <DetalleIVA>
           <ClaveRegimen>01</ClaveRegimen>
           <CalificacionOperacion>S1</CalificacionOperacion>
-          <TipoImpositivo>21</TipoImpositivo>
+          <TipoImpositivo>${factura.subtotal > 0 ? fmtNum((factura.tax / factura.subtotal) * 100) : '21'}</TipoImpositivo>
           <BaseImponibleOimporteNoSujeto>${fmtNum(factura.subtotal)}</BaseImponibleOimporteNoSujeto>
           <CuotaRepercutida>${fmtNum(factura.tax)}</CuotaRepercutida>
         </DetalleIVA>

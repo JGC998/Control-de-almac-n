@@ -4,6 +4,7 @@ import FormularioEntidad from '@/componentes/compuestos/FormularioEntidad';
 
 const camposCliente = [
   { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+  { clave: 'nif', etiqueta: 'NIF / CIF', placeholder: 'B12345678' },
   {
     clave: 'categoria',
     etiqueta: 'Categoría',
@@ -24,6 +25,7 @@ const ClientEditModal = ({ cliente, isOpen, onClose, onUpdate }) => {
     if (cliente) {
       setFormData({
         nombre: cliente.nombre || '',
+        nif: cliente.nif || '',
         categoria: cliente.categoria || 'NORMAL',
         email: cliente.email || '',
         telefono: cliente.telefono || '',

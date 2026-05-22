@@ -271,9 +271,25 @@ export default function FacturaDetallePage() {
             <span className="text-sm text-base-content/50">
               {new Date(factura.fechaCreacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
             </span>
-            {factura.fechaVencimiento && (
-              <span className={`text-sm ${new Date(factura.fechaVencimiento) < new Date() && factura.estado === 'EMITIDA' ? 'text-error font-semibold' : 'text-base-content/50'}`}>
-                · Vence {new Date(factura.fechaVencimiento).toLocaleDateString('es-ES')}
+            {factura.fechaVencimiento && (() => {
+              const fv = new Date(factura.fechaVencimiento);
+              const ahora = new Date();
+              const en7 = new Date(ahora); en7.setDate(ahora.getDate() + 7);
+              const vencida = fv < ahora && factura.estado === 'EMITIDA';
+              const proxima = !vencida && fv <= en7 && fv >= ahora && factura.estado === 'EMITIDA';
+              return (
+                <span className="flex items-center gap-1.5">
+                  <span className={`text-sm ${vencida ? 'text-error font-semibold' : proxima ? 'text-warning font-semibold' : 'text-base-content/50'}`}>
+                    · Vence {fv.toLocaleDateString('es-ES')}
+                  </span>
+                  {vencida && <span className="badge badge-xs badge-error">VENCIDA</span>}
+                  {proxima && <span className="badge badge-xs badge-warning">PRÓXIMA</span>}
+                </span>
+              );
+            })()}
+            {factura.fechaPago && (
+              <span className="text-sm text-success">
+                · Pagada {new Date(factura.fechaPago).toLocaleDateString('es-ES')}
               </span>
             )}
           </div>

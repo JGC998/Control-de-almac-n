@@ -63,6 +63,55 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-05-22
+
+### Fase D — VeriFactu
+
+- ✅ Modelo `ConfiguracionEmisor` en Prisma (NIF, nombre fiscal, dirección, modo pruebas/producción)
+- ✅ `src/lib/verifactu.js` — cálculo de huella SHA-256 encadenada, generación XML AEAT, URL QR de verificación
+- ✅ Al emitir factura (BORRADOR → EMITIDA): hash VeriFactu calculado automáticamente, `estadoEnvioAeat = PENDIENTE`
+- ✅ Facturas EMITIDA/PAGADA son inmutables (solo rectificativas permitidas)
+- ✅ API `POST /api/facturas/[id]/rectificativa` — crea facturas correctivas R1–R5 (Sustitución / Diferencias)
+- ✅ API `GET /api/facturas/[id]/xml` — exporta XML VeriFactu individual, marca como EXPORTADO
+- ✅ API `GET /api/facturas/exportar-aeat` — exporta lote de hasta 1000 facturas PENDIENTE; re-exporta EXPORTADO si no hay pendientes
+- ✅ PDF de factura incluye QR VeriFactu con URL de verificación
+- ✅ Página `/configuracion/emisor` — formulario NIF, nombre fiscal, dirección, modo test/prod
+- ✅ Página `/facturas/[id]` — sección VeriFactu con estado envío, botón XML individual, botón rectificativa
+- ✅ Página `/facturas` — listado con paginación, filtros por `clientId`, `albaranId`, `pedidoId`, `estado`
+- ✅ Página `/facturas/[id]` — detalle completo con albarán/pedido vinculado, ítems, rectificativas
+
+### Fase E — Cobros y vencimientos
+
+- ✅ Campo `fechaPago DateTime?` añadido al modelo `Factura` en `schema.dev.prisma`
+- ✅ `PUT /api/facturas/[id]` — auto-registra `fechaPago = now()` al cambiar estado a PAGADA
+- ✅ Listado `/facturas` — badges **VENCIDA** (rojo) y **PRÓXIMA** (<7 días, amarillo) en columna de vencimiento
+- ✅ Detalle `/facturas/[id]` — badges de vencimiento + fecha de pago cuando está disponible
+
+### UI — Factura manual
+
+- ✅ Página `/facturas/nuevo` rediseñada con dos pestañas:
+  - **Manual**: selector de cliente SWR, líneas de ítems libres, fecha de vencimiento, notas, preview de totales en tiempo real
+  - **Desde albarán**: flujo original de generación desde albarán emitido
+
+### Seguridad S1–S13
+
+- ✅ **S1/S2** — Autenticación PIN opcional vía `middleware.js` + cookie `crm-auth` (HttpOnly, SameSite=Strict, 8h)
+  - `middleware.js` (raíz) — protege todas las rutas excepto `_next/*`, `/login`, `/api/auth/*`
+  - `src/app/login/page.js` — pantalla de login con overlay (`fixed inset-0 z-[100]`)
+  - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/status`
+  - `Encabezado.js` — botón de logout visible cuando `AUTH_PIN` está configurado
+  - `.env.local` — `AUTH_PIN` comentado por defecto (desactivado en desarrollo)
+- ✅ **S3** — Audit log al cambiar estado de factura (fire-and-forget `db.auditLog.create().catch(() => {})`)
+- ✅ **S4** — Audit log al crear rectificativa
+- ✅ **S7** — Cap de 5000 filas en exportación CSV (`GET /api/export/csv`)
+- ✅ **S8** — Middleware S1 cubre todas las rutas API (no requiere cambios adicionales)
+- ✅ **S9** — Rate limiting en `GET /api/informes`: 20 peticiones/min por IP, responde 429 con `Retry-After`
+- ✅ **S11** — Eliminada exposición de `error.message` en 4 rutas de catch blocks
+- ✅ **S13** — `src/lib/logger.js` con `logApiError(error, context)`: logs estructurados sin stack traces ni consultas SQL
+  - Reemplazados todos los `console.error(error)` en los ~59 archivos de rutas API
+
+---
+
 ## Backlog — por implementar (futuro)
 
 ### Fase B — Albaranes
@@ -84,13 +133,19 @@ Registro diario de cambios, mejoras y tareas pendientes.
 - ✅ ~~Activar enlaces "Nueva factura" y "Facturas" en nav~~
 
 ### Fase D — VeriFactu (obligatorio antes del 01/01/2027)
-- ⏳ Configuración del emisor (NIF, nombre fiscal, dirección)
-- ⏳ Modelo `RegistroVeriFactu` (hash encadenado SHA-256)
-- ⏳ Servicio de cálculo de huella digital
-- ⏳ Servicio de generación XML (esquema AEAT)
-- ⏳ QR en PDF de factura con enlace de verificación
-- ⏳ Inmutabilidad de facturas (solo rectificativas)
-- ⏳ (Fase D2) Envío al webservice AEAT
+- ✅ ~~Configuración del emisor (NIF, nombre fiscal, dirección)~~
+- ✅ ~~Hash encadenado SHA-256~~
+- ✅ ~~Servicio de cálculo de huella digital~~
+- ✅ ~~Servicio de generación XML (esquema AEAT)~~
+- ✅ ~~QR en PDF de factura con enlace de verificación~~
+- ✅ ~~Inmutabilidad de facturas (solo rectificativas)~~
+- ✅ ~~Exportación por lotes (hasta 1000 facturas)~~
+- ⏳ (Fase D2) Envío directo al webservice AEAT (actualmente solo exportación de archivo)
+
+### Fase E — Cobros y vencimientos
+- ✅ ~~Badges VENCIDA/PRÓXIMA en listado y detalle de facturas~~
+- ✅ ~~Auto-registro de fecha de pago al marcar PAGADA~~
+- ⏳ Panel "Facturas pendientes de cobro" en dashboard
 
 ### Fase E — Informes PDF
 - ⏳ Botón "Exportar a PDF" en página de Informes

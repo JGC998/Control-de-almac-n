@@ -91,6 +91,7 @@ model Factura {
   numero           String    @unique
   fechaCreacion    DateTime  @default(now())
   fechaVencimiento DateTime?
+  fechaPago        DateTime?
   estado           String
   notas            String?
   subtotal         Float

@@ -5,9 +5,25 @@ import path from 'path';
 import QRCode from 'qrcode';
 import { construirURLQR, formatFechaQR } from '@/lib/verifactu';
 
-// --- DATOS DE LA EMPRESA (Hardcodeados según solicitud) ---
-const COMPANY_ADDRESS = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
-const COMPANY_PHONE = '957 68 28 19';
+// Fallbacks para cuando ConfiguracionEmisor / Config no estén configurados
+const COMPANY_ADDRESS_FALLBACK = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
+const COMPANY_PHONE_FALLBACK   = '957 68 28 19';
+
+async function getEmisorInfo() {
+    try {
+        const { db } = await import('@/lib/db');
+        const [emisor, phoneConfig] = await Promise.all([
+            db.configuracionEmisor.findUnique({ where: { id: 1 } }),
+            db.config.findUnique({ where: { key: 'empresa_telefono' } }),
+        ]);
+        return {
+            address: emisor?.direccion || COMPANY_ADDRESS_FALLBACK,
+            phone:   phoneConfig?.value || COMPANY_PHONE_FALLBACK,
+        };
+    } catch {
+        return { address: COMPANY_ADDRESS_FALLBACK, phone: COMPANY_PHONE_FALLBACK };
+    }
+}
 
 // Caché de logo en memoria: se lee una sola vez por proceso
 let _logoBase64 = null;
@@ -27,6 +43,7 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
     try {
         const doc = new jsPDF();
         const client = quote.cliente;
+        const { address, phone } = await getEmisorInfo();
 
         // --- Añadir Logo (cacheado en memoria) ---
         const logoBase64 = await getLogoBase64();
@@ -41,8 +58,8 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
-        doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
+        doc.text(address, 200, 38, { align: 'right' });
+        doc.text(`Teléfono: ${phone}`, 200, 44, { align: 'right' });
 
         // --- Info Presupuesto ---
         doc.setFontSize(12);
@@ -250,6 +267,7 @@ export async function generateOrderPDF(order, config = {}) {
     try {
         const doc = new jsPDF();
         const client = order.cliente;
+        const { address, phone } = await getEmisorInfo();
 
         // --- Añadir Logo (cacheado en memoria) ---
         const logoBase64 = await getLogoBase64();
@@ -264,8 +282,8 @@ export async function generateOrderPDF(order, config = {}) {
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
-        doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
+        doc.text(address, 200, 38, { align: 'right' });
+        doc.text(`Teléfono: ${phone}`, 200, 44, { align: 'right' });
 
         // --- Info Pedido ---
         doc.setFontSize(12);
@@ -280,20 +298,31 @@ export async function generateOrderPDF(order, config = {}) {
         const formattedDate = new Date(order.fechaCreacion).toLocaleDateString('es-ES');
         doc.text(formattedDate, 38, 42);
 
-        // --- Info Cliente ---
-        doc.rect(14, 55, 90, 28);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Cliente:", 20, 61);
+        // --- Info Cliente (recuadro dinámico) ---
+        const boxX = 14, boxY = 55, boxW = 90, lineH = 6;
+        const textX = 20, maxW = boxW - 12;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        if (client) {
-            doc.text(client.nombre, 20, 67);
-            doc.text(client.direccion || 'Dirección no especificada', 20, 73);
-            doc.text(client.email || 'Email no especificado', 20, 79);
-        }
+        const nombreLines = client ? doc.splitTextToSize(client.nombre || 'Sin cliente', maxW) : ['Sin cliente'];
+        const dirLines    = client && client.direccion ? doc.splitTextToSize(client.direccion, maxW) : [];
+        const emailLines  = client && client.email    ? doc.splitTextToSize(client.email, maxW)    : [];
+        const allClientLines = [...nombreLines, ...dirLines, ...emailLines];
+        const boxH = Math.max(28, 10 + allClientLines.length * lineH + 4);
+
+        doc.rect(boxX, boxY, boxW, boxH);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Cliente:", textX, boxY + 6);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        let clientLineY = boxY + 13;
+        allClientLines.forEach(line => {
+            doc.text(line, textX, clientLineY);
+            clientLineY += lineH;
+        });
 
         // --- Tabla de Items ---
+        const tableStartY = boxY + boxH + 7;
         const tableColumn = ["Descripción", "Detalles", "Cantidad", "Peso Unit. (kg)", "Peso Total (kg)"];
         const tableRows = [];
         let pesoTotalGlobal = 0;
@@ -329,7 +358,7 @@ export async function generateOrderPDF(order, config = {}) {
         autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
-            startY: 85,
+            startY: tableStartY,
             theme: 'grid',
             styles: { fontSize: 8 },
             headStyles: { fillColor: [220, 220, 220], textColor: 40, fontStyle: 'bold' },
@@ -485,6 +514,7 @@ export async function generateFacturaPDF(factura) {
     try {
         const doc = new jsPDF();
         const client = factura.cliente;
+        const { address, phone } = await getEmisorInfo();
 
         const logoBase64 = await getLogoBase64();
         if (logoBase64) {
@@ -508,8 +538,8 @@ export async function generateFacturaPDF(factura) {
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
-        doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
+        doc.text(address, 200, 38, { align: 'right' });
+        doc.text(`Teléfono: ${phone}`, 200, 44, { align: 'right' });
 
         // --- Datos factura ---
         doc.setFontSize(11);
@@ -681,6 +711,7 @@ export async function generateAlbaranPDF(albaran) {
     try {
         const doc = new jsPDF();
         const client = albaran.cliente;
+        const { address, phone } = await getEmisorInfo();
 
         const logoBase64 = await getLogoBase64();
         if (logoBase64) {
@@ -694,8 +725,8 @@ export async function generateAlbaranPDF(albaran) {
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(COMPANY_ADDRESS, 200, 38, { align: 'right' });
-        doc.text(`Teléfono: ${COMPANY_PHONE}`, 200, 44, { align: 'right' });
+        doc.text(address, 200, 38, { align: 'right' });
+        doc.text(`Teléfono: ${phone}`, 200, 44, { align: 'right' });
 
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");

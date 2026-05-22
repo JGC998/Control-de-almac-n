@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, FileText, DollarSign, CheckCircle, Package, Clipboard, Plus, Ban, ReceiptText } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Clipboard, Plus, Ban, ReceiptText } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
 import ModalTipoAlbaran from '@/componentes/albaranes/ModalTipoAlbaran';
@@ -200,6 +200,10 @@ export default function PedidoDetalle() {
     }
   };
 
+  const handlePrintPDF = () => {
+    window.open(`/api/pedidos/${id}/pdf?inline=true`, '_blank');
+  };
+
   const handleUpdateStatus = async (newStatus) => {
     try {
       const res = await fetch(`/api/pedidos/${id}`, {
@@ -254,6 +258,9 @@ export default function PedidoDetalle() {
       <div className="flex flex-wrap gap-2 mb-6">
         <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary">
           <Download className="w-4 h-4" /> Descargar PDF
+        </button>
+        <button onClick={handlePrintPDF} className="btn btn-outline gap-1">
+          <Printer className="w-4 h-4" /> Imprimir PDF
         </button>
         <button
           onClick={() => order.sinFacturacion ? setModalAlbaranOpen(true) && false : setModalAlbaranOpen(true)}

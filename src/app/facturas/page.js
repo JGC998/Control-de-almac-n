@@ -36,6 +36,8 @@ export default async function FacturasPage({ searchParams: spPromise }) {
   const baseWhereVf = { estado: { in: ['EMITIDA', 'PAGADA'] }, huella: { not: null } };
 
   const hoy = new Date();
+  const en7dias = new Date(hoy);
+  en7dias.setDate(en7dias.getDate() + 7);
 
   const [facturas, total, pendientesCount, exportadasCount, statsEmitidas, statsPagadas, vencidasCount] = await Promise.all([
     db.factura.findMany({
@@ -54,7 +56,7 @@ export default async function FacturasPage({ searchParams: spPromise }) {
     db.factura.count({ where: { ...baseWhereVf, estadoEnvioAeat: 'EXPORTADO' } }),
     db.factura.aggregate({ where: { estado: 'EMITIDA' }, _sum: { total: true }, _count: true }),
     db.factura.aggregate({ where: { estado: 'PAGADA'  }, _sum: { total: true }, _count: true }),
-    db.factura.count({ where: { estado: 'EMITIDA', fechaVencimiento: { lt: hoy } } }),
+    db.factura.count({ where: { estado: { in: ['EMITIDA', 'PAGADA'] }, fechaVencimiento: { lt: hoy } } }),
   ]);
 
   const totalPages       = Math.ceil(total / limit);
@@ -208,12 +210,20 @@ export default async function FacturasPage({ searchParams: spPromise }) {
                 </td>
                 <td className="text-sm">{new Date(fac.fechaCreacion).toLocaleDateString('es-ES')}</td>
                 <td className="text-sm">
-                  {fac.fechaVencimiento
-                    ? <span className={new Date(fac.fechaVencimiento) < new Date() && fac.estado === 'EMITIDA' ? 'text-error font-semibold' : ''}>
-                        {new Date(fac.fechaVencimiento).toLocaleDateString('es-ES')}
-                      </span>
-                    : <span className="opacity-40">—</span>
-                  }
+                  {fac.fechaVencimiento ? (() => {
+                    const fv = new Date(fac.fechaVencimiento);
+                    const vencida  = fv < hoy && fac.estado === 'EMITIDA';
+                    const proxima  = !vencida && fv <= en7dias && fv >= hoy && fac.estado === 'EMITIDA';
+                    return (
+                      <div className="flex flex-col gap-0.5">
+                        <span className={vencida ? 'text-error font-semibold' : proxima ? 'text-warning font-semibold' : ''}>
+                          {fv.toLocaleDateString('es-ES')}
+                        </span>
+                        {vencida && <span className="badge badge-xs badge-error">VENCIDA</span>}
+                        {proxima && <span className="badge badge-xs badge-warning">PRÓXIMA</span>}
+                      </div>
+                    );
+                  })() : <span className="opacity-40">—</span>}
                 </td>
                 <td className="text-right font-semibold">{fac.total.toFixed(2)} €</td>
                 <td>
