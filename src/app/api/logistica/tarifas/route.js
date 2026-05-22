@@ -1,5 +1,6 @@
-import { db } from '@/lib/db';
+﻿import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 
 export async function GET() {
     try {
@@ -8,7 +9,7 @@ export async function GET() {
         });
         return NextResponse.json(tarifas);
     } catch (error) {
-        console.error('Error fetching tarifas:', error);
+        logApiError(error, 'Error fetching tarifas:');
         return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }

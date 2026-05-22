@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { logCreate } from '@/lib/audit';
 
@@ -9,7 +10,7 @@ export async function GET() {
     });
     return NextResponse.json(tarifas);
   } catch (error) {
-    console.error('Error al obtener tarifas de rollo:', error);
+    logApiError(error, 'Error al obtener tarifas de rollo:');
     return NextResponse.json({ message: 'Error al obtener tarifas' }, { status: 500 });
   }
 }
@@ -45,7 +46,7 @@ export async function POST(request) {
         { status: 409 }
       );
     }
-    console.error('Error al crear tarifa de rollo:', error);
+    logApiError(error, 'Error al crear tarifa de rollo:');
     return NextResponse.json({ message: 'Error al crear la tarifa' }, { status: 500 });
   }
 }

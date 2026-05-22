@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db'; 
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export async function GET() {
     });
     return NextResponse.json(referencias);
   } catch (error) {
-    console.error('Error fetching referencias bobina:', error);
+    logApiError(error, 'Error fetching referencias bobina:');
     return NextResponse.json({ error: 'Error fetching referencias bobina' }, { status: 500 });
   }
 }
@@ -43,7 +44,7 @@ export async function POST(request) {
     });
     return NextResponse.json(newRef, { status: 201 });
   } catch (error) {
-    console.error('Error creating referencia bobina:', error);
+    logApiError(error, 'Error creating referencia bobina:');
     // P2002 para Clave Compuesta
     if (error.code === 'P2002') {
         return NextResponse.json({ 
@@ -72,7 +73,7 @@ export async function PUT(request) {
     });
     return NextResponse.json(updatedRef);
   } catch (error) {
-    console.error('Error updating referencia bobina:', error);
+    logApiError(error, 'Error updating referencia bobina:');
     // CORRECCIÓN CLAVE: Capturar P2002 para las actualizaciones
     if (error.code === 'P2002') {
         return NextResponse.json({ 
@@ -98,7 +99,7 @@ export async function DELETE(request) {
     });
     return NextResponse.json({ message: 'Referencia de Bobina eliminada.' });
   } catch (error) {
-    console.error('Error deleting referencia bobina:', error);
+    logApiError(error, 'Error deleting referencia bobina:');
     if (error.code === 'P2003') {
       return NextResponse.json({ 
         error: 'No se puede eliminar esta referencia porque está siendo utilizada en un pedido de proveedor (FK Constraint). Debe eliminar o modificar el pedido de proveedor primero.', 

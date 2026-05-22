@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { calcularHuella, getFechaHoraHusoEspana, formatFechaQR } from '@/lib/verifactu';
@@ -23,7 +24,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(factura);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener factura' }, { status: 500 });
   }
 }
@@ -43,7 +44,9 @@ export async function PUT(request, { params }) {
         return NextResponse.json({ message: 'Se requiere al menos un ítem' }, { status: 400 });
       }
       const subtotal = items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0);
-      const tax      = subtotal * 0.21;
+      const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });
+      const ivaRate = ivaConfig ? parseFloat(ivaConfig.value) : 0.21;
+      const tax      = subtotal * ivaRate;
       const total    = subtotal + tax;
 
       await db.$transaction([
@@ -78,6 +81,13 @@ export async function PUT(request, { params }) {
       revalidatePath('/facturas');
       revalidatePath(`/facturas/${id}`);
       return NextResponse.json(updated);
+    }
+
+    if (items) {
+      return NextResponse.json(
+        { message: 'Solo se pueden modificar ítems de facturas en borrador' },
+        { status: 422 }
+      );
     }
 
     // Permitir actualizar estadoEnvioAeat/csvAeat sin cambiar el estado principal
@@ -121,9 +131,10 @@ export async function PUT(request, { params }) {
       // Obtener huella de la última factura emitida (la más reciente por fecha de generación)
       const ultimaFactura = await db.factura.findFirst({
         where: {
-          id:      { not: id },
-          huella:  { not: null },
-          estado:  { in: ['EMITIDA', 'PAGADA'] },
+          id:                    { not: id },
+          huella:                { not: null },
+          estado:                { in: ['EMITIDA', 'PAGADA'] },
+          fechaHoraGenRegistro:  { not: null },
         },
         orderBy: { fechaHoraGenRegistro: 'desc' },
         select:  { huella: true },
@@ -152,6 +163,9 @@ export async function PUT(request, { params }) {
       updateData.estadoEnvioAeat       = 'PENDIENTE';
     } else if (estado) {
       updateData.estado = estado;
+      if (estado === 'PAGADA') {
+        updateData.fechaPago = new Date();
+      }
     }
 
     const factura = await db.factura.update({
@@ -160,11 +174,23 @@ export async function PUT(request, { params }) {
       include: { items: true, cliente: true, albaran: true, pedido: true },
     });
 
+    // S3 — Audit log al cambiar estado
+    if (updateData.estado && updateData.estado !== existing.estado) {
+      db.auditLog.create({
+        data: {
+          action: `FACTURA_${updateData.estado}`,
+          entity: 'Factura',
+          entityId: id,
+          details: JSON.stringify({ de: existing.estado, a: updateData.estado, numero: existing.numero }),
+        },
+      }).catch(() => {});
+    }
+
     revalidatePath('/facturas');
     revalidatePath(`/facturas/${id}`);
     return NextResponse.json(factura);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al actualizar factura' }, { status: 500 });
   }
 }
@@ -187,7 +213,7 @@ export async function DELETE(request, { params }) {
     revalidatePath('/facturas');
     return NextResponse.json({ message: 'Factura eliminada' });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al eliminar factura' }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error en bulk-update:', error);
+    logApiError(error, 'Error en bulk-update:');
     return NextResponse.json({ message: "Error interno" }, { status: 500 });
   }
 }

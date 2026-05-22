@@ -1,6 +1,7 @@
-
+﻿
 
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db'; 
 import { crearManejadoresCRUD } from '@/lib/manejadores-api';
 import { revalidatePath } from 'next/cache';
@@ -30,7 +31,7 @@ export async function PUT(request) {
     revalidatePath('/configuracion'); // Invalidate cache after update
     return NextResponse.json(updatedMaterial);
   } catch (error) {
-    console.error('Error updating material:', error);
+    logApiError(error, 'Error updating material:');
     if (error.code === 'P2002') {
         return NextResponse.json({ error: 'Ya existe un material con ese nombre.' }, { status: 409 });
     }
@@ -63,7 +64,7 @@ export async function DELETE(request) {
     revalidatePath('/configuracion'); // Invalidate cache after delete
     return NextResponse.json({ message: 'Material eliminado.' });
   } catch (error) {
-    console.error('Error deleting material:', error);
+    logApiError(error, 'Error deleting material:');
     // P2003 (Clave foránea): Si llega aquí, es porque está enlazado a un Producto.
     if (error.code === 'P2003') {
       return NextResponse.json({ 

@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { productoSchema } from '@/lib/validations';
@@ -93,7 +94,7 @@ export async function GET(request) {
 
     return NextResponse.json(productosSerializados);
   } catch (error) {
-    console.error('Error al obtener productos:', error);
+    logApiError(error, 'Error al obtener productos:');
     return NextResponse.json({ message: 'Error al obtener productos' }, { status: 500 });
   }
 }
@@ -136,7 +137,7 @@ export async function POST(request) {
     revalidatePath('/gestion/productos');
     return NextResponse.json(nuevoProducto, { status: 201 });
   } catch (error) {
-    console.error('Error al crear el producto:', error);
+    logApiError(error, 'Error al crear el producto:');
     return NextResponse.json({ message: 'Error al crear el producto' }, { status: 500 });
   }
 }

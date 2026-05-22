@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { handlePrismaError } from '@/lib/manejadores-api';
@@ -46,7 +47,7 @@ export async function GET(request, { params: paramsPromise }) {
     return NextResponse.json(orderSerializado);
 
   } catch (error) {
-    console.error('Error al obtener pedido:', error);
+    logApiError(error, 'Error al obtener pedido');
     return NextResponse.json({ message: "Error interno al obtener pedido" }, { status: 500 });
   }
 }
@@ -58,8 +59,8 @@ export async function PUT(request, { params: paramsPromise }) {
     const data = await request.json();
     const { clienteId, items, notas, subtotal, tax, total, estado, marginId, presupuestoId } = data;
 
-    if (!clienteId || !items || items.length === 0) {
-      return NextResponse.json({ message: 'Datos incompletos. Se requiere clienteId y al menos un item.' }, { status: 400 });
+    if (!items || items.length === 0) {
+      return NextResponse.json({ message: 'Se requiere al menos un item.' }, { status: 400 });
     }
 
     const updatedOrder = await db.$transaction(async (tx) => {

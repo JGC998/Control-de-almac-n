@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export async function GET() {
@@ -8,7 +9,7 @@ export async function GET() {
     });
     return NextResponse.json(tacos);
   } catch (error) {
-    console.error('Error al obtener tacos:', error);
+    logApiError(error, 'Error al obtener tacos:');
     return NextResponse.json({ message: 'Error al obtener tacos' }, { status: 500 });
   }
 }
@@ -33,7 +34,7 @@ export async function POST(request) {
     if (error.code === 'P2002') {
       return NextResponse.json({ message: 'Ya existe un taco con ese tipo y altura' }, { status: 409 });
     }
-    console.error('Error al crear taco:', error);
+    logApiError(error, 'Error al crear taco:');
     return NextResponse.json({ message: 'Error al crear el taco' }, { status: 500 });
   }
 }
@@ -58,7 +59,7 @@ export async function PUT(request) {
 
     return NextResponse.json({ message: `${results.length} tacos actualizados`, updated: results });
   } catch (error) {
-    console.error('Error al actualizar tacos:', error);
+    logApiError(error, 'Error al actualizar tacos:');
     return NextResponse.json({ message: 'Error al actualizar los tacos' }, { status: 500 });
   }
 }

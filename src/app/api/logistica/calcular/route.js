@@ -1,5 +1,6 @@
-import { db } from '@/lib/db';
+﻿import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { calculoLogisticaSchema } from '@/lib/validations';
 
 /**
@@ -143,7 +144,7 @@ export async function POST(request) {
         });
 
     } catch (error) {
-        console.error('Error en cálculo logístico:', error);
+        logApiError(error, 'Error en cálculo logístico:');
         return NextResponse.json(
             { error: 'Error interno del servidor', details: undefined },
             { status: 500 }

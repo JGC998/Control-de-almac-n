@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 
@@ -103,7 +104,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error("Error completo fetching dashboard data:", error);
+    logApiError(error, 'Error completo fetching dashboard data:');
     return NextResponse.json({ message: "Error al obtener datos del dashboard" }, { status: 500 });
   }
 }

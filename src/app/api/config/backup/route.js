@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,7 @@ export async function GET(request) {
         });
 
     } catch (error) {
-        console.error('Error generando backup:', error);
+        logApiError(error, 'Error generando backup:');
         return NextResponse.json({ message: 'Error al generar backup' }, { status: 500 });
     }
 }

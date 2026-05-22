@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
@@ -54,7 +55,7 @@ export async function GET(request) {
 
     return NextResponse.json(quotes);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener presupuestos' }, { status: 500 });
   }
 }
@@ -115,7 +116,7 @@ export async function POST(request) {
     revalidatePath('/presupuestos'); // Invalidate cache for the list page
     return NextResponse.json(newQuote, { status: 201 });
   } catch (error) {
-    console.error('Error al crear el presupuesto:', error);
+    logApiError(error, 'Error al crear el presupuesto:');
     return NextResponse.json({ message: 'Error interno al guardar el nuevo presupuesto.' }, { status: 500 });
   }
 }

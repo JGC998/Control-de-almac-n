@@ -1,11 +1,12 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import {
   Warehouse, Package, FileText, Truck, Calculator, Users, Settings,
   Layers, Factory, ChevronDown, Menu, X, DollarSign,
-  FilePlus, PackagePlus, Clipboard, Receipt, Ship, TrendingDown
+  FilePlus, PackagePlus, Clipboard, Receipt, Ship, TrendingDown, LogOut
 } from 'lucide-react';
 import BarraBusqueda from '@/componentes/ui/BarraBusqueda';
 
@@ -211,9 +212,19 @@ function NavDropdown({ item, pathname, isOpen, onOpen }) {
 
 export default function Encabezado() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeNav, setActiveNav] = useState(null);
   const configActive = pathname.startsWith('/configuracion');
+
+  const { data: authStatus } = useSWR('/api/auth/status');
+  const authRequired = authStatus?.required ?? false;
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full bg-base-100 border-b border-base-200 shadow-sm">
@@ -282,6 +293,16 @@ export default function Encabezado() {
                     </Link>
                   </li>
                 ))}
+                {authRequired && (
+                  <>
+                    <li className="menu-title text-xs opacity-40 mt-1">Sesión</li>
+                    <li>
+                      <button onClick={handleLogout} className="flex items-center gap-2 text-error">
+                        <LogOut className="w-3.5 h-3.5" /> Cerrar sesión
+                      </button>
+                    </li>
+                  </>
+                )}
               </ul>
             )}
           </div>
@@ -351,6 +372,13 @@ export default function Encabezado() {
             <li>
               <Link href="/configuracion" onClick={() => setMobileOpen(false)}>Configuración</Link>
             </li>
+            {authRequired && (
+              <li>
+                <button onClick={handleLogout} className="flex items-center gap-2 text-error">
+                  <LogOut className="w-3.5 h-3.5" /> Cerrar sesión
+                </button>
+              </li>
+            )}
           </ul>
         </div>
       )}

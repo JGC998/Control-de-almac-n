@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { logCreate, logUpdate, logDelete } from '@/lib/audit';
@@ -20,7 +21,7 @@ export async function GET() {
     });
     return NextResponse.json(tarifas);
   } catch (error) {
-    console.error('Error fetching tarifas:', error);
+    logApiError(error, 'Error fetching tarifas:');
     return NextResponse.json({ error: 'Error al obtener tarifas' }, { status: 500 });
   }
 }
@@ -52,7 +53,7 @@ export async function POST(request) {
     revalidatePath('/tarifas');
     return NextResponse.json(newTarifa, { status: 201 });
   } catch (error) {
-    console.error('Error creating tarifa:', error);
+    logApiError(error, 'Error creating tarifa:');
     if (error.code === 'P2002') {
         return NextResponse.json({ error: 'Ya existe una tarifa para este Material y Espesor.' }, { status: 409 });
     }
@@ -83,7 +84,7 @@ export async function PUT(request) {
     revalidatePath('/tarifas');
     return NextResponse.json(updatedTarifa, { status: 200 });
   } catch (error) {
-    console.error('Error updating tarifa:', error);
+    logApiError(error, 'Error updating tarifa:');
     if (error.code === 'P2002') {
         return NextResponse.json({ error: 'Ya existe una tarifa con esta combinación de Material y Espesor.' }, { status: 409 });
     }
@@ -108,7 +109,7 @@ export async function DELETE(request) {
     revalidatePath('/tarifas');
     return NextResponse.json({ message: 'Tarifa eliminada.' }, { status: 200 });
   } catch (error) {
-    console.error('Error deleting tarifa:', error);
+    logApiError(error, 'Error deleting tarifa:');
     if (error.code === 'P2025') {
         return NextResponse.json({ error: 'Tarifa no encontrada.' }, { status: 404 });
     }

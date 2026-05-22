@@ -1,4 +1,4 @@
-import { logUpdate } from '@/lib/audit';
+﻿import { logUpdate } from '@/lib/audit';
 
 // GET: Obtener configuración de paletizado
 // ... (omitted, same as before) 
@@ -43,7 +43,7 @@ export async function PUT(request) {
 
         return NextResponse.json(updated);
     } catch (error) {
-        console.error('Error updating config paletizado:', error);
+        logApiError(error, 'Error updating config paletizado:');
         return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }

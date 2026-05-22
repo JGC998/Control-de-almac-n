@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -44,7 +45,7 @@ export async function DELETE(request, { params }) {
         // Manejar error EXDEV si fuera necesario, pero en este caso es un unlink simple.
         // Ignoramos el error si el archivo no existe (ENOENT), ya que el objetivo es que no esté.
         if (fileError.code !== 'ENOENT') {
-          console.error(`[DOC-DELETE] Error al eliminar archivo físico: ${fileError.message}`);
+          logApiError(fileError, 'DOC-DELETE archivo físico');
           // Podrías lanzar un error 500 aquí si el borrado del archivo es CRÍTICO.
         }
       }

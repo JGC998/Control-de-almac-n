@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
@@ -43,7 +44,7 @@ export async function POST(request, { params }) {
       );
     }
 
-    const numero = await getNextNumber('factura');
+    const numero = await getNextNumber('rectificativa');
 
     const rectificativa = await db.factura.create({
       data: {
@@ -71,11 +72,27 @@ export async function POST(request, { params }) {
       include: { items: true, cliente: true },
     });
 
+    // S4 — Audit log al crear rectificativa
+    db.auditLog.create({
+      data: {
+        action: 'RECTIFICATIVA_CREADA',
+        entity: 'Factura',
+        entityId: rectificativa.id,
+        details: JSON.stringify({
+          facturaOriginalId: id,
+          facturaOriginalNumero: original.numero,
+          tipo: tipoFactura,
+          modalidad: tipoRectificativa,
+          numero: rectificativa.numero,
+        }),
+      },
+    }).catch(() => {});
+
     revalidatePath('/facturas');
     revalidatePath(`/facturas/${id}`);
     return NextResponse.json(rectificativa, { status: 201 });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al crear rectificativa' }, { status: 500 });
   }
 }

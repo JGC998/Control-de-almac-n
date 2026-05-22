@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { handlePrismaError } from '@/lib/manejadores-api';
@@ -27,7 +28,7 @@ export async function GET(request, { params }) {
     }
     return NextResponse.json(pedido);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener el pedido' }, { status: 500 });
   }
 }

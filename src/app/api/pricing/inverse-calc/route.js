@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export async function POST(request) {
@@ -71,7 +72,7 @@ export async function POST(request) {
         });
 
     } catch (error) {
-        console.error('Error en cálculo inverso:', error);
+        logApiError(error, 'Error en cálculo inverso:');
         return NextResponse.json(
             { message: 'Error al realizar el cálculo' },
             { status: 500 }

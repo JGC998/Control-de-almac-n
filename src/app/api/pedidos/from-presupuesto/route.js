@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
@@ -80,7 +81,7 @@ export async function POST(request) {
     return NextResponse.json(newPedido, { status: 201 });
 
   } catch (error) {
-    console.error('Error al convertir presupuesto a pedido:', error);
+    logApiError(error, 'Error al convertir presupuesto a pedido:');
     // Los errores sin `code` son los que lanzamos nosotros (mensajes de negocio seguros)
     const msg = !error.code && error.message ? error.message : 'Error interno';
     return NextResponse.json({ message: msg }, { status: 500 });

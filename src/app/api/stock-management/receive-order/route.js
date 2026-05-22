@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache'; // 👈 Importación requerida
 
@@ -98,7 +99,7 @@ export async function POST(request) {
     return NextResponse.json({ message: 'Pedido recibido y stock actualizado correctamente' });
 
   } catch (error) {
-    console.error('Error al recibir pedido:', error);
+    logApiError(error, 'Error al recibir pedido:');
     return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }
 }

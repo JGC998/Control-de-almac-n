@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 
 import { logUpdate } from '@/lib/audit';
 
@@ -52,7 +53,7 @@ export async function PUT(request, { params }) {
 
         return NextResponse.json(updated);
     } catch (error) {
-        console.error('Error updating tarifa:', error);
+        logApiError(error, 'Error updating tarifa');
         return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
 }

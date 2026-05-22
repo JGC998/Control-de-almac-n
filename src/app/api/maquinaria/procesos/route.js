@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db'; 
 import fs from 'fs/promises';
 import path from 'path';
@@ -31,7 +32,7 @@ export async function GET() {
         procesosDinamicos: dynamicProcesos
     });
   } catch (error) {
-    console.error('Error al obtener datos de procesos:', error);
+    logApiError(error, 'Error al obtener datos de procesos:');
     return NextResponse.json({ message: 'Error al obtener datos de procesos' }, { status: 500 });
   }
 }
@@ -60,7 +61,7 @@ export async function POST(request) {
     
     return NextResponse.json(nuevoProceso, { status: 201 });
   } catch (error) {
-    console.error('Error al crear el proceso interno:', error);
+    logApiError(error, 'Error al crear el proceso interno:');
     return NextResponse.json({ message: 'Error al crear el proceso interno' }, { status: 500 });
   }
 }

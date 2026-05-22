@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache'; // 👈 Importación requerida
 
@@ -29,7 +30,7 @@ export async function GET() {
 
     return NextResponse.json({ stock: stockConNombres });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener stock' }, { status: 500 });
   }
 }
@@ -123,7 +124,7 @@ export async function POST(request) {
     }
 
   } catch (error) {
-    console.error('Error en POST /api/almacen-stock:', error);
+    logApiError(error, 'Error en POST /api/almacen-stock:');
     return NextResponse.json({ message: 'Error interno al procesar stock' }, { status: 500 });
   }
 }

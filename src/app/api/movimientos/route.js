@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 
@@ -22,7 +23,7 @@ export async function GET(request) {
 
     return NextResponse.json(movimientos);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener movimientos' }, { status: 500 });
   }
 }

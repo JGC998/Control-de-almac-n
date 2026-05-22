@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { exportarPedidosExcel } from '@/lib/export';
 
@@ -20,7 +21,7 @@ export async function GET(request) {
             },
         });
     } catch (error) {
-        console.error('Error exportando pedidos:', error);
+        logApiError(error, 'Error exportando pedidos:');
         return NextResponse.json({ message: 'Error al exportar' }, { status: 500 });
     }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generateOrderPDF } from '@/lib/pdfGenerator';
 
@@ -7,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
+    const inline = new URL(request.url).searchParams.get('inline') === 'true';
     if (!id || id === 'undefined') return new NextResponse('ID requerido', { status: 400 });
 
     const order = await db.pedido.findUnique({
@@ -34,12 +36,12 @@ export async function GET(request, { params }) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="notatrabajo-${order.numero}.pdf"`,
+        'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="notatrabajo-${order.numero}.pdf"`,
       },
     });
 
   } catch (error) {
-    console.error('Error al generar el PDF (API):', error);
+    logApiError(error, 'Error al generar el PDF (API)');
     return new NextResponse(JSON.stringify({ message: 'Error interno al generar el PDF' }), { status: 500 });
   }
 }

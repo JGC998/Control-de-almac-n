@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -47,14 +48,14 @@ export async function POST(request) {
     try {
       const { logCreate } = await import('@/lib/audit');
       await logCreate('ReglaMargen', nuevaRegla.id, nuevaRegla, 'Admin');
-    } catch (e) { console.error(e); }
+    } catch (e) { logApiError(e); }
 
     const url = new URL('/api/pricing/margenes', request.url);
     revalidatePath(url.pathname); // Revalidate cache
 
     return NextResponse.json(nuevaRegla, { status: 201 });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     if (error.code === 'P2002') {
       return NextResponse.json({ message: 'Ya existe una regla con este identificador base' }, { status: 409 });
     }

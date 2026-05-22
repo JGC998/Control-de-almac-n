@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
@@ -20,7 +21,7 @@ export async function GET(request) {
     // Comportamiento paginado si se solicitan parámetros
     if (pageParam || limitParam) {
       const page = parseInt(pageParam || '1');
-      const limit = parseInt(limitParam || '50');
+      const limit = Math.min(parseInt(limitParam || '50'), 500);
       const skip = (page - 1) * limit;
 
       const [pedidos, total] = await Promise.all([
@@ -30,6 +31,7 @@ export async function GET(request) {
           skip: skip,
           include: {
             cliente: { select: { nombre: true } },
+            _count: { select: { albaranes: true } },
           },
           orderBy: { fechaCreacion: 'desc' },
         }),
@@ -54,7 +56,7 @@ export async function GET(request) {
 
     return NextResponse.json(pedidos);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener pedidos' }, { status: 500 });
   }
 }
@@ -118,7 +120,7 @@ export async function POST(request) {
     return NextResponse.json(newOrder, { status: 201 });
 
   } catch (error) {
-    console.error('Error al crear el pedido:', error);
+    logApiError(error, 'Error al crear el pedido:');
     return NextResponse.json({ message: 'Error interno al guardar el nuevo pedido.' }, { status: 500 });
   }
 }

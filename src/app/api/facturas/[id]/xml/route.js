@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generarXMLRegistroAlta } from '@/lib/verifactu';
 import { revalidatePath } from 'next/cache';
@@ -68,7 +69,7 @@ export async function GET(request, { params }) {
       },
     });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ message: error.message || 'Error al generar XML' }, { status: 500 });
+    logApiError(error, 'Error al generar XML');
+    return NextResponse.json({ message: 'Error al generar XML' }, { status: 500 });
   }
 }

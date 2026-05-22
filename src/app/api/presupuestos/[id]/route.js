@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { handlePrismaError } from '@/lib/manejadores-api';
@@ -22,7 +23,7 @@ export async function GET(request, { params }) {
     }
     return NextResponse.json(quote);
   } catch (error) {
-    console.error('Error al leer el presupuesto:', error);
+    logApiError(error, 'Error al leer el presupuesto');
     return NextResponse.json({ message: 'Error interno al leer los datos' }, { status: 500 });
   }
 }
@@ -82,7 +83,7 @@ export async function PUT(request, { params }) {
     revalidatePath(`/presupuestos/${id}`); // Invalidate the detail page
     return NextResponse.json(updatedQuote, { status: 200 });
   } catch (error) {
-    console.error('Error al actualizar el presupuesto:', error);
+    logApiError(error, 'Error al actualizar el presupuesto');
     return NextResponse.json({ message: 'Error interno al actualizar el presupuesto.' }, { status: 500 });
   }
 }

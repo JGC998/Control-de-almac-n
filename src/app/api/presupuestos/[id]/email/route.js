@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generateBudgetPDF } from '@/lib/pdfGenerator';
 import { sendEmail, getPresupuestoTemplate } from '@/lib/email';
@@ -72,7 +73,7 @@ export async function POST(request, { params }) {
         });
 
     } catch (error) {
-        console.error('Email API Error:', error);
+        logApiError(error, 'Email API Error');
         return NextResponse.json({ message: 'Error interno' }, { status: 500 });
     }
 }

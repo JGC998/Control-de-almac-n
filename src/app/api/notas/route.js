@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export async function GET() {
     });
     return NextResponse.json(notas);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener notas' }, { status: 500 });
   }
 }
@@ -30,7 +31,7 @@ export async function POST(request) {
     });
     return NextResponse.json(newNote, { status: 201 });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al crear la nota' }, { status: 500 });
   }
 }
@@ -49,7 +50,7 @@ export async function DELETE(request) {
 
     return NextResponse.json({ message: 'Nota eliminada con éxito' }, { status: 200 });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al eliminar la nota' }, { status: 500 });
   }
 }

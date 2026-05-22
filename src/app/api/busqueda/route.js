@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,7 @@ export async function GET(request) {
 
     return NextResponse.json(results);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al realizar la búsqueda' }, { status: 500 });
   }
 }

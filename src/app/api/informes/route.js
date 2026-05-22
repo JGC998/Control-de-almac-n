@@ -1,11 +1,25 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 const EXCLUIDOS = ['Cancelado', 'Borrador'];
 
 export async function GET(request) {
+  // S9 — Rate limit: 20 peticiones/min por IP
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || '127.0.0.1';
+  const rl = checkRateLimit(ip, 20);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { message: 'Demasiadas peticiones. Espera un momento.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const tipo = searchParams.get('tipo');
@@ -147,7 +161,7 @@ export async function GET(request) {
 
     return NextResponse.json({ message: 'Tipo de informe no válido' }, { status: 400 });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }
 }

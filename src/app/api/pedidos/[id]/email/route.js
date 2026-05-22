@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generateOrderPDF } from '@/lib/pdfGenerator';
 import { sendEmail } from '@/lib/email';
@@ -57,7 +58,7 @@ export async function POST(request, { params }) {
         });
 
     } catch (error) {
-        console.error(error);
+        logApiError(error);
         return NextResponse.json({ message: 'Error interno' }, { status: 500 });
     }
 }

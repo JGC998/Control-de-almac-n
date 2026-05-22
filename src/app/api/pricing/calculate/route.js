@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -82,7 +83,7 @@ export async function POST(request) {
 
     return NextResponse.json(calculatedItems);
   } catch (error) {
-    console.error('Error en el motor de precios:', error);
+    logApiError(error, 'Error en el motor de precios:');
     return NextResponse.json({ message: "Error al calcular precios" }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
@@ -9,7 +10,7 @@ export async function GET(request) {
     const clientId = searchParams.get('clientId');
     const pedidoId = searchParams.get('pedidoId');
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 500);
     const skip = (page - 1) * limit;
     const estado = searchParams.get('estado');
 
@@ -39,7 +40,7 @@ export async function GET(request) {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener albaranes' }, { status: 500 });
   }
 }
@@ -56,7 +57,9 @@ export async function POST(request) {
     const numero = await getNextNumber('albaran');
 
     const subtotal = items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0);
-    const tax = subtotal * 0.21;
+    const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });
+    const ivaRate = ivaConfig ? parseFloat(ivaConfig.value) : 0.21;
+    const tax = subtotal * ivaRate;
     const total = subtotal + tax;
 
     const albaran = await db.albaran.create({
@@ -86,7 +89,7 @@ export async function POST(request) {
     revalidatePath('/albaranes');
     return NextResponse.json(albaran, { status: 201 });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al crear albarán' }, { status: 500 });
   }
 }

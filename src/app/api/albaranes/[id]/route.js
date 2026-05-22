@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
@@ -22,7 +23,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(albaran);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener albarán' }, { status: 500 });
   }
 }
@@ -52,8 +53,10 @@ export async function PUT(request, { params }) {
 
     if (items) {
       const subtotal = items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0);
+      const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });
+      const ivaRate = ivaConfig ? parseFloat(ivaConfig.value) : 0.21;
       updateData.subtotal = subtotal;
-      updateData.tax = subtotal * 0.21;
+      updateData.tax = subtotal * ivaRate;
       updateData.total = subtotal + updateData.tax;
 
       await db.albaranItem.deleteMany({ where: { albaranId: id } });
@@ -79,7 +82,7 @@ export async function PUT(request, { params }) {
     revalidatePath(`/albaranes/${id}`);
     return NextResponse.json(albaran);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al actualizar albarán' }, { status: 500 });
   }
 }
@@ -105,7 +108,7 @@ export async function DELETE(request, { params }) {
     revalidatePath('/albaranes');
     return NextResponse.json({ message: 'Albarán eliminado' });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al eliminar albarán' }, { status: 500 });
   }
 }

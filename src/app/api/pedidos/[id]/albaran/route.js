@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
@@ -19,6 +20,14 @@ export async function POST(request, { params }) {
     if (!pedido) return NextResponse.json({ message: 'Pedido no encontrado' }, { status: 404 });
     if (pedido.estado === 'Cancelado') {
       return NextResponse.json({ message: 'No se puede generar albarán de un pedido cancelado' }, { status: 422 });
+    }
+
+    const albExistente = await db.albaran.findFirst({ where: { pedidoId }, select: { numero: true } });
+    if (albExistente) {
+      return NextResponse.json(
+        { message: `Este pedido ya tiene un albarán generado (${albExistente.numero})` },
+        { status: 422 }
+      );
     }
 
     // getNextNumber fuera de la transacción (evita conflicto de bloqueo en SQLite)
@@ -65,8 +74,7 @@ export async function POST(request, { params }) {
     revalidatePath(`/pedidos/${pedidoId}`);
     return NextResponse.json(albaran, { status: 201 });
   } catch (error) {
-    console.error(error);
-    const msg = !error.code && error.message ? error.message : 'Error interno';
-    return NextResponse.json({ message: msg }, { status: 500 });
+    logApiError(error);
+    return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generarXMLLote } from '@/lib/verifactu';
 
@@ -20,13 +21,16 @@ export async function GET() {
       cliente: true,
       facturaOriginal: { select: { numero: true, fechaHoraGenRegistro: true, fechaCreacion: true } },
     };
-    const baseWhere = { estado: { in: ['EMITIDA', 'PAGADA'] }, huella: { not: null } };
+    const baseWhere = { estado: { in: ['EMITIDA', 'PAGADA'] }, huella: { not: null }, fechaHoraGenRegistro: { not: null } };
+
+    const MAX_POR_LOTE = 1000;
 
     // Buscar primero las PENDIENTE; si no hay, re-exportar EXPORTADO
     let facturas = await db.factura.findMany({
       where: { ...baseWhere, estadoEnvioAeat: 'PENDIENTE' },
       include,
       orderBy: { fechaHoraGenRegistro: 'asc' },
+      take: MAX_POR_LOTE,
     });
 
     const esReexportacion = facturas.length === 0;
@@ -36,6 +40,7 @@ export async function GET() {
         where: { ...baseWhere, estadoEnvioAeat: 'EXPORTADO' },
         include,
         orderBy: { fechaHoraGenRegistro: 'asc' },
+        take: MAX_POR_LOTE,
       });
     }
 
@@ -68,7 +73,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ message: error.message || 'Error al generar XML' }, { status: 500 });
+    logApiError(error);
+    return NextResponse.json({ message: 'Error al generar XML AEAT' }, { status: 500 });
   }
 }

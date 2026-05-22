@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
 
@@ -44,7 +45,7 @@ export async function PUT(request, { params }) {
     try {
       const { logUpdate } = await import('@/lib/audit');
       await logUpdate('ReglaMargen', id, oldRegla, updatedData, 'Admin');
-    } catch (e) { console.error(e); }
+    } catch (e) { logApiError(e); }
 
     return NextResponse.json(updatedRegla);
   } catch (error) {
@@ -72,7 +73,7 @@ export async function DELETE(request, { params }) {
     try {
       const { logDelete } = await import('@/lib/audit');
       await logDelete('ReglaMargen', id, oldRegla, 'Admin');
-    } catch (e) { console.error(e); }
+    } catch (e) { logApiError(e); }
 
     return NextResponse.json({ message: 'Regla de margen eliminada' }, { status: 200 });
   } catch (error) {

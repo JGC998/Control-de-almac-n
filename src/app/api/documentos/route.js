@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -99,7 +100,7 @@ export async function GET(request) {
 
     return NextResponse.json(documentos);
   } catch (error) {
-    console.error('Error al obtener documentos:', error);
+    logApiError(error, 'Error al obtener documentos:');
     return NextResponse.json({ message: 'Error al obtener documentos' }, { status: 500 });
   }
 }
@@ -127,9 +128,10 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Tipo, Referencia y Archivo son requeridos.' }, { status: 400 });
     }
 
-    const originalFileName = uploadedFile.originalFilename;
-    const rutaArchivo = `/planos/${originalFileName}`; // Ruta para guardar en DB
-    const targetPath = path.join(process.cwd(), 'public', 'planos', originalFileName);
+    const rawName = uploadedFile.originalFilename || 'documento';
+    const safeFileName = path.basename(rawName).replace(/[^a-zA-Z0-9._\-]/g, '_');
+    const rutaArchivo = `/planos/${safeFileName}`;
+    const targetPath = path.join(process.cwd(), 'public', 'planos', safeFileName);
 
     // Mover el archivo del temporal al directorio público (usando copyFile)
     await fs.mkdir(path.dirname(targetPath), { recursive: true });
@@ -151,7 +153,7 @@ export async function POST(request) {
 
     return NextResponse.json(nuevoDocumento, { status: 201 });
   } catch (error) {
-    console.error('Error al crear el documento (Subida):', error);
+    logApiError(error, 'Error al crear el documento (Subida):');
     if (error.code === 'P2002') {
       return NextResponse.json({ message: 'Ya existe un documento con la misma Referencia y Ruta de Archivo.' }, { status: 409 });
     }
@@ -176,7 +178,7 @@ export async function DELETE(request) {
     return NextResponse.json({ message: 'DELETE a /api/documentos/route.js no implementado. Use /api/documentos/[id]' }, { status: 405 });
 
   } catch (error) {
-    console.error('Error en DELETE /api/documentos:', error);
+    logApiError(error, 'Error en DELETE /api/documentos:');
     return NextResponse.json({ message: 'Error en la solicitud de eliminación.' }, { status: 500 });
   }
 }

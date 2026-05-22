@@ -1,0 +1,31 @@
+import { NextResponse } from 'next/server';
+
+// S1/S2 — Autenticación por PIN configurado en AUTH_PIN (env).
+// Si AUTH_PIN no está definido, no se aplica ninguna restricción.
+
+export function middleware(request) {
+  const pin = process.env.AUTH_PIN;
+  if (!pin) return NextResponse.next();
+
+  const { pathname } = request.nextUrl;
+  const session = request.cookies.get('crm-auth')?.value;
+
+  if (session === pin) return NextResponse.next();
+
+  // API → 401 JSON
+  if (pathname.startsWith('/api/')) {
+    return new NextResponse(
+      JSON.stringify({ message: 'Sesión requerida. Accede a /login.' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Páginas → redirigir a /login
+  const loginUrl = new URL('/login', request.url);
+  if (pathname !== '/') loginUrl.searchParams.set('redirect', pathname);
+  return NextResponse.redirect(loginUrl);
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|login|api/auth).*)'],
+};

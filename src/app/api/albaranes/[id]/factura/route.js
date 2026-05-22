@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
@@ -62,7 +63,13 @@ export async function POST(request, { params }) {
       }
 
       if (albaranTx.pedidoId) {
-        await tx.pedido.update({ where: { id: albaranTx.pedidoId }, data: { estado: 'Facturado' } });
+        const totalAlbaranes = await tx.albaran.count({ where: { pedidoId: albaranTx.pedidoId } });
+        const albaranesConFactura = await tx.albaran.count({
+          where: { pedidoId: albaranTx.pedidoId, factura: { isNot: null } },
+        });
+        if (albaranesConFactura === totalAlbaranes) {
+          await tx.pedido.update({ where: { id: albaranTx.pedidoId }, data: { estado: 'Facturado' } });
+        }
       }
 
       return created;
@@ -73,8 +80,7 @@ export async function POST(request, { params }) {
     if (albaran.pedidoId) revalidatePath(`/pedidos/${albaran.pedidoId}`);
     return NextResponse.json(factura, { status: 201 });
   } catch (error) {
-    console.error(error);
-    const msg = !error.code && error.message ? error.message : 'Error interno';
-    return NextResponse.json({ message: msg }, { status: 500 });
+    logApiError(error);
+    return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 });
   }
 }

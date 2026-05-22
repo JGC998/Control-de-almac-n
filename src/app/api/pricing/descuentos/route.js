@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export async function GET() {
     const data = await db.reglaDescuento.findMany({ include: { tiers: true }, orderBy: { descripcion: 'asc' } });
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching descuentos:', error);
+    logApiError(error, 'Error fetching descuentos:');
     return NextResponse.json({ error: 'Error al obtener descuentos' }, { status: 500 });
   }
 }
@@ -53,7 +54,7 @@ export async function POST(request) {
 
     return NextResponse.json(nuevaRegla, { status: 201 });
   } catch (error) {
-    console.error('Error creating descuento:', error);
+    logApiError(error, 'Error creating descuento:');
     return NextResponse.json({ error: 'Error al crear descuento' }, { status: 500 });
   }
 }
@@ -101,7 +102,7 @@ export async function PUT(request) {
 
         return NextResponse.json(updatedRegla, { status: 200 });
     } catch (error) {
-        console.error('Error updating descuento:', error);
+        logApiError(error, 'Error updating descuento:');
         if (error.code === 'P2025') {
             return NextResponse.json({ error: 'Regla de descuento no encontrada.' }, { status: 404 });
         }
@@ -127,7 +128,7 @@ export async function DELETE(request) {
 
         return NextResponse.json({ message: 'Regla de descuento eliminada.' }, { status: 200 });
     } catch (error) {
-        console.error('Error deleting descuento:', error);
+        logApiError(error, 'Error deleting descuento:');
         if (error.code === 'P2025') {
             return NextResponse.json({ error: 'Regla de descuento no encontrada.' }, { status: 404 });
         }

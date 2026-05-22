@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generateAlbaranPDF } from '@/lib/pdfGenerator';
 
@@ -30,7 +31,7 @@ export async function GET(request, { params }) {
       },
     });
   } catch (error) {
-    console.error('Error al generar PDF del albarán:', error);
+    logApiError(error, 'Error al generar PDF del albarán');
     return new NextResponse(JSON.stringify({ message: 'Error interno al generar el PDF' }), { status: 500 });
   }
 }

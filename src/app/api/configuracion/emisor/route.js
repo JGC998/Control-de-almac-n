@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export async function GET() {
     });
     return NextResponse.json(emisor);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener configuración del emisor' }, { status: 500 });
   }
 }
@@ -20,6 +21,10 @@ export async function GET() {
 export async function PUT(request) {
   try {
     const { nif, nombre, direccion, entorno } = await request.json();
+
+    if (entorno !== undefined && !['pruebas', 'produccion'].includes(entorno)) {
+      return NextResponse.json({ message: 'Entorno debe ser "pruebas" o "produccion"' }, { status: 400 });
+    }
 
     const emisor = await db.configuracionEmisor.upsert({
       where: { id: 1 },
@@ -40,7 +45,7 @@ export async function PUT(request) {
 
     return NextResponse.json(emisor);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al guardar configuración del emisor' }, { status: 500 });
   }
 }

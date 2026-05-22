@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export async function GET() {
         });
         return NextResponse.json(templates);
     } catch (error) {
-        console.error('Error fetching templates:', error);
+        logApiError(error, 'Error fetching templates:');
         return NextResponse.json({ message: 'Error al obtener plantillas' }, { status: 500 });
     }
 }
@@ -37,7 +38,7 @@ export async function POST(request) {
 
         return NextResponse.json(newTemplate, { status: 201 });
     } catch (error) {
-        console.error('Error creating template:', error);
+        logApiError(error, 'Error creating template:');
         if (error.code === 'P2002') {
             return NextResponse.json({ message: 'Ya existe una plantilla con este nombre' }, { status: 409 });
         }

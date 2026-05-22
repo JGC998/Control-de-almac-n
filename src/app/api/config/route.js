@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 // GET /api/config - Obtiene la configuración como un objeto
@@ -16,7 +17,7 @@ export async function GET() {
 
     return NextResponse.json(configObject);
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al obtener configuración' }, { status: 500 });
   }
 }
@@ -37,7 +38,7 @@ export async function PUT(request) {
     );
     return NextResponse.json({ message: `${entries.length} clave(s) guardada(s)` });
   } catch (error) {
-    console.error(error);
+    logApiError(error);
     return NextResponse.json({ message: 'Error al guardar configuración' }, { status: 500 });
   }
 }

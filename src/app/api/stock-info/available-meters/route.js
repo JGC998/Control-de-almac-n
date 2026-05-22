@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
 
@@ -29,7 +30,7 @@ export async function GET(request) {
 
         return NextResponse.json({ totalMetros });
     } catch (error) {
-        console.error('Error al obtener stock disponible:', error);
+        logApiError(error, 'Error al obtener stock disponible:');
         return NextResponse.json({ message: 'Error interno al obtener stock' }, { status: 500 });
     }
 }

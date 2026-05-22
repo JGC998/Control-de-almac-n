@@ -1,5 +1,6 @@
-import { db } from '@/lib/db';
+﻿import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 
 export async function GET(request) {
     try {
@@ -47,7 +48,7 @@ export async function GET(request) {
         });
 
     } catch (error) {
-        console.error('Error fetching audit logs:', error);
+        logApiError(error, 'Error fetching audit logs:');
         return NextResponse.json({ error: 'Error fetching logs' }, { status: 500 });
     }
 }

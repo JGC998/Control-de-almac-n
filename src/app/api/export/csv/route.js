@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
+import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generarCSV, CSV_DEFINITIONS } from '@/lib/export';
 
@@ -13,13 +14,14 @@ export async function GET(request) {
             return NextResponse.json({ message: 'Modelo no válido o no especificado' }, { status: 400 });
         }
 
+        const MAX_ROWS = 5000;
         let data = [];
         if (model === 'tarifaLogistica') {
-            data = await db.tarifaTransporte.findMany();
+            data = await db.tarifaTransporte.findMany({ take: MAX_ROWS });
         } else if (model === 'producto') {
-            data = await db.producto.findMany();
+            data = await db.producto.findMany({ take: MAX_ROWS });
         } else if (model === 'cliente') {
-            data = await db.cliente.findMany();
+            data = await db.cliente.findMany({ take: MAX_ROWS });
         }
 
         const csvContent = generarCSV(data, CSV_DEFINITIONS[model]);
@@ -32,7 +34,7 @@ export async function GET(request) {
         });
 
     } catch (error) {
-        console.error('Error exportando CSV:', error);
+        logApiError(error, 'Error exportando CSV:');
         return NextResponse.json({ message: 'Error interno' }, { status: 500 });
     }
 }
