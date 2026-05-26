@@ -11,6 +11,7 @@ datasource db {
 model Cliente {
   id           String        @id @default(uuid())
   nombre       String        @unique
+  nif          String?
   email        String?
   direccion    String?
   telefono     String?
@@ -46,6 +47,7 @@ model Pedido {
   clienteId     String?
   presupuestoId String?   @unique
   marginId      String?
+  sinFacturacion Boolean  @default(false)
 
   cliente     Cliente?     @relation(fields: [clienteId], references: [id])
   presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id])
