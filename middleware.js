@@ -3,14 +3,21 @@ import { NextResponse } from 'next/server';
 // S1/S2 — Autenticación por PIN configurado en AUTH_PIN (env).
 // Si AUTH_PIN no está definido, no se aplica ninguna restricción.
 
+function addSecurityHeaders(response) {
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  return response;
+}
+
 export function middleware(request) {
   const pin = process.env.AUTH_PIN;
-  if (!pin) return NextResponse.next();
+  if (!pin) return addSecurityHeaders(NextResponse.next());
 
   const { pathname } = request.nextUrl;
   const session = request.cookies.get('crm-auth')?.value;
 
-  if (session === pin) return NextResponse.next();
+  if (session === pin) return addSecurityHeaders(NextResponse.next());
 
   // API → 401 JSON
   if (pathname.startsWith('/api/')) {

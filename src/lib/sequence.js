@@ -7,6 +7,11 @@ import { db } from './db';
  * @param {string} type - Tipo de documento ('pedido', 'presupuesto', etc.)
  * @returns {Promise<string>} - Número formateado (ej: "PEDIDO-001-2026")
  */
+// NOTA: getNextNumber() se llama deliberadamente FUERA de la transacción Prisma de
+// creación del documento. En SQLite, hacer un upsert dentro de una transacción que
+// a su vez escribe otras tablas puede causar "SQLITE_BUSY / database is locked".
+// Con concurrencia baja (app interna), el riesgo de número duplicado es mínimo.
+// En producción con MySQL se puede mover dentro de la transacción usando SELECT ... FOR UPDATE.
 export async function getNextNumber(type) {
     const currentYear = new Date().getFullYear();
 

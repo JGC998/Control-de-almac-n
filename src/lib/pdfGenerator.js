@@ -108,7 +108,7 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
 
         (quote.items || []).forEach(item => {
             let descripcion = item.descripcion;
-            const tacosMatch = item.descripcion.match(/\+ Tacos (RECTO|INCLINADO) (\d+)mm/);
+            const tacosMatch = item.descripcion?.match(/\+ Tacos (RECTO|INCLINADO) (\d+)mm/);
             if (tacosMatch) {
                 descripcion += `\n(Incluye tacos ${tacosMatch[1]} ${tacosMatch[2]}mm)`;
             }
@@ -341,7 +341,7 @@ export async function generateOrderPDF(order, config = {}) {
                 }
             }
 
-            const tacosMatch = item.descripcion.match(/\+ Tacos (RECTO|INCLINADO) (\d+)mm/);
+            const tacosMatch = item.descripcion?.match(/\+ Tacos (RECTO|INCLINADO) (\d+)mm/);
             if (tacosMatch) {
                 detalles += `\nTacos: ${tacosMatch[1]} ${tacosMatch[2]}mm`;
             }

@@ -1,11 +1,22 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
     try {
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+          || request.headers.get('x-real-ip')
+          || '127.0.0.1';
+        const rl = checkRateLimit(`backup:${ip}`, 5);
+        if (!rl.allowed) {
+          return NextResponse.json(
+            { message: 'Demasiadas peticiones. Espera un momento.' },
+            { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+          );
+        }
         // 1. Recopilar todas las tablas de configuración
         const [
             config,
@@ -34,6 +45,10 @@ export async function GET(request) {
                 sequence
             }
         };
+
+        db.auditLog.create({
+          data: { action: 'CONFIG_BACKUP_DESCARGADO', entity: 'Config', entityId: 'backup', details: JSON.stringify({ ip }) },
+        }).catch(err => logApiError(err, 'AUDIT_FAIL'));
 
         return new NextResponse(JSON.stringify(backupData, null, 2), {
             headers: {

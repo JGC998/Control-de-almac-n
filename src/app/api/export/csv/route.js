@@ -2,11 +2,24 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generarCSV, CSV_DEFINITIONS } from '@/lib/export';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
     try {
+        // SEC — Rate limit: 10 exportaciones/min por IP
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+          || request.headers.get('x-real-ip')
+          || '127.0.0.1';
+        const rl = checkRateLimit(ip, 10);
+        if (!rl.allowed) {
+          return NextResponse.json(
+            { message: 'Demasiadas peticiones. Espera un momento.' },
+            { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+          );
+        }
+
         const { searchParams } = new URL(request.url);
         const model = searchParams.get('model');
 

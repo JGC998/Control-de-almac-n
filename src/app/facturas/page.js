@@ -130,18 +130,20 @@ export default async function FacturasPage({ searchParams: spPromise }) {
         </h1>
         <div className="flex gap-2 items-center">
           {noConfirmadasCount > 0 && (
-            <a href="/api/facturas/exportar-aeat"
-              className="btn btn-sm btn-outline gap-1"
-              title={pendientesCount > 0
-                ? `${pendientesCount} factura${pendientesCount > 1 ? 's' : ''} pendiente${pendientesCount > 1 ? 's' : ''} de exportar`
-                : `Re-exportar ${exportadasCount} factura${exportadasCount > 1 ? 's' : ''} ya exportada${exportadasCount > 1 ? 's' : ''}`
-              }>
-              <FileDown className="w-4 h-4" />
-              {pendientesCount > 0 ? 'Exportar XML AEAT' : 'Re-exportar XML'}
-              {pendientesCount > 0 && (
-                <span className="badge badge-sm badge-warning">{pendientesCount}</span>
-              )}
-            </a>
+            <form method="POST" action="/api/facturas/exportar-aeat">
+              <button type="submit"
+                className="btn btn-sm btn-outline gap-1"
+                title={pendientesCount > 0
+                  ? `${pendientesCount} factura${pendientesCount > 1 ? 's' : ''} pendiente${pendientesCount > 1 ? 's' : ''} de exportar`
+                  : `Re-exportar ${exportadasCount} factura${exportadasCount > 1 ? 's' : ''} ya exportada${exportadasCount > 1 ? 's' : ''}`
+                }>
+                <FileDown className="w-4 h-4" />
+                {pendientesCount > 0 ? 'Exportar XML AEAT' : 'Re-exportar XML'}
+                {pendientesCount > 0 && (
+                  <span className="badge badge-sm badge-warning">{pendientesCount}</span>
+                )}
+              </button>
+            </form>
           )}
           <Link href="/facturas/nuevo" className="btn btn-primary btn-sm gap-1">
             <PlusCircle className="w-4 h-4" /> Nueva factura

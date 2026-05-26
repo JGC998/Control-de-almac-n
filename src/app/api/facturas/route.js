@@ -56,6 +56,19 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Se requiere al menos un ítem' }, { status: 400 });
     }
 
+    const itemInvalido = items.find(i =>
+      !i.descripcion ||
+      typeof i.descripcion !== 'string' ||
+      isNaN(Number(i.quantity)) || Number(i.quantity) <= 0 ||
+      isNaN(Number(i.unitPrice)) || Number(i.unitPrice) < 0
+    );
+    if (itemInvalido) {
+      return NextResponse.json(
+        { message: 'Cada ítem debe tener descripción, cantidad positiva y precio no negativo.' },
+        { status: 400 }
+      );
+    }
+
     const numero = await getNextNumber('factura');
     const subtotal = items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0);
     const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });

@@ -18,43 +18,28 @@ export async function GET(request) {
       whereClause.clienteId = clientId;
     }
 
-    // Comportamiento paginado si se solicitan parámetros
-    if (pageParam || limitParam) {
-      const page = parseInt(pageParam || '1');
-      const limit = Math.min(parseInt(limitParam || '50'), 500);
-      const skip = (page - 1) * limit;
+    const page = parseInt(pageParam || '1');
+    const limit = Math.min(parseInt(limitParam || '50'), 500);
+    const skip = (page - 1) * limit;
 
-      const [pedidos, total] = await Promise.all([
-        db.pedido.findMany({
-          where: whereClause,
-          take: limit,
-          skip: skip,
-          include: {
-            cliente: { select: { nombre: true } },
-            _count: { select: { albaranes: true } },
-          },
-          orderBy: { fechaCreacion: 'desc' },
-        }),
-        db.pedido.count({ where: whereClause })
-      ]);
+    const [pedidos, total] = await Promise.all([
+      db.pedido.findMany({
+        where: whereClause,
+        take: limit,
+        skip,
+        include: {
+          cliente: { select: { nombre: true } },
+          _count: { select: { albaranes: true } },
+        },
+        orderBy: { fechaCreacion: 'desc' },
+      }),
+      db.pedido.count({ where: whereClause }),
+    ]);
 
-      return NextResponse.json({
-        data: pedidos,
-        meta: { total, page, limit, totalPages: Math.ceil(total / limit) }
-      });
-    }
-
-    // Comportamiento legado: cap de seguridad para evitar full-table scans
-    const pedidos = await db.pedido.findMany({
-      where: whereClause,
-      take: 500,
-      include: {
-        cliente: { select: { nombre: true } },
-      },
-      orderBy: { fechaCreacion: 'desc' },
+    return NextResponse.json({
+      data: pedidos,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
-
-    return NextResponse.json(pedidos);
   } catch (error) {
     logApiError(error);
     return NextResponse.json({ message: 'Error al obtener pedidos' }, { status: 500 });

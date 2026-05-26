@@ -22,8 +22,10 @@ export async function POST(request, { params }) {
     if (yaFacturado) return NextResponse.json({ message: 'Este albarán ya tiene una factura generada' }, { status: 422 });
 
     const numero = await getNextNumber('factura');
-    const fechaVencimiento = new Date();
-    fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+    // Use Spain timezone so the 30-day term is calculated from the local business date
+    const todayMadrid = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
+    const fechaVencimiento = new Date(`${todayMadrid}T00:00:00.000Z`);
+    fechaVencimiento.setUTCDate(fechaVencimiento.getUTCDate() + 30);
 
     const factura = await db.$transaction(async (tx) => {
       // Re-leer dentro de la transacción para consistencia

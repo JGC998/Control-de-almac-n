@@ -128,6 +128,14 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Tipo, Referencia y Archivo son requeridos.' }, { status: 400 });
     }
 
+    const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!ALLOWED_MIME_TYPES.includes(uploadedFile.mimetype)) {
+      return NextResponse.json(
+        { message: 'Tipo de archivo no permitido. Solo se aceptan PDF, JPEG, PNG o WebP.' },
+        { status: 415 }
+      );
+    }
+
     const rawName = uploadedFile.originalFilename || 'documento';
     const safeFileName = path.basename(rawName).replace(/[^a-zA-Z0-9._\-]/g, '_');
     const rutaArchivo = `/planos/${safeFileName}`;

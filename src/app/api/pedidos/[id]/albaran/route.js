@@ -21,6 +21,9 @@ export async function POST(request, { params }) {
     if (pedido.estado === 'Cancelado') {
       return NextResponse.json({ message: 'No se puede generar albarán de un pedido cancelado' }, { status: 422 });
     }
+    if (pedido.sinFacturacion) {
+      return NextResponse.json({ message: 'Este pedido está marcado como sin facturación y no puede generar albarán' }, { status: 422 });
+    }
 
     const albExistente = await db.albaran.findFirst({ where: { pedidoId }, select: { numero: true } });
     if (albExistente) {

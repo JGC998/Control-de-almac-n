@@ -143,6 +143,8 @@ export default function PresupuestoDetalle() {
   const params = useParams();
   const { id } = params;
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState(null);
 
   // Cargamos el presupuesto y la información necesaria para el cálculo
@@ -171,6 +173,7 @@ export default function PresupuestoDetalle() {
   };
 
   const handleDownloadPDF = async () => {
+    setIsDownloading(true);
     try {
       const res = await fetch(`/api/presupuestos/${id}/pdf`);
       if (!res.ok) throw new Error('Error al generar el PDF');
@@ -184,10 +187,13 @@ export default function PresupuestoDetalle() {
       a.remove();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
   const handleCreateOrder = async () => {
+    setIsCreatingOrder(true);
     try {
       const res = await fetch('/api/pedidos/from-presupuesto', {
         method: 'POST',
@@ -201,13 +207,12 @@ export default function PresupuestoDetalle() {
       }
 
       const newOrder = await res.json();
-      // Forzar una actualización de los datos del servidor en el cliente.
       router.refresh();
-      // Redirigir al nuevo pedido.
       router.push(`/pedidos/${newOrder.id}`);
 
     } catch (err) {
       setError(err.message);
+      setIsCreatingOrder(false);
     }
   };
 
@@ -233,11 +238,13 @@ export default function PresupuestoDetalle() {
 
       {/* Acciones */}
       <div className="flex flex-wrap gap-2 mb-6">
-        <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary">
-          <Download className="w-4 h-4" /> Descargar PDF
+        <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary" disabled={isDownloading}>
+          {isDownloading ? <span className="loading loading-spinner loading-xs" /> : <Download className="w-4 h-4" />}
+          Descargar PDF
         </button>
-        <button onClick={handleCreateOrder} className="btn btn-primary">
-          <FileText className="w-4 h-4" /> Crear Pedido
+        <button onClick={handleCreateOrder} className="btn btn-primary" disabled={isCreatingOrder}>
+          {isCreatingOrder ? <span className="loading loading-spinner loading-xs" /> : <FileText className="w-4 h-4" />}
+          Crear Pedido
         </button>
         <Link href={`/presupuestos/${id}/editar`} className="btn btn-outline">
           <Edit className="w-4 h-4" /> Editar

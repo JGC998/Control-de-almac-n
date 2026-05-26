@@ -3,6 +3,7 @@ import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { logCreate, logUpdate, logDelete } from '@/lib/audit';
+import { tarifaMaterialSchema, validateData } from '@/lib/validations';
 
 // Función para obtener un número de forma segura o null si es inválido/vacío
 const getSafeFloat = (value) => {
@@ -30,8 +31,15 @@ export async function GET() {
 export async function POST(request) {
   const data = await request.json();
   try {
-    if (!data.material || getSafeFloat(data.espesor) === null || getSafeFloat(data.precio) === null || getSafeFloat(data.peso) === null) {
-      return NextResponse.json({ error: 'Faltan campos requeridos (material, espesor, precio, peso).' }, { status: 400 });
+    const validation = validateData(tarifaMaterialSchema, {
+      material: data.material,
+      espesor: getSafeFloat(data.espesor),
+      precio: getSafeFloat(data.precio),
+      peso: getSafeFloat(data.peso),
+      color: data.color || null,
+    });
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
 
     // Buscamos si el material existe por nombre. Si no, devolvemos un error.

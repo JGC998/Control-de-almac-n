@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { manejarErrorApi } from '@/utils/utilidades';
+import { logApiError } from '@/lib/logger';
 
 export function handlePrismaError(error, { notFound, conflict, hasRelated } = {}) {
   if (error.code === 'P2025') {
@@ -14,7 +15,7 @@ export function handlePrismaError(error, { notFound, conflict, hasRelated } = {}
   if (error.code === 'P2003') {
     return NextResponse.json({ message: hasRelated || 'No se puede eliminar: tiene registros relacionados' }, { status: 409 });
   }
-  console.error(error);
+  logApiError(error, 'handlePrismaError');
   return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 });
 }
 
@@ -65,7 +66,7 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
         const entityName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
         await logCreate(entityName, newRecord.id, newRecord, 'System');
       } catch (logError) {
-        console.error('Audit Log failed:', logError);
+        logApiError(logError, 'Audit Log failed');
       }
 
       if (revalidationPath) revalidatePath(revalidationPath);

@@ -129,6 +129,7 @@ export default function PedidoDetalle() {
   const params = useParams();
   const { id } = params;
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [generandoAlbaran, setGenerandoAlbaran] = useState(false);
@@ -184,6 +185,7 @@ export default function PedidoDetalle() {
   };
 
   const handleDownloadPDF = async () => {
+    setIsDownloading(true);
     try {
       const res = await fetch(`/api/pedidos/${id}/pdf`);
       if (!res.ok) throw new Error('Error al generar el PDF');
@@ -197,6 +199,8 @@ export default function PedidoDetalle() {
       a.remove();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -256,8 +260,9 @@ export default function PedidoDetalle() {
       {error && <div className="alert alert-error shadow-lg mb-4">{error}</div>}
 
       <div className="flex flex-wrap gap-2 mb-6">
-        <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary">
-          <Download className="w-4 h-4" /> Descargar PDF
+        <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary" disabled={isDownloading}>
+          {isDownloading ? <span className="loading loading-spinner loading-xs" /> : <Download className="w-4 h-4" />}
+          Descargar PDF
         </button>
         <button onClick={handlePrintPDF} className="btn btn-outline gap-1">
           <Printer className="w-4 h-4" /> Imprimir PDF

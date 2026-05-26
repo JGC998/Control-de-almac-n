@@ -86,7 +86,7 @@ export async function POST(request, { params }) {
           numero: rectificativa.numero,
         }),
       },
-    }).catch(() => {});
+    }).catch(err => logApiError(err, 'AUDIT_FAIL'));
 
     revalidatePath('/facturas');
     revalidatePath(`/facturas/${id}`);

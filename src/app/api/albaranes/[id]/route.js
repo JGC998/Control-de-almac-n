@@ -51,32 +51,44 @@ export async function PUT(request, { params }) {
     if (estado) updateData.estado = estado;
     if (notas !== undefined) updateData.notas = notas;
 
+    let albaran;
+
     if (items) {
-      const subtotal = items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0);
+      const subtotal = items.reduce((acc, i) => acc + Number(i.quantity) * Number(i.unitPrice), 0);
       const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });
       const ivaRate = ivaConfig ? parseFloat(ivaConfig.value) : 0.21;
       updateData.subtotal = subtotal;
       updateData.tax = subtotal * ivaRate;
       updateData.total = subtotal + updateData.tax;
 
-      await db.albaranItem.deleteMany({ where: { albaranId: id } });
-      updateData.items = {
-        create: items.map(i => ({
-          descripcion: i.descripcion,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          pesoUnitario: i.pesoUnitario || 0,
-          detallesTecnicos: i.detallesTecnicos || null,
-          ...(i.productoId && { producto: { connect: { id: i.productoId } } }),
-        })),
-      };
+      // Transacción atómica: delete + create + update en un solo bloque
+      albaran = await db.$transaction(async (tx) => {
+        await tx.albaranItem.deleteMany({ where: { albaranId: id } });
+        return tx.albaran.update({
+          where: { id },
+          data: {
+            ...updateData,
+            items: {
+              create: items.map(i => ({
+                descripcion: i.descripcion,
+                quantity: Number(i.quantity),
+                unitPrice: Number(i.unitPrice),
+                pesoUnitario: i.pesoUnitario || 0,
+                detallesTecnicos: i.detallesTecnicos || null,
+                ...(i.productoId && { producto: { connect: { id: i.productoId } } }),
+              })),
+            },
+          },
+          include: { items: true, cliente: true, pedido: true },
+        });
+      });
+    } else {
+      albaran = await db.albaran.update({
+        where: { id },
+        data: updateData,
+        include: { items: true, cliente: true, pedido: true },
+      });
     }
-
-    const albaran = await db.albaran.update({
-      where: { id },
-      data: updateData,
-      include: { items: true, cliente: true, pedido: true },
-    });
 
     revalidatePath('/albaranes');
     revalidatePath(`/albaranes/${id}`);

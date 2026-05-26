@@ -32,7 +32,7 @@ function exportCSV(data, filename) {
 
 // ── KPI Cards ────────────────────────────────────────────────────────────────
 function KPICards() {
-  const { data, isLoading } = useSWR('/api/informes?tipo=kpis');
+  const { data, error, isLoading } = useSWR('/api/informes?tipo=kpis');
 
   if (isLoading) return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -42,6 +42,7 @@ function KPICards() {
     </div>
   );
 
+  if (error) return <div role="alert" className="alert alert-error mb-8"><AlertCircle className="w-4 h-4" /><span>Error al cargar los KPIs</span></div>;
   if (!data) return null;
 
   const varMes = data.totalMesAnterior > 0
@@ -93,7 +94,7 @@ function VentasMensuales() {
   const [año, setAño] = useState(añoActual);
   const [comparar, setComparar] = useState(false);
 
-  const { data: resp, isLoading } = useSWR(
+  const { data: resp, error, isLoading } = useSWR(
     `/api/informes?tipo=ventas-mensuales&año=${año}&comparar=${comparar}`
   );
 
@@ -104,6 +105,7 @@ function VentasMensuales() {
   const chartDataLabeled = chartData.map(d => ({ ...d, mesLabel: MESES[parseInt(d.mes, 10) - 1] ?? d.mes }));
 
   if (isLoading) return <div className="flex justify-center py-20"><span className="loading loading-dots loading-lg" /></div>;
+  if (error) return <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar las ventas mensuales</span></div>;
 
   return (
     <div>
@@ -182,8 +184,9 @@ function VentasMensuales() {
 
 // ── Top clientes ─────────────────────────────────────────────────────────────
 function TopClientes() {
-  const { data, isLoading } = useSWR('/api/informes?tipo=top-clientes');
+  const { data, error, isLoading } = useSWR('/api/informes?tipo=top-clientes');
   if (isLoading) return <div className="flex justify-center py-20"><span className="loading loading-dots loading-lg" /></div>;
+  if (error) return <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar los clientes</span></div>;
   const top10 = data?.slice(0, 10) ?? [];
 
   return (
@@ -229,8 +232,9 @@ function TopClientes() {
 
 // ── Ventas por producto ──────────────────────────────────────────────────────
 function VentasPorProducto() {
-  const { data, isLoading } = useSWR('/api/informes?tipo=ventas-por-producto');
+  const { data, error, isLoading } = useSWR('/api/informes?tipo=ventas-por-producto');
   if (isLoading) return <div className="flex justify-center py-20"><span className="loading loading-dots loading-lg" /></div>;
+  if (error) return <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar las ventas por producto</span></div>;
   const top10 = data?.slice(0, 10) ?? [];
 
   return (
@@ -279,7 +283,7 @@ function VentasPorProducto() {
 // ── Presupuestos sin respuesta ───────────────────────────────────────────────
 function PresupuestosSinRespuesta() {
   const [dias, setDias] = useState(14);
-  const { data, isLoading } = useSWR(`/api/informes?tipo=presupuestos-sin-respuesta&dias=${dias}`);
+  const { data, error, isLoading } = useSWR(`/api/informes?tipo=presupuestos-sin-respuesta&dias=${dias}`);
 
   return (
     <div>
@@ -296,8 +300,9 @@ function PresupuestosSinRespuesta() {
       </div>
 
       {isLoading && <div className="flex justify-center py-20"><span className="loading loading-dots loading-lg" /></div>}
+      {error && <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar los presupuestos</span></div>}
 
-      {!isLoading && (
+      {!isLoading && !error && (
         <div className="overflow-x-auto">
           <table className="table table-sm w-full">
             <thead>

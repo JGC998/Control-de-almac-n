@@ -131,8 +131,8 @@ export default function BarraBusqueda() {
           ) : results?.length === 0 ? (
             <li className="p-3 text-sm text-base-content/50 text-center">Sin resultados para &quot;{query}&quot;</li>
           ) : (
-            results?.map((item, index) => (
-              <ResultItem key={index} item={item} onClick={handleItemClick} />
+            results?.map((item) => (
+              <ResultItem key={`${item.type}-${item.id}`} item={item} onClick={handleItemClick} />
             ))
           )}
         </ul>

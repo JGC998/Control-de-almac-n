@@ -15,10 +15,13 @@ export async function GET(request) {
       whereClause.stockId = stockId;
     }
 
+    const limitParam = searchParams.get('limit');
+    const take = Math.min(parseInt(limitParam || '100', 10), 500);
+
     const movimientos = await db.movimientoStock.findMany({
       where: whereClause,
       orderBy: { fecha: 'desc' },
-      take: stockId ? undefined : 50, // Sin límite si se filtra por ID
+      take,
     });
 
     return NextResponse.json(movimientos);

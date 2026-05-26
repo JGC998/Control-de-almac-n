@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { pedidoProveedorSchema, validateData } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,46 +65,46 @@ export async function GET() {
 // POST /api/pedidos-proveedores-data (Modificado para nueva lógica)
 export async function POST(request) {
   try {
-    const data = await request.json();
-    const { 
-        bobinas, 
-        tipo, 
-        gastosTotales, 
-        tasaCambio, 
-        proveedorId, 
-        material,
-        notas,
-        numeroFactura,
-        numeroContenedor,
-        naviera,
-        fechaLlegadaEstimada
-      } = data;
-
-    if (!proveedorId || !material || !bobinas || bobinas.length === 0) {
-      return NextResponse.json({ message: 'Faltan datos (proveedor, material o bobinas)' }, { status: 400 });
+    const body = await request.json();
+    const validation = validateData(pedidoProveedorSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
+    const {
+      bobinas,
+      tipo,
+      gastosTotales,
+      tasaCambio,
+      proveedorId,
+      material,
+      notas,
+      numeroFactura,
+      numeroContenedor,
+      naviera,
+      fechaLlegadaEstimada,
+    } = validation.data;
 
     const newPedidoProv = await db.pedidoProveedor.create({
       data: {
-        proveedorId: proveedorId,
-        material: material,
-        tipo: tipo,
-        notas: notas,
-        numeroFactura: numeroFactura, 
-        gastosTotales: parseFloat(gastosTotales) || 0,
-        tasaCambio: parseFloat(tasaCambio) || 1,
+        proveedorId,
+        material,
+        tipo,
+        notas,
+        numeroFactura,
+        gastosTotales: gastosTotales ?? 0,
+        tasaCambio: tasaCambio ?? 1,
         estado: 'Pendiente',
-        numeroContenedor: numeroContenedor,
-        naviera: naviera,
+        numeroContenedor,
+        naviera,
         fechaLlegadaEstimada: fechaLlegadaEstimada ? new Date(fechaLlegadaEstimada) : null,
         bobinas: {
           create: bobinas.map(b => ({
             referenciaId: b.referenciaId || null,
-            cantidad: parseInt(b.cantidad) || 1, 
-            ancho: parseFloat(b.ancho) || null,
-            largo: parseFloat(b.largo) || null,
-            espesor: parseFloat(b.espesor) || null,
-            precioMetro: parseFloat(b.precioMetro) || 0,
+            cantidad: b.cantidad ?? 1,
+            ancho: b.ancho ?? null,
+            largo: b.largo ?? null,
+            espesor: b.espesor ?? null,
+            precioMetro: b.precioMetro,
           })),
         },
       },

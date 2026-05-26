@@ -26,7 +26,8 @@ export async function GET(request) {
 
     // ── Ventas mensuales ────────────────────────────────────────────────────
     if (tipo === 'ventas-mensuales') {
-      const año = parseInt(searchParams.get('año') || String(new Date().getFullYear()), 10);
+      const currentYear = new Date().getFullYear();
+      const año = Math.max(2000, Math.min(currentYear, parseInt(searchParams.get('año') || String(currentYear), 10)));
       const comparar = searchParams.get('comparar') === 'true';
 
       const fetchYear = async (y) => {

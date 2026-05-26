@@ -112,6 +112,49 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-05-26
+
+### Rama: `refactorizacion`
+
+#### Correcciones REVIEW.md (quinta tanda — BACK-05 completo)
+
+- ✅ **BACK-05 (completo)** — Zod schemas añadidos a `src/lib/validations.js`: `grapaSchema`, `grapaUpdateSchema`, `tacoSchema`, `tacoBatchUpdateSchema`, `descuentoSchema` (con `descuentoTierSchema` anidado), `pedidoProveedorSchema` (con `bobinaProveedorSchema` anidado). Todos usan `z.coerce.number()` para aceptar inputs numéricos tanto como `number` como `string`. Aplicados via `validateData()` en: `grapas/route.js` (POST + PUT), `tacos/route.js` (POST + PUT), `precios/route.js` (POST, usando `tarifaMaterialSchema` existente), `pricing/descuentos/route.js` (POST), `pedidos-proveedores-data/route.js` (POST). REVIEW.md actualizado: sin hallazgos pendientes.
+
+#### Correcciones REVIEW.md (cuarta tanda — cierre)
+
+- ✅ **API-01 / BACK-03** — Modo legacy eliminado de `GET /api/pedidos` y `GET /api/presupuestos`: siempre devuelven `{ data, meta }` con `page` y `limit` por defecto. Añadido `Math.min(..., 500)` en presupuestos. Frontend ya manejaba ambos formatos (`result?.data || result || []`)
+- ✅ **SEC-15** — CSP permisiva en `next.config.mjs`: `default-src 'self'`, `script-src` con `'unsafe-inline'/'unsafe-eval'` (necesario Next.js), `frame-ancestors 'none'`, `object-src 'none'`
+- ✅ **BACK-05 (parcial)** — Validación de ítems en `POST /api/albaranes` (descripción, cantidad > 0, precio ≥ 0); validación de `material` requerido y `metrosDisponibles > 0` en `POST /api/almacen-stock` acción entrada
+- ✅ **BUG-02** — Comentario en `sequence.js` explicando por qué `getNextNumber()` se llama fuera de la transacción (evita deadlocks en SQLite) y qué hacer al migrar a MySQL
+
+#### Correcciones REVIEW.md (tercera tanda)
+
+- ✅ **SEC-16** — `.catch(() => {})` → `.catch(err => logApiError(err, 'AUDIT_FAIL'))` en `facturas/[id]/route.js` y `facturas/[id]/rectificativa/route.js`
+- ✅ **SEC-11** — Error de stock insuficiente: detalle (metros exactos) solo en log de servidor; cliente recibe `"Stock insuficiente para realizar la salida."` con HTTP 422
+- ✅ **SEC-06** — `GET /api/config/backup`: rate limiting `backup:<ip>` (5 req/min) + audit log fire-and-forget en cada descarga
+- ✅ **SEC-10** — `next.config.mjs`: headers `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy` en todas las rutas
+- ✅ **SEC-14** — `middleware.js`: header `Strict-Transport-Security` (solo en producción)
+- ✅ **BUG-07** — `pricing/calculate`: `Number(item.quantity)` explícito en cálculo de margen — evita coerciones silenciosas con strings
+- ✅ **BACK-09** — `POST /api/pedidos/[id]/albaran`: guard `pedido.sinFacturacion === true` → 422
+- ✅ **API-03** — `POST /api/facturas`: validación de cada ítem (descripción requerida, cantidad > 0, precio ≥ 0) antes de crear
+- ✅ **FRONT-04** — `facturas/nuevo/page.js`: `htmlFor`/`id` conectados en input de búsqueda de cliente. `FormularioPedidoCliente.js`: `<label className="sr-only">` añadido al input del modal
+- ✅ **REVIEW.md** actualizado con dos bloques finales: hallazgos aplicados (34 ítems) y pendientes (5 ítems con motivo)
+
+#### Correcciones REVIEW.md (segunda tanda)
+
+- ✅ **SEC-12** — `GET /api/informes` tipo `ventas-mensuales`: año acotado al rango `[2000, currentYear]` para evitar queries sobre fechas absurdas
+- ✅ **SEC-08** — `POST /api/documentos`: validación de MIME type antes de guardar el archivo; tipos permitidos: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`; respuesta 415 si el tipo no está en la lista blanca
+- ✅ **SEC-09** — `POST /api/pedidos/[id]/email` y `POST /api/presupuestos/[id]/email`: validación de formato de email con regex antes de llamar a `sendEmail`
+- ✅ **API-04** — `GET /api/facturas/exportar-aeat` convertido a `POST` (el estado de las facturas se modifica con estado EXPORTADO); GET se mantiene como read-only sin efecto de estado. UI actualizada: `<a href>` reemplazado por `<form method="POST">` en `/facturas/page.js`
+- ✅ **FRONT-01** — `BarraBusqueda.js`: clave `key={index}` → `key={\`${item.type}-${item.id}\`}` (clave estable)
+- ✅ **FRONT-02** — Dashboard (`src/app/page.js`): eliminado `console.error` en bloque de error SWR; UI de error mejorada con DaisyUI `alert alert-error`. Informes (`src/app/informes/page.js`): añadido estado de error con `alert alert-error` en `KPICards`, `VentasMensuales`, `TopClientes`, `VentasPorProducto` y `PresupuestosSinRespuesta`
+- ✅ **FRONT-03** — `presupuestos/[id]/page.js`: estados `isCreatingOrder` e `isDownloading` añadidos; botones "Crear Pedido" y "Descargar PDF" muestran spinner y `disabled` durante la operación
+- ✅ **FRONT-04** — `pedidos/[id]/page.js`: estado `isDownloading` añadido; botón "Descargar PDF" muestra spinner y `disabled` durante la operación
+- ✅ **BUG-05** — `src/lib/rateLimiter.js`: intervalo de limpieza reducido de `WINDOW_MS * 5` (5 min) a `WINDOW_MS` (1 min) para evitar acumulación de entradas caducadas en memoria
+- ✅ **BUG-06** — `src/app/api/albaranes/[id]/factura/route.js`: cálculo de `fechaVencimiento` ahora usa la fecha de hoy en la zona horaria `Europe/Madrid` (via `Intl.DateTimeFormat`) en lugar de UTC puro, evitando el desfase en cambios de hora
+
+---
+
 ## Backlog — por implementar (futuro)
 
 ### Fase B — Albaranes

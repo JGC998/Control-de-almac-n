@@ -9,6 +9,7 @@ export async function GET() {
     // 1. Obtener todos los items de stock y todos los proveedores en paralelo
     const [stockItems, proveedores] = await Promise.all([
       db.stock.findMany({
+        take: 1000,
         orderBy: [
           { material: 'asc' },
           { espesor: 'asc' }
@@ -65,7 +66,13 @@ export async function POST(request) {
         }
 
         if (metrosADescontar > stockItem.metrosDisponibles + 0.01) {
-          throw new Error(`Stock insuficiente. Solo quedan ${stockItem.metrosDisponibles.toFixed(2)}m disponibles.`);
+          logApiError(
+            new Error(`Stock insuficiente: disponibles ${stockItem.metrosDisponibles.toFixed(2)}m, solicitados ${metrosADescontar}m`),
+            'SALIDA_STOCK'
+          );
+          const e = new Error('Stock insuficiente para realizar la salida.');
+          e.isUserError = true;
+          throw e;
         }
 
         // 1. Crear el registro de MovimientoStock
@@ -100,6 +107,14 @@ export async function POST(request) {
     } else {
       // --- Lógica de ENTRADA (Añadir Stock Manual) ---
 
+      const metros = parseFloat(data.metrosDisponibles);
+      if (!data.material || typeof data.material !== 'string' || !data.material.trim()) {
+        return NextResponse.json({ message: 'El campo material es requerido.' }, { status: 400 });
+      }
+      if (isNaN(metros) || metros <= 0) {
+        return NextResponse.json({ message: 'Los metros disponibles deben ser un número positivo.' }, { status: 400 });
+      }
+
       const newStockItem = await db.stock.create({
         data: {
           material: data.material,
@@ -124,6 +139,9 @@ export async function POST(request) {
     }
 
   } catch (error) {
+    if (error.isUserError) {
+      return NextResponse.json({ message: error.message }, { status: 422 });
+    }
     logApiError(error, 'Error en POST /api/almacen-stock:');
     return NextResponse.json({ message: 'Error interno al procesar stock' }, { status: 500 });
   }

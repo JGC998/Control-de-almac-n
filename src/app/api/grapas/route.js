@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { grapaSchema, grapaUpdateSchema, validateData } from '@/lib/validations';
 
 export async function GET() {
   try {
@@ -16,16 +17,18 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { nombre, fabricante, descripcion, precioMetro } = await request.json();
-    if (!nombre || precioMetro === undefined) {
-      return NextResponse.json({ message: 'nombre y precioMetro son obligatorios' }, { status: 400 });
+    const body = await request.json();
+    const validation = validateData(grapaSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
+    const { nombre, fabricante, descripcion, precioMetro } = validation.data;
     const grapa = await db.grapa.create({
       data: {
         nombre: nombre.trim(),
         fabricante: fabricante?.trim() || null,
         descripcion: descripcion?.trim() || null,
-        precioMetro: parseFloat(precioMetro),
+        precioMetro,
       },
     });
     return NextResponse.json(grapa, { status: 201 });
@@ -36,13 +39,15 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { updates } = await request.json();
-    if (!Array.isArray(updates)) {
-      return NextResponse.json({ message: 'Se requiere un array de updates' }, { status: 400 });
+    const body = await request.json();
+    const validation = validateData(grapaUpdateSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
+    const { updates } = validation.data;
     const results = await Promise.all(
       updates.map(({ id, precioMetro }) =>
-        db.grapa.update({ where: { id }, data: { precioMetro: parseFloat(precioMetro) } })
+        db.grapa.update({ where: { id }, data: { precioMetro } })
       )
     );
     return NextResponse.json({ message: `${results.length} grapas actualizadas`, updated: results });

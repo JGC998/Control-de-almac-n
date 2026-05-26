@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { descuentoSchema, validateData } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,12 +29,12 @@ export async function GET() {
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { tiers, ...reglaData } = data; // Separar tiers
-
-    if (!reglaData.descripcion || !reglaData.tipo || (reglaData.tipo !== 'volumen' && getSafeFloat(reglaData.descuento) === null)) {
-        return NextResponse.json({ error: 'Faltan campos requeridos: descripción, tipo, y descuento (si no es volumen).' }, { status: 400 });
+    const validation = validateData(descuentoSchema, data);
+    if (!validation.success) {
+      return NextResponse.json({ error: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-    
+    const { tiers, ...reglaData } = validation.data;
+
     // Crear la regla y los tiers en una transacción
     const nuevaRegla = await db.reglaDescuento.create({
         data: {

@@ -22,11 +22,26 @@ export async function GET() {
   }
 }
 
+const ALLOWED_CONFIG_KEYS = [
+  'iva_rate', 'empresa_nombre', 'empresa_nif', 'empresa_telefono',
+  'empresa_email', 'empresa_direccion', 'empresa_cp', 'empresa_ciudad',
+  'empresa_provincia', 'empresa_pais', 'empresa_web', 'empresa_logo',
+];
+
 // PUT /api/config - Guarda o actualiza una o varias claves de configuración
 export async function PUT(request) {
   try {
     const data = await request.json(); // { key: value, ... }
     const entries = Object.entries(data);
+
+    const invalidKeys = entries.map(([k]) => k).filter(k => !ALLOWED_CONFIG_KEYS.includes(k));
+    if (invalidKeys.length > 0) {
+      return NextResponse.json(
+        { message: `Claves no permitidas: ${invalidKeys.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     await Promise.all(
       entries.map(([key, value]) =>
         db.config.upsert({

@@ -1,6 +1,7 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { tacoSchema, tacoBatchUpdateSchema, validateData } from '@/lib/validations';
 
 export async function GET() {
   try {
@@ -14,20 +15,16 @@ export async function GET() {
   }
 }
 
-// POST - Crear un nuevo tipo de taco
 export async function POST(request) {
   try {
-    const { tipo, altura, precioMetro } = await request.json();
-
-    if (!tipo || !altura || precioMetro === undefined) {
-      return NextResponse.json({ message: 'tipo, altura y precioMetro son obligatorios' }, { status: 400 });
+    const body = await request.json();
+    const validation = validateData(tacoSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-    if (!['RECTO', 'INCLINADO'].includes(tipo)) {
-      return NextResponse.json({ message: 'tipo debe ser RECTO o INCLINADO' }, { status: 400 });
-    }
-
+    const { tipo, altura, precioMetro } = validation.data;
     const taco = await db.taco.create({
-      data: { tipo, altura: parseInt(altura), precioMetro: parseFloat(precioMetro) },
+      data: { tipo, altura, precioMetro },
     });
     return NextResponse.json(taco, { status: 201 });
   } catch (error) {
@@ -39,24 +36,19 @@ export async function POST(request) {
   }
 }
 
-// PUT - Actualizar precios en lote
 export async function PUT(request) {
   try {
-    const { updates } = await request.json();
-
-    if (!updates || !Array.isArray(updates)) {
-      return NextResponse.json({ message: 'Se requiere un array de updates' }, { status: 400 });
+    const body = await request.json();
+    const validation = validateData(tacoBatchUpdateSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-
+    const { updates } = validation.data;
     const results = await Promise.all(
-      updates.map(({ id, precioMetro }) => {
-        if (!id || precioMetro === undefined || precioMetro < 0) {
-          throw new Error(`Datos inválidos para taco ${id}`);
-        }
-        return db.taco.update({ where: { id }, data: { precioMetro } });
-      })
+      updates.map(({ id, precioMetro }) =>
+        db.taco.update({ where: { id }, data: { precioMetro } })
+      )
     );
-
     return NextResponse.json({ message: `${results.length} tacos actualizados`, updated: results });
   } catch (error) {
     logApiError(error, 'Error al actualizar tacos:');

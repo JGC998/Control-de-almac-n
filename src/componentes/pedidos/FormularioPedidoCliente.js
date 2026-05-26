@@ -40,7 +40,8 @@ function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew, clientes =
           <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
         </div>
         <div className="join w-full mb-4">
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, email o teléfono..." className="input input-bordered join-item w-full" autoFocus />
+          <label htmlFor="cliente-modal-search" className="sr-only">Buscar cliente por nombre, email o teléfono</label>
+          <input id="cliente-modal-search" type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, email o teléfono..." className="input input-bordered join-item w-full" autoFocus />
           <button className="btn btn-primary join-item" onClick={() => onCreateNew(search)}><Plus className="w-4 h-4" /> Nuevo</button>
         </div>
         <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">

@@ -70,7 +70,7 @@ export async function POST(request) {
         }
 
         if (margenAplicar !== null) {
-          const qty = item.quantity > 0 ? item.quantity : 1;
+          const qty = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
           precioFinal = (costoBase * margenAplicar) + (gastoFijoTotalAplicar / qty);
         }
       }

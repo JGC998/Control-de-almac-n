@@ -81,9 +81,10 @@ function FacturaManualForm() {
 
       {/* Cliente */}
       <div className="form-control">
-        <label className="label"><span className="label-text font-medium">Cliente (opcional)</span></label>
+        <label htmlFor="factura-cliente-search" className="label"><span className="label-text font-medium">Cliente (opcional)</span></label>
         <div className="relative">
           <input
+            id="factura-cliente-search"
             type="text"
             className="input input-bordered w-full"
             placeholder="Buscar cliente…"

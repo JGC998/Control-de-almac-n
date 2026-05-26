@@ -28,8 +28,13 @@ export default function Dashboard() {
 
   if (isLoading || !data) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (error) {
-    console.error("Error al cargar datos del dashboard:", error);
-    return <div className="text-center text-red-500">Error al cargar los datos del dashboard.</div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div role="alert" className="alert alert-error max-w-md">
+          <span>Error al cargar los datos del dashboard. Inténtalo de nuevo.</span>
+        </div>
+      </div>
+    );
   }
 
   const { kpiData, nivelesStock, movimientosRecientes } = data;

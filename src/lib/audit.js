@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { logApiError } from '@/lib/logger';
 
 /**
  * Registra una acción en el Audit Log
@@ -29,7 +30,7 @@ export async function logAction({ action, entity, entityId, details, user = 'Sys
         return log;
     } catch (error) {
         // No queremos que un fallo en el log rompa la operación principal
-        console.error('❌ Error al registrar Audit Log:', error);
+        logApiError(error, 'AUDIT_LOG');
         return null;
     }
 }

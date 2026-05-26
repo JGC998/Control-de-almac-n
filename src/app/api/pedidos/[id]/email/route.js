@@ -24,6 +24,9 @@ export async function POST(request, { params }) {
         if (!clientEmail) {
             return NextResponse.json({ message: 'Cliente sin email' }, { status: 400 });
         }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+            return NextResponse.json({ message: 'Dirección de email inválida' }, { status: 400 });
+        }
 
         const pdfBuffer = await generateOrderPDF(order);
         const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');

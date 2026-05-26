@@ -141,6 +141,86 @@ export const reglaMargenSchema = z.object({
 });
 
 // ============================================
+// VALIDACIONES PARA GRAPAS
+// ============================================
+
+export const grapaSchema = z.object({
+    nombre: z.string().min(1, 'Nombre requerido'),
+    fabricante: z.string().optional().nullable(),
+    descripcion: z.string().optional().nullable(),
+    precioMetro: z.coerce.number().nonnegative('Precio por metro no puede ser negativo'),
+});
+
+export const grapaUpdateSchema = z.object({
+    updates: z.array(z.object({
+        id: z.union([z.string().min(1), z.number().int().positive()]),
+        precioMetro: z.coerce.number().nonnegative('Precio por metro no puede ser negativo'),
+    })).min(1, 'Debe haber al menos un update'),
+});
+
+// ============================================
+// VALIDACIONES PARA TACOS
+// ============================================
+
+export const tacoSchema = z.object({
+    tipo: z.enum(['RECTO', 'INCLINADO'], { errorMap: () => ({ message: 'tipo debe ser RECTO o INCLINADO' }) }),
+    altura: z.coerce.number().int().positive('Altura debe ser positiva'),
+    precioMetro: z.coerce.number().nonnegative('Precio por metro no puede ser negativo'),
+});
+
+export const tacoBatchUpdateSchema = z.object({
+    updates: z.array(z.object({
+        id: z.union([z.string().min(1), z.number().int().positive()]),
+        precioMetro: z.coerce.number().nonnegative('Precio por metro no puede ser negativo'),
+    })).min(1, 'Debe haber al menos un update'),
+});
+
+// ============================================
+// VALIDACIONES PARA DESCUENTOS
+// ============================================
+
+const descuentoTierSchema = z.object({
+    cantidadMinima: z.coerce.number().int().nonnegative().optional(),
+    descuento: z.coerce.number().nonnegative('Descuento no puede ser negativo'),
+});
+
+export const descuentoSchema = z.object({
+    descripcion: z.string().min(1, 'Descripción requerida'),
+    tipo: z.string().min(1, 'Tipo requerido'),
+    descuento: z.coerce.number().nonnegative().optional().nullable(),
+    fechaInicio: z.string().optional().nullable(),
+    fechaFin: z.string().optional().nullable(),
+    tiers: z.array(descuentoTierSchema).optional(),
+});
+
+// ============================================
+// VALIDACIONES PARA PEDIDOS A PROVEEDORES
+// ============================================
+
+const bobinaProveedorSchema = z.object({
+    referenciaId: z.string().optional().nullable(),
+    cantidad: z.coerce.number().int().positive('Cantidad debe ser positiva').optional(),
+    ancho: z.coerce.number().positive().optional().nullable(),
+    largo: z.coerce.number().positive().optional().nullable(),
+    espesor: z.coerce.number().positive().optional().nullable(),
+    precioMetro: z.coerce.number().nonnegative('Precio por metro no puede ser negativo'),
+});
+
+export const pedidoProveedorSchema = z.object({
+    proveedorId: z.string().min(1, 'Proveedor requerido'),
+    material: z.string().min(1, 'Material requerido'),
+    bobinas: z.array(bobinaProveedorSchema).min(1, 'Debe haber al menos una bobina'),
+    tipo: z.string().optional().nullable(),
+    gastosTotales: z.coerce.number().nonnegative().optional().nullable(),
+    tasaCambio: z.coerce.number().positive().optional().nullable(),
+    notas: z.string().optional().nullable(),
+    numeroFactura: z.string().optional().nullable(),
+    numeroContenedor: z.string().optional().nullable(),
+    naviera: z.string().optional().nullable(),
+    fechaLlegadaEstimada: z.string().optional().nullable(),
+});
+
+// ============================================
 // HELPER FUNCTION
 // ============================================
 

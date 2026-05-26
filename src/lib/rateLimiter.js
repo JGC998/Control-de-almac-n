@@ -10,7 +10,7 @@ setInterval(() => {
   for (const [key, entry] of store) {
     if (now >= entry.resetAt) store.delete(key);
   }
-}, WINDOW_MS * 5);
+}, WINDOW_MS);
 
 /**
  * @param {string} ip

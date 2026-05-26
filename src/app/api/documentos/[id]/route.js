@@ -38,6 +38,12 @@ export async function DELETE(request, { params }) {
     if (documento.rutaArchivo) {
       // La ruta se guarda como /planos/nombre.pdf, necesitamos el path completo.
       const filePath = path.join(process.cwd(), 'public', documento.rutaArchivo);
+      // SEC — Prevenir path traversal: verificar que la ruta resultante está dentro de /public/planos/
+      const allowedBase = path.join(process.cwd(), 'public', 'planos');
+      if (!filePath.startsWith(allowedBase) || documento.rutaArchivo.includes('..')) {
+        logApiError(new Error(`Path traversal bloqueado: ${documento.rutaArchivo}`), 'DOC-DELETE');
+        return NextResponse.json({ message: 'Ruta de archivo inválida' }, { status: 400 });
+      }
       try {
         await fs.unlink(filePath);
 

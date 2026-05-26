@@ -183,7 +183,7 @@ export async function PUT(request, { params }) {
           entityId: id,
           details: JSON.stringify({ de: existing.estado, a: updateData.estado, numero: existing.numero }),
         },
-      }).catch(() => {});
+      }).catch(err => logApiError(err, 'AUDIT_FAIL'));
     }
 
     revalidatePath('/facturas');

@@ -22,6 +22,9 @@ export async function POST(request, { params }) {
         if (!clientEmail) {
             return NextResponse.json({ message: 'El cliente no tiene email y no se proporcionó uno alternativo.' }, { status: 400 });
         }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+            return NextResponse.json({ message: 'Dirección de email inválida' }, { status: 400 });
+        }
 
         // 2. Generar PDF (Reutilizando lógica)
         const [configIva, margenes] = await Promise.all([

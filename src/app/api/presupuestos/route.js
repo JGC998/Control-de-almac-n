@@ -18,42 +18,27 @@ export async function GET(request) {
       whereClause.clienteId = clientId;
     }
 
-    // Comportamiento paginado si se solicitan parámetros
-    if (pageParam || limitParam) {
-      const page = parseInt(pageParam || '1');
-      const limit = parseInt(limitParam || '50');
-      const skip = (page - 1) * limit;
+    const page = parseInt(pageParam || '1');
+    const limit = Math.min(parseInt(limitParam || '50'), 500);
+    const skip = (page - 1) * limit;
 
-      const [quotes, total] = await Promise.all([
-        db.presupuesto.findMany({
-          where: whereClause,
-          take: limit,
-          skip: skip,
-          include: {
-            cliente: { select: { nombre: true } },
-          },
-          orderBy: { fechaCreacion: 'desc' },
-        }),
-        db.presupuesto.count({ where: whereClause })
-      ]);
+    const [quotes, total] = await Promise.all([
+      db.presupuesto.findMany({
+        where: whereClause,
+        take: limit,
+        skip,
+        include: {
+          cliente: { select: { nombre: true } },
+        },
+        orderBy: { fechaCreacion: 'desc' },
+      }),
+      db.presupuesto.count({ where: whereClause }),
+    ]);
 
-      return NextResponse.json({
-        data: quotes,
-        meta: { total, page, limit, totalPages: Math.ceil(total / limit) }
-      });
-    }
-
-    // Comportamiento legado: cap de seguridad para evitar full-table scans
-    const quotes = await db.presupuesto.findMany({
-      where: whereClause,
-      take: 500,
-      include: {
-        cliente: { select: { nombre: true } },
-      },
-      orderBy: { fechaCreacion: 'desc' },
+    return NextResponse.json({
+      data: quotes,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
-
-    return NextResponse.json(quotes);
   } catch (error) {
     logApiError(error);
     return NextResponse.json({ message: 'Error al obtener presupuestos' }, { status: 500 });
