@@ -1,270 +1,176 @@
-# Hoja de ruta — CRM Taller
+# ROADMAP — CRM Taller / Control de Almacén
 
-Estado general del proyecto y plan de implementación.
-- ✅ Completado  |  🔄 En progreso  |  ⏳ Pendiente  |  ❌ Descartado
-
----
-
-## Fases completadas
-
-### ✅ Fase A — Navegación y diseño
-- Topnav horizontal con dropdowns JS (un solo dropdown abierto a la vez)
-- Tema Corporate fijo (eliminado selector de temas por hydration mismatch)
-- Hub pages: `/ventas`, `/compras`, `/almacen`, `/gestion`, `/herramientas`
-- BD SQLite local para desarrollo (`prisma/dev.db`) con datos mock
-
-### ✅ Fase B — Albaranes
-- Modelos Prisma: `Albaran`, `AlbaranItem` · campo `valorado Boolean`
-- API completa: GET/POST `/api/albaranes`, GET/PUT/DELETE `/api/albaranes/[id]`
-- PDF de albarán (valorado: muestra precios / sin valorar: solo descripción + cantidad)
-- Generación desde pedido con modal "¿Valorado / Sin valorar?"
-- Páginas: `/albaranes`, `/albaranes/[id]`, `/albaranes/nuevo`
-
-### ✅ Fase C — Facturas
-- Modelos Prisma: `Factura`, `FacturaItem`
-- API completa: GET/POST `/api/facturas`, GET/PUT/DELETE `/api/facturas/[id]`
-- PDF de factura con desglose IVA + QR VeriFactu (cuando huella presente)
-- Páginas: `/facturas`, `/facturas/[id]`, `/facturas/nuevo`
-- Inmutabilidad: facturas EMITIDA/PAGADA no se pueden editar
-- Anti-doble-facturación: `albaranId @unique` en modelo Factura
-- Al generar factura desde albarán → pedido pasa a estado "Facturado"
-
-### ✅ Fase D1 — VeriFactu: Hash + QR + Configuración emisor
-- Campos nuevos en `Factura`: `tipoFactura`, `huella`, `huellaAnterior`, `fechaHoraGenRegistro`, `estadoEnvioAeat`, `csvAeat`
-- Modelo `ConfiguracionEmisor` (NIF, nombre, dirección, entorno pruebas/producción)
-- `src/lib/verifactu.js`: `getFechaHoraHusoEspana`, `calcularHuella`, `construirURLQR`, `generarXMLRegistroAlta`
-- Al emitir factura: calcula huella SHA-256, encadena con anterior, genera QR en PDF
-- Página `/configuracion/emisor` con selector entorno pruebas/producción
-
-### ✅ Fase D2 — VeriFactu: Exportación XML para AEAT manual
-> Flujo: emitir factura → PDF con QR → exportar XML → usuario sube al portal AEAT
-
-- API `GET /api/facturas/exportar-aeat` — genera `RegFactuSistemaFacturacion.xml`
-  - Incluye todas las facturas `estadoEnvioAeat = 'PENDIENTE'`
-  - Tras generar, marca las facturas como `EXPORTADO`
-- Botón "Exportar XML para AEAT" en `/facturas` (solo visible si hay PENDIENTES)
-- Campo CSV de confirmación AEAT en `/facturas/[id]` (marca como CONFIRMADO)
-- Badge `estadoEnvioAeat` en listado y detalle de facturas
-- Fix timezone: `getFechaHoraHusoEspana` usa `en-GB` formatToParts comparando horas Madrid vs UTC directamente
-- Fix `<RegistroAnterior>`: referencia correctamente la factura previa en la cadena de huellas
+> Última actualización: 2026-05-26  
+> Generado desde `ideas.txt` + backlog existente
 
 ---
 
-## En curso — Prioridad alta
+## 🎯 Visión general
 
-### ✅ Fase D3 — Facturas rectificativas R1–R5
-- Botón "Emitir rectificativa" desde `/facturas/[id]` (solo en EMITIDA/PAGADA, sin rectificativa activa)
-- Modal con tipo (R1–R5) y modalidad (S=Sustitución / I=Diferencias) + motivo
-- API `POST /api/facturas/[id]/rectificativa` — crea BORRADOR copiando ítems de la original
-- XML con elemento `<FacturasRectificadas>` referenciando la factura original
-- PDF muestra "FACTURA RECTIFICATIVA" + tipo + referencia a la original
-- La factura original permanece inmutable; se listan sus rectificativas en su detalle
+El proyecto tiene una base sólida con navegación, CRM, presupuestos, pedidos, almacén, calculadoras y el flujo completo hasta VeriFactu. El siguiente paso inmediato es **sincronizar ramas**: llevar todas las mejoras actuales a `main` sin arrastrar las funcionalidades de facturas/albaranes/VeriFactu que no se necesitarán hasta fin de año. Una vez estabilizado `main`, el trabajo continúa con mejoras UX menores, filtros avanzados, informes PDF y — a partir de año nuevo — la integración directa con el webservice AEAT.
 
 ---
 
-## Pendiente — Prioridad media
+## 📋 Backlog completo
 
-### ✅ Fase E — Cobros y vencimientos
-- ✅ Badge visual en listado: vencida (rojo), próxima a vencer ≤ 7 días (naranja)
-- ✅ Badge en detalle de factura junto a fecha de vencimiento
-- ✅ Registro de fecha de pago real al marcar PAGADA (`fechaPago DateTime?` en schema)
-- ⏳ Panel "Facturas pendientes de cobro" en dashboard
-
-### ⏳ Fase F — Presupuesto → Pedido (revisión y mejora)
-- ⏳ Revisar y pulir flujo completo: crear presupuesto → convertir a pedido → generar albarán → factura
-- ⏳ Indicador visual del estado del presupuesto (aceptado, rechazado, pendiente)
-- ⏳ PDF de presupuesto mejorado
-
----
-
-## Pendiente — Prioridad baja
-
-### ⏳ Fase G — Búsqueda global mejorada
-- ⏳ Buscar por NIF de cliente, referencia de producto, importe exacto
-- ⏳ Resultados agrupados por tipo (Clientes / Pedidos / Facturas / Productos)
-- ⏳ Atajos de teclado (Ctrl+K)
-
-### ⏳ Fase H — Filtros combinados en listas
-- ⏳ Filtro por rango de fechas en pedidos, facturas, albaranes
-- ⏳ Filtro por cliente en todas las listas
-- ⏳ Filtro por rango de importe
-- ⏳ Filtros persistentes en URL (ya existe base en estado)
-
-### ⏳ Fase I — Acciones en bloque
-- ⏳ Selección múltiple con checkbox en listados
-- ⏳ Marcar varias facturas como pagadas de golpe
-- ⏳ Exportar selección a Excel/PDF
-- ⏳ Eliminar en bloque (con confirmación)
+| ID | Tarea | Tipo | Complejidad | Depende de |
+|----|-------|------|-------------|------------|
+| T-01 | Inventariar qué incluir/excluir en el merge a `main` | Infra | Pequeña | — |
+| T-02 | Crear rama `dev` limpia desde `main` actual | Infra | Pequeña | T-01 |
+| T-03 | Portar a `dev` todo excepto facturas/albaranes/VeriFactu | Backend/Infra | Grande | T-02 |
+| T-04 | Validar compilación y funcionalidad en `dev` | Testing | Media | T-03 |
+| T-05 | Merge `dev` → `main` cuando estable | Infra | Pequeña | T-04 |
+| T-06 | Hub Configuración: reestructurar `/configuracion` como hub puro | Frontend | Pequeña | — |
+| T-07 | PDF pedido: corregir texto de cliente desbordando el recuadro | Frontend | Pequeña | — |
+| T-08 | PDF pedido: añadir botón "Imprimir" directo (sin descargar) | Frontend | Pequeña | — |
+| T-09 | Pedidos: eliminar botón "Enviar Email" de la vista de detalle | Frontend | Pequeña | — |
+| T-10 | Calculadora de Envíos: desglose + botón "añadir al pedido" + UX | Frontend | Media | — |
+| T-11 | Dashboard: panel "Facturas pendientes de cobro" | Frontend/Backend | Media | — |
+| T-12 | Informes: botón "Exportar a PDF" en página de informes | Frontend/Backend | Media | — |
+| T-13 | Informes: informe de ventas por período y por cliente | Backend | Media | — |
+| T-14 | Listas: filtros por fecha, cliente e importe en pedidos/facturas/albaranes | Frontend | Media | — |
+| T-15 | Búsqueda global: NIF, referencia, importe; resultados agrupados; Ctrl+K | Frontend/Backend | Grande | — |
+| T-16 | Acciones en bloque: selección múltiple, marcar pagadas, exportar, eliminar | Frontend/Backend | Grande | — |
+| T-17 | Email: envío de facturas y albaranes (ya existe para pedidos) | Backend | Media | T-05 |
+| T-18 | Stock: descuento automático al pasar albarán a ENTREGADO | Backend | Media | T-05 |
+| T-19 | VeriFactu D2: envío directo al webservice AEAT (actualmente solo exportación XML) | Backend | Grande | T-05 |
 
 ---
 
-## Backlog técnico
+## 🗺️ Fases propuestas
 
-- ⏳ Stock: descuento automático al pasar albarán a ENTREGADO
-- ⏳ Email de facturas y albaranes (ya existe para pedidos)
-- ⏳ Dashboard de inicio con métricas reales (facturación mes, pendientes, stock bajo)
-- ✅ PDF pedidos — texto de cliente desbordando recuadro (recuadro dinámico con `splitTextToSize`)
-- ✅ Calculadora de Envíos — botón "añadir al pedido" + mejoras UX implementados
+### Fase 1 — Sincronización de ramas
+> Llevar todas las mejoras de `refactorizacion` a `main` sin las features de facturas/albaranes/VeriFactu. Estimación: 1–2 días.
 
----
+- [ ] **T-01** — Inventariar qué incluir/excluir  
+  _Revisar los commits de `refactorizacion` y clasificar cada archivo modificado: "va a main" (navegación, seguridad, CRM, calculadoras, proveedores, almacén, pricing) vs "se queda" (todo lo relacionado con Albaran, Factura, VeriFactu, ConfiguracionEmisor, Rectificativa). Documentar la lista antes de tocar nada._
 
-## Decisiones de diseño VeriFactu
+- [ ] **T-02** — Crear rama `dev` desde `main`  
+  _`git checkout main && git checkout -b dev`. Punto de partida limpio. Todos los cambios de la Fase 1 van a `dev`, no directamente a `main`._
 
-| Decisión | Resolución |
-|---|---|
-| Envío a AEAT | **XML manual**: botón "Exportar XML" → descarga → usuario sube al portal AEAT con su cert. FNMT |
-| Zona horaria | **`Europe/Madrid`** via `Intl.DateTimeFormat` (resuelve DST +01:00/+02:00 automáticamente) |
-| Formato números en hash | **`parseFloat(n).toString()`** — especificado en Orden HAC/1177/2024 |
-| Race condition | **Descartada** — instalación mono-usuario |
-| Certificado en servidor | **Descartado** — el cert. FNMT lo usa el usuario en su propio navegador |
-| Scope de VeriFactu | **Solo modelo `Factura`** — pedidos, albaranes y presupuestos quedan fuera |
-| Mono/multi empresa | **Mono-empresa** |
-| Entorno de pruebas | **`preportal.aeat.es`** — sin enviar nada real a Hacienda |
+- [ ] **T-03** — Portar cambios seleccionados a `dev`  
+  _Estrategia recomendada: copiar manualmente los archivos "van a main" desde `refactorizacion` a `dev` (más seguro que cherry-pick cuando los commits mezclan features). Archivos clave a portar: `middleware.js`, `next.config.mjs`, `src/lib/` (logger, rateLimiter, validations, audit, manejadores-api), `src/app/api/` (auth, config, pedidos, presupuestos, clientes, productos, proveedores, almacén, precios, pricing, grapas, tacos, pedidos-proveedores-data, export), navegación, componentes, páginas CRM, `CHANGELOG.md`, `REVIEW.md`, `ROADMAP.md`. **Excluir:** `src/app/api/facturas/`, `src/app/api/albaranes/`, `src/lib/verifactu.js`, `src/lib/pdfGenerator.js` (partes de factura/albarán), páginas `/facturas`, `/albaranes`, modelos Prisma de Factura/Albaran/ConfiguracionEmisor._
+
+- [ ] **T-04** — Validar compilación en `dev`  
+  _`npm run build` + prueba manual del flujo: login → presupuesto → pedido → almacén → calculadoras → configuración. Si compila y los flujos críticos funcionan, está listo._
+
+- [ ] **T-05** — Merge `dev` → `main`  
+  _Cuando T-04 esté verde: `git checkout main && git merge dev`. Punto de control: desde este momento `main` es la rama estable de uso diario._
 
 ---
 
-## Contexto técnico
+### Fase 2 — Quick wins y pulido UX
+> Pequeñas mejoras de alta visibilidad que se pueden hacer en la rama activa en cualquier momento. Estimación: 2–4 horas en total.
 
-| Item | Valor |
-|---|---|
-| Framework | Next.js 16 App Router + React 19 |
-| CSS | Tailwind CSS 4 + DaisyUI 5 |
-| ORM | Prisma 6 · SQLite (dev) / MySQL (prod) |
-| PDF | jsPDF + jspdf-autotable |
-| Data fetching | SWR |
-| Icons | Lucide React |
-| Rama activa | `refactorizacion` |
-| Plazo VeriFactu (usuarios IS) | 1 enero 2027 |
+- [ ] **T-06** — Hub de Configuración reestructurado  
+  _Mover la página actual de Márgenes a `/configuracion/margenes` y hacer que `/configuracion` sea solo el hub con cards de navegación (Márgenes, Empresa, IVA, Backup…). Afecta: `src/app/configuracion/page.js` y rutas de sub-páginas._
 
----
+- [ ] **T-07** — PDF pedido: texto de cliente que desborda  
+  _En `src/app/api/pedidos/[id]/pdf/route.js`, usar `doc.splitTextToSize(texto, anchoRecuadro)` y ajustar la altura del recuadro dinámicamente según el número de líneas resultantes._
 
-*Última actualización: mayo 2026*
+- [ ] **T-08** — PDF pedido: botón "Imprimir"  
+  _En `src/app/pedidos/[id]/page.js`, tras generar el PDF blob, abrir una ventana con `window.open(blobUrl)` y llamar a `printWindow.print()`. Alternativa: `iframe` oculto con `contentWindow.print()`._
 
----
+- [ ] **T-09** — Eliminar botón "Enviar Email" de detalle de pedido  
+  _En `src/app/pedidos/[id]/page.js`, localizar y eliminar el botón. No afecta al endpoint, solo a la UI._
 
----
-
-# INFORME TÉCNICO — Análisis de código (mayo 2026)
-
-## Bugs detectados
-
-### CRÍTICOS — todos corregidos ✅
-
-| # | Estado | Descripción |
-|---|--------|-------------|
-| C1 | ✅ | IVA lee de `Config` con fallback 0.21 — `api/albaranes/route.js` |
-| C2 | ✅ | IVA idem en actualización albarán — `api/albaranes/[id]/route.js` |
-| C3 | ✅ | IVA idem en creación facturas — `api/facturas/route.js` |
-| C4 | ✅ | Pedido solo pasa a "Facturado" cuando TODOS sus albaranes tienen factura — `api/albaranes/[id]/factura/route.js` |
-| C5 | ✅ | Rectificativas usan secuencia separada `rectificativa` — `api/facturas/[id]/rectificativa/route.js` |
-| C6 | ✅ | Filtro `fechaHoraGenRegistro: { not: null }` en query de huella anterior — `api/facturas/[id]/route.js` |
-| C7 | ✅ | `<RegistroAnterior>` solo se genera si `prevFactura` existe — `lib/verifactu.js` |
-| C8 | ✅ | `calcularHuella` valida campos obligatorios antes del hash — `lib/verifactu.js` |
-| C9 | ✅ | `getEmisorInfo()` lee dirección/teléfono de `ConfiguracionEmisor` — `lib/pdfGenerator.js` |
-| C10 | ✅ | Falso positivo — `generateAlbaranPDF` (línea 710) y `generateFacturaPDF` (línea 513) ya estaban definidas |
-
-### MEDIOS — todos corregidos ✅
-
-| # | Estado | Descripción |
-|---|--------|-------------|
-| M1 | ✅ | Guard anti-duplicado en `api/pedidos/[id]/albaran/route.js` |
-| M2 | ✅ | Items de facturas no-BORRADOR retornan 422 — `api/facturas/[id]/route.js` |
-| M3 | ✅ | `fechaHoraGenRegistro: { not: null }` en exportar-aeat — `api/facturas/exportar-aeat/route.js` |
-| M4 | ✅ | Bloque `<TipoRectificativa>` siempre presente en rectificativas — `lib/verifactu.js` |
-| M5 | ✅ | `TipoImpositivo` calculado dinámicamente desde `tax/subtotal*100` — `lib/verifactu.js` |
-| M6 | ✅ | Página filtra solo `EMITIDO`/`ENTREGADO` sin factura — `app/facturas/nuevo/page.js` |
-| M7 | ✅ | `pesoUnitario` con guard `|| 0` en PDF de pedido — `lib/pdfGenerator.js` |
-
-### LEVES — todos corregidos ✅
-
-| # | Estado | Descripción |
-|---|--------|-------------|
-| L1 | ✅ | `entorno` validado como enum `['pruebas','produccion']` — `api/configuracion/emisor/route.js` |
-| L2 | ✅ | Clientes sin NIF omiten bloque `<Destinatarios>` en lugar de usar ID inválido — `lib/verifactu.js` |
-| L3 | ✅ | `fmtNum` usa `toFixed(2)` para precisión decimal correcta — `lib/verifactu.js` |
-| L4 | ✅ | Count vencidas incluye `EMITIDA` y `PAGADA` — `app/facturas/page.js` |
-| L5 | ✅ | Tarjeta de pedido con albarán muestra aviso y deshabilita botón — `app/albaranes/nuevo/page.js` |
-| L6 | ✅ | Exportación AEAT limitada a lotes de 1000 registros — `api/facturas/exportar-aeat/route.js` |
+- [ ] **T-10** — Calculadora de Envíos: mejoras  
+  _Tres sub-tareas independientes: (a) desglose tras calcular mostrando tipología elegida y su coste detallado; (b) botón "Añadir al pedido" que abre un selector de pedido y añade el coste de envío como línea; (c) mejoras de layout y feedback visual en tiempo real. Archivos: `src/app/calculadora/logistica/page.js` y componentes._
 
 ---
 
-## Funcionalidad incompleta / pendiente de construir
+### Fase 3 — Funcionalidades de valor (post-sincronización)
+> Features que añaden valor real al flujo de trabajo diario. Estimación: 1–2 semanas.
 
-1. ✅ **QR en PDF de factura** — ya implementado en `generateFacturaPDF` (verificado)
-2. ✅ **Campo `valorado` en albarán** — `generateAlbaranPDF` ya respeta `valorado === false` (verificado)
-3. ✅ **Crear factura manual sin albarán** — `/facturas/nuevo` tiene ahora pestaña "Factura manual"
-4. ✅ **Formulario de cliente sin campo NIF** — corregido en `ModalEditarCliente.js` y `clientes/page.js`
-5. ✅ **IVA configurable** — centralizado en los 4 endpoints, lee de `Config` tabla con fallback 0.21
-6. ✅ **Serie separada para rectificativas** — usan secuencia `rectificativa` separada
+- [ ] **T-11** — Dashboard: panel de cobros pendientes  
+  _Widget en `src/app/page.js` que muestre las facturas EMITIDA con fecha de vencimiento próxima o ya vencida. Ya existe la lógica de badges; es cuestión de añadir una query y un card al dashboard._
+
+- [ ] **T-12** — Informes: exportar a PDF  
+  _Botón en `src/app/informes/page.js` que capture los gráficos (via `html2canvas` o generando el PDF directamente desde los datos) y los empaquete como PDF descargable._
+
+- [ ] **T-13** — Informes: más períodos y por cliente  
+  _Ampliar `GET /api/informes` con tipos `ventas-por-cliente` y `ventas-por-período-personalizado`. Añadir selector de rango de fechas en la UI de informes._
+
+- [ ] **T-14** — Filtros combinados en listas  
+  _Filtros por rango de fechas, por cliente y por rango de importe en las listas de pedidos, facturas y albaranes. Los filtros se persisten en URL (`?desde=&hasta=&clienteId=`). La base ya existe parcialmente en el estado de algunas páginas._
 
 ---
 
-## Análisis de seguridad
+### Fase 4 — Features avanzadas *(a partir de año nuevo)*
+> Funcionalidades que requieren que las fases anteriores estén estables, o que no son necesarias hasta fin de año.
 
-> Contexto: aplicación en red local, sin exposición a internet. Los riesgos se valoran en ese escenario.
+- [ ] **T-15** — Búsqueda global mejorada  
+  _Ampliar `BarraBusqueda` para buscar por NIF, referencia de producto e importe exacto. Resultados agrupados por tipo. Atajo Ctrl+K para abrir el buscador. Requiere cambios en el endpoint de búsqueda._
 
-### CRÍTICO
+- [ ] **T-16** — Acciones en bloque en listados  
+  _Checkbox de selección múltiple en listados, barra de acciones contextual al seleccionar. Acciones: marcar varias facturas como pagadas, exportar selección a CSV/PDF, eliminar en bloque con confirmación. Complejidad alta — afecta a múltiples páginas y endpoints._
 
-| # | Estado | Solución |
-|---|--------|---------|
-| ✅ S1 | CORREGIDO | `middleware.js` — PIN via `AUTH_PIN` env. Sin PIN configurado = sin restricción (dev). Cookie `crm-auth` HttpOnly/SameSite=Strict, 8h. Cubre todos los endpoints y páginas |
-| ✅ S2 | CORREGIDO | El middleware de S1 cubre `/api/config/backup` automáticamente |
-| ✅ S3 | CORREGIDO | `AuditLog` — registro al cambiar estado de factura (`FACTURA_EMITIDA`, `FACTURA_PAGADA`, etc.) en `api/facturas/[id]/route.js` |
-| ✅ S4 | CORREGIDO | `AuditLog` — registro al crear rectificativa (`RECTIFICATIVA_CREADA`) en `api/facturas/[id]/rectificativa/route.js` |
+- [ ] **T-17** — Email de facturas y albaranes  
+  _Extender `src/lib/email.js` (ya usada en pedidos) para enviar facturas y albaranes con adjunto PDF. Añadir botones de email en `/facturas/[id]` y `/albaranes/[id]`._
 
-### ALTO
+- [ ] **T-18** — Stock: descuento automático al entregar albarán  
+  _En `PUT /api/albaranes/[id]` cuando el estado cambia a `ENTREGADO`, descontar automáticamente las cantidades del stock. Requiere mapear ítems de albarán con registros de stock (actualmente no hay relación directa)._
 
-| # | Vulnerabilidad | Ubicación | Impacto |
-|---|---------------|-----------|---------|
-| ✅ S5 | ~~**Path traversal en subida de documentos**~~ — CORREGIDO: `path.basename()` + whitelist regex en `api/documentos/route.js` | — | — |
-| ✅ S6 | ~~**Paginación sin límite máximo**~~ — CORREGIDO: `Math.min(limit, 500)` en albaranes, facturas y pedidos | — | — |
-| ✅ S7 | ~~**Export CSV sin límite**~~ — CORREGIDO: `take: 5000` en todas las queries del CSV export | — | — |
-| ✅ S8 | ~~**Informes financieros públicos**~~ — CORREGIDO: cubierto por el middleware S1 (AUTH_PIN) | — | — |
+- [ ] **T-19** — VeriFactu D2: envío directo al webservice AEAT  
+  _Actualmente el flujo es: emitir → exportar XML → usuario sube manualmente al portal AEAT. Esta tarea añade el envío directo via HTTPS con certificado FNMT del usuario. **Plazo obligatorio: 01/01/2027.** Complejidad alta — requiere manejo de certificados, firma digital y protocolo SOAP/REST AEAT._
 
-### MEDIO
+---
 
-| # | Estado | Solución |
-|---|--------|---------|
-| ✅ S9 | CORREGIDO | `src/lib/rateLimiter.js` — ventana deslizante 60s por IP. Aplicado a `/api/informes` (límite 20 req/min). Retorna `429` con `Retry-After` |
-| ✅ S10 | YA ESTABA | `pedidoSchema` Zod con `estado: z.enum([...])` |
-| ✅ S11 | CORREGIDO | `error.message` eliminado de 4 catch blocks que no lanzaban errores de negocio. `from-presupuesto` conserva el patrón (sus throws son mensajes seguros de usuario) |
+## ⚡ Quick wins
 
-### BAJO
+Tareas pequeñas que se pueden hacer en menos de 1 hora:
 
-| # | Vulnerabilidad | Impacto |
-|---|---------------|---------|
-| ✅ S12 | ~~Datos empresa hardcodeados~~ — CORREGIDO: `getEmisorInfo()` lee de `ConfiguracionEmisor` | — |
-| S13 | `console.error(error)` vuelca stack traces Prisma en logs | Baja prioridad — logs de servidor locales |
+- [ ] **T-09** — Eliminar botón "Enviar Email" de detalle pedido (~15 min)
+- [ ] **T-06** — Reestructurar `/configuracion` como hub (~45 min)
+- [ ] **T-07** — Corregir desbordamiento de texto en PDF de pedido (~30 min)
+- [ ] **T-08** — Botón "Imprimir" en detalle de pedido (~30 min)
 
+---
 
+## 🚧 Dependencias y bloqueos
 
-# Modificaciones pendientes
+- **T-02 a T-05** son secuenciales — no se puede saltar ningún paso.
+- **T-17 y T-18** pueden hacerse en `refactorizacion` ahora mismo, pero tienen más sentido después de la sincronización (T-05) para que queden también en `main`.
+- **T-19** requiere decisión previa: ¿certificado FNMT en servidor o el usuario lo usa desde su propio navegador? La decisión actual es "cert en navegador del usuario" (ver Decisiones VeriFactu en el ROADMAP anterior), lo que complica el envío automático desde el servidor.
+- **T-16** (acciones en bloque) depende conceptualmente de que **T-14** (filtros) esté hecho primero, para que la selección tenga contexto de filtrado.
+- **T-03** (portar a dev) requiere revisión cuidadosa del schema Prisma: excluir modelos `Factura`, `FacturaItem`, `Albaran`, `AlbaranItem`, `ConfiguracionEmisor`, `Rectificativa` y sus relaciones.
 
-## 1. PDF — Información del cliente desbordando el recuadro
-El recuadro del cliente en la nota de trabajo a veces se queda pequeño cuando la dirección es larga, y el texto se sale visualmente. Hay que hacer que el contenido se adapte al recuadro (texto que se ajuste, el recuadro que crezca, o truncar con ellipsis).
-- **Archivo:** `src/app/api/pedidos/[id]/pdf/route.js`
+---
 
-## 2. PDF — Botón "Imprimir" directo desde el pedido
-En vez de (o además de) descargar el PDF, añadir un botón que abra el diálogo de impresión del navegador directamente con el PDF cargado, sin tener que descargarlo y abrirlo aparte.
-- **Archivo:** `src/app/pedidos/[id]/page.js`
+## 💡 Ideas descartadas o pospuestas
 
-## 3. Pedido cliente — Quitar botón "Enviar Email"
-El botón "Enviar Email" no se usa y genera ruido en la interfaz. Eliminarlo de la vista de detalle del pedido de cliente.
-- **Archivo:** `src/app/pedidos/[id]/page.js`
+- **Envío directo AEAT en 2026** — la conexión directa al webservice AEAT (T-19) requiere certificado FNMT y protocolo complejo. Se pospone a 2027 como mucho. El flujo manual de exportación XML funciona perfectamente para la fase actual.
+- **Multi-empresa** — el sistema es mono-empresa por diseño. No hay planes de cambiar esto.
+- **Selector de temas** — se eliminó en Fase A por hydration mismatch con Next.js App Router. El tema Corporate es fijo hasta que haya una solución limpia.
 
-## 4. Calculadora de Envíos — Mejoras generales
-- **Resultado detallado:** Mostrar desglose tras calcular: coste de paletizado, coste de transporte, tipología seleccionada (PARCEL, HALF, LIGHT…), y por qué se eligió esa tipología.
-- **Añadir al pedido directamente:** Botón para añadir el coste de envío calculado como una línea más en un pedido de cliente existente (o al crear uno nuevo).
-- **Mejoras visuales / UX:** Layout más limpio, feedback en tiempo real mientras se rellena el formulario, mostrar el resultado de forma más destacada.
-- **Archivos:** `src/app/calculadora/logistica/page.js`, `src/componentes/calculadoras/CalculadoraEnvios.js` (o equivalente)
+---
 
+## ✅ Completado
 
+### Fase A — Navegación y diseño
+- Topnav horizontal con dropdowns, tema Corporate, hub pages, BD SQLite local con datos mock
 
-Haz una revisión exhaustiva de todo el proyecto. 
-Busca específicamente:
-- Imports faltantes o incorrectos
-- Vulnerabilidades de SQL injection
-- Rutas sin manejo de errores
-- Variables no declaradas
-- Código duplicado o muerto
-- Problemas de seguridad generales
+### Fase B — Albaranes
+- Modelos Prisma, API completa, PDF valorado/sin valorar, generación desde pedido, páginas listado/detalle/nuevo
+
+### Fase C — Facturas
+- Modelos Prisma, API completa, PDF con IVA, inmutabilidad, anti-doble-facturación, factura manual sin albarán
+
+### Fase D1 — VeriFactu: Hash + QR + Configuración emisor
+- Hash SHA-256 encadenado, QR en PDF, `ConfiguracionEmisor`, `src/lib/verifactu.js`
+
+### Fase D2 — VeriFactu: Exportación XML para AEAT
+- `GET/POST /api/facturas/exportar-aeat`, botón en UI, campo CSV de confirmación, badges `estadoEnvioAeat`
+
+### Fase D3 — Facturas rectificativas R1–R5
+- Modal de creación, API, XML con `<FacturasRectificadas>`, PDF "FACTURA RECTIFICATIVA"
+
+### Fase E — Cobros y vencimientos (parcial)
+- Badges VENCIDA/PRÓXIMA en listado y detalle, registro de fecha de pago al marcar PAGADA
+
+### Auditoría de seguridad (39 hallazgos — REVIEW.md)
+- Rate limiting, PIN timing-safe, headers seguridad (CSP, HSTS, X-Frame-Options), MIME whitelist, Zod en todos los endpoints, paginación con límites, audit logs, error messages seguros
+
+---
+
+*Para añadir nuevas ideas, escríbelas en `ideas.txt` y vuelve a ejecutar `/roadmap`.*

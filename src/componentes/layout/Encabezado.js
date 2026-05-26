@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import {
   Warehouse, Package, FileText, Truck, Calculator, Users, Settings,
   Layers, Factory, ChevronDown, Menu, X, DollarSign,
-  FilePlus, PackagePlus, Clipboard, Receipt, Ship, TrendingDown, LogOut
+  FilePlus, PackagePlus, Ship, TrendingDown, LogOut
 } from 'lucide-react';
 import BarraBusqueda from '@/componentes/ui/BarraBusqueda';
 
@@ -23,8 +23,6 @@ const NAV = [
         links: [
           { href: '/presupuestos/nuevo', label: 'Nuevo presupuesto', icon: FilePlus },
           { href: '/pedidos/nuevo',      label: 'Nuevo pedido',      icon: PackagePlus },
-          { href: '/albaranes/nuevo', label: 'Nuevo albarán', icon: Clipboard },
-          { href: '/facturas/nuevo', label: 'Nueva factura', icon: Receipt },
         ]
       },
       {
@@ -32,8 +30,6 @@ const NAV = [
         links: [
           { href: '/presupuestos', label: 'Presupuestos', icon: FileText },
           { href: '/pedidos',      label: 'Pedidos',      icon: Package },
-          { href: '/albaranes', label: 'Albaranes', icon: Clipboard },
-          { href: '/facturas', label: 'Facturas', icon: Receipt },
         ]
       }
     ]
@@ -100,7 +96,6 @@ const NAV = [
 ];
 
 const CONFIG_LINKS = [
-  { href: '/configuracion/emisor',      label: 'Emisor VeriFactu' },
   { href: '/configuracion/margenes',    label: 'Márgenes y Referencias' },
   { href: '/configuracion/logistica',   label: 'Logística' },
   { href: '/configuracion/tacos',       label: 'Tacos' },

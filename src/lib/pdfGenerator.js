@@ -3,7 +3,6 @@ import autoTable from "jspdf-autotable";
 import fs from 'fs/promises';
 import path from 'path';
 import QRCode from 'qrcode';
-import { construirURLQR, formatFechaQR } from '@/lib/verifactu';
 
 // Fallbacks para cuando ConfiguracionEmisor / Config no estén configurados
 const COMPANY_ADDRESS_FALLBACK = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
@@ -652,48 +651,9 @@ export async function generateFacturaPDF(factura) {
             doc.text(factura.notas, 14, notesY + 5, { maxWidth: 100 });
         }
 
-        // --- QR VeriFactu ---
-        const qrAreaY = Math.max(ivaBoxY + 42, 240);
-        let firmaOffset = 0;
-
-        if (factura.huella && factura.fechaHoraGenRegistro) {
-          // Obtener entorno del emisor (si no se puede, usar pruebas)
-          let entorno = 'pruebas';
-          let nifEmisor = '';
-          try {
-            const { db } = await import('@/lib/db');
-            const emisor = await db.configuracionEmisor.findUnique({ where: { id: 1 } });
-            entorno = emisor?.entorno || 'pruebas';
-            nifEmisor = emisor?.nif || '';
-          } catch { /* sin config, continuar sin QR */ }
-
-          if (nifEmisor) {
-            const urlQR = construirURLQR({
-              nif:      nifEmisor,
-              numserie: factura.numero,
-              fecha:    formatFechaQR(new Date(factura.fechaHoraGenRegistro)),
-              importe:  factura.total,
-              entorno,
-            });
-
-            try {
-              const qrDataUrl = await QRCode.toDataURL(urlQR, { errorCorrectionLevel: 'M', width: 120, margin: 1 });
-              // QR esquina inferior izquierda (~30x30mm)
-              doc.addImage(qrDataUrl, 'PNG', 14, qrAreaY, 28, 28);
-              doc.setFontSize(6.5);
-              doc.setFont("helvetica", "normal");
-              doc.setTextColor(80, 80, 80);
-              doc.text('Factura verificable en la AEAT', 44, qrAreaY + 5);
-              doc.setTextColor(100, 100, 100);
-              doc.text(`Huella: ${factura.huella.substring(0, 32)}…`, 44, qrAreaY + 11);
-              doc.setTextColor(0, 0, 0);
-              firmaOffset = 32;
-            } catch { /* si falla el QR, no bloquear el PDF */ }
-          }
-        }
-
         // --- Firma ---
-        const firmaY = qrAreaY + firmaOffset;
+        const qrAreaY = Math.max(ivaBoxY + 42, 240);
+        const firmaY = qrAreaY;
         doc.setFontSize(9);
         doc.line(14, firmaY, 80, firmaY);
         doc.line(120, firmaY, 196, firmaY);

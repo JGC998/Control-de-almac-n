@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { DollarSign, FileText, Package, Clipboard, Receipt, FilePlus, PackagePlus } from 'lucide-react';
+import { DollarSign, FileText, Package, FilePlus, PackagePlus } from 'lucide-react';
 
 export const metadata = { title: 'Ventas — CRM Taller' };
 
@@ -7,7 +7,7 @@ export default function VentasHub() {
   return (
     <HubPage
       title="Ventas"
-      descripcion="Ciclo completo de venta: presupuesto → pedido → albarán → factura."
+      descripcion="Gestión del ciclo de venta: presupuestos y pedidos de cliente."
       icon={DollarSign}
       color="primary"
       groups={[
@@ -28,20 +28,6 @@ export default function VentasHub() {
               descripcion: 'Crea un pedido de cliente directamente o convierte un presupuesto aceptado.',
               accion: 'Crear pedido',
             },
-            {
-              href: '/albaranes/nuevo',
-              icon: Clipboard,
-              titulo: 'Nuevo albarán',
-              descripcion: 'Genera un albarán de entrega a partir de un pedido confirmado.',
-              accion: 'Crear albarán',
-            },
-            {
-              href: '/facturas/nuevo',
-              icon: Receipt,
-              titulo: 'Nueva factura',
-              descripcion: 'Emite una factura desde un albarán emitido.',
-              accion: 'Crear factura',
-            },
           ]
         },
         {
@@ -60,20 +46,6 @@ export default function VentasHub() {
               titulo: 'Pedidos de cliente',
               descripcion: 'Gestiona pedidos activos: estado, líneas, PDF y confirmación.',
               accion: 'Ver pedidos',
-            },
-            {
-              href: '/albaranes',
-              icon: Clipboard,
-              titulo: 'Albaranes',
-              descripcion: 'Listado de albaranes emitidos y su estado de entrega.',
-              accion: 'Ver albaranes',
-            },
-            {
-              href: '/facturas',
-              icon: Receipt,
-              titulo: 'Facturas',
-              descripcion: 'Listado de facturas emitidas, pagadas y pendientes.',
-              accion: 'Ver facturas',
             },
           ]
         }
