@@ -5,6 +5,24 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-05-27 (noche)
+
+### Mini-app tablet — mejoras y nuevas funciones
+
+- ✅ **Entrada de stock desde tablet** — formulario táctil inline en el tab Stock: material (con datalist de sugerencias), espesor y metros; llama a `POST /api/almacen-stock` y refresca la lista automáticamente
+- ✅ **Salida de stock desde tablet** — botón "Salida" por fila que despliega campo de metros a descontar con confirmación; llama a `POST /api/almacen-stock?action=salida`
+- ✅ **Nuevo tab Pedidos** — muestra pedidos PENDIENTE/EN_PROCESO filtrados desde `/api/pedidos`; contador de estados en cabecera, buscador por número o cliente
+- ✅ **Fix bug Stock tab** — `data?.stockItems` → `data?.stock` (la API devuelve `{ stock: [...] }`, no `stockItems`); evitaba crash con "filtrado.map is not a function" al pulsar el tab
+- ✅ **Fix campos array en `useBusqueda`** — `campos` movido a `useMemo` para evitar recálculos innecesarios en cada render
+- ✅ **Redirección automática móvil/tablet** — `middleware.js`: detecta User-Agent `Mobi|Android|iPhone|iPad|Tablet` y redirige desde `/` a `/tablet` antes de la verificación de PIN
+- ✅ **Script `dev:lan`** — `package.json`: nuevo script `next dev --turbopack -H 0.0.0.0` para exponer el servidor de desarrollo a la red local
+
+### Auditoría de código — REVIEW.md
+
+- ✅ `REVIEW.md` regenerado completamente: 22 hallazgos (1 crítico, 7 altos, 12 medios) con hoja de ruta priorizada en 4 fases; principal hallazgo: `src/app/guias/` consume `/api/guias` inexistente → feature rota en producción
+
+---
+
 ## 2026-05-27 (tarde)
 
 ### Rendimiento — Fase 2 completa (T-21 a T-28)

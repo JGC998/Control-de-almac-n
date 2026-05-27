@@ -10,11 +10,23 @@ function addSecurityHeaders(response) {
   return response;
 }
 
+const MOBILE_UA = /Mobi|Android|iPhone|iPad|Tablet/i;
+
+function isMobile(request) {
+  return MOBILE_UA.test(request.headers.get('user-agent') ?? '');
+}
+
 export function middleware(request) {
+  const { pathname } = request.nextUrl;
+
+  // Redirigir móviles/tablets a /tablet si acceden a la raíz del CRM
+  if (pathname === '/' && isMobile(request)) {
+    return NextResponse.redirect(new URL('/tablet', request.url));
+  }
+
   const pin = process.env.AUTH_PIN;
   if (!pin) return addSecurityHeaders(NextResponse.next());
 
-  const { pathname } = request.nextUrl;
   const session = request.cookies.get('crm-auth')?.value;
 
   if (session === pin) return addSecurityHeaders(NextResponse.next());

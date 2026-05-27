@@ -1,13 +1,16 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { Search, Package, BarChart2, Calculator, X } from 'lucide-react';
+import {
+  Search, Package, BarChart2, Calculator, X,
+  ClipboardList, Plus, CheckCircle, AlertTriangle,
+} from 'lucide-react';
 
 // ── Utilidad de búsqueda ─────────────────────────────────────────────────────
 function useBusqueda(lista, campos) {
   const [q, setQ] = useState('');
   const filtrado = useMemo(() => {
-    if (!lista || !q.trim()) return lista ?? [];
+    if (!lista?.length || !q.trim()) return lista ?? [];
     const t = q.toLowerCase();
     return lista.filter(item =>
       campos.some(c => String(item[c] ?? '').toLowerCase().includes(t))
@@ -16,41 +19,41 @@ function useBusqueda(lista, campos) {
   return { q, setQ, filtrado };
 }
 
+// ── Mensaje de feedback ──────────────────────────────────────────────────────
+function Alerta({ msg, onClose }) {
+  if (!msg) return null;
+  return (
+    <div className={`alert ${msg.ok ? 'alert-success' : 'alert-error'} mb-4 flex items-center gap-3`}>
+      {msg.ok ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertTriangle className="w-5 h-5 shrink-0" />}
+      <span className="flex-1">{msg.text}</span>
+      <button onClick={onClose} className="btn btn-ghost btn-xs btn-circle"><X className="w-4 h-4" /></button>
+    </div>
+  );
+}
+
 // ── Tab Tarifas ──────────────────────────────────────────────────────────────
 function TabTarifas() {
   const { data: materiales } = useSWR('/api/precios');
   const { data: rollos }     = useSWR('/api/tarifas-rollo');
   const [modo, setModo]      = useState('material');
   const lista                = modo === 'material' ? (materiales ?? []) : (rollos ?? []);
-  const campos               = modo === 'material'
-    ? ['material', 'color']
-    : ['material', 'color', 'ancho'];
+  const campos               = useMemo(() => modo === 'material' ? ['material', 'color'] : ['material', 'color', 'ancho'], [modo]);
   const { q, setQ, filtrado } = useBusqueda(lista, campos);
 
   return (
     <div>
-      {/* Selector tipo */}
       <div className="flex gap-2 mb-4">
         <button className={`btn btn-sm flex-1 ${modo === 'material' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => { setModo('material'); setQ(''); }}>
-          Por lámina
-        </button>
+          onClick={() => { setModo('material'); setQ(''); }}>Por lámina</button>
         <button className={`btn btn-sm flex-1 ${modo === 'rollo' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => { setModo('rollo'); setQ(''); }}>
-          Por rollo/metro
-        </button>
+          onClick={() => { setModo('rollo'); setQ(''); }}>Por rollo/metro</button>
       </div>
 
-      {/* Búsqueda */}
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-content/40" />
-        <input
-          type="text"
-          value={q}
-          onChange={e => setQ(e.target.value)}
+        <input type="text" value={q} onChange={e => setQ(e.target.value)}
           placeholder="Buscar material, color..."
-          className="input input-bordered w-full pl-9 text-lg h-14"
-        />
+          className="input input-bordered w-full pl-9 text-lg h-14" />
         {q && (
           <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle">
             <X className="w-4 h-4" />
@@ -58,16 +61,13 @@ function TabTarifas() {
         )}
       </div>
 
-      {/* Tabla */}
       <div className="overflow-x-auto">
         {modo === 'material' ? (
           <table className="table table-zebra w-full">
-            <thead>
-              <tr className="text-base">
-                <th>Material</th><th>Espesor</th><th>Color</th>
-                <th className="text-right">Precio/u</th><th className="text-right">Peso/u</th>
-              </tr>
-            </thead>
+            <thead><tr className="text-base">
+              <th>Material</th><th>Espesor</th><th>Color</th>
+              <th className="text-right">Precio/u</th><th className="text-right">Peso/u</th>
+            </tr></thead>
             <tbody>
               {filtrado.map((t, i) => (
                 <tr key={i} className="text-base">
@@ -78,19 +78,15 @@ function TabTarifas() {
                   <td className="text-right">{Number(t.peso).toFixed(3)} kg</td>
                 </tr>
               ))}
-              {filtrado.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-10 text-base-content/40">Sin resultados</td></tr>
-              )}
+              {filtrado.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-base-content/40">Sin resultados</td></tr>}
             </tbody>
           </table>
         ) : (
           <table className="table table-zebra w-full">
-            <thead>
-              <tr className="text-base">
-                <th>Material</th><th>Espesor</th><th>Ancho</th><th>Color</th>
-                <th className="text-right">Precio/m</th><th className="text-right">Mín. m</th>
-              </tr>
-            </thead>
+            <thead><tr className="text-base">
+              <th>Material</th><th>Espesor</th><th>Ancho</th><th>Color</th>
+              <th className="text-right">Precio/m</th><th className="text-right">Mín. m</th>
+            </tr></thead>
             <tbody>
               {filtrado.map((t, i) => (
                 <tr key={i} className="text-base">
@@ -102,9 +98,7 @@ function TabTarifas() {
                   <td className="text-right">{t.metrajeMinimo} m</td>
                 </tr>
               ))}
-              {filtrado.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-10 text-base-content/40">Sin resultados</td></tr>
-              )}
+              {filtrado.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-base-content/40">Sin resultados</td></tr>}
             </tbody>
           </table>
         )}
@@ -114,42 +108,175 @@ function TabTarifas() {
 }
 
 // ── Tab Stock ────────────────────────────────────────────────────────────────
+const CAMPOS_STOCK = ['material', 'proveedorNombre'];
+
 function TabStock() {
-  const { data, isLoading } = useSWR('/api/almacen-stock');
-  const stock = data?.stockItems ?? data ?? [];
-  const { q, setQ, filtrado } = useBusqueda(stock, ['material', 'proveedor']);
+  const { data, isLoading, mutate } = useSWR('/api/almacen-stock');
+  const stock = data?.stock ?? [];
+  const { q, setQ, filtrado } = useBusqueda(stock, CAMPOS_STOCK);
+
+  const [mostrarEntrada, setMostrarEntrada] = useState(false);
+  const [entrada, setEntrada]               = useState({ material: '', espesor: '', metros: '' });
+  const [salidaId, setSalidaId]             = useState(null);
+  const [salidaMetros, setSalidaMetros]     = useState('');
+  const [enviando, setEnviando]             = useState(false);
+  const [msg, setMsg]                       = useState(null);
+
+  const handleEntrada = async () => {
+    if (!entrada.material || !entrada.metros) return;
+    setEnviando(true);
+    try {
+      const res = await fetch('/api/almacen-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          material: entrada.material.trim(),
+          espesor: entrada.espesor || 0,
+          metrosDisponibles: entrada.metros,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setMsg({ ok: true, text: 'Entrada registrada correctamente.' });
+        setEntrada({ material: '', espesor: '', metros: '' });
+        setMostrarEntrada(false);
+        mutate();
+      } else {
+        setMsg({ ok: false, text: json.message || 'Error al registrar.' });
+      }
+    } catch {
+      setMsg({ ok: false, text: 'Error de conexión.' });
+    }
+    setEnviando(false);
+  };
+
+  const handleSalida = async () => {
+    if (!salidaId || !salidaMetros) return;
+    setEnviando(true);
+    try {
+      const res = await fetch('/api/almacen-stock?action=salida', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stockId: salidaId, cantidad: salidaMetros }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setMsg({ ok: true, text: 'Salida registrada correctamente.' });
+        setSalidaId(null);
+        setSalidaMetros('');
+        mutate();
+      } else {
+        setMsg({ ok: false, text: json.message || 'Error al registrar.' });
+      }
+    } catch {
+      setMsg({ ok: false, text: 'Error de conexión.' });
+    }
+    setEnviando(false);
+  };
 
   if (isLoading) return <div className="flex justify-center py-20"><span className="loading loading-spinner loading-lg" /></div>;
 
+  const materialesExistentes = [...new Set(stock.map(s => s.material))].sort();
+
   return (
     <div>
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-content/40" />
-        <input
-          type="text"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder="Buscar material..."
-          className="input input-bordered w-full pl-9 text-lg h-14"
-        />
-        {q && (
-          <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle">
-            <X className="w-4 h-4" />
-          </button>
-        )}
+      <Alerta msg={msg} onClose={() => setMsg(null)} />
+
+      {/* Barra búsqueda + botón entrada */}
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-content/40" />
+          <input type="text" value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Buscar material..."
+            className="input input-bordered w-full pl-9 text-lg h-14" />
+          {q && (
+            <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <button
+          className={`btn h-14 px-4 ${mostrarEntrada ? 'btn-outline btn-primary' : 'btn-primary'}`}
+          onClick={() => { setMostrarEntrada(v => !v); setSalidaId(null); }}>
+          <Plus className="w-5 h-5" /> Entrada
+        </button>
       </div>
 
+      {/* Formulario de entrada */}
+      {mostrarEntrada && (
+        <div className="bg-base-200 rounded-xl p-4 mb-4 border border-base-300">
+          <h4 className="font-semibold mb-3 text-base">Nueva entrada de stock</h4>
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="form-control col-span-1">
+              <label className="label py-1"><span className="label-text text-sm font-medium">Material</span></label>
+              <input type="text" list="materiales-list" value={entrada.material}
+                onChange={e => setEntrada(v => ({ ...v, material: e.target.value }))}
+                placeholder="Ej: PVC" className="input input-bordered input-lg w-full" />
+              <datalist id="materiales-list">
+                {materialesExistentes.map(m => <option key={m} value={m} />)}
+              </datalist>
+            </div>
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-sm font-medium">Espesor (mm)</span></label>
+              <input type="number" min="0" step="0.1" value={entrada.espesor}
+                onChange={e => setEntrada(v => ({ ...v, espesor: e.target.value }))}
+                placeholder="0" className="input input-bordered input-lg w-full" />
+            </div>
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-sm font-medium">Metros</span></label>
+              <input type="number" min="0" step="1" value={entrada.metros}
+                onChange={e => setEntrada(v => ({ ...v, metros: e.target.value }))}
+                placeholder="0" className="input input-bordered input-lg w-full" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button className="btn btn-primary flex-1" onClick={handleEntrada}
+              disabled={enviando || !entrada.material || !entrada.metros}>
+              {enviando ? <span className="loading loading-spinner loading-sm" /> : <CheckCircle className="w-4 h-4" />}
+              Registrar entrada
+            </button>
+            <button className="btn btn-ghost" onClick={() => setMostrarEntrada(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Formulario de salida (inline bajo la fila) */}
+      {salidaId && (
+        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 mb-4">
+          <h4 className="font-semibold mb-3 text-base text-warning">
+            Registrar salida — {stock.find(s => s.id === salidaId)?.material}
+          </h4>
+          <div className="flex gap-2 items-end">
+            <div className="form-control flex-1">
+              <label className="label py-1"><span className="label-text text-sm font-medium">Metros a descontar</span></label>
+              <input type="number" min="0.1" step="0.1" value={salidaMetros}
+                onChange={e => setSalidaMetros(e.target.value)}
+                placeholder="0" className="input input-bordered input-lg w-full" autoFocus />
+            </div>
+            <button className="btn btn-warning h-14 px-6" onClick={handleSalida}
+              disabled={enviando || !salidaMetros}>
+              {enviando ? <span className="loading loading-spinner loading-sm" /> : null}
+              Confirmar
+            </button>
+            <button className="btn btn-ghost h-14" onClick={() => { setSalidaId(null); setSalidaMetros(''); }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tabla stock */}
       <div className="overflow-x-auto">
         <table className="table table-zebra w-full">
           <thead>
             <tr className="text-base">
               <th>Material</th><th>Espesor</th>
-              <th className="text-right">Metros disp.</th><th>Proveedor</th>
+              <th className="text-right">Metros disp.</th><th>Proveedor</th><th></th>
             </tr>
           </thead>
           <tbody>
             {filtrado.map(s => (
-              <tr key={s.id} className="text-base">
+              <tr key={s.id} className={`text-base ${salidaId === s.id ? 'bg-warning/5' : ''}`}>
                 <td className="font-semibold">{s.material}</td>
                 <td>{s.espesor ? `${s.espesor} mm` : '—'}</td>
                 <td className="text-right">
@@ -157,11 +284,103 @@ function TabStock() {
                     {Number(s.metrosDisponibles).toFixed(0)} m
                   </span>
                 </td>
-                <td className="text-sm text-base-content/60">{s.proveedorNombre || s.proveedor || '—'}</td>
+                <td className="text-sm text-base-content/60">{s.proveedorNombre || '—'}</td>
+                <td className="text-right">
+                  <button
+                    className={`btn btn-sm ${salidaId === s.id ? 'btn-warning' : 'btn-outline btn-warning'}`}
+                    onClick={() => { setSalidaId(salidaId === s.id ? null : s.id); setSalidaMetros(''); setMostrarEntrada(false); }}>
+                    Salida
+                  </button>
+                </td>
               </tr>
             ))}
             {filtrado.length === 0 && (
-              <tr><td colSpan={4} className="text-center py-10 text-base-content/40">Sin datos de stock</td></tr>
+              <tr><td colSpan={5} className="text-center py-10 text-base-content/40">Sin datos de stock</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab Pedidos ──────────────────────────────────────────────────────────────
+const ESTADOS_ACTIVOS = ['PENDIENTE', 'EN_PROCESO'];
+const BADGE_ESTADO = {
+  PENDIENTE:   'badge-warning',
+  EN_PROCESO:  'badge-info',
+  COMPLETADO:  'badge-success',
+  CANCELADO:   'badge-error',
+};
+
+function TabPedidos() {
+  const { data, isLoading } = useSWR('/api/pedidos?limit=200');
+  const pedidosFlat = useMemo(() => {
+    const lista = data?.data ?? [];
+    return lista
+      .filter(p => ESTADOS_ACTIVOS.includes(p.estado))
+      .map(p => ({ ...p, clienteNombre: p.cliente?.nombre ?? '—' }));
+  }, [data]);
+
+  const { q, setQ, filtrado } = useBusqueda(pedidosFlat, ['numero', 'clienteNombre']);
+
+  if (isLoading) return <div className="flex justify-center py-20"><span className="loading loading-spinner loading-lg" /></div>;
+
+  return (
+    <div>
+      {/* Resumen */}
+      <div className="flex gap-3 mb-4">
+        {ESTADOS_ACTIVOS.map(est => {
+          const count = pedidosFlat.filter(p => p.estado === est).length;
+          return (
+            <div key={est} className={`badge ${BADGE_ESTADO[est]} badge-lg gap-1 py-3 px-4 text-sm`}>
+              {count} {est.replace('_', ' ')}
+            </div>
+          );
+        })}
+        {pedidosFlat.length === 0 && (
+          <p className="text-base-content/40 text-sm">No hay pedidos activos.</p>
+        )}
+      </div>
+
+      {/* Búsqueda */}
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-content/40" />
+        <input type="text" value={q} onChange={e => setQ(e.target.value)}
+          placeholder="Buscar por número o cliente..."
+          className="input input-bordered w-full pl-9 text-lg h-14" />
+        {q && (
+          <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Tabla */}
+      <div className="overflow-x-auto">
+        <table className="table table-zebra w-full">
+          <thead>
+            <tr className="text-base">
+              <th>Pedido</th><th>Cliente</th><th>Estado</th><th className="text-right">Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtrado.map(p => (
+              <tr key={p.id} className="text-base">
+                <td className="font-mono font-semibold">{p.numero}</td>
+                <td className="font-medium">{p.clienteNombre}</td>
+                <td>
+                  <span className={`badge ${BADGE_ESTADO[p.estado] ?? 'badge-neutral'}`}>
+                    {p.estado?.replace('_', ' ')}
+                  </span>
+                </td>
+                <td className="text-right text-sm text-base-content/60">
+                  {p.fechaCreacion ? new Date(p.fechaCreacion).toLocaleDateString('es-ES') : '—'}
+                </td>
+              </tr>
+            ))}
+            {filtrado.length === 0 && pedidosFlat.length > 0 && (
+              <tr><td colSpan={4} className="text-center py-10 text-base-content/40">Sin resultados</td></tr>
             )}
           </tbody>
         </table>
@@ -172,10 +391,10 @@ function TabStock() {
 
 // ── Tab Calculadora ──────────────────────────────────────────────────────────
 function TabCalculadora() {
-  const { data: rollos }   = useSWR('/api/tarifas-rollo');
+  const { data: rollos }     = useSWR('/api/tarifas-rollo');
   const { data: materiales } = useSWR('/api/precios');
 
-  const [modo, setModo]     = useState('rollo');   // 'rollo' | 'lamina'
+  const [modo, setModo]         = useState('rollo');
   const [material, setMaterial] = useState('');
   const [espesor, setEspesor]   = useState('');
   const [ancho, setAncho]       = useState('');
@@ -203,11 +422,9 @@ function TabCalculadora() {
   const calcular = () => {
     const src = modo === 'rollo' ? rollos : materiales;
     if (!src) return;
-
     if (modo === 'rollo') {
       const tarifa = src.find(t =>
-        t.material === material &&
-        Number(t.espesor) === Number(espesor) &&
+        t.material === material && Number(t.espesor) === Number(espesor) &&
         (!ancho || Number(t.ancho) === Number(ancho))
       );
       if (!tarifa) { setResultado({ error: 'No se encontró tarifa para esa combinación.' }); return; }
@@ -215,40 +432,26 @@ function TabCalculadora() {
       const precioNeto = m * Number(tarifa.precioBase);
       const iva = precioNeto * 0.21;
       setResultado({
-        tipo: 'Rollo/Metro',
-        tarifa: `${Number(tarifa.precioBase).toFixed(2)} €/m`,
-        metros: m,
-        peso: m * Number(tarifa.peso),
-        precioNeto,
-        iva,
-        total: precioNeto + iva,
+        tipo: 'Rollo/Metro', tarifa: `${Number(tarifa.precioBase).toFixed(2)} €/m`,
+        metros: m, peso: m * Number(tarifa.peso), precioNeto, iva, total: precioNeto + iva,
         minimo: tarifa.metrajeMinimo,
         aviso: m < tarifa.metrajeMinimo ? `Mínimo: ${tarifa.metrajeMinimo} m` : null,
       });
     } else {
-      const tarifa = src.find(t =>
-        t.material === material && Number(t.espesor) === Number(espesor)
-      );
+      const tarifa = src.find(t => t.material === material && Number(t.espesor) === Number(espesor));
       if (!tarifa) { setResultado({ error: 'No se encontró tarifa para esa combinación.' }); return; }
       const q = parseInt(cantidad) || 1;
       const precioNeto = q * Number(tarifa.precio);
       const iva = precioNeto * 0.21;
       setResultado({
-        tipo: 'Lámina/Unidad',
-        tarifa: `${Number(tarifa.precio).toFixed(2)} €/u`,
-        cantidad: q,
-        peso: q * Number(tarifa.peso),
-        precioNeto,
-        iva,
-        total: precioNeto + iva,
-        aviso: null,
+        tipo: 'Lámina/Unidad', tarifa: `${Number(tarifa.precio).toFixed(2)} €/u`,
+        cantidad: q, peso: q * Number(tarifa.peso), precioNeto, iva, total: precioNeto + iva, aviso: null,
       });
     }
   };
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* Selector modo */}
       <div className="flex gap-2 mb-6">
         <button className={`btn flex-1 ${modo === 'rollo' ? 'btn-primary' : 'btn-outline'}`}
           onClick={() => { setModo('rollo'); setResultado(null); setMaterial(''); setEspesor(''); setAncho(''); }}>
@@ -316,7 +519,6 @@ function TabCalculadora() {
         </button>
       </div>
 
-      {/* Resultado */}
       {resultado && (
         <div className={`mt-6 rounded-xl p-5 ${resultado.error ? 'bg-error/10 border border-error/30' : 'bg-primary/5 border border-primary/20'}`}>
           {resultado.error ? (
@@ -324,28 +526,22 @@ function TabCalculadora() {
           ) : (
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-base-content/60">
-                <span>{resultado.tipo}</span>
-                <span>{resultado.tarifa}</span>
+                <span>{resultado.tipo}</span><span>{resultado.tarifa}</span>
               </div>
-              {resultado.aviso && (
-                <div className="alert alert-warning py-2 text-sm">{resultado.aviso}</div>
-              )}
+              {resultado.aviso && <div className="alert alert-warning py-2 text-sm">{resultado.aviso}</div>}
               <div className="flex justify-between">
                 <span>{modo === 'rollo' ? `${resultado.metros} m` : `${resultado.cantidad} ud`}</span>
                 <span className="font-semibold">{resultado.precioNeto.toFixed(2)} €</span>
               </div>
               <div className="flex justify-between text-sm text-base-content/60">
-                <span>IVA (21%)</span>
-                <span>{resultado.iva.toFixed(2)} €</span>
+                <span>IVA (21%)</span><span>{resultado.iva.toFixed(2)} €</span>
               </div>
               <div className="flex justify-between text-sm text-base-content/60">
-                <span>Peso estimado</span>
-                <span>{resultado.peso.toFixed(2)} kg</span>
+                <span>Peso estimado</span><span>{resultado.peso.toFixed(2)} kg</span>
               </div>
               <div className="divider my-1" />
               <div className="flex justify-between font-bold text-2xl text-primary">
-                <span>TOTAL</span>
-                <span>{resultado.total.toFixed(2)} €</span>
+                <span>TOTAL</span><span>{resultado.total.toFixed(2)} €</span>
               </div>
             </div>
           )}
@@ -357,9 +553,10 @@ function TabCalculadora() {
 
 // ── Página principal ─────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'tarifas',      label: 'Tarifas',      icon: BarChart2   },
-  { id: 'stock',        label: 'Stock',         icon: Package     },
-  { id: 'calculadora',  label: 'Calculadora',   icon: Calculator  },
+  { id: 'tarifas',     label: 'Tarifas',    icon: BarChart2     },
+  { id: 'stock',       label: 'Stock',      icon: Package       },
+  { id: 'pedidos',     label: 'Pedidos',    icon: ClipboardList },
+  { id: 'calculadora', label: 'Calcular',   icon: Calculator    },
 ];
 
 export default function TabletPage() {
@@ -367,12 +564,11 @@ export default function TabletPage() {
 
   return (
     <div>
-      {/* Tab bar táctil */}
       <div className="flex gap-2 mb-6">
         {TABS.map(t => (
           <button key={t.id}
             className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl text-sm font-semibold transition-colors
-              ${tab === t.id ? 'bg-primary text-primary-content shadow' : 'bg-base-100 text-base-content/60 hover:bg-base-100'}`}
+              ${tab === t.id ? 'bg-primary text-primary-content shadow' : 'bg-base-100 text-base-content/60 hover:bg-base-200'}`}
             onClick={() => setTab(t.id)}>
             <t.icon className="w-6 h-6" />
             {t.label}
@@ -383,6 +579,7 @@ export default function TabletPage() {
       <div className="bg-base-100 rounded-2xl shadow p-4">
         {tab === 'tarifas'     && <TabTarifas />}
         {tab === 'stock'       && <TabStock />}
+        {tab === 'pedidos'     && <TabPedidos />}
         {tab === 'calculadora' && <TabCalculadora />}
       </div>
     </div>
