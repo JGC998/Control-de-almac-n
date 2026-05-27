@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Search, Inbox } from 'lucide-react';
 
 /**
  * Componente TablaDatos - Tabla genérica para listados (Server Component)
@@ -52,12 +52,15 @@ export default function TablaDatos({
     mostrarAccionVer = true,
     className = '',
 }) {
-    // Si no hay datos y no es colapsable, mostrar mensaje
     if (datos.length === 0 && !colapsable) {
-        return <p className="text-gray-500 p-4">{mensajeVacio}</p>;
+        return (
+            <div className="flex flex-col items-center justify-center py-16 text-base-content/30">
+                <Inbox className="w-12 h-12 mb-3" />
+                <p className="text-sm">{mensajeVacio}</p>
+            </div>
+        );
     }
 
-    // Si no hay datos y es colapsable, no mostrar nada
     if (datos.length === 0 && colapsable) return null;
 
     const renderCelda = (fila, columna) => {
@@ -87,13 +90,13 @@ export default function TablaDatos({
 
     const tabla = (
         <div className="overflow-x-auto">
-            <table className="table w-full">
+            <table className="table table-sm table-zebra w-full">
                 <thead>
-                    <tr>
+                    <tr className="text-xs uppercase tracking-wider text-base-content/50">
                         {columnas.map((col, i) => (
                             <th key={col.clave || i}>{col.etiqueta}</th>
                         ))}
-                        {mostrarAccionVer && rutaBase && <th>Acciones</th>}
+                        {mostrarAccionVer && rutaBase && <th />}
                     </tr>
                 </thead>
                 <tbody>
@@ -101,11 +104,10 @@ export default function TablaDatos({
                         <tr key={fila.id || filaIndex} className="hover">
                             {columnas.map((col, colIndex) => (
                                 <td key={col.clave || colIndex}>
-                                    {/* Primera columna con enlace si hay rutaBase */}
                                     {colIndex === 0 && rutaBase ? (
                                         <Link
                                             href={`${rutaBase}/${fila[campoEnlace]}`}
-                                            className="link link-primary font-bold"
+                                            className="link link-primary font-semibold font-mono text-sm"
                                         >
                                             {renderCelda(fila, col)}
                                         </Link>
@@ -115,12 +117,12 @@ export default function TablaDatos({
                                 </td>
                             ))}
                             {mostrarAccionVer && rutaBase && (
-                                <td>
+                                <td className="text-right">
                                     <Link
                                         href={`${rutaBase}/${fila[campoEnlace]}`}
-                                        className="btn btn-sm btn-ghost btn-outline min-h-[44px] touch-manipulation"
+                                        className="btn btn-xs btn-ghost min-h-11 touch-manipulation"
                                     >
-                                        Ver <Search className="w-4 h-4" />
+                                        Ver →
                                     </Link>
                                 </td>
                             )}

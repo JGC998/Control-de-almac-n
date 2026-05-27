@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
   BarChart2, Users, Package, Download, TrendingUp,
-  TrendingDown, Clock, ShoppingCart, FileText, AlertCircle,
+  TrendingDown, Clock, ShoppingCart, FileText, AlertCircle, Printer,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
@@ -341,10 +341,115 @@ function PresupuestosSinRespuesta() {
   );
 }
 
+// ── Ventas por cliente específico ────────────────────────────────────────────
+function VentasPorCliente() {
+  const [clienteId, setClienteId] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+
+  const { data: clientes } = useSWR('/api/clientes');
+
+  const params = new URLSearchParams({ tipo: 'ventas-por-cliente' });
+  if (clienteId) params.set('clienteId', clienteId);
+  if (desde)     params.set('desde', desde);
+  if (hasta)     params.set('hasta', hasta);
+
+  const hayFiltro = clienteId || desde || hasta;
+  const { data, error, isLoading } = useSWR(hayFiltro ? `/api/informes?${params}` : null);
+
+  const imprimirPDF = () => window.print();
+
+  return (
+    <div>
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+        <h2 className="text-lg font-bold">Ventas por Cliente</h2>
+        <div className="flex gap-2">
+          <button className="btn btn-sm btn-outline" onClick={() => exportCSV(data?.pedidos, 'ventas-cliente.csv')} disabled={!data?.pedidos?.length}>
+            <Download className="w-4 h-4" /> CSV
+          </button>
+          <button className="btn btn-sm btn-outline" onClick={imprimirPDF} disabled={!data?.pedidos?.length}>
+            <Printer className="w-4 h-4" /> PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3 mb-6 p-4 bg-base-200 rounded-lg">
+        <div className="flex-1 min-w-[200px]">
+          <label className="label py-1"><span className="label-text text-xs">Cliente</span></label>
+          <select className="select select-bordered select-sm w-full" value={clienteId} onChange={e => setClienteId(e.target.value)}>
+            <option value="">Todos los clientes</option>
+            {(clientes ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label py-1"><span className="label-text text-xs">Desde</span></label>
+          <input type="date" className="input input-bordered input-sm" value={desde} onChange={e => setDesde(e.target.value)} />
+        </div>
+        <div>
+          <label className="label py-1"><span className="label-text text-xs">Hasta</span></label>
+          <input type="date" className="input input-bordered input-sm" value={hasta} onChange={e => setHasta(e.target.value)} />
+        </div>
+        {(clienteId || desde || hasta) && (
+          <div className="flex items-end">
+            <button className="btn btn-ghost btn-sm" onClick={() => { setClienteId(''); setDesde(''); setHasta(''); }}>
+              Limpiar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!hayFiltro && (
+        <p className="text-center text-base-content/40 py-12">Selecciona un cliente o un rango de fechas para ver los datos.</p>
+      )}
+
+      {isLoading && <div className="flex justify-center py-12"><span className="loading loading-dots loading-lg" /></div>}
+      {error && <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar los datos</span></div>}
+
+      {data && (
+        <>
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="stat bg-base-200 rounded-xl">
+              <div className="stat-title text-xs">Pedidos</div>
+              <div className="stat-value text-lg">{data.count}</div>
+            </div>
+            <div className="stat bg-base-200 rounded-xl">
+              <div className="stat-title text-xs">Total facturado</div>
+              <div className="stat-value text-lg">{formatCurrency(data.totalFacturado)}</div>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="table table-sm w-full">
+              <thead>
+                <tr><th>Número</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th className="text-right">Total</th></tr>
+              </thead>
+              <tbody>
+                {data.pedidos.map(p => (
+                  <tr key={p.id} className="hover">
+                    <td><Link href={`/pedidos/${p.id}`} className="link link-primary font-mono text-sm">{p.numero}</Link></td>
+                    <td>{p.cliente}</td>
+                    <td className="text-sm">{new Date(p.fecha).toLocaleDateString('es-ES')}</td>
+                    <td><span className="badge badge-sm badge-ghost">{p.estado}</span></td>
+                    <td className="text-right font-semibold">{formatCurrency(p.total)}</td>
+                  </tr>
+                ))}
+                {data.pedidos.length === 0 && (
+                  <tr><td colSpan={5} className="text-center text-gray-400 py-8">Sin pedidos para el filtro seleccionado</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Página ───────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'mensuales', label: 'Ventas por Mes', icon: BarChart2, component: VentasMensuales },
   { id: 'clientes', label: 'Top Clientes', icon: Users, component: TopClientes },
+  { id: 'por-cliente', label: 'Por Cliente', icon: FileText, component: VentasPorCliente },
   { id: 'productos', label: 'Por Producto', icon: Package, component: VentasPorProducto },
   { id: 'seguimiento', label: 'Sin Respuesta', icon: AlertCircle, component: PresupuestosSinRespuesta },
 ];

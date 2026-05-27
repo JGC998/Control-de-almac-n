@@ -7,7 +7,7 @@
 
 ## 🎯 Visión general
 
-El proyecto está desplegado en producción. La interfaz topnav con responsive tablet está activa. Toda la Fase 2 (rendimiento + bugs) está completada. El siguiente bloque es la calculadora de envíos (T-10), filtros avanzados e informes PDF. A fin de año: VeriFactu D2 directo al webservice AEAT.
+El proyecto está desplegado en producción con VeriFactu, facturas rectificativas y pedidos internos completados. El siguiente bloque prioritario es el rediseño visual del CRM y una mini-app de tablet para el almacén (consulta de tarifas, calculadora rápida de precios). A medio plazo: calculadora de envíos mejorada, filtros avanzados e informes PDF. A fin de año: VeriFactu D2 directo al webservice AEAT.
 
 ---
 
@@ -15,6 +15,8 @@ El proyecto está desplegado en producción. La interfaz topnav con responsive t
 
 | ID | Tarea | Tipo | Complejidad | Depende de |
 |----|-------|------|-------------|------------|
+| T-29 | Rediseño visual: mejora general de CSS/UI del CRM | Frontend | Grande | — |
+| T-30 | Mini-app tablet: modo kiosco para almacén (tarifas + calculadora) | Frontend/Backend | Grande | — |
 | T-10 | Calculadora de Envíos: desglose + botón "añadir al pedido" + UX | Frontend | Media | — |
 | T-11 | Dashboard: panel "Facturas pendientes de cobro" | Frontend/Backend | Media | — |
 | T-12 | Informes: botón "Exportar a PDF" en página de informes | Frontend/Backend | Media | — |
@@ -33,44 +35,33 @@ El proyecto está desplegado en producción. La interfaz topnav con responsive t
 
 ---
 
-### Fase 2 — Rendimiento y bugs críticos
-> Cambios de bajo riesgo y alta ganancia. Sin nuevas funcionalidades. Estimación: 2–3 horas en total.
+### Fase 3 — Diseño y experiencia visual
+> Mejorar el aspecto general del CRM y crear la mini-app de tablet para el almacén.
 
-- [x] **T-28** — 🐛 BUG: `_count: { albaranes: true }` en `GET /api/pedidos`  
-  _Eliminado. La relación `albaranes` no existe en `schema.prisma`._
+- [x] **T-29** — Rediseño visual del CRM ✅  
+  _KPICard rediseñado con iconos coloreados y sub-texto. TablaDatos con table-zebra, estado vacío con icono Inbox, cabecera en uppercase/tracking. globals.css: scrollbar sutil, focus ring, transición en filas, print styles._
 
-- [x] **T-21** — Informes KPIs: `findMany`→`aggregate` para ticketMedio  
-  _`db.pedido.aggregate({ _avg: {total} })` en `informes/route.js`._
-
-- [x] **T-22** — Informes KPIs: `findMany`→`aggregate` para sumas mensuales  
-  _Dos `db.pedido.aggregate({ _sum: {total} })` en paralelo con `Promise.all`._
-
-- [x] **T-23** — Informes top-clientes: `groupBy` en DB en lugar de Node.js  
-  _`db.pedido.groupBy({ by: ['clienteId'], _sum: {total}, _count: {id}, take: 20 })` + lookup de nombres._
-
-- [x] **T-24** — Informes ventas-por-producto: añadir `take: 5000`  
-  _`db.pedidoItem.findMany({ take: 5000 })` en `informes/route.js`._
-
-- [x] **T-25** — `clientes/[id]/resumen`: límites y aggregate para stats  
-  _`take: 50` en findMany, `aggregate + count` para totalFacturado y numPedidos/Presupuestos reales._
-
-- [x] **T-26** — `pedidos-proveedores` GET: paginación básica  
-  _`take: 50` / `skip` con `page`/`limit` params; respuesta `{ data, meta }`; frontend actualizado._
-
-- [x] **T-27** — Dashboard: desactivar refresh en background  
-  _`refreshWhenHidden: false, refreshWhenOffline: false` añadidos._
+- [x] **T-30** — Mini-app tablet para el almacén ✅  
+  _`/tablet` con layout propio (sin nav CRM). Tres tabs táctiles: Tarifas (material/rollo con búsqueda), Stock (con semáforo de nivel), Calculadora (precio al momento con IVA y peso estimado)._
 
 ---
 
-### Fase 3 — Quick wins UX pendientes
-> Mejoras de la calculadora de envíos. Estimación: 1–2 horas.
+### Fase 4 — Quick wins UX ✅
+> Todos los quick wins de UX completados.
 
-- [ ] **T-10** — Calculadora de Envíos: mejoras  
-  _Tres sub-tareas: (a) desglose visual tras calcular; (b) botón "Añadir al pedido"; (c) mejoras de layout._
+- [x] **T-10** — Calculadora de Envíos: mejoras ✅
+- [x] **T-11** — Dashboard: panel "Facturas pendientes de cobro" ✅  
+  _API devuelve `facturasPendientes` con lista, total, vencidas. Componente `PanelFacturasPendientes` con semáforo de vencimiento._
+- [x] **T-14** — Filtros combinados en pedidos ✅  
+  _`FiltroBusqueda` refactorizado a URL params. Nuevo `FiltroFechas` (desde/hasta). Pedidos filtra por búsqueda + estado + rango de fechas._
+- [x] **T-12** — Informes: exportar a PDF ✅  
+  _Botón "PDF" con `window.print()` en tab "Por Cliente". Print styles en globals.css._
+- [x] **T-13** — Informes: ventas por cliente + rango de fechas ✅  
+  _Nuevo tipo `ventas-por-cliente` en API. Tab "Por Cliente" con selector de cliente + fechas desde/hasta + tabla de pedidos + totales._
 
 ---
 
-### Fase 4 — Funcionalidades de valor
+### Fase 5 — Funcionalidades de valor *(próxima)*
 > Features que añaden valor real al flujo diario. Estimación: 1–2 semanas.
 
 - [ ] **T-12** — Informes: exportar a PDF  
@@ -85,19 +76,19 @@ El proyecto está desplegado en producción. La interfaz topnav con responsive t
 - [ ] **T-11** — Dashboard: panel "Facturas pendientes de cobro"  
   _Sección en el dashboard con facturas EMITIDA próximas a vencer o ya vencidas._
 
-- [ ] **T-17** — Email: facturas y albaranes  
-  _Extender el envío por email (ya existe para pedidos) a facturas y albaranes._
+- [ ] **T-17** — Email: facturas y albaranes *(bloqueado — requiere merge de rama refactorizacion)*  
+  _La API `sendEmail` ya existe. Implementar rutas `/api/facturas/[id]/email` y `/api/albaranes/[id]/email` cuando esas entidades estén en `dev`._
 
-- [ ] **T-18** — Stock: descuento automático al marcar albarán como ENTREGADO  
+- [ ] **T-18** — Stock: descuento automático al marcar albarán como ENTREGADO *(bloqueado — requiere albaranes en dev)*  
   _Al cambiar estado de albarán a ENTREGADO, descontar automáticamente los metros del stock correspondiente._
 
 ---
 
-### Fase 5 — Features avanzadas *(a partir de año nuevo)*
+### Fase 6 — Features avanzadas *(a partir de año nuevo)*
 > Funcionalidades que requieren estabilidad de las fases anteriores.
 
 - [ ] **T-15** — Búsqueda global mejorada  
-  _Buscar por NIF, referencia de producto e importe. Resultados agrupados. Atajo Ctrl+K. Depende de T-27 (full-text index) para buen rendimiento con catálogos grandes._
+  _Buscar por NIF, referencia de producto e importe. Resultados agrupados. Atajo Ctrl+K. Depende de T-28-ext (full-text index) para buen rendimiento con catálogos grandes._
 
 - [ ] **T-16** — Acciones en bloque en listados  
   _Checkbox de selección múltiple, barra contextual, marcar pagadas, exportar selección, eliminar en bloque._
@@ -112,12 +103,15 @@ El proyecto está desplegado en producción. La interfaz topnav con responsive t
 
 ## ⚡ Quick wins — hacer ahora
 
-> Toda la Fase 2 está completada. Los próximos quick wins son parte de Fase 3:
+- [x] **T-10a** — Calculadora de envíos: desglose visual tras calcular ✅
+- [x] **T-10b** — Calculadora de envíos: botón "Añadir al pedido" ✅
 
 ---
 
 ## 🚧 Dependencias y bloqueos
 
+- **T-30** (mini-app tablet) puede desarrollarse en paralelo al CRM principal — comparte la API pero tiene su propia capa de UI.
+- **T-29** (rediseño visual) conviene hacerlo antes de T-30 para establecer el sistema de diseño común.
 - **T-19** requiere decisión previa sobre certificado FNMT (en servidor vs navegador del usuario).
 - **T-16** depende conceptualmente de que **T-14** (filtros) esté hecho primero.
 - **T-15** se beneficia enormemente de **T-28-ext** (full-text index) — sin él la búsqueda hace full scans.
@@ -151,6 +145,9 @@ El proyecto está desplegado en producción. La interfaz topnav con responsive t
 
 ### Fase D3 — Facturas rectificativas R1–R5
 - Modal de creación, API, XML con `<FacturasRectificadas>`, PDF "FACTURA RECTIFICATIVA"
+
+### Fase D4 — Pedidos internos / sin facturación
+- Campo `sinFacturacion`, tab separado en listado, bloqueo de albarán/facturado, toggle en detalle y en creación
 
 ### Fase E — Cobros y vencimientos (parcial)
 - Badges VENCIDA/PRÓXIMA en listado y detalle, registro de fecha de pago al marcar PAGADA

@@ -1,31 +1,43 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 
-export default function FiltroBusqueda({ valorInicial = '', alBuscar, placeholder = 'Buscar...' }) {
-    const [valor, setValor] = useState(valorInicial);
+export default function FiltroBusqueda({ placeholder = 'Buscar...', param = 'busqueda' }) {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const [valor, setValor] = useState(searchParams.get(param) || '');
     const timeoutRef = useRef(null);
 
-    const handleChange = (e) => {
-        const nuevoValor = e.target.value;
-        setValor(nuevoValor);
+    useEffect(() => {
+        setValor(searchParams.get(param) || '');
+    }, [searchParams, param]);
 
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
+    const aplicar = (texto) => {
+        const params = new URLSearchParams(searchParams);
+        if (texto) {
+            params.set(param, texto);
+        } else {
+            params.delete(param);
         }
+        params.set('page', '1');
+        router.push(`?${params.toString()}`);
+    };
 
-        timeoutRef.current = setTimeout(() => {
-            alBuscar(nuevoValor);
-        }, 500); // Debounce de 500ms
+    const handleChange = (e) => {
+        const v = e.target.value;
+        setValor(v);
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => aplicar(v), 400);
     };
 
     const limpiar = () => {
         setValor('');
-        alBuscar('');
+        aplicar('');
     };
 
     return (
-        <div className="form-control w-full max-w-xs">
+        <div className="form-control w-full">
             <div className="relative">
                 <input
                     type="text"

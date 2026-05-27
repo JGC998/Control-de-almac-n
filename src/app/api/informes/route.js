@@ -146,6 +146,45 @@ export async function GET(request) {
       return NextResponse.json(sorted.slice(0, 50));
     }
 
+    // ── Ventas por cliente ──────────────────────────────────────────────────
+    if (tipo === 'ventas-por-cliente') {
+      const clienteId = searchParams.get('clienteId');
+      const desde     = searchParams.get('desde');
+      const hasta     = searchParams.get('hasta');
+
+      const where = { estado: { notIn: EXCLUIDOS } };
+      if (clienteId) where.clienteId = clienteId;
+      if (desde || hasta) {
+        where.fechaCreacion = {};
+        if (desde) where.fechaCreacion.gte = new Date(desde);
+        if (hasta) { const h = new Date(hasta); h.setHours(23,59,59,999); where.fechaCreacion.lte = h; }
+      }
+
+      const pedidos = await db.pedido.findMany({
+        where,
+        select: {
+          id: true, numero: true, fechaCreacion: true, total: true, estado: true,
+          cliente: { select: { id: true, nombre: true } },
+        },
+        orderBy: { fechaCreacion: 'desc' },
+        take: 500,
+      });
+
+      const totalFacturado = pedidos.reduce((s, p) => s + (p.total ?? 0), 0);
+
+      return NextResponse.json({
+        pedidos: pedidos.map(p => ({
+          id: p.id, numero: p.numero, estado: p.estado,
+          fecha: p.fechaCreacion,
+          cliente: p.cliente?.nombre ?? '—',
+          clienteId: p.cliente?.id ?? null,
+          total: parseFloat((p.total ?? 0).toFixed(2)),
+        })),
+        totalFacturado: parseFloat(totalFacturado.toFixed(2)),
+        count: pedidos.length,
+      });
+    }
+
     // ── Presupuestos sin respuesta ──────────────────────────────────────────
     if (tipo === 'presupuestos-sin-respuesta') {
       const dias = parseInt(searchParams.get('dias') || '14', 10);
