@@ -6,7 +6,8 @@ import { PlusCircle, Edit, Trash2, Download } from 'lucide-react';
 import { useGestionCRUD } from '../hooks';
 import { FormularioModal } from '../compuestos/FormularioEntidad';
 import TablaDatos from '../compuestos/TablaDatos';
-import { ContenedorCargando, Paginacion, FiltroBusqueda } from '../ui';
+import { ContenedorCargando, Paginacion } from '../ui';
+import FiltroBusquedaSimple from '../ui/FiltroBusquedaSimple';
 import { useConfirmacion } from '../ui/ModalConfirmacion';
 
 /**
@@ -187,7 +188,7 @@ export default function PaginaGestion({
                     {titulo}
                 </h1>
                 <div className="flex gap-2 items-center">
-                    <FiltroBusqueda valorInicial={busqueda} alBuscar={setBusqueda} />
+                    <FiltroBusquedaSimple valorInicial={busqueda} alBuscar={setBusqueda} />
                     {accionesExtra}
                     {exportModel && (
                         <a href={`/api/export/csv?model=${exportModel}`} className="btn btn-outline btn-success gap-2" target="_blank">
