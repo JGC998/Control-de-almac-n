@@ -6,17 +6,12 @@ import { db } from '@/lib/db';
 
 export async function GET() {
   try {
-    const hoy = new Date();
-
     const [
       totalPedidos,
       totalPresupuestos,
       pedidosProveedorPorLlegarCount,
       productosBajoStock,
       movimientosRecientes,
-      facturasPendientes,
-      statsFacturasPendientes,
-      facturasVencidas,
     ] = await Promise.all([
       db.pedido.count(),
       db.presupuesto.count(),
@@ -31,23 +26,6 @@ export async function GET() {
         orderBy: { fecha: 'desc' },
         include: { stockItem: { select: { material: true } } },
         take: 10,
-      }),
-      // Facturas EMITIDA más urgentes (vencidas primero, luego por vencimiento más próximo)
-      db.factura.findMany({
-        where: { estado: 'EMITIDA' },
-        include: { cliente: { select: { nombre: true } } },
-        orderBy: [{ fechaVencimiento: 'asc' }, { fechaCreacion: 'asc' }],
-        take: 8,
-      }),
-      // Suma total pendiente de cobro
-      db.factura.aggregate({
-        where: { estado: 'EMITIDA' },
-        _sum: { total: true },
-        _count: true,
-      }),
-      // Cuenta de facturas vencidas
-      db.factura.count({
-        where: { estado: 'EMITIDA', fechaVencimiento: { lt: hoy } },
       }),
     ]);
 
@@ -70,19 +48,7 @@ export async function GET() {
         ...mov,
         materialNombre: mov.stockItem?.material,
       })),
-      facturasPendientes: {
-        total: Number(statsFacturasPendientes._sum.total || 0),
-        count: statsFacturasPendientes._count,
-        vencidas: facturasVencidas,
-        lista: facturasPendientes.map(f => ({
-          id: f.id,
-          numero: f.numero,
-          cliente: f.cliente?.nombre ?? '—',
-          total: Number(f.total),
-          fechaVencimiento: f.fechaVencimiento,
-          vencida: f.fechaVencimiento ? new Date(f.fechaVencimiento) < hoy : false,
-        })),
-      },
+      facturasPendientes: null,
     });
 
   } catch (error) {
