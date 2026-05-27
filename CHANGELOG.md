@@ -5,6 +5,24 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-05-27 (tarde)
+
+### Rendimiento — Fase 2 completa (T-21 a T-28)
+
+- ✅ **T-28 BUG** — `GET /api/pedidos`: eliminado `_count: { albaranes: true }` en el include de Prisma; la relación `albaranes` no existe en `schema.prisma` y habría roto el listado tras cualquier `prisma generate`
+- ✅ **T-27** — Dashboard `page.js`: `useSWR` con `refreshWhenHidden: false, refreshWhenOffline: false` — elimina polling continuo cuando la pestaña está inactiva
+- ✅ **T-21+T-22** — `GET /api/informes?tipo=kpis`: 3× `db.pedido.findMany({ select: {total} })` + `reduce` en Node.js reemplazados por `db.pedido.aggregate({ _sum, _avg, _count })` en paralelo con `Promise.all`; toda la lógica de stats se calcula en MySQL
+- ✅ **T-23** — `GET /api/informes?tipo=top-clientes`: `db.pedido.findMany` de toda la tabla + agrupación manual en Node.js reemplazados por `db.pedido.groupBy({ by: ['clienteId'], _sum: {total}, _count: {id}, orderBy, take: 20 })` + lookup de nombres con `db.cliente.findMany`
+- ✅ **T-24** — `GET /api/informes?tipo=ventas-por-producto`: añadido `take: 5000` a `db.pedidoItem.findMany` para evitar transferencias ilimitadas
+- ✅ **T-25** — `GET /api/clientes/[id]/resumen`: `take: 50` en findMany de pedidos y presupuestos; stats (`totalFacturado`, `numPedidos`, `numPresupuestos`) calculados con `db.pedido.aggregate + count` sobre el historial completo, no solo los 50 cargados
+- ✅ **T-26** — `GET /api/pedidos-proveedores-data`: paginación básica con parámetros `page`/`limit` (default 50, máx 200); respuesta cambiada de array plano a `{ data, meta: { total, page, limit, totalPages } }`; frontend `proveedores/page.js` actualizado para usar `pedidos?.data`
+
+### Documentación
+
+- ✅ `ROADMAP.md` actualizado: Fase 2 marcada como completada, T-05 (merge → main) eliminado del backlog a petición, dependencias actualizadas
+
+---
+
 ## 2026-05-27
 
 ### Auditoría de seguridad — 2ª ronda (10 hallazgos corregidos)

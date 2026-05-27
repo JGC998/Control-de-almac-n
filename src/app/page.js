@@ -23,7 +23,9 @@ const iconMap = {
 
 export default function Dashboard() {
   const { data, error, isLoading } = useSWR('/api/dashboard', {
-    refreshInterval: 30000
+    refreshInterval: 60000,
+    refreshWhenHidden: false,
+    refreshWhenOffline: false,
   });
 
   if (isLoading || !data) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;

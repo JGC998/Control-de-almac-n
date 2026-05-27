@@ -164,7 +164,7 @@ export default function ProveedoresPage() {
     };
 
     // Filtramos primero por TAB (Nacional/Importacion)
-    const safePedidos = Array.isArray(pedidos) ? pedidos : [];
+    const safePedidos = pedidos?.data ?? [];
     const pedidosDelTab = safePedidos.filter(p => p.tipo === activeTab);
 
     // Dentro del Tab, separamos en Pendientes y Recibidos

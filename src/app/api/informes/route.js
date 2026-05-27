@@ -67,29 +67,28 @@ export async function GET(request) {
       const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
       const inicioMesAnterior = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1);
 
-      const [pedidosMes, pedidosMesAnterior, pedidosPendientes, todosPedidos, presupuestosTotal, presupuestosAceptados] = await Promise.all([
-        db.pedido.findMany({
+      const [aggMes, aggMesAnterior, aggTotal, pedidosPendientes, presupuestosTotal, presupuestosAceptados] = await Promise.all([
+        db.pedido.aggregate({
           where: { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: inicioMes } },
-          select: { total: true },
+          _sum: { total: true },
+          _count: { id: true },
         }),
-        db.pedido.findMany({
+        db.pedido.aggregate({
           where: { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: inicioMesAnterior, lt: inicioMes } },
-          select: { total: true },
+          _sum: { total: true },
+        }),
+        db.pedido.aggregate({
+          where: { estado: { notIn: EXCLUIDOS } },
+          _avg: { total: true },
         }),
         db.pedido.count({ where: { estado: 'Pendiente' } }),
-        db.pedido.findMany({
-          where: { estado: { notIn: EXCLUIDOS } },
-          select: { total: true },
-        }),
         db.presupuesto.count({ where: { estado: { notIn: EXCLUIDOS } } }),
         db.presupuesto.count({ where: { estado: 'Aceptado' } }),
       ]);
 
-      const totalMes = pedidosMes.reduce((s, p) => s + (p.total ?? 0), 0);
-      const totalMesAnterior = pedidosMesAnterior.reduce((s, p) => s + (p.total ?? 0), 0);
-      const ticketMedio = todosPedidos.length > 0
-        ? todosPedidos.reduce((s, p) => s + (p.total ?? 0), 0) / todosPedidos.length
-        : 0;
+      const totalMes = aggMes._sum.total ?? 0;
+      const totalMesAnterior = aggMesAnterior._sum.total ?? 0;
+      const ticketMedio = aggTotal._avg.total ?? 0;
       const tasaConversion = presupuestosTotal > 0 ? (presupuestosAceptados / presupuestosTotal) * 100 : 0;
 
       return NextResponse.json({
@@ -98,25 +97,32 @@ export async function GET(request) {
         pedidosPendientes,
         ticketMedio: parseFloat(ticketMedio.toFixed(2)),
         tasaConversion: parseFloat(tasaConversion.toFixed(1)),
-        numPedidosMes: pedidosMes.length,
+        numPedidosMes: aggMes._count.id,
       });
     }
 
     // ── Top clientes ────────────────────────────────────────────────────────
     if (tipo === 'top-clientes') {
-      const pedidos = await db.pedido.findMany({
+      const agrupado = await db.pedido.groupBy({
+        by: ['clienteId'],
         where: { estado: { notIn: EXCLUIDOS }, clienteId: { not: null } },
-        select: { clienteId: true, total: true, cliente: { select: { nombre: true } } },
+        _sum: { total: true },
+        _count: { id: true },
+        orderBy: { _sum: { total: 'desc' } },
+        take: 20,
       });
-
-      const byCliente = {};
-      for (const p of pedidos) {
-        const key = p.clienteId;
-        if (!byCliente[key]) byCliente[key] = { clienteId: key, nombre: p.cliente?.nombre ?? '(sin cliente)', totalFacturado: 0, numPedidos: 0 };
-        byCliente[key].totalFacturado += p.total ?? 0;
-        byCliente[key].numPedidos += 1;
-      }
-      const sorted = Object.values(byCliente).sort((a, b) => b.totalFacturado - a.totalFacturado);
+      const clienteIds = agrupado.map(g => g.clienteId);
+      const clientes = await db.cliente.findMany({
+        where: { id: { in: clienteIds } },
+        select: { id: true, nombre: true },
+      });
+      const nombreMap = Object.fromEntries(clientes.map(c => [c.id, c.nombre]));
+      const sorted = agrupado.map(g => ({
+        clienteId: g.clienteId,
+        nombre: nombreMap[g.clienteId] ?? '(sin cliente)',
+        totalFacturado: parseFloat((g._sum.total ?? 0).toFixed(2)),
+        numPedidos: g._count.id,
+      }));
       return NextResponse.json(sorted);
     }
 
@@ -125,6 +131,7 @@ export async function GET(request) {
       const items = await db.pedidoItem.findMany({
         where: { pedido: { estado: { notIn: EXCLUIDOS } } },
         select: { descripcion: true, quantity: true, unitPrice: true, productoId: true },
+        take: 5000,
       });
 
       const byProducto = {};

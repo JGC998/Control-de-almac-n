@@ -6,21 +6,31 @@ import { pedidoProveedorSchema, validateData } from '@/lib/validations';
 export const dynamic = 'force-dynamic';
 
 // GET /api/pedidos-proveedores-data
-export async function GET() {
+export async function GET(request) {
   try {
-    const pedidos = await db.pedidoProveedor.findMany({
-      include: { 
-        bobinas: {
-          include: {
-            referencia: true // Incluir la referencia
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
+    const skip = (page - 1) * limit;
+
+    const [pedidos, total] = await Promise.all([
+      db.pedidoProveedor.findMany({
+        include: {
+          bobinas: {
+            include: {
+              referencia: true
+            }
+          },
+          proveedor: {
+            select: { nombre: true }
           }
         },
-        proveedor: {
-          select: { nombre: true }
-        }
-      },
-      orderBy: { fecha: 'desc' },
-    });
+        orderBy: { fecha: 'desc' },
+        take: limit,
+        skip,
+      }),
+      db.pedidoProveedor.count(),
+    ]);
 
     // Calcular el coste prorrateado on-the-fly para la vista previa
     const pedidosConCoste = pedidos.map(pedido => {
@@ -54,7 +64,10 @@ export async function GET() {
       return pedido;
     });
 
-    return NextResponse.json(pedidosConCoste); // Devolver los pedidos modificados
+    return NextResponse.json({
+      data: pedidosConCoste,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    });
 
   } catch (error) {
     logApiError(error);

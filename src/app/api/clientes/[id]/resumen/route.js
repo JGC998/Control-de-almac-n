@@ -8,17 +8,25 @@ export async function GET(request, { params }) {
   try {
     const { id } = await params;
 
-    const [cliente, pedidos, presupuestos, margenes] = await Promise.all([
+    const [cliente, pedidos, presupuestos, margenes, totalAgg, numPedidosTotal, numPresupuestosTotal] = await Promise.all([
       db.cliente.findUnique({ where: { id } }),
       db.pedido.findMany({
         where: { clienteId: id },
         orderBy: { fechaCreacion: 'desc' },
+        take: 50,
       }),
       db.presupuesto.findMany({
         where: { clienteId: id },
         orderBy: { fechaCreacion: 'desc' },
+        take: 50,
       }),
       db.reglaMargen.findMany(),
+      db.pedido.aggregate({
+        where: { clienteId: id, estado: { notIn: ['Cancelado', 'Borrador'] } },
+        _sum: { total: true },
+      }),
+      db.pedido.count({ where: { clienteId: id } }),
+      db.presupuesto.count({ where: { clienteId: id } }),
     ]);
 
     if (!cliente) return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
@@ -30,9 +38,7 @@ export async function GET(request, { params }) {
       margen: p.marginId ? margenMap[p.marginId] ?? null : null,
     }));
 
-    const estados_excluidos = ['Cancelado', 'Borrador'];
-    const pedidosFacturados = pedidos.filter(p => !estados_excluidos.includes(p.estado));
-    const totalFacturado = pedidosFacturados.reduce((sum, p) => sum + (p.total ?? 0), 0);
+    const totalFacturado = totalAgg._sum.total ?? 0;
     const ultimoPedido = pedidos.length > 0 ? pedidos[0].fechaCreacion : null;
 
     return NextResponse.json({
@@ -41,8 +47,8 @@ export async function GET(request, { params }) {
       presupuestos,
       stats: {
         totalFacturado,
-        numPedidos: pedidos.length,
-        numPresupuestos: presupuestos.length,
+        numPedidos: numPedidosTotal,
+        numPresupuestos: numPresupuestosTotal,
         ultimoPedido,
       },
     });

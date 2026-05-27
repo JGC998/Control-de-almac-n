@@ -29,7 +29,6 @@ export async function GET(request) {
         skip,
         include: {
           cliente: { select: { nombre: true } },
-          _count: { select: { albaranes: true } },
         },
         orderBy: { fechaCreacion: 'desc' },
       }),
