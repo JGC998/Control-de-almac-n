@@ -402,3 +402,10 @@ Variables de entorno requeridas en producción:
 | `/configuracion/audit-log` | Visor del registro de auditoría |
 | `/busqueda` | Búsqueda global |
 | `/login` | Pantalla de autenticación PIN |
+
+
+En el servidor al  aplicar cambios 
+
+git pull origin dev
+npm run build
+pm2 restart crm-server

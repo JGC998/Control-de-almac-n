@@ -5,6 +5,23 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-05-27 (madrugada)
+
+### Calculadora de contenedor — rediseño completo (T-31 v2)
+
+- ✅ **Campos de bobina** rediseñados para coincidir con la factura del proveedor: nº bobina, espesor (mm), ancho (mm), longitud por rollo (m), nº de rollos, USD/M — los totales de metros y precio se calculan automáticamente
+- ✅ **Prorrateo por valor económico** — los gastos se distribuyen proporcionalmente al precio total de cada bobina (no por metros); una bobina que representa el 40% del valor recibe el 40% de los gastos
+- ✅ **Exentos (aranceles) no repercutidos** — se registran y aparecen en el desembolso total real, pero no se incluyen en el €/metro ni en el coste de producto; el resumen distingue explícitamente "Coste producto" (bobinas + suplidos + sujetos) de "Desembolso total" (todo incluido aranceles + IVA)
+- ✅ **Columna "% valor"** en la tabla de resultados — muestra qué porcentaje del valor total representa cada bobina, para visualizar el prorrateo
+
+### Documentación — unificación de archivos de seguimiento
+
+- ✅ **`PENDIENTE.md` unificado** desde `REVIEW.md` + `ROADMAP.md` + `PENDIENTE.md`: un único archivo ordenado por prioridad (Crítico → Alto → Medio → Bajo → Backlog) con solo los ítems pendientes; se eliminaron todos los completados
+- ✅ **`REVIEW.md` eliminado** — contenido íntegramente volcado en `PENDIENTE.md`
+- ✅ **`ROADMAP.md` reducido** — conserva solo el historial de fases completadas e ideas descartadas; el backlog pendiente vive en `PENDIENTE.md`
+
+---
+
 ## 2026-05-27 (noche)
 
 ### Mini-app tablet — mejoras y nuevas funciones

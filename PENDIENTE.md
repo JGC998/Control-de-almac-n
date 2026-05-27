@@ -1,114 +1,200 @@
-# Modificaciones pendientes
+# PENDIENTE — CRM Taller / Control de Almacén
+
+> Última actualización: 2026-05-27  
+> Unificado desde: `REVIEW.md` · `ROADMAP.md` · `PENDIENTE.md`
 
 ---
 
-## BUGS PENDIENTES (detectados en revisión — aún sin corregir)
+## 🚨 CRÍTICO — Resolver antes del próximo deploy
 
-### B1. Albaranes — IVA hardcodeado al 21% ✅ CORREGIDO
-~~Al crear un albarán, el IVA se calcula siempre al 21% fijo en lugar de leer el valor de la tabla `Config`.~~
-- **Archivos corregidos:** `src/app/api/albaranes/route.js`, `src/app/api/albaranes/[id]/route.js`
+### [CRIT-01] `/guias` completamente rota en producción
+**Origen:** REVIEW.md  
+**Archivo:** `src/app/guias/` + API inexistente  
+**Problema:** Las páginas `/guias` y `/guias/[id]` llaman a `/api/guias` que no existe. Feature rota en producción; cualquier usuario que llegue a esa URL ve un error 500.  
+**Corrección:** Eliminar las páginas del menú de navegación, o crear la ruta `/api/guias` si la feature se quiere mantener.  
+**Esfuerzo:** ~30 min
 
-### B2. Facturas — IVA hardcodeado al 21% ✅ CORREGIDO
-~~Mismo problema que B1 pero en facturas.~~
-- **Archivos corregidos:** `src/app/api/facturas/route.js`, `src/app/api/facturas/[id]/route.js`
+### [SEC-01] `PUT /api/clientes/[id]` sin validación Zod
+**Origen:** REVIEW.md  
+**Archivo:** `src/app/api/clientes/[id]/route.js`  
+**Problema:** El único endpoint PUT de clientes no valida el cuerpo con Zod. Cualquier campo puede enviarse sin restricciones.  
+**Corrección:** Añadir schema Zod con los campos permitidos antes del `db.cliente.update`.  
+**Esfuerzo:** ~20 min
 
-### B3. Formulario de cliente — No muestra ni guarda campo NIF ✅ CORREGIDO
-~~El formulario de creación/edición de clientes no tiene el campo NIF.~~
-- **Archivos corregidos:** `src/componentes/modales/ModalEditarCliente.js`, `src/app/gestion/clientes/page.js`
-
-### B4. VeriFactu — Cliente sin NIF usa `NO-NIF` como ID en el XML ✅ CORREGIDO
-~~Si un cliente no tiene NIF, el XML generado pone `<ID>NO-NIF</ID>`.~~
-- **Archivo corregido:** `src/lib/verifactu.js` — Si no hay NIF, el bloque `<Destinatarios>` se omite.
-
-### B5. Nueva factura — Límite de 100 albaranes al cargar ✅ CORREGIDO
-~~La página carga con `?limit=100`. Si hay más de 100 albaranes, los más antiguos no aparecerán.~~
-- **Archivo corregido:** `src/app/facturas/nuevo/page.js` — Cambiado a `?estado=EMITIDO&limit=500`
-
-### B6. Nuevo albarán — Límite de 100 pedidos al cargar ✅ CORREGIDO
-~~Mismo problema que B5 para pedidos al crear un albarán.~~
-- **Archivo corregido:** `src/app/albaranes/nuevo/page.js` — Cambiado a `?limit=500`
+### [API-03] `PUT /api/clientes/[id]` ignora el campo `nif`
+**Origen:** REVIEW.md  
+**Archivo:** `src/app/api/clientes/[id]/route.js`  
+**Problema:** El update no incluye `nif` en los campos actualizados. El NIF no puede modificarse aunque el formulario lo envíe.  
+**Corrección:** Añadir `nif` al objeto `data` del `db.cliente.update`.  
+**Esfuerzo:** ~5 min
 
 ---
 
-## BUGS ADICIONALES CORREGIDOS (análisis ROADMAP)
+## 🔴 ALTA PRIORIDAD — Esta semana
 
-- **C4** — Pedido marcado como Facturado aunque tuviese más albaranes sin factura → `api/albaranes/[id]/factura/route.js`
-- **C5** — Rectificativas usaban secuencia de facturas normales → `api/facturas/[id]/rectificativa/route.js`
-- **C6/M3** — Ordenar por `fechaHoraGenRegistro` con valores null rompía la query → `api/facturas/[id]/route.js`, `api/facturas/exportar-aeat/route.js`
-- **C7/C8** — VeriFactu: hash sin validación de nulos, `<RegistroAnterior>` con campos vacíos → `src/lib/verifactu.js`
-- **C9** — Dirección y teléfono de empresa hardcodeados en PDFs → `src/lib/pdfGenerator.js`
-- **M1** — Pedido podía generar albaranes duplicados → `api/pedidos/[id]/albaran/route.js`
-- **M2** — Items de facturas no-BORRADOR podían ser enviados sin error → `api/facturas/[id]/route.js`
-- **M4/M5** — VeriFactu: rectificativas sin bloque correcto, TipoImpositivo hardcodeado → `src/lib/verifactu.js`
-- **L1** — Entorno del emisor aceptaba cualquier string → `api/configuracion/emisor/route.js`
-- **L2/L3** — VeriFactu: IDType incorrecto para clientes sin NIF, precisión decimal → `src/lib/verifactu.js`
-- **L4** — Count de facturas vencidas solo miraba EMITIDA → `src/app/facturas/page.js`
-- **L5** — Página nuevo albarán no indicaba si el pedido ya tenía albarán → `src/app/albaranes/nuevo/page.js`
-- **L6** — Exportación AEAT sin límite de registros por lote → `api/facturas/exportar-aeat/route.js`
+### [BUG-01] `crearManejadoresCRUD` devuelve todos los registros sin límite
+**Origen:** REVIEW.md  
+**Archivo:** `src/lib/manejadores-api.js`  
+**Problema:** El handler GET genérico no aplica `take` en modo no-paginado. Tablas con muchos registros (precios, referencias, documentos) devuelven todo su contenido de golpe.  
+**Corrección:** Añadir `take: 500` por defecto cuando no hay paginación explícita.  
+**Esfuerzo:** ~15 min
 
----
+### [API-01] `GET /api/logistica/tarifas` sin límite
+**Origen:** REVIEW.md  
+**Archivo:** `src/app/api/logistica/tarifas/route.js`  
+**Problema:** `db.tarifaTransporte.findMany()` sin `take`. Full table scan en cada carga de la calculadora de envíos.  
+**Corrección:** Añadir `take: 5000`.  
+**Esfuerzo:** ~5 min
 
-## FASE E — COBROS Y VENCIMIENTOS (mayo 2026)
+### [DB-01] Tabla `Stock` sin índices
+**Origen:** REVIEW.md  
+**Archivo:** `prisma/schema.prisma` + `prisma/schema.dev.prisma`  
+**Problema:** `Stock` es la tabla central del almacén (tablet app + dashboard). Los filtros `WHERE material`, `WHERE metrosDisponibles < 100` y `WHERE proveedor` hacen full scan en cada carga.  
+**Corrección:**
+```prisma
+model Stock {
+  // ...campos existentes sin cambios
+  @@index([material])
+  @@index([metrosDisponibles])
+  @@index([proveedor])
+}
+```
+**Esfuerzo:** ~20 min
 
-### E1. Badges VENCIDA / PRÓXIMA en listado y detalle de facturas ✅ HECHO
-- Listado `/facturas`: columna vencimiento muestra badge rojo "VENCIDA" o naranja "PRÓXIMA" según estado
-- Detalle `/facturas/[id]`: badge junto a la fecha de vencimiento, en rojo/naranja según corresponda
-- Condición próxima: ≤ 7 días hasta el vencimiento y estado EMITIDA
-- **Archivos:** `src/app/facturas/page.js`, `src/app/facturas/[id]/page.js`
-
-### E2. Registro de fecha de pago ✅ HECHO
-- Nuevo campo `fechaPago DateTime?` en modelo `Factura`
-- Al marcar como PAGADA desde la API PUT, se graba `fechaPago = new Date()` automáticamente
-- El detalle muestra "Pagada DD/MM/AAAA" junto a la fecha de vencimiento
-- **Archivos:** `prisma/schema.dev.prisma`, `src/app/api/facturas/[id]/route.js`, `src/app/facturas/[id]/page.js`
-
----
-
-## FUNCIONALIDAD NUEVA (mayo 2026)
-
-### F1. Crear factura manual sin albarán ✅ HECHO
-- La página `/facturas/nuevo` ahora tiene dos pestañas: "Desde albarán" y "Factura manual"
-- El formulario manual permite: cliente (opcional), líneas con descripción/cantidad/precio, fecha de vencimiento y notas
-- Preview de totales en tiempo real (base + IVA + total)
-- El POST `/api/facturas` ya soportaba esto; solo faltaba la UI
-- **Archivo:** `src/app/facturas/nuevo/page.js`
+### [SEC-02] `email.js` vuelca emails de clientes al log del servidor
+**Origen:** REVIEW.md  
+**Archivo:** `src/lib/email.js`  
+**Problema:** `console.log/warn/error` directo expone datos personales (direcciones de email de clientes) en los logs del servidor.  
+**Corrección:** Reemplazar con `logApiError` de `src/lib/logger.js`.  
+**Esfuerzo:** ~10 min
 
 ---
 
-## SEGURIDAD (mayo 2026)
+## 🟠 MEDIA PRIORIDAD — Próximas 2 semanas
 
-### S5. Path traversal en subida de documentos ✅ CORREGIDO
-- Se sanitiza `originalFilename` con `path.basename()` + regex `/[^a-zA-Z0-9._\-]/g → '_'`
-- Evita que nombres como `../../../.env.local` sobreescriban archivos del servidor
-- **Archivo:** `src/app/api/documentos/route.js`
+### [BUG-02] `informes/ventas-mensuales` sin límite en `findMany`
+**Origen:** REVIEW.md  
+**Archivo:** `src/app/api/informes/route.js` (línea ~36)  
+**Problema:** `findMany` sin `take` en ventas mensuales. Con catálogos grandes puede devolver miles de pedidos y agotar memoria.  
+**Corrección:** Añadir `take: 10000` defensivo.  
+**Esfuerzo:** ~5 min
 
-### S6. Límite máximo en parámetro `limit` ✅ CORREGIDO
-- Cambiado a `Math.min(parseInt(limit), 500)` en los tres listados principales
-- Evita queries de full-table scan por `?limit=9999999`
-- **Archivos:** `src/app/api/albaranes/route.js`, `src/app/api/facturas/route.js`, `src/app/api/pedidos/route.js`
+### [API-02] Endpoints de catálogos sin límite defensivo
+**Origen:** REVIEW.md  
+**Archivos:** `/api/precios` · `/api/tarifas-rollo` · `/api/configuracion/referencias` · `/api/documentos`  
+**Problema:** Estos endpoints devuelven todos los registros sin `take`. Los catálogos son pequeños hoy, pero sin límite es una bomba de tiempo.  
+**Corrección:** Añadir `take: 2000` en cada uno.  
+**Esfuerzo:** ~20 min
 
-### S10. Estado de pedido validado con enum ✅ YA ESTABA (Zod)
-- `pedidoSchema` en `src/lib/validations.js` ya tenía `estado: z.enum([...])` — no requería cambio
+### [DB-02] `MovimientoStock` sin índices en `fecha` ni `stockId`
+**Origen:** REVIEW.md  
+**Archivo:** `prisma/schema.prisma` + `prisma/schema.dev.prisma`  
+**Problema:** El dashboard ordena `ORDER BY fecha DESC LIMIT 10`. Sin índice en `fecha`, full scan + sort en cada carga de la página principal.  
+**Corrección:**
+```prisma
+model MovimientoStock {
+  @@index([stockId])
+  @@index([fecha])
+}
+```
+**Esfuerzo:** ~10 min
+
+### [DB-03] `Documento` sin índices en `tipo` ni `productoId`
+**Origen:** REVIEW.md  
+**Archivo:** `prisma/schema.prisma` + `prisma/schema.dev.prisma`  
+**Problema:** `WHERE tipo = 'PROCESO'` en procesos y `WHERE productoId = ?` en páginas de producto hacen full scan.  
+**Corrección:**
+```prisma
+model Documento {
+  @@index([tipo])
+  @@index([productoId])
+}
+```
+**Esfuerzo:** ~10 min
+
+### [BUG-03] `pdfGenerator.js` usa `console.error` en lugar de `logApiError`
+**Origen:** REVIEW.md  
+**Archivo:** `src/lib/pdfGenerator.js`  
+**Problema:** 4× `console.error` exponen información interna en logs. Inconsistente con el resto de la API.  
+**Corrección:** Reemplazar con `logApiError` de `src/lib/logger.js`.  
+**Esfuerzo:** ~15 min
+
+### [T-17] Email: envío de facturas y albaranes
+**Origen:** ROADMAP.md  
+**Estado:** ⛔ BLOQUEADO — modelos `Factura` y `Albaran` no están en la rama `dev`  
+**Descripción:** La API `sendEmail` ya existe en `src/lib/email.js`. Implementar rutas `/api/facturas/[id]/email` y `/api/albaranes/[id]/email` cuando esas entidades se integren en `dev`.
+
+### [T-18] Stock: descuento automático al marcar albarán como ENTREGADO
+**Origen:** ROADMAP.md  
+**Estado:** ⛔ BLOQUEADO — modelo `Albaran` no está en la rama `dev`  
+**Descripción:** Al cambiar estado de albarán a ENTREGADO, descontar automáticamente los metros del stock correspondiente.
 
 ---
 
-## MEJORAS COMPLETADAS
+## 🟡 BAJA PRIORIDAD — Próximo mes
 
-## 1. PDF — Información del cliente desbordando el recuadro ✅ CORREGIDO
-~~El recuadro del cliente en la nota de trabajo se quedaba pequeño cuando la dirección era larga.~~
-- Recuadro ahora de altura dinámica: crece automáticamente con el contenido. Texto dividido en líneas con `splitTextToSize`. `startY` de la tabla se calcula dinámicamente.
-- **Archivos:** `src/lib/pdfGenerator.js`
+### [CODE-01] `crearManejadoresCRUD` POST sin soporte para validación Zod
+**Origen:** REVIEW.md  
+**Archivo:** `src/lib/manejadores-api.js`  
+**Problema:** El handler POST genérico no tiene slot para pasar un schema Zod. Los endpoints que usan el patrón genérico quedan sin validación de entrada.  
+**Corrección:** Añadir parámetro opcional `schema`; si está presente, validar el body antes de escribir en DB.  
+**Esfuerzo:** ~30 min
 
-## 2. PDF — Botón "Imprimir" directo desde el pedido ✅ HECHO
-Añadido botón "Imprimir PDF" que abre el PDF en una nueva pestaña con `Content-Disposition: inline`, usando el visor PDF nativo del navegador.
-- **Archivos:** `src/app/pedidos/[id]/page.js`, `src/app/api/pedidos/[id]/pdf/route.js`
+### [DB-04] `BobinaPedido` sin índice en `pedidoId`
+**Origen:** REVIEW.md  
+**Archivo:** `prisma/schema.prisma` + `prisma/schema.dev.prisma`  
+**Problema:** Cada carga de un pedido proveedor busca sus bobinas sin índice en la FK.  
+**Corrección:**
+```prisma
+model BobinaPedido {
+  @@index([pedidoId])
+  @@index([referenciaId])
+}
+```
+**Esfuerzo:** ~5 min
 
-## 3. Pedido cliente — Quitar botón "Enviar Email" ✅ HECHO
-Botón eliminado de la vista de detalle del presupuesto (donde estaba realmente).
-- **Archivo:** `src/app/presupuestos/[id]/page.js`
+### [CODE-02] `console.error` en frontend no muestra nada al operario
+**Origen:** REVIEW.md  
+**Archivos:** `calculadora/actions.js:44` · `fotos/page.js:39,50,96` · `configuracion/logistica/page.js:35,171`  
+**Problema:** Cuando algo falla, el error se silencia en consola. El operario no sabe que ocurrió un problema.  
+**Corrección:** Usar el sistema de toasts (`src/lib/toast.js`) para mostrar el error al usuario.  
+**Esfuerzo:** ~1 h
 
-## 4. Calculadora de Envíos — Mejoras generales ✅ HECHO
-- Muestra por qué se eligió la tipología (criterios de peso y altura en la tarjeta de resultado).
-- Botón "Añadir a pedido" abre un modal buscador de pedidos activos; al seleccionar uno, añade el coste de envío como línea nueva con feedback de éxito.
-- Validación de PUT de pedidos ya no requiere clienteId obligatorio.
-- **Archivos:** `src/componentes/calculadoras/CalculadoraLogistica.js`, `src/app/calculadora/logistica/page.js`, `src/app/api/pedidos/[id]/route.js`
+### [FRONT-01] `dangerouslySetInnerHTML` sin sanitización en guías
+**Origen:** REVIEW.md  
+**Archivo:** `src/app/guias/[id]/page.js` línea 58  
+**Problema:** Renderiza HTML crudo de la API. Riesgo XSS almacenado si usuarios pueden editar contenido. Actualmente la feature está rota (ver CRIT-01), el riesgo es latente.  
+**Corrección:** Cuando se implemente, instalar `isomorphic-dompurify` y sanitizar `htmlContent` antes de renderizar.  
+**Esfuerzo:** ~30 min
+
+### [T-15] Búsqueda global con Ctrl+K
+**Origen:** ROADMAP.md  
+**Descripción:** Buscar por NIF, referencia de producto e importe. Resultados agrupados por entidad. Atajo `Ctrl+K`. Requiere T-28-ext (full-text index) para buen rendimiento con catálogos grandes.  
+**Complejidad:** Grande
+
+### [T-16] Acciones en bloque en listados
+**Origen:** ROADMAP.md  
+**Descripción:** Checkbox de selección múltiple, barra contextual, marcar pagadas, exportar selección, eliminar en bloque.  
+**Complejidad:** Grande
+
+---
+
+## 🟢 BACKLOG — Sin fecha
+
+### [DB-05] `AuditLog.details` como `String` en lugar de JSON nativo
+**Origen:** REVIEW.md  
+**Problema:** Funciona correctamente, pero en MySQL no permite `JSON_EXTRACT` queries. No urgente.  
+**Corrección:** Cambiar a `@db.Json` en `prisma/schema.prisma` (producción).
+
+### [T-28-ext] Full-text index MySQL en `Cliente` y `Producto`
+**Origen:** ROADMAP.md  
+**Descripción:** Migración de schema para añadir `@@fulltext([nombre])`. Mejora drástica del rendimiento de búsqueda global. Prerrequisito para T-15.
+
+### [T-19] VeriFactu D2: envío directo al webservice AEAT
+**Origen:** ROADMAP.md  
+**Descripción:** Requiere decisión sobre certificado FNMT (en servidor vs. navegador del usuario). Pospuesto a 2027.
+
+---
+
+*Unificado el 2026-05-27 desde `REVIEW.md` · `ROADMAP.md` · `PENDIENTE.md`*  
+*Para regenerar la revisión técnica: `/review-full` · Para actualizar el roadmap: `/roadmap`*

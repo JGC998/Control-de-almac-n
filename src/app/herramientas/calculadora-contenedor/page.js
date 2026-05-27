@@ -1,8 +1,16 @@
 "use client";
 import React, { useState } from 'react';
-import { Package2, Plus, Trash2, Calculator } from 'lucide-react';
+import { Package2, Plus, Trash2, Calculator, Info } from 'lucide-react';
 
-const nuevaBobina = (id) => ({ id, referencia: '', precioMetro: '', metros: '' });
+const nuevaBobina = (id) => ({
+  id,
+  referencia: '',
+  espesor: '',
+  ancho: '',
+  longitud: '',
+  numRollos: '1',
+  usdPorMetro: '',
+});
 
 const n = (v) => parseFloat(v) || 0;
 const fmt = (v, dec = 2) => isFinite(v) ? v.toFixed(dec) : '0.00';
@@ -22,39 +30,41 @@ export default function CalculadoraContenedorPage() {
 
   // --- Cálculos bobinas ---
   const bobinasCals = bobinas.map(b => {
-    const metros = n(b.metros);
-    const precioMetro = n(b.precioMetro);
-    const subtotalUSD = metros * precioMetro;
+    const longitud = n(b.longitud);
+    const numRollos = n(b.numRollos) || 1;
+    const usdPorMetro = n(b.usdPorMetro);
+    const totalMetrosBobina = longitud * numRollos;
+    const subtotalUSD = usdPorMetro * totalMetrosBobina;
     const subtotalEUR = subtotalUSD * tc;
-    return { ...b, metros, precioMetro, subtotalUSD, subtotalEUR };
+    return { ...b, longitud, numRollos, usdPorMetro, totalMetrosBobina, subtotalUSD, subtotalEUR };
   });
 
   const totalBobinasUSD = bobinasCals.reduce((s, b) => s + b.subtotalUSD, 0);
   const totalBobinasEUR = totalBobinasUSD * tc;
-  const totalMetros = bobinasCals.reduce((s, b) => s + b.metros, 0);
+  const totalMetros = bobinasCals.reduce((s, b) => s + b.totalMetrosBobina, 0);
 
   // --- Cálculos gastos ---
   const supl = n(suplidos);
   const exen = n(exentos);
   const sujBase = n(sujetosBase);
   const ivaGastos = sujBase * IVA;
-  const totalGastosBase = supl + exen + sujBase; // sin IVA (coste real del producto)
-  const totalGastoConIva = totalGastosBase + ivaGastos;
 
-  // --- Totales ---
-  const totalSinIva = totalBobinasEUR + totalGastosBase;
-  const totalConIva = totalBobinasEUR + totalGastoConIva;
+  // Suplidos + Sujetos se repercuten en el coste del producto.
+  // Exentos (aranceles) son impuestos: se registran pero no se repercuten por metro.
+  const gastosRepercutibles = supl + sujBase;
+  const costeProducto = totalBobinasEUR + gastosRepercutibles;
+  const totalDesembolso = totalBobinasEUR + supl + exen + sujBase + ivaGastos;
 
-  // --- Prorrateo por metros ---
+  // --- Prorrateo por valor (proporción al precio total € de cada bobina) ---
   const bobinasFinal = bobinasCals.map(b => {
-    if (totalMetros === 0 || b.metros === 0) {
-      return { ...b, gastosProrrateados: 0, costeFinalEUR: b.subtotalEUR, costePorMetro: 0 };
+    if (totalBobinasEUR === 0 || b.subtotalEUR === 0) {
+      return { ...b, proporcion: 0, gastosProrrateados: 0, costeFinalEUR: b.subtotalEUR, costePorMetro: 0 };
     }
-    const proporcion = b.metros / totalMetros;
-    const gastosProrrateados = totalGastosBase * proporcion;
+    const proporcion = b.subtotalEUR / totalBobinasEUR;
+    const gastosProrrateados = gastosRepercutibles * proporcion;
     const costeFinalEUR = b.subtotalEUR + gastosProrrateados;
-    const costePorMetro = costeFinalEUR / b.metros;
-    return { ...b, gastosProrrateados, costeFinalEUR, costePorMetro };
+    const costePorMetro = b.totalMetrosBobina > 0 ? costeFinalEUR / b.totalMetrosBobina : 0;
+    return { ...b, proporcion, gastosProrrateados, costeFinalEUR, costePorMetro };
   });
 
   const handleBobinaChange = (id, field, value) => {
@@ -70,23 +80,23 @@ export default function CalculadoraContenedorPage() {
     if (bobinas.length > 1) setBobinas(prev => prev.filter(b => b.id !== id));
   };
 
-  const hayResultados = totalMetros > 0 && bobinasFinal.some(b => b.metros > 0);
+  const hayResultados = totalMetros > 0 && bobinasFinal.some(b => b.totalMetrosBobina > 0);
 
   return (
-    <div className="container mx-auto p-4 max-w-5xl">
+    <div className="container mx-auto p-4 max-w-6xl">
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Package2 className="w-8 h-8 text-warning" />
         <div>
           <h1 className="text-3xl font-bold">Calculadora de Contenedor</h1>
-          <p className="text-sm text-base-content/60">Desglose de gastos de importación y coste real por metro lineal</p>
+          <p className="text-sm text-base-content/60">Coste real de importación por metro lineal, prorrateado por valor de cada bobina</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* ── COLUMNA IZQUIERDA: Inputs ── */}
+        {/* ── COLUMNA IZQUIERDA ── */}
         <div className="lg:col-span-2 space-y-5">
 
           {/* Tipo de cambio */}
@@ -104,7 +114,7 @@ export default function CalculadoraContenedorPage() {
                 <span className="font-mono text-sm">EUR</span>
                 {tc > 0 && (
                   <span className="text-xs text-base-content/40">
-                    (equivale a: 1 EUR = {fmt(1 / tc, 4)} USD)
+                    (1 EUR = {fmt(1 / tc, 4)} USD)
                   </span>
                 )}
               </div>
@@ -115,7 +125,7 @@ export default function CalculadoraContenedorPage() {
           <div className="card bg-base-200 shadow-sm">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-3">
-                <h2 className="font-bold text-base">Bobinas</h2>
+                <h2 className="font-bold text-base">Bobinas — datos de la factura del proveedor</h2>
                 <button onClick={addBobina} className="btn btn-sm btn-primary gap-1">
                   <Plus className="w-4 h-4" /> Añadir bobina
                 </button>
@@ -125,11 +135,15 @@ export default function CalculadoraContenedorPage() {
                 <table className="table table-sm w-full">
                   <thead>
                     <tr>
-                      <th>Referencia</th>
-                      <th>Precio/m (USD)</th>
-                      <th>Metros</th>
-                      <th className="text-right">Subtotal $</th>
-                      <th className="text-right">Subtotal €</th>
+                      <th>Nº bobina</th>
+                      <th>Esp. (mm)</th>
+                      <th>Ancho (mm)</th>
+                      <th>Long./rollo (m)</th>
+                      <th>Nº rollos</th>
+                      <th>USD/M</th>
+                      <th className="text-right">Total m</th>
+                      <th className="text-right">Total $</th>
+                      <th className="text-right">Total €</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -140,34 +154,53 @@ export default function CalculadoraContenedorPage() {
                         <tr key={b.id}>
                           <td>
                             <input
-                              type="text" placeholder={`Bobina ${idx + 1}`}
+                              type="text" placeholder={`B${idx + 1}`}
                               value={b.referencia}
                               onChange={e => handleBobinaChange(b.id, 'referencia', e.target.value)}
-                              className="input input-sm input-bordered w-28"
+                              className="input input-sm input-bordered w-16"
                             />
                           </td>
                           <td>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number" step="0.0001" min="0" placeholder="0.0000"
-                                value={b.precioMetro}
-                                onChange={e => handleBobinaChange(b.id, 'precioMetro', e.target.value)}
-                                className="input input-sm input-bordered w-24 font-mono"
-                              />
-                              <span className="text-xs opacity-40">$</span>
-                            </div>
+                            <input
+                              type="number" step="0.1" min="0" placeholder="—"
+                              value={b.espesor}
+                              onChange={e => handleBobinaChange(b.id, 'espesor', e.target.value)}
+                              className="input input-sm input-bordered w-16 font-mono"
+                            />
                           </td>
                           <td>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number" step="1" min="0" placeholder="0"
-                                value={b.metros}
-                                onChange={e => handleBobinaChange(b.id, 'metros', e.target.value)}
-                                className="input input-sm input-bordered w-24 font-mono"
-                              />
-                              <span className="text-xs opacity-40">m</span>
-                            </div>
+                            <input
+                              type="number" step="1" min="0" placeholder="—"
+                              value={b.ancho}
+                              onChange={e => handleBobinaChange(b.id, 'ancho', e.target.value)}
+                              className="input input-sm input-bordered w-16 font-mono"
+                            />
                           </td>
+                          <td>
+                            <input
+                              type="number" step="1" min="0" placeholder="0"
+                              value={b.longitud}
+                              onChange={e => handleBobinaChange(b.id, 'longitud', e.target.value)}
+                              className="input input-sm input-bordered w-20 font-mono"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number" step="1" min="1" placeholder="1"
+                              value={b.numRollos}
+                              onChange={e => handleBobinaChange(b.id, 'numRollos', e.target.value)}
+                              className="input input-sm input-bordered w-16 font-mono"
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number" step="0.0001" min="0" placeholder="0.0000"
+                              value={b.usdPorMetro}
+                              onChange={e => handleBobinaChange(b.id, 'usdPorMetro', e.target.value)}
+                              className="input input-sm input-bordered w-24 font-mono"
+                            />
+                          </td>
+                          <td className="text-right font-mono text-sm">{fmt(cal.totalMetrosBobina, 0)} m</td>
                           <td className="text-right font-mono text-sm">{fmtUsd(cal.subtotalUSD)}</td>
                           <td className="text-right font-mono text-sm">{fmtEur(cal.subtotalEUR)}</td>
                           <td>
@@ -183,7 +216,8 @@ export default function CalculadoraContenedorPage() {
                   </tbody>
                   <tfoot>
                     <tr className="font-bold">
-                      <td colSpan={3} className="text-sm">Total bobinas</td>
+                      <td colSpan={6} className="text-sm">Total</td>
+                      <td className="text-right font-mono text-sm">{fmt(totalMetros, 0)} m</td>
                       <td className="text-right font-mono text-sm">{fmtUsd(totalBobinasUSD)}</td>
                       <td className="text-right font-mono text-sm">{fmtEur(totalBobinasEUR)}</td>
                       <td></td>
@@ -197,7 +231,11 @@ export default function CalculadoraContenedorPage() {
           {/* Gastos de importación */}
           <div className="card bg-base-200 shadow-sm">
             <div className="card-body p-4">
-              <h2 className="font-bold text-base mb-3">Gastos de importación (€)</h2>
+              <h2 className="font-bold text-base mb-1">Gastos de importación (€)</h2>
+              <p className="text-xs text-base-content/50 mb-3">
+                <strong>Suplidos</strong> y <strong>Sujetos</strong> se repercuten en el coste del producto.
+                Los <strong>Exentos</strong> (aranceles) son impuestos: se registran como gasto pero no se incluyen en el €/metro.
+              </p>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -205,7 +243,7 @@ export default function CalculadoraContenedorPage() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Suplidos</span>
-                    <span className="badge badge-neutral badge-sm">Sin IVA</span>
+                    <span className="badge badge-success badge-sm">Repercute</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
@@ -223,7 +261,7 @@ export default function CalculadoraContenedorPage() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Exentos</span>
-                    <span className="badge badge-neutral badge-sm">Sin IVA</span>
+                    <span className="badge badge-neutral badge-sm">Informativo</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
@@ -234,14 +272,17 @@ export default function CalculadoraContenedorPage() {
                     />
                     <span className="text-sm opacity-50">€</span>
                   </div>
-                  <p className="text-xs text-base-content/50">Aranceles e impuestos pagados en aduana</p>
+                  <p className="text-xs text-base-content/50">Aranceles e impuestos de aduana — no se repercuten</p>
                 </div>
 
                 {/* Sujetos */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Sujetos (base)</span>
-                    <span className="badge badge-warning badge-sm">+ IVA 21%</span>
+                    <div className="flex gap-1">
+                      <span className="badge badge-success badge-sm">Repercute</span>
+                      <span className="badge badge-warning badge-sm">+IVA 21%</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
@@ -262,20 +303,28 @@ export default function CalculadoraContenedorPage() {
               </div>
 
               {/* Subtotales gastos */}
-              <div className="mt-4 pt-3 border-t border-base-content/10 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-base-content/70">Total gastos (base sin IVA)</span>
-                  <span className="font-mono font-bold">{fmtEur(totalGastosBase)}</span>
+              <div className="mt-4 pt-3 border-t border-base-content/10 space-y-1.5">
+                <div className="flex justify-between text-sm font-medium text-success">
+                  <span>Gastos repercutidos en producto (suplidos + sujetos)</span>
+                  <span className="font-mono">{fmtEur(gastosRepercutibles)}</span>
                 </div>
+                {exen > 0 && (
+                  <div className="flex justify-between text-sm text-base-content/50">
+                    <span className="flex items-center gap-1">
+                      <Info className="w-3 h-3" /> Aranceles (no repercutidos)
+                    </span>
+                    <span className="font-mono">{fmtEur(exen)}</span>
+                  </div>
+                )}
                 {ivaGastos > 0 && (
                   <div className="flex justify-between text-sm text-warning">
                     <span>IVA sujetos (21%) — deducible</span>
                     <span className="font-mono">{fmtEur(ivaGastos)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm font-bold border-t border-base-content/10 pt-1 mt-1">
-                  <span>Total desembolso gastos</span>
-                  <span className="font-mono">{fmtEur(totalGastoConIva)}</span>
+                <div className="flex justify-between text-sm font-bold border-t border-base-content/10 pt-1">
+                  <span>Total desembolso real</span>
+                  <span className="font-mono">{fmtEur(totalDesembolso)}</span>
                 </div>
               </div>
             </div>
@@ -285,7 +334,6 @@ export default function CalculadoraContenedorPage() {
         {/* ── COLUMNA DERECHA: Resumen ── */}
         <div className="space-y-5">
 
-          {/* Resumen sticky */}
           <div className="card bg-primary text-primary-content shadow-lg lg:sticky lg:top-4">
             <div className="card-body p-4">
               <h2 className="font-bold text-base flex items-center gap-2">
@@ -298,20 +346,22 @@ export default function CalculadoraContenedorPage() {
                   <span className="font-mono">{fmtEur(totalBobinasEUR)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="opacity-80">Suplidos</span>
+                  <span className="opacity-80">Suplidos ✓</span>
                   <span className="font-mono">{fmtEur(supl)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="opacity-80">Exentos</span>
-                  <span className="font-mono">{fmtEur(exen)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="opacity-80">Sujetos (base)</span>
+                  <span className="opacity-80">Sujetos ✓</span>
                   <span className="font-mono">{fmtEur(sujBase)}</span>
                 </div>
+                {exen > 0 && (
+                  <div className="flex justify-between opacity-50 text-xs">
+                    <span>Aranceles (ℹ no repercutidos)</span>
+                    <span className="font-mono">{fmtEur(exen)}</span>
+                  </div>
+                )}
                 {ivaGastos > 0 && (
                   <div className="flex justify-between opacity-60 text-xs">
-                    <span>IVA sujetos</span>
+                    <span>IVA sujetos (deducible)</span>
                     <span className="font-mono">{fmtEur(ivaGastos)}</span>
                   </div>
                 )}
@@ -319,13 +369,15 @@ export default function CalculadoraContenedorPage() {
 
               <div className="divider my-2 opacity-30"></div>
 
-              <div className="flex justify-between items-baseline">
-                <span className="text-sm opacity-80">Total (sin IVA)</span>
-                <span className="font-mono text-2xl font-bold">{fmtEur(totalSinIva)}</span>
-              </div>
-              <div className="flex justify-between items-baseline text-sm opacity-70">
-                <span>Total (con IVA)</span>
-                <span className="font-mono">{fmtEur(totalConIva)}</span>
+              <div className="space-y-1">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-sm opacity-80">Coste producto</span>
+                  <span className="font-mono text-2xl font-bold">{fmtEur(costeProducto)}</span>
+                </div>
+                <div className="flex justify-between text-xs opacity-50">
+                  <span>Desembolso total (incl. aranceles + IVA)</span>
+                  <span className="font-mono">{fmtEur(totalDesembolso)}</span>
+                </div>
               </div>
 
               {totalMetros > 0 && (
@@ -333,12 +385,12 @@ export default function CalculadoraContenedorPage() {
                   <div className="divider my-2 opacity-30"></div>
                   <div className="flex justify-between text-sm">
                     <span className="opacity-80">Total metros</span>
-                    <span className="font-mono">{fmt(totalMetros, 1)} m</span>
+                    <span className="font-mono">{fmt(totalMetros, 0)} m</span>
                   </div>
                   <div className="flex justify-between items-baseline mt-1">
                     <span className="text-sm opacity-80">Coste medio</span>
                     <span className="font-mono text-lg font-bold">
-                      {fmtEur(totalSinIva / totalMetros)}/m
+                      {fmtEur(costeProducto / totalMetros)}/m
                     </span>
                   </div>
                 </>
@@ -346,11 +398,10 @@ export default function CalculadoraContenedorPage() {
             </div>
           </div>
 
-          {/* Nota IVA */}
           <div className="alert text-xs p-3">
             <div className="space-y-1">
-              <p className="font-bold">Base de cálculo del coste</p>
-              <p>El coste por metro usa la base <strong>sin IVA</strong>. El IVA de los gastos sujetos es deducible para empresas registradas y no forma parte del coste real del material.</p>
+              <p className="font-bold">Metodología de prorrateo</p>
+              <p>Los gastos se distribuyen por <strong>valor económico</strong> de cada bobina. Una bobina que representa el 40 % del valor total recibe el 40 % de los gastos. Los aranceles no forman parte del coste de producto.</p>
             </div>
           </div>
         </div>
@@ -365,47 +416,64 @@ export default function CalculadoraContenedorPage() {
               <table className="table table-sm w-full">
                 <thead>
                   <tr>
-                    <th>Referencia</th>
+                    <th>Ref.</th>
+                    <th>Esp.</th>
+                    <th>Ancho</th>
                     <th className="text-right">Metros</th>
-                    <th className="text-right">Precio $ → €</th>
-                    <th className="text-right">Gastos prorrateados</th>
+                    <th className="text-right">Valor $ → €</th>
+                    <th className="text-right">% valor</th>
+                    <th className="text-right">Gastos repercutidos</th>
                     <th className="text-right">Coste total €</th>
                     <th className="text-right text-success">€ / metro</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {bobinasFinal.filter(b => b.metros > 0).map((b, idx) => (
+                  {bobinasFinal.filter(b => b.totalMetrosBobina > 0).map((b, idx) => (
                     <tr key={b.id} className="hover">
-                      <td>{b.referencia || `Bobina ${idx + 1}`}</td>
-                      <td className="text-right font-mono">{fmt(b.metros, 1)} m</td>
+                      <td className="font-medium">{b.referencia || `B${idx + 1}`}</td>
+                      <td className="text-sm opacity-70">{b.espesor ? `${b.espesor} mm` : '—'}</td>
+                      <td className="text-sm opacity-70">{b.ancho ? `${b.ancho} mm` : '—'}</td>
                       <td className="text-right font-mono text-sm">
-                        {fmtUsd(b.subtotalUSD)} → {fmtEur(b.subtotalEUR)}
+                        {b.numRollos > 1
+                          ? <span>{b.numRollos}×{fmt(b.longitud, 0)} m<br /><span className="opacity-50">= {fmt(b.totalMetrosBobina, 0)} m</span></span>
+                          : `${fmt(b.totalMetrosBobina, 0)} m`
+                        }
+                      </td>
+                      <td className="text-right font-mono text-sm">
+                        {fmtUsd(b.subtotalUSD)}<br />
+                        <span className="opacity-60">{fmtEur(b.subtotalEUR)}</span>
+                      </td>
+                      <td className="text-right font-mono text-sm">
+                        {totalBobinasEUR > 0 ? fmt(b.subtotalEUR / totalBobinasEUR * 100, 1) : '0.0'}%
                       </td>
                       <td className="text-right font-mono">{fmtEur(b.gastosProrrateados)}</td>
                       <td className="text-right font-mono font-bold">{fmtEur(b.costeFinalEUR)}</td>
-                      <td className="text-right font-mono font-bold text-success text-base">{fmtEur(b.costePorMetro)}</td>
+                      <td className="text-right font-mono font-bold text-success text-base">
+                        {fmtEur(b.costePorMetro)}/m
+                      </td>
                     </tr>
                   ))}
                 </tbody>
-                {bobinasFinal.filter(b => b.metros > 0).length > 1 && (
+                {bobinasFinal.filter(b => b.totalMetrosBobina > 0).length > 1 && (
                   <tfoot>
                     <tr className="font-bold border-t-2 border-base-content/20">
-                      <td>Total</td>
-                      <td className="text-right font-mono">{fmt(totalMetros, 1)} m</td>
-                      <td className="text-right font-mono">{fmtUsd(totalBobinasUSD)} → {fmtEur(totalBobinasEUR)}</td>
-                      <td className="text-right font-mono">{fmtEur(totalGastosBase)}</td>
-                      <td className="text-right font-mono">{fmtEur(totalSinIva)}</td>
+                      <td colSpan={3}>Total</td>
+                      <td className="text-right font-mono">{fmt(totalMetros, 0)} m</td>
+                      <td className="text-right font-mono">
+                        {fmtUsd(totalBobinasUSD)}<br />
+                        <span className="font-normal opacity-60">{fmtEur(totalBobinasEUR)}</span>
+                      </td>
+                      <td className="text-right font-mono">100 %</td>
+                      <td className="text-right font-mono">{fmtEur(gastosRepercutibles)}</td>
+                      <td className="text-right font-mono">{fmtEur(costeProducto)}</td>
                       <td className="text-right font-mono text-success">
-                        {fmtEur(totalMetros > 0 ? totalSinIva / totalMetros : 0)}/m
+                        {fmtEur(totalMetros > 0 ? costeProducto / totalMetros : 0)}/m
                       </td>
                     </tr>
                   </tfoot>
                 )}
               </table>
             </div>
-            <p className="text-xs text-base-content/40 mt-2">
-              Los gastos se prorratean proporcionalmente a los metros de cada bobina.
-            </p>
           </div>
         </div>
       )}
