@@ -18,7 +18,7 @@ export async function sendEmail({ to, subject, html, attachments = [] }) {
 
     try {
         const data = await resend.emails.send({
-            from: 'CRM Taller <onboarding@resend.dev>', // Usar dominio de prueba de Resend por defecto
+            from: process.env.RESEND_FROM || 'CRM Taller <onboarding@resend.dev>',
             to,
             subject,
             html,

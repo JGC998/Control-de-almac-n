@@ -1,27 +1,35 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { exportarPresupuestosExcel } from '@/lib/export';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-    try {
-        const presupuestos = await db.presupuesto.findMany({
-            include: { cliente: true },
-            orderBy: { fechaCreacion: 'desc' }
-        });
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+  const rl = checkRateLimit(`export-presupuestos:${ip}`, 10);
+  if (!rl.allowed) {
+    return NextResponse.json({ message: 'Demasiadas peticiones' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+  }
 
-        const buffer = await exportarPresupuestosExcel(presupuestos);
+  try {
+    const presupuestos = await db.presupuesto.findMany({
+      take: 5000,
+      include: { cliente: true },
+      orderBy: { fechaCreacion: 'desc' },
+    });
 
-        return new NextResponse(buffer, {
-            headers: {
-                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition': `attachment; filename="presupuestos-${new Date().toISOString().split('T')[0]}.xlsx"`,
-            },
-        });
-    } catch (error) {
-        logApiError(error, 'Error exportando presupuestos:');
-        return NextResponse.json({ message: 'Error al exportar' }, { status: 500 });
-    }
+    const buffer = await exportarPresupuestosExcel(presupuestos);
+
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="presupuestos-${new Date().toISOString().split('T')[0]}.xlsx"`,
+      },
+    });
+  } catch (error) {
+    logApiError(error, 'Error exportando presupuestos:');
+    return NextResponse.json({ message: 'Error al exportar' }, { status: 500 });
+  }
 }

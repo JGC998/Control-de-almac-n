@@ -156,14 +156,14 @@ export default function PaginaGestion({
                     <div className="flex gap-1">
                         <button
                             onClick={() => abrirModalEditar(fila)}
-                            className="btn btn-sm btn-ghost text-info"
+                            className="btn btn-sm btn-ghost text-info min-h-[44px] touch-manipulation"
                             title="Editar"
                         >
                             <Edit className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => handleEliminar(fila.id)}
-                            className="btn btn-sm btn-ghost text-error"
+                            className="btn btn-sm btn-ghost text-error min-h-[44px] touch-manipulation"
                             title="Eliminar"
                         >
                             <Trash2 className="w-4 h-4" />

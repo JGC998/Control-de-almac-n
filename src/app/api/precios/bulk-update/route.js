@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
@@ -13,32 +13,31 @@ export async function POST(request) {
       return NextResponse.json({ message: 'El porcentaje es requerido' }, { status: 400 });
     }
 
-    // Calculamos el factor multiplicador (ej: 10% -> 1.10, -5% -> 0.95)
-    const factor = 1 + (parseFloat(percentage) / 100);
-    
-    let result = 0;
-
-    // IMPORTANTE: Usamos executeRawUnsafe para que SQLite reconozca bien los nombres
-    if (!material || material === 'TODOS') {
-        // Actualizar TODOS
-        result = await db.$executeRawUnsafe(`UPDATE TarifaMaterial SET precio = precio * ${factor}`);
-    } else {
-        // Actualizar SOLO un material específico
-        // NOTA: En SQL puro los strings van entre comillas simples
-        result = await db.$executeRawUnsafe(`UPDATE TarifaMaterial SET precio = precio * ${factor} WHERE material = '${material}'`);
+    const parsedPct = parseFloat(percentage);
+    if (isNaN(parsedPct) || parsedPct < -99 || parsedPct > 1000) {
+      return NextResponse.json({ message: 'Porcentaje fuera de rango permitido (-99 a 1000)' }, { status: 400 });
     }
 
-    // En SQLite con Prisma, el resultado suele ser el número de filas afectadas
-    // Si devuelve un objeto, intentamos sacar el contador
-    const count = typeof result === 'number' ? result : (result?.count || 0);
+    const factor = 1 + (parsedPct / 100);
+    const whereClause = (!material || material === 'TODOS') ? {} : { material: String(material) };
 
-    return NextResponse.json({ 
-        message: 'Precios actualizados correctamente', 
-        count: count 
+    const tarifas = await db.tarifaMaterial.findMany({
+      where: whereClause,
+      select: { id: true, precio: true },
     });
 
+    await db.$transaction(
+      tarifas.map(t =>
+        db.tarifaMaterial.update({
+          where: { id: t.id },
+          data: { precio: Number((t.precio * factor).toFixed(4)) },
+        })
+      )
+    );
+
+    return NextResponse.json({ message: 'Precios actualizados correctamente', count: tarifas.length });
   } catch (error) {
     logApiError(error, 'Error en bulk-update:');
-    return NextResponse.json({ message: "Error interno" }, { status: 500 });
+    return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }
 }

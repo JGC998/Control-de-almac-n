@@ -118,7 +118,7 @@ export default function TablaDatos({
                                 <td>
                                     <Link
                                         href={`${rutaBase}/${fila[campoEnlace]}`}
-                                        className="btn btn-sm btn-ghost btn-outline"
+                                        className="btn btn-sm btn-ghost btn-outline min-h-[44px] touch-manipulation"
                                     >
                                         Ver <Search className="w-4 h-4" />
                                     </Link>

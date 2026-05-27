@@ -169,24 +169,3 @@ export async function POST(request) {
     return NextResponse.json({ message: "Error en la subida y registro del documento" }, { status: 500 });
   }
 }
-
-
-// DELETE /api/documentos (Implementación base)
-export async function DELETE(request) {
-  try {
-    const { id } = await request.json(); // Esperamos el ID para la eliminación
-
-    if (!id) {
-      return NextResponse.json({ message: 'ID del documento requerido.' }, { status: 400 });
-    }
-
-    // La lógica de borrado del archivo físico debe estar en 
-    // /api/documentos/[id]/route.js (DELETE) para mayor seguridad y mejor patrón REST.
-
-    return NextResponse.json({ message: 'DELETE a /api/documentos/route.js no implementado. Use /api/documentos/[id]' }, { status: 405 });
-
-  } catch (error) {
-    logApiError(error, 'Error en DELETE /api/documentos:');
-    return NextResponse.json({ message: 'Error en la solicitud de eliminación.' }, { status: 500 });
-  }
-}

@@ -1,43 +1,39 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
-import { db } from '@/lib/db'; 
+import { db } from '@/lib/db';
 import fs from 'fs/promises';
 import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-// Función de utilidad para manejar tipos
-const getSafeString = (value) => {
-    return (typeof value === 'string' && value.trim() !== '') ? value.trim() : null;
-};
+const getSafeString = (value) =>
+  (typeof value === 'string' && value.trim() !== '') ? value.trim() : null;
 
-// GET /api/maquinaria/procesos - Obtiene los procesos estáticos (JSON) y las notas de procesos (DB)
+// GET /api/maquinaria/procesos
 export async function GET() {
   try {
-    // 1. Leer los procesos estáticos desde JSON
-    const jsonPath = path.join(process.cwd(), 'src', 'data', 'procesos.json');
-    const staticData = await fs.readFile(jsonPath, 'utf-8');
-    const staticProcesos = JSON.parse(staticData);
-    
-    // 2. Obtener la documentación de procesos dinámica de la DB
+    let staticProcesos = [];
+    try {
+      const jsonPath = path.join(process.cwd(), 'src', 'data', 'procesos.json');
+      const staticData = await fs.readFile(jsonPath, 'utf-8');
+      staticProcesos = JSON.parse(staticData);
+    } catch {
+      // procesos.json no existe en este entorno — continuar con array vacío
+    }
+
     const dynamicProcesos = await db.documento.findMany({
-      where: {
-        tipo: 'PROCESO'
-      },
-      orderBy: { fechaSubida: 'desc' }
+      where: { tipo: 'PROCESO' },
+      orderBy: { fechaSubida: 'desc' },
     });
 
-    return NextResponse.json({
-        procesosEstaticos: staticProcesos,
-        procesosDinamicos: dynamicProcesos
-    });
+    return NextResponse.json({ procesosEstaticos: staticProcesos, procesosDinamicos: dynamicProcesos });
   } catch (error) {
     logApiError(error, 'Error al obtener datos de procesos:');
     return NextResponse.json({ message: 'Error al obtener datos de procesos' }, { status: 500 });
   }
 }
 
-// POST /api/maquinaria/procesos - Crea una nueva nota/proceso interno en la DB
+// POST /api/maquinaria/procesos
 export async function POST(request) {
   try {
     const data = await request.json();
@@ -47,18 +43,16 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Título, Descripción y Máquina son requeridos.' }, { status: 400 });
     }
 
-    // Guardar como Documento de tipo 'PROCESO'
     const nuevoProceso = await db.documento.create({
       data: {
         tipo: 'PROCESO',
         referencia: titulo,
         descripcion: descripcion,
-        rutaArchivo: `INTERNAL_NOTE_${Date.now()}`, // Usamos un ID de nota como ruta simulada
-        version: '1.0',
+        rutaArchivo: `INTERNAL_NOTE_${Date.now()}`,
         maquinaUbicacion: maquina,
       },
     });
-    
+
     return NextResponse.json(nuevoProceso, { status: 201 });
   } catch (error) {
     logApiError(error, 'Error al crear el proceso interno:');

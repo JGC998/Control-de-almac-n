@@ -74,17 +74,24 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         doc.text(formattedDate, 38, 42);
 
         // --- Info Cliente ---
-        doc.rect(14, 55, 90, 28);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Cliente:", 20, 61);
+        const cBoxX = 14, cBoxY = 55, cBoxW = 90, cLineH = 6;
+        const cTextX = 20, cMaxW = cBoxW - 12;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        if (client) {
-            doc.text(client.nombre, 20, 67);
-            doc.text(client.direccion || 'Dirección no especificada', 20, 73);
-            doc.text(client.email || 'Email no especificado', 20, 79);
-        }
+        const cNombreLines = client ? doc.splitTextToSize(client.nombre || 'Sin cliente', cMaxW) : ['Sin cliente'];
+        const cDirLines = client && client.direccion ? doc.splitTextToSize(client.direccion, cMaxW) : [];
+        const cEmailLines = client && client.email ? doc.splitTextToSize(client.email, cMaxW) : [];
+        const cAllLines = [...cNombreLines, ...cDirLines, ...cEmailLines];
+        const cBoxH = Math.max(28, 10 + cAllLines.length * cLineH + 4);
+        doc.rect(cBoxX, cBoxY, cBoxW, cBoxH);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Cliente:", cTextX, cBoxY + 6);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        let cLineY = cBoxY + 13;
+        cAllLines.forEach(line => { doc.text(line, cTextX, cLineY); cLineY += cLineH; });
+        const tableStartY = cBoxY + cBoxH + 7;
 
         // --- Tabla de Items ---
         // NOTA: Se asume que los items ya vienen con los cálculos de venta (unitPriceVenta, etc)
@@ -127,7 +134,7 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
-            startY: 90,
+            startY: tableStartY,
             theme: 'grid'
         });
 

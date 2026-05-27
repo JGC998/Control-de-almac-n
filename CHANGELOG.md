@@ -5,6 +5,33 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-05-27
+
+### Auditoría de seguridad — 2ª ronda (10 hallazgos corregidos)
+
+- ✅ **CRÍTICO-01** — SQL injection en `bulk-update/route.js` eliminado: `$executeRawUnsafe` con interpolación directa reemplazado por ORM (`findMany` + `$transaction` de updates individuales) con validación de rango del porcentaje
+- ✅ **BUG-06** — `config-paletizado/route.js`: imports faltantes (`NextResponse`, `db`, `logApiError`) restaurados + handler GET añadido (estaba ausente)
+- ✅ **BACK-01** — `utilidades.js`: `console.error` reemplazado por `logApiError`; eliminado "Consulte logs." del mensaje de error 500
+- ✅ **API-01** — `plantillas/[id]/route.js`: eliminado `parseInt(uuid)` que convertía IDs de string a `NaN` antes de la query Prisma
+- ✅ **BUG-03** — `documentos/route.js`: eliminado handler DELETE falso que parseaba el body pero devolvía 405
+- ✅ **BUG-05 + BACK-04** — `maquinaria/procesos/route.js`: campo `version` inexistente eliminado de `db.documento.create`; GET con try/catch y fallback silencioso `[]` para `procesos.json`
+- ✅ **BACK-03 + SEC-04** — `/api/pedidos/export` y `/api/presupuestos/export`: `take: 5000` para evitar volcados ilimitados + rate limiting (10 req/min por IP)
+- ✅ **BUG-01** — `receive-order/route.js`: campos inexistentes eliminados de `tx.stock.create` (`fechaEntrada`, `ubicacion`, `metrosInicialesPorBobina`) y de `movimientos.create` (`referencia`) que causaban crash en runtime
+- ✅ **BACK-02 + BACK-05** — `pedidos-proveedores-data/[id]/route.js`: DELETE reescrito (queries por campo `referencia` inexistente causaban crash); PUT con validación Zod del body; eliminado campo `color` inexistente en `BobinaPedido`
+- ✅ **SEC-03** — `email.js`: campo `from` usa `process.env.RESEND_FROM` en lugar de dirección hardcodeada
+- ✅ `REVIEW.md` creado con 22 hallazgos documentados (1 crítico, 4 altos, 9 medios, 8 bajos)
+- ✅ `ROADMAP.md` generado con fases, quick wins, dependencias y T-20 (tablet)
+
+### Roadmap — quick wins y UX (T-06, T-07, T-08, T-09, T-20)
+
+- ✅ **T-09** — Botón "Enviar Email" en detalle de pedido: ya estaba eliminado (verificado)
+- ✅ **T-08** — Botón "Imprimir PDF" en detalle de pedido: ya estaba implementado (verificado)
+- ✅ **T-06** — Hub Configuración: ya usaba `HubPage` correctamente (verificado)
+- ✅ **T-07** — `pdfGenerator.js` `generateBudgetPDF`: caja de cliente con altura fija reemplazada por `splitTextToSize` con altura dinámica; tabla baja automáticamente según líneas del cliente
+- ✅ **T-20** — Responsive tablet en `Encabezado.js`: dropdowns del topnav responden a touch (botón chevron hace toggle al tocar, cierra al pulsar fuera con `useEffect`, `onClose` al navegar desde el dropdown); `min-h-[44px] touch-manipulation` en botones Editar/Eliminar de `PaginaGestion.jsx` y botón "Ver" de `TablaDatos.jsx`
+
+---
+
 ## 2026-05-21
 
 ### Rama: `refactorizacion`

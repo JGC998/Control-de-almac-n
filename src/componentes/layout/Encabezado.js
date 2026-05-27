@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import useSWR from 'swr';
@@ -145,7 +145,7 @@ function DropdownLink({ link, pathname, onClick }) {
 }
 
 // Dropdown con grupos (dos columnas)
-function GroupedDropdown({ item, pathname }) {
+function GroupedDropdown({ item, pathname, onClose }) {
   return (
     <div className="flex gap-0">
       {item.groups.map((group, i) => (
@@ -155,7 +155,7 @@ function GroupedDropdown({ item, pathname }) {
           </div>
           <ul className="pb-1">
             {group.links.map(link => (
-              <DropdownLink key={link.label} link={link} pathname={pathname} />
+              <DropdownLink key={link.label} link={link} pathname={pathname} onClick={onClose} />
             ))}
           </ul>
         </div>
@@ -165,39 +165,45 @@ function GroupedDropdown({ item, pathname }) {
 }
 
 // Dropdown con lista plana
-function FlatDropdown({ item, pathname }) {
+function FlatDropdown({ item, pathname, onClose }) {
   return (
     <ul className="min-w-44 py-1">
       {item.links.map(link => (
-        <DropdownLink key={link.label} link={link} pathname={pathname} />
+        <DropdownLink key={link.label} link={link} pathname={pathname} onClick={onClose} />
       ))}
     </ul>
   );
 }
 
 // Wrapper: label como link al hub + toda el área activa como trigger del dropdown
-function NavDropdown({ item, pathname, isOpen, onOpen }) {
+function NavDropdown({ item, pathname, isOpen, onOpen, onToggle, onClose }) {
   const active = sectionIsActive(item, pathname);
   const hasGroups = Boolean(item.groups);
 
   return (
     <div className="relative" onMouseEnter={onOpen}>
       <div
-        className={`flex items-center gap-0.5 h-9 px-2 rounded-btn cursor-pointer select-none
+        className={`flex items-center gap-0.5 h-9 px-2 rounded-btn select-none
           hover:bg-base-200 transition-colors text-sm font-medium
           ${active ? 'text-primary' : 'text-base-content'}`}
       >
-        <Link href={item.hub} className="px-1 py-1">
+        <Link href={item.hub} className="px-1 py-1 cursor-pointer" onClick={onClose}>
           {item.label}
         </Link>
-        <ChevronDown className="w-3 h-3 opacity-40 mt-0.5" />
+        <button
+          onClick={(e) => { e.preventDefault(); onToggle(); }}
+          className="p-0.5 rounded hover:bg-base-300 touch-manipulation"
+          aria-label={`Menú ${item.label}`}
+        >
+          <ChevronDown className={`w-3 h-3 opacity-40 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
       </div>
 
       {isOpen && (
         <div className="absolute top-full left-0 bg-base-100 rounded-box z-50 shadow-xl border border-base-200 mt-0.5 overflow-hidden">
           {hasGroups
-            ? <GroupedDropdown item={item} pathname={pathname} />
-            : <FlatDropdown item={item} pathname={pathname} />
+            ? <GroupedDropdown item={item} pathname={pathname} onClose={onClose} />
+            : <FlatDropdown item={item} pathname={pathname} onClose={onClose} />
           }
         </div>
       )}
@@ -211,6 +217,17 @@ export default function Encabezado() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeNav, setActiveNav] = useState(null);
   const configActive = pathname.startsWith('/configuracion');
+  const navRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        setActiveNav(null);
+      }
+    }
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const { data: authStatus } = useSWR('/api/auth/status');
   const authRequired = authStatus?.required ?? false;
@@ -235,6 +252,7 @@ export default function Encabezado() {
 
         {/* Desktop nav */}
         <nav
+          ref={navRef}
           className="flex-1 hidden lg:flex items-center gap-0"
           onMouseLeave={() => setActiveNav(null)}
         >
@@ -255,6 +273,8 @@ export default function Encabezado() {
                 pathname={pathname}
                 isOpen={activeNav === item.label}
                 onOpen={() => setActiveNav(item.label)}
+                onToggle={() => setActiveNav(prev => prev === item.label ? null : item.label)}
+                onClose={() => setActiveNav(null)}
               />
             )
           )}
