@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingDown } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingDown, Package2 } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -31,6 +31,13 @@ export default function HerramientasHub() {
           titulo: 'Calculadora inversa',
           descripcion: 'Parte del precio de venta deseado y calcula el coste máximo admisible o el margen resultante.',
           accion: 'Calcular inverso',
+        },
+        {
+          href: '/herramientas/calculadora-contenedor',
+          icon: Package2,
+          titulo: 'Coste de contenedor',
+          descripcion: 'Desglose de gastos de importación (suplidos, exentos, sujetos) y cálculo del coste real por metro lineal de cada bobina.',
+          accion: 'Calcular contenedor',
         },
       ]}
     />

@@ -7,7 +7,7 @@
 
 ## 🎯 Visión general
 
-El proyecto está desplegado en producción con VeriFactu, facturas rectificativas y pedidos internos completados. El siguiente bloque prioritario es el rediseño visual del CRM y una mini-app de tablet para el almacén (consulta de tarifas, calculadora rápida de precios). A medio plazo: calculadora de envíos mejorada, filtros avanzados e informes PDF. A fin de año: VeriFactu D2 directo al webservice AEAT.
+El proyecto está desplegado en producción. Las Fases 2, 3 y 4 están completadas (rendimiento, rediseño visual, mini-app tablet, filtros, informes por cliente). El siguiente bloque inmediato es la calculadora de coste real de contenedores importados (T-31), que permite desglosar gastos de importación y calcular el coste por metro lineal. A medio plazo: búsqueda global, acciones en bloque. A fin de año: VeriFactu D2 directo al webservice AEAT.
 
 ---
 
@@ -15,19 +15,13 @@ El proyecto está desplegado en producción con VeriFactu, facturas rectificativ
 
 | ID | Tarea | Tipo | Complejidad | Depende de |
 |----|-------|------|-------------|------------|
-| T-29 | Rediseño visual: mejora general de CSS/UI del CRM | Frontend | Grande | — |
-| T-30 | Mini-app tablet: modo kiosco para almacén (tarifas + calculadora) | Frontend/Backend | Grande | — |
-| T-10 | Calculadora de Envíos: desglose + botón "añadir al pedido" + UX | Frontend | Media | — |
-| T-11 | Dashboard: panel "Facturas pendientes de cobro" | Frontend/Backend | Media | — |
-| T-12 | Informes: botón "Exportar a PDF" en página de informes | Frontend/Backend | Media | — |
-| T-13 | Informes: informe de ventas por período y por cliente | Backend | Media | — |
-| T-14 | Listas: filtros por fecha, cliente e importe en pedidos/presupuestos | Frontend | Media | — |
-| T-15 | Búsqueda global: NIF, referencia, importe; resultados agrupados; Ctrl+K | Frontend/Backend | Grande | — |
-| T-16 | Acciones en bloque: selección múltiple, exportar, eliminar | Frontend/Backend | Grande | T-14 |
+| T-31 | Calculadora coste contenedor: desglose suplidos/exentos/sujetos + coste real €/metro | Frontend/Backend | Media | — |
 | T-17 | Email: envío de facturas y albaranes | Backend | Media | — |
 | T-18 | Stock: descuento automático al pasar albarán a ENTREGADO | Backend | Media | — |
-| T-19 | VeriFactu D2: envío directo al webservice AEAT | Backend | Grande | — |
+| T-15 | Búsqueda global: NIF, referencia, importe; resultados agrupados; Ctrl+K | Frontend/Backend | Grande | T-28-ext |
+| T-16 | Acciones en bloque: selección múltiple, exportar, eliminar | Frontend/Backend | Grande | T-14 |
 | T-28-ext | Búsqueda global: full-text index MySQL | Backend/DB | Grande | — |
+| T-19 | VeriFactu D2: envío directo al webservice AEAT | Backend | Grande | — |
 
 ---
 
@@ -35,57 +29,29 @@ El proyecto está desplegado en producción con VeriFactu, facturas rectificativ
 
 ---
 
-### Fase 3 — Diseño y experiencia visual
-> Mejorar el aspecto general del CRM y crear la mini-app de tablet para el almacén.
+### Fase 5 — Herramienta de costes de importación *(próxima)*
+> Calculadora standalone para desglosar el coste real de un contenedor importado. Estimación: 2–4 horas.
 
-- [x] **T-29** — Rediseño visual del CRM ✅  
-  _KPICard rediseñado con iconos coloreados y sub-texto. TablaDatos con table-zebra, estado vacío con icono Inbox, cabecera en uppercase/tracking. globals.css: scrollbar sutil, focus ring, transición en filas, print styles._
-
-- [x] **T-30** — Mini-app tablet para el almacén ✅  
-  _`/tablet` con layout propio (sin nav CRM). Tres tabs táctiles: Tarifas (material/rollo con búsqueda), Stock (con semáforo de nivel), Calculadora (precio al momento con IVA y peso estimado)._
-
----
-
-### Fase 4 — Quick wins UX ✅
-> Todos los quick wins de UX completados.
-
-- [x] **T-10** — Calculadora de Envíos: mejoras ✅
-- [x] **T-11** — Dashboard: panel "Facturas pendientes de cobro" ✅  
-  _API devuelve `facturasPendientes` con lista, total, vencidas. Componente `PanelFacturasPendientes` con semáforo de vencimiento._
-- [x] **T-14** — Filtros combinados en pedidos ✅  
-  _`FiltroBusqueda` refactorizado a URL params. Nuevo `FiltroFechas` (desde/hasta). Pedidos filtra por búsqueda + estado + rango de fechas._
-- [x] **T-12** — Informes: exportar a PDF ✅  
-  _Botón "PDF" con `window.print()` en tab "Por Cliente". Print styles en globals.css._
-- [x] **T-13** — Informes: ventas por cliente + rango de fechas ✅  
-  _Nuevo tipo `ventas-por-cliente` en API. Tab "Por Cliente" con selector de cliente + fechas desde/hasta + tabla de pedidos + totales._
+- [ ] **T-31** — Calculadora de coste de contenedor importado  
+  _Nueva herramienta en `/herramientas/calculadora-contenedor` (o dentro de la vista de pedido proveedor). Permite introducir bobinas con precio en $ y metros lineales, tasa de cambio $/€, y gastos de importación desglosados en tres tipos:_
+  - **Suplidos** — gastos del agente/transitario (handling, B/L, almacenaje puerto). Sin IVA.
+  - **Exentos** — aranceles e impuestos pagados en aduana. Sin IVA.
+  - **Sujetos** — transporte nacional, descarga en taller. Con IVA (21%).
+  
+  _Output: coste final por metro lineal para cada bobina (prorrateo proporcional a metros); desglose total en €; posibilidad de guardar/actualizar en el PedidoProveedor correspondiente._
+  
+  _Nota: el modelo `PedidoProveedor` ya tiene `gastosTotales` y `tasaCambio`. Habrá que valorar si se añaden campos `suplidos`, `exentos`, `sujetos` al schema o si se queda como calculadora sin persistencia._
 
 ---
 
-### Fase 5 — Funcionalidades de valor *(próxima)*
-> Features que añaden valor real al flujo diario. Estimación: 1–2 semanas.
+### Fase 6 — Features avanzadas
+> Funcionalidades bloqueadas o de largo plazo. Estimación: indeterminada.
 
-- [ ] **T-12** — Informes: exportar a PDF  
-  _Botón en la página de informes que capture los datos y los empaquete como PDF descargable._
+- [ ] **T-17** — Email: facturas y albaranes *(bloqueado — modelos no en rama dev)*  
+  _La API `sendEmail` ya existe. Implementar rutas `/api/facturas/[id]/email` y `/api/albaranes/[id]/email` cuando esas entidades estén disponibles en `dev`._
 
-- [ ] **T-13** — Informes: más períodos y por cliente  
-  _Ampliar `/api/informes` con `ventas-por-cliente` y `ventas-por-período-personalizado`. Añadir selector de rango de fechas en la UI._
-
-- [ ] **T-14** — Filtros combinados en listas  
-  _Filtros por rango de fechas, cliente e importe en pedidos y presupuestos. Persistidos en URL para poder compartir/volver._
-
-- [ ] **T-11** — Dashboard: panel "Facturas pendientes de cobro"  
-  _Sección en el dashboard con facturas EMITIDA próximas a vencer o ya vencidas._
-
-- [ ] **T-17** — Email: facturas y albaranes *(bloqueado — requiere merge de rama refactorizacion)*  
-  _La API `sendEmail` ya existe. Implementar rutas `/api/facturas/[id]/email` y `/api/albaranes/[id]/email` cuando esas entidades estén en `dev`._
-
-- [ ] **T-18** — Stock: descuento automático al marcar albarán como ENTREGADO *(bloqueado — requiere albaranes en dev)*  
+- [ ] **T-18** — Stock: descuento automático al marcar albarán como ENTREGADO *(bloqueado — albaranes no en dev)*  
   _Al cambiar estado de albarán a ENTREGADO, descontar automáticamente los metros del stock correspondiente._
-
----
-
-### Fase 6 — Features avanzadas *(a partir de año nuevo)*
-> Funcionalidades que requieren estabilidad de las fases anteriores.
 
 - [ ] **T-15** — Búsqueda global mejorada  
   _Buscar por NIF, referencia de producto e importe. Resultados agrupados. Atajo Ctrl+K. Depende de T-28-ext (full-text index) para buen rendimiento con catálogos grandes._
@@ -103,24 +69,23 @@ El proyecto está desplegado en producción con VeriFactu, facturas rectificativ
 
 ## ⚡ Quick wins — hacer ahora
 
-- [x] **T-10a** — Calculadora de envíos: desglose visual tras calcular ✅
-- [x] **T-10b** — Calculadora de envíos: botón "Añadir al pedido" ✅
+- [ ] **T-31** — Calculadora coste contenedor (~3-4 horas) — **nueva prioridad**
 
 ---
 
 ## 🚧 Dependencias y bloqueos
 
-- **T-30** (mini-app tablet) puede desarrollarse en paralelo al CRM principal — comparte la API pero tiene su propia capa de UI.
-- **T-29** (rediseño visual) conviene hacerlo antes de T-30 para establecer el sistema de diseño común.
+- **T-17 y T-18** bloqueados hasta que los modelos de facturas/albaranes se integren en `dev`.
 - **T-19** requiere decisión previa sobre certificado FNMT (en servidor vs navegador del usuario).
-- **T-16** depende conceptualmente de que **T-14** (filtros) esté hecho primero.
-- **T-15** se beneficia enormemente de **T-28-ext** (full-text index) — sin él la búsqueda hace full scans.
+- **T-16** depende conceptualmente de que **T-14** (filtros) esté hecho primero. ✅ T-14 completado.
+- **T-15** requiere **T-28-ext** (full-text index) para buen rendimiento con catálogos grandes.
+- **T-31** puede implementarse como calculadora sin persistencia (más rápido) o con cambios de schema (más completo). Decisión previa necesaria.
 
 ---
 
 ## 💡 Ideas descartadas o pospuestas
 
-- **Envío directo AEAT en 2026** — pospuesto a 2027 (T-19). El flujo manual XML funciona perfectamente para la fase actual.
+- **Envío directo AEAT en 2026** — pospuesto a 2027 (T-19). El flujo manual XML funciona perfectamente.
 - **Multi-empresa** — el sistema es mono-empresa por diseño. Sin planes de cambio.
 - **Selector de temas** — eliminado por hydration mismatch con Next.js App Router. Tema Corporate fijo.
 
@@ -159,32 +124,33 @@ El proyecto está desplegado en producción con VeriFactu, facturas rectificativ
 - Rama `dev` creada desde `refactorizacion`, facturas/albaranes/VeriFactu eliminados, build OK en producción con MySQL real
 
 ### Auditoría de seguridad — 2ª ronda (10 hallazgos — REVIEW.md)
-- CRITICO-01: SQL injection en `bulk-update` eliminado (ORM + validación de rango)
-- BUG-06: imports faltantes en `config-paletizado` restaurados + GET handler
-- BACK-01: `console.error` reemplazado por `logApiError` en `utilidades.js`
-- API-01: `parseInt(uuid)` eliminado en `plantillas/[id]`
-- BUG-03: handler DELETE falso en `documentos` eliminado
-- BUG-05 + BACK-04: campo `version` inexistente eliminado + `procesos.json` con fallback silencioso
-- BACK-03 + SEC-04: `take: 5000` + rate limit en exports Excel
-- BUG-01: campos inexistentes eliminados de `receive-order` (`fechaEntrada`, `ubicacion`, `referencia`)
-- BACK-02 + BACK-05: DELETE `pedidos-proveedores` arreglado (sin crash) + Zod en PUT
-- SEC-03: `from` en email.js usa `RESEND_FROM` env var
+- CRITICO-01: SQL injection en `bulk-update` eliminado
+- BUG-06: imports faltantes en `config-paletizado` restaurados
+- BACK-01 a SEC-04: 8 fixes adicionales de seguridad y backend
 
-### Fase 2 — Quick wins UX (T-06, T-07, T-08, T-09, T-20) ✅
-- T-06: Hub Configuración ya usa `HubPage` correctamente (verificado)
-- T-07: `generateBudgetPDF` — caja de cliente con altura dinámica (`splitTextToSize`)
-- T-08: Botón "Imprimir PDF" en detalle de pedido (ya implementado, verificado)
-- T-09: Botón "Enviar Email" ya eliminado del detalle de pedido (verificado)
-- T-20: Dropdowns topnav con toggle touch + click-outside + `min-h-[44px]` en botones tabla
+### Fase 2 — Quick wins UX (T-06 a T-09, T-20) ✅
+- T-07: `generateBudgetPDF` — caja de cliente con altura dinámica
+- T-20: Dropdowns topnav responsive tablet + `min-h-[44px]` en botones
 
 ### Fase 2 — Rendimiento y bugs críticos (T-21 al T-28) ✅
-- T-28: BUG eliminado — `_count: { albaranes: true }` en `GET /api/pedidos` (relación inexistente)
-- T-21+T-22: KPIs aggregate — 3× `findMany+reduce` → `db.pedido.aggregate` en `informes/route.js`
-- T-23: Top-clientes — `findMany` de toda la tabla → `db.pedido.groupBy` en DB (top 20)
-- T-24: Ventas-por-producto — añadido `take: 5000` en `db.pedidoItem.findMany`
-- T-25: `clientes/[id]/resumen` — `take: 50` en listas + `aggregate`/`count` para stats reales
-- T-26: `pedidos-proveedores` GET — paginación básica `take: 50`, respuesta `{ data, meta }`
-- T-27: Dashboard — `refreshWhenHidden: false, refreshWhenOffline: false` en `useSWR`
+- T-28 BUG: `_count.albaranes` inexistente eliminado de `GET /api/pedidos`
+- T-21+T-22: KPIs → `db.pedido.aggregate` en paralelo
+- T-23: Top-clientes → `db.pedido.groupBy` en DB (top 20)
+- T-24: Ventas-por-producto → `take: 5000`
+- T-25: `clientes/resumen` → `take: 50` + `aggregate`/`count`
+- T-26: `pedidos-proveedores` GET → paginación `{data, meta}`
+- T-27: Dashboard `useSWR` → `refreshWhenHidden: false`
+
+### Fase 3 — Diseño y experiencia visual ✅
+- T-29: Rediseño visual — KPICard, TablaDatos, globals.css, print styles
+- T-30: Mini-app tablet `/tablet` — Tarifas, Stock, Calculadora de precios
+
+### Fase 4 — Quick wins UX ✅
+- T-10: Calculadora de Envíos — desglose visual + botón "Añadir al pedido"
+- T-11: Dashboard — panel `PanelFacturasPendientes` con semáforo de vencimiento
+- T-12: Informes — exportar a PDF con `window.print()` + print styles
+- T-13: Informes — nuevo tab "Por Cliente" + API `ventas-por-cliente` con rango de fechas
+- T-14: Pedidos — filtros `FiltroBusqueda` + `FiltroFechas` persistidos en URL
 
 ---
 
