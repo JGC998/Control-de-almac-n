@@ -140,7 +140,7 @@ export default function TemplateManager({ onLoadTemplate, currentItems, currentM
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {templates.map(t => (
+                                        {(templates ?? []).map(t => (
                                             <div key={t.id} className="card bg-base-200 hover:bg-base-300 transition-colors border border-base-300 cursor-pointer group"
                                                 onClick={() => {
                                                     if (confirm('¿Cargar esta plantilla reemplazará los items actuales. Continuar?')) {

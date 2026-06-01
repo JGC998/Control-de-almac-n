@@ -6,9 +6,9 @@ import { z } from 'zod';
 const cartaPorteSchema = z.object({
   expedidor:    z.object({ nombre: z.string().min(1) }).passthrough(),
   destinatario: z.object({ nombre: z.string().min(1) }).passthrough(),
-  mercancias:   z.array(z.object({ descripcion: z.string().min(1) })).min(1),
+  mercancias:   z.array(z.object({ descripcion: z.string().min(1) }).passthrough()).min(1),
   detalles:     z.object({}).passthrough().optional(),
-  pales:        z.array(z.object({})).optional(),
+  pales:        z.array(z.object({}).passthrough()).optional(),
 });
 
 export async function POST(request) {
