@@ -98,10 +98,10 @@ export async function PUT(request) {
   }
 }
 
-// DELETE /api/tarifas-cliente
+// DELETE /api/tarifas-cliente?id=xxx
 export async function DELETE(request) {
   try {
-    const { id } = await request.json();
+    const id = new URL(request.url).searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ error: 'id requerido' }, { status: 400 });

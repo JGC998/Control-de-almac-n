@@ -33,19 +33,19 @@ export default function CampanaNotificaciones() {
   }, []);
 
   async function marcarLeida(id) {
-    await fetch(`/api/notificaciones/${id}`, { method: 'PATCH' });
-    mutate('/api/notificaciones');
+    const res = await fetch(`/api/notificaciones/${id}`, { method: 'PATCH' });
+    if (res.ok) mutate('/api/notificaciones');
   }
 
   async function marcarTodasLeidas() {
-    await fetch('/api/notificaciones', { method: 'PATCH' });
-    mutate('/api/notificaciones');
+    const res = await fetch('/api/notificaciones', { method: 'PATCH' });
+    if (res.ok) mutate('/api/notificaciones');
   }
 
   async function eliminar(id, e) {
     e.stopPropagation();
-    await fetch(`/api/notificaciones/${id}`, { method: 'DELETE' });
-    mutate('/api/notificaciones');
+    const res = await fetch(`/api/notificaciones/${id}`, { method: 'DELETE' });
+    if (res.ok) mutate('/api/notificaciones');
   }
 
   return (

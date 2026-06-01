@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { FileText, Plus, Trash2, Download, Package, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 
-const fetcher = (url) => fetch(url).then(r => r.json());
+import { fetcher } from '@/lib/fetcher';
 
 const AGENCIAS = ['SEUR', 'DHL', 'MRW', 'GLS', 'Correos Express', 'ASM', 'TNT', 'UPS', 'Otro'];
 

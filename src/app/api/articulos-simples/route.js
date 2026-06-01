@@ -15,6 +15,7 @@ export async function GET(request) {
         ...(!incluirInactivos && { activo: true }),
       },
       orderBy: [{ categoria: 'asc' }, { nombre: 'asc' }],
+      take: 500,
     });
     return NextResponse.json(articulos);
   } catch (error) {

@@ -8,7 +8,7 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const fetcher = url => fetch(url).then(r => r.json());
+import { fetcher } from '@/lib/fetcher';
 
 export default function LogViewer({ defaultEntity = '' }) {
     const [page, setPage] = useState(1);

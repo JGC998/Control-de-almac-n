@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Package2, Plus, Trash2, Calculator, Info, Save, History, X, ChevronDown, ChevronUp } from 'lucide-react';
 
-const fetcher = url => fetch(url).then(r => r.json());
+import { fetcher } from '@/lib/fetcher';
 
 const nuevaBobina = (id) => ({
   id,
@@ -253,14 +253,17 @@ export default function CalculadoraContenedorPage() {
 
   const handleCargarImportacion = (imp) => {
     try {
-      const bobs = JSON.parse(imp.bobinas);
+      const bobs = typeof imp.bobinas === 'string' ? JSON.parse(imp.bobinas) : imp.bobinas;
+      if (!Array.isArray(bobs)) throw new Error('Formato inválido');
       setBobinas(bobs.map((b, i) => ({ ...b, id: i + 1 })));
       setNextId(bobs.length + 1);
       setTasaCambio(String(imp.tasaCambio));
       setSuplidos(String(imp.suplidos));
       setExentos(String(imp.exentos));
       setSujetos(String(imp.sujetos));
-    } catch {}
+    } catch {
+      alert('No se pudieron cargar los datos de esta importación.');
+    }
   };
 
   const hayResultados = totalMetros > 0 && bobinasFinal.some(b => b.totalMetrosBobina > 0);

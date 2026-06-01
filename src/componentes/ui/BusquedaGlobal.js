@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
@@ -38,8 +38,11 @@ export default function BusquedaGlobal({ open, onClose }) {
     shouldRetryOnError: false,
   });
 
-  // Flatten para navegación por teclado
-  const flatResults = results.map(r => ({ ...r, path: TYPE_CONFIG[r.type]?.getPath(r) })).filter(r => r.path);
+  // Flatten para navegación por teclado (memoizado para evitar re-suscripciones al keydown)
+  const flatResults = useMemo(
+    () => (results ?? []).map(r => ({ ...r, path: TYPE_CONFIG[r.type]?.getPath(r) })).filter(r => r.path),
+    [results]
+  );
 
   useEffect(() => {
     if (open) {

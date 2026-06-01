@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Save, Download, Trash2, Plus, FileText, X } from 'lucide-react';
 
-const fetcher = url => fetch(url).then(r => r.json());
+import { fetcher } from '@/lib/fetcher';
 
 export default function TemplateManager({ onLoadTemplate, currentItems, currentMarginId }) {
     const [isOpen, setIsOpen] = useState(false);

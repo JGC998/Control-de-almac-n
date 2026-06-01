@@ -67,9 +67,10 @@ export async function GET() {
         ultimaFecha: datos[datos.length - 1]?.fecha,
         ultimoUsdPorMetro: datos[datos.length - 1]?.usdPorMetro,
         ultimoCostePorMetroEUR: datos[datos.length - 1]?.costePorMetroEUR,
-        variacionPct: datos.length >= 2
-          ? parseFloat(((datos[datos.length - 1].usdPorMetro - datos[0].usdPorMetro) / datos[0].usdPorMetro * 100).toFixed(1))
-          : 0,
+        variacionPct: (() => {
+          if (datos.length < 2 || datos[0].usdPorMetro === 0) return 0;
+          return parseFloat(((datos[datos.length - 1].usdPorMetro - datos[0].usdPorMetro) / datos[0].usdPorMetro * 100).toFixed(1));
+        })(),
         datos,
       }))
       .sort((a, b) => new Date(b.ultimaFecha) - new Date(a.ultimaFecha));

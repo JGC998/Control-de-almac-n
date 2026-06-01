@@ -7,7 +7,7 @@ import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, Tre
 import ClientEditModal from '@/componentes/modales/ModalEditarCliente';
 import { formatCurrency } from '@/utils/utilidades';
 
-const fetcher = url => fetch(url).then(r => r.json());
+import { fetcher } from '@/lib/fetcher';
 
 function SeccionTarifas({ clienteId }) {
   const { data: tarifas, mutate } = useSWR(`/api/tarifas-cliente?clienteId=${clienteId}`, fetcher);

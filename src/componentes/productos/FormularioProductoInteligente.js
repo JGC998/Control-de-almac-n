@@ -54,10 +54,15 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     setTarifaEncontrada(false);
     if (!material) return;
     setCargando(true);
-    const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(material)}`);
-    const d = await r.json();
-    setOpciones(prev => ({ ...prev, espesores: d.espesores ?? [] }));
-    setCargando(false);
+    try {
+      const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(material)}`);
+      const d = await r.json();
+      setOpciones(prev => ({ ...prev, espesores: d.espesores ?? [] }));
+    } catch {
+      // red caída — sin espesores disponibles
+    } finally {
+      setCargando(false);
+    }
   }, []);
 
   // Cuando cambia el espesor → cargar colores + tarifa
@@ -67,15 +72,18 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     setTarifaEncontrada(false);
     if (!espesor || !form.material) return;
     setCargando(true);
-    const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(form.material)}&espesor=${espesor}`);
-    const d = await r.json();
-    // Guardamos todas las tarifas para poder buscar por color después
-    setOpciones(prev => ({ ...prev, colores: d.colores ?? [], tarifas: d.tarifas ?? [], tarifa: d.tarifas?.[0] ?? null }));
-    // Si solo hay una tarifa sin color → autocompletar precio
-    if (d.tarifas?.length === 1 && !d.colores?.length) {
-      aplicarTarifa(d.tarifas[0], form.ancho, form.largo);
+    try {
+      const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(form.material)}&espesor=${espesor}`);
+      const d = await r.json();
+      setOpciones(prev => ({ ...prev, colores: d.colores ?? [], tarifas: d.tarifas ?? [], tarifa: d.tarifas?.[0] ?? null }));
+      if (d.tarifas?.length === 1 && !d.colores?.length) {
+        aplicarTarifa(d.tarifas[0], form.ancho, form.largo);
+      }
+    } catch {
+      // red caída — sin colores/tarifas disponibles
+    } finally {
+      setCargando(false);
     }
-    setCargando(false);
   }, [form.material, form.ancho, form.largo]);
 
   // Cuando cambia el color → buscar la tarifa exacta en la lista completa
@@ -150,9 +158,9 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       }
       const saved = await res.json();
 
-      // Si el material no tenía tarifa → crear notificación
+      // Si el material no tenía tarifa → crear notificación (fire-and-forget: no bloquea el guardado)
       if (!tarifaEncontrada && form.material) {
-        await fetch('/api/notificaciones', {
+        fetch('/api/notificaciones', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -161,7 +169,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
             tipo: 'PENDIENTE',
             url: '/configuracion/margenes',
           }),
-        });
+        }).catch(() => {});
       }
 
       if (onGuardado) onGuardado(saved);
