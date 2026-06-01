@@ -470,6 +470,16 @@ model PresupuestoTemplate {
   updatedAt   DateTime @updatedAt
 }
 
+model Notificacion {
+  id       String   @id @default(uuid())
+  titulo   String
+  mensaje  String
+  tipo     String   @default("PENDIENTE")
+  leida    Boolean  @default(false)
+  url      String?
+  creadaEn DateTime @default(now())
+}
+
 model ArticuloSimple {
   id             String   @id @default(uuid())
   nombre         String

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import BarraBusqueda from '@/componentes/ui/BarraBusqueda';
 import BusquedaGlobal from '@/componentes/ui/BusquedaGlobal';
+import CampanaNotificaciones from '@/componentes/ui/CampanaNotificaciones';
 
 // Secciones con grupos (dos bloques en el dropdown)
 // Secciones con links planos (lista simple)
@@ -307,6 +308,11 @@ export default function Encabezado() {
             <span className="hidden xl:block">Buscar...</span>
             <kbd className="kbd kbd-xs hidden xl:inline-flex">Ctrl+K</kbd>
           </button>
+
+          {/* Notificaciones */}
+          <div className="hidden lg:block">
+            <CampanaNotificaciones />
+          </div>
 
           {/* Configuración → hub */}
           <div

@@ -397,6 +397,19 @@ model ImportacionContenedor {
   @@index([creadaEn])
 }
 
+model Notificacion {
+  id       String   @id @default(uuid())
+  titulo   String
+  mensaje  String   @db.Text
+  tipo     String   @default("PENDIENTE") // INFO | PENDIENTE | ALERTA
+  leida    Boolean  @default(false)
+  url      String?
+  creadaEn DateTime @default(now())
+
+  @@index([leida])
+  @@index([creadaEn])
+}
+
 model ArticuloSimple {
   id             String   @id @default(uuid())
   nombre         String
