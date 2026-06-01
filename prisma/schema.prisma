@@ -55,7 +55,6 @@ model Pedido {
   presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id])
   items       PedidoItem[]
 
-  @@index([clienteId])
   @@index([estado])
   @@index([fechaCreacion])
 }
@@ -73,8 +72,6 @@ model PedidoItem {
   pedido   Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
-  @@index([pedidoId])
-  @@index([productoId])
 }
 
 model Presupuesto {
@@ -93,7 +90,6 @@ model Presupuesto {
   items   PresupuestoItem[]
   pedido  Pedido?
 
-  @@index([clienteId])
   @@index([estado])
   @@index([fechaCreacion])
 }
@@ -111,8 +107,6 @@ model PresupuestoItem {
   presupuesto Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
   producto    Producto?   @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
-  @@index([presupuestoId])
-  @@index([productoId])
 }
 
 model Proveedor {
@@ -147,7 +141,6 @@ model MovimientoStock {
   stockId   String?
   stockItem Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
 
-  @@index([stockId])
   @@index([fecha])
 }
 
@@ -185,8 +178,6 @@ model BobinaPedido {
   referenciaId String?
   referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
 
-  @@index([pedidoId])
-  @@index([referenciaId])
 }
 
 model ReferenciaBobina {
@@ -250,7 +241,6 @@ model Documento {
 
   @@unique([referencia, rutaArchivo])
   @@index([tipo])
-  @@index([productoId])
   @@map("Documento")
 }
 
@@ -323,8 +313,6 @@ model Producto {
   tarifasCliente TarifaCliente[]
 
   @@index([nombre])
-  @@index([fabricanteId])
-  @@index([materialId])
   @@fulltext([nombre], map: "Producto_nombre_fulltext")
 }
 
@@ -421,7 +409,6 @@ model TarifaCliente {
   activa         Boolean   @default(true)
   creadaEn       DateTime  @default(now())
 
-  @@index([clienteId])
 }
 
 
