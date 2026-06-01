@@ -212,6 +212,36 @@ export const tacoBatchUpdateSchema = z.object({
 });
 
 // ============================================
+// VALIDACIONES PARA ARTÍCULOS SIMPLES
+// ============================================
+
+export const articuloSimpleSchema = z.object({
+  nombre: z.string().min(1, 'Nombre requerido').max(200),
+  categoria: z.enum(['CORDON', 'BORDE_ONDULADO', 'OTRO'], {
+    errorMap: () => ({ message: 'Categoría inválida' }),
+  }).default('OTRO'),
+  unidad: z.enum(['M', 'UDS', 'KG', 'ML'], {
+    errorMap: () => ({ message: 'Unidad inválida' }),
+  }).default('UDS'),
+  precioUnitario: z.coerce.number().nonnegative('Precio no puede ser negativo').default(0),
+  costoUnitario: z.coerce.number().nonnegative().optional().nullable(),
+  fabricante: z.string().max(200).optional().nullable(),
+  descripcion: z.string().max(500).optional().nullable(),
+  activo: z.boolean().optional().default(true),
+});
+
+export const articuloSimplePatchSchema = z.object({
+  nombre: z.string().min(1).max(200).optional(),
+  categoria: z.enum(['CORDON', 'BORDE_ONDULADO', 'OTRO']).optional(),
+  unidad: z.enum(['M', 'UDS', 'KG', 'ML']).optional(),
+  precioUnitario: z.coerce.number().nonnegative().optional(),
+  costoUnitario: z.coerce.number().nonnegative().optional().nullable(),
+  fabricante: z.string().max(200).optional().nullable(),
+  descripcion: z.string().max(500).optional().nullable(),
+  activo: z.boolean().optional(),
+});
+
+// ============================================
 // VALIDACIONES PARA DESCUENTOS
 // ============================================
 

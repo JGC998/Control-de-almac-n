@@ -64,6 +64,11 @@ export default function TablaDatos({
     if (datos.length === 0 && colapsable) return null;
 
     const renderCelda = (fila, columna) => {
+        // Si la columna define su propio render, usarlo directamente
+        if (typeof columna.render === 'function') {
+            return columna.render(fila);
+        }
+
         const valor = obtenerValorAnidado(fila, columna.clave);
 
         // Formatos especiales

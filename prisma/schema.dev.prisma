@@ -470,6 +470,19 @@ model PresupuestoTemplate {
   updatedAt   DateTime @updatedAt
 }
 
+model ArticuloSimple {
+  id             String   @id @default(uuid())
+  nombre         String
+  categoria      String   @default("OTRO") // CORDON | BORDE_ONDULADO | OTRO
+  unidad         String   @default("UDS")  // M | UDS | KG | ML
+  precioUnitario Float    @default(0)
+  costoUnitario  Float?
+  fabricante     String?
+  descripcion    String?
+  activo         Boolean  @default(true)
+  creadoEn       DateTime @default(now())
+}
+
 model TarifaCliente {
   id             String    @id @default(uuid())
   clienteId      String
