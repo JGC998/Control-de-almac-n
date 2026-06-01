@@ -325,7 +325,7 @@ model Producto {
   @@index([nombre])
   @@index([fabricanteId])
   @@index([materialId])
-  @@fulltext([nombre])
+  @@fulltext([nombre], map: "Producto_nombre_fulltext")
 }
 
 model Taco {
