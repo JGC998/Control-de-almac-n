@@ -18,6 +18,14 @@ const fetcher = async (url) => {
 export default function RootLayout({ children }) {
   return (
     <html lang="es" data-theme="corporate" suppressHydrationWarning={true}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1d1d1d" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="CRM Taller" />
+        <link rel="apple-touch-icon" href="/logo-crm.png" />
+      </head>
       <body className="antialiased min-h-screen bg-base-100">
         <SWRConfig
           value={{

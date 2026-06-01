@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { logApiError } from '@/lib/logger';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -11,8 +12,6 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
  */
 export async function sendEmail({ to, subject, html, attachments = [] }) {
     if (!resend) {
-        console.warn('⚠️ RESEND_API_KEY no configurada. Simulando envío de email.');
-        console.log(`📧 Simulando envío a: ${to} | Asunto: ${subject}`);
         return { success: true, simulated: true };
     }
 
@@ -27,7 +26,7 @@ export async function sendEmail({ to, subject, html, attachments = [] }) {
 
         return { success: true, data };
     } catch (error) {
-        console.error('❌ Error enviando email:', error);
+        logApiError(error, 'Error enviando email');
         return { success: false, error };
     }
 }

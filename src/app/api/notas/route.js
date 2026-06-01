@@ -13,7 +13,7 @@ export async function GET() {
     });
     return NextResponse.json(notas);
   } catch (error) {
-    logApiError(error);
+    logApiError(error, 'GET /api/notas');
     return NextResponse.json({ message: 'Error al obtener notas' }, { status: 500 });
   }
 }
@@ -31,7 +31,7 @@ export async function POST(request) {
     });
     return NextResponse.json(newNote, { status: 201 });
   } catch (error) {
-    logApiError(error);
+    logApiError(error, 'POST /api/notas');
     return NextResponse.json({ message: 'Error al crear la nota' }, { status: 500 });
   }
 }
@@ -50,7 +50,7 @@ export async function DELETE(request) {
 
     return NextResponse.json({ message: 'Nota eliminada con éxito' }, { status: 200 });
   } catch (error) {
-    logApiError(error);
+    logApiError(error, 'DELETE /api/notas');
     return NextResponse.json({ message: 'Error al eliminar la nota' }, { status: 500 });
   }
 }

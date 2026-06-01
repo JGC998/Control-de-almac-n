@@ -1,0 +1,31 @@
+{
+  "name": "CRM Taller",
+  "short_name": "CRM",
+  "description": "Gestión de pedidos, stock y taller",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1d1d1d",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/logo-crm.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nuevo pedido",
+      "url": "/pedidos/nuevo",
+      "description": "Crear un nuevo pedido de cliente"
+    },
+    {
+      "name": "Stock",
+      "url": "/tablet",
+      "description": "App de taller — stock y pedidos"
+    }
+  ]
+}

@@ -48,7 +48,7 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
         });
       }
 
-      const records = await model.findMany(options.findMany || {});
+      const records = await model.findMany({ take: 500, ...(options.findMany || {}) });
       return NextResponse.json(records);
     } catch (e) {
       return manejarErrorApi(e);
@@ -58,6 +58,17 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
   const POST = async (request) => {
     try {
       const data = await request.json();
+
+      if (options.zodSchema) {
+        const result = options.zodSchema.safeParse(data);
+        if (!result.success) {
+          return NextResponse.json(
+            { message: 'Datos inválidos', errors: result.error.flatten().fieldErrors },
+            { status: 400 }
+          );
+        }
+      }
+
       const finalData = options.mapearCrear ? options.mapearCrear(data) : data;
       const newRecord = await model.create({ data: finalData });
 

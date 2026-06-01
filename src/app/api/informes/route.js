@@ -37,6 +37,7 @@ export async function GET(request) {
           where: { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: inicio, lt: fin } },
           select: { fechaCreacion: true, total: true },
           orderBy: { fechaCreacion: 'asc' },
+          take: 10000,
         });
         const byMonth = {};
         for (const p of pedidos) {
@@ -204,6 +205,111 @@ export async function GET(request) {
         ...p,
         diasEspera: Math.floor((Date.now() - new Date(p.fechaCreacion).getTime()) / 86_400_000),
       })));
+    }
+
+    // ── Margen real por pedido (T-39) ──────────────────────────────────────
+    if (tipo === 'margen-pedidos') {
+      const desde = searchParams.get('desde');
+      const hasta = searchParams.get('hasta');
+
+      const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });
+      const IVA_MARGEN = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
+
+      const where = { estado: { notIn: EXCLUIDOS } };
+      if (desde || hasta) {
+        where.fechaCreacion = {};
+        if (desde) where.fechaCreacion.gte = new Date(desde);
+        if (hasta) { const h = new Date(hasta); h.setHours(23,59,59,999); where.fechaCreacion.lte = h; }
+      }
+
+      const pedidos = await db.pedido.findMany({
+        where,
+        select: {
+          id: true, numero: true, fechaCreacion: true, estado: true, total: true,
+          cliente: { select: { id: true, nombre: true } },
+          items: { select: { quantity: true, unitPrice: true } },
+        },
+        orderBy: { fechaCreacion: 'desc' },
+        take: 2000,
+      });
+
+      const result = pedidos.map(p => {
+        const totalSinIVA = (p.total ?? 0) / (1 + IVA_MARGEN);
+        const totalCoste = (p.items ?? []).reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
+        const margen = totalSinIVA - totalCoste;
+        const pctMargen = totalSinIVA > 0 ? (margen / totalSinIVA * 100) : 0;
+        return {
+          id: p.id, numero: p.numero,
+          fecha: p.fechaCreacion, estado: p.estado,
+          clienteId: p.cliente?.id ?? null,
+          clienteNombre: p.cliente?.nombre ?? '—',
+          totalVenta: parseFloat(totalSinIVA.toFixed(2)),
+          totalCoste: parseFloat(totalCoste.toFixed(2)),
+          margen: parseFloat(margen.toFixed(2)),
+          pctMargen: parseFloat(pctMargen.toFixed(1)),
+        };
+      });
+
+      return NextResponse.json(result);
+    }
+
+    // ── Rentabilidad por cliente (T-40) ────────────────────────────────────
+    if (tipo === 'rentabilidad-clientes') {
+      const desdeRent = searchParams.get('desde');
+      const hastaRent = searchParams.get('hasta');
+
+      const whereRent = { estado: { notIn: EXCLUIDOS }, clienteId: { not: null } };
+      if (desdeRent || hastaRent) {
+        whereRent.fechaCreacion = {};
+        if (desdeRent) whereRent.fechaCreacion.gte = new Date(desdeRent);
+        if (hastaRent) { const h = new Date(hastaRent); h.setHours(23,59,59,999); whereRent.fechaCreacion.lte = h; }
+      }
+
+      const ivaConfigRent = await db.config.findUnique({ where: { key: 'iva_rate' } });
+      const IVA_RENT = ivaConfigRent?.value ? parseFloat(String(ivaConfigRent.value)) : 0.21;
+
+      const pedidos = await db.pedido.findMany({
+        where: whereRent,
+        select: {
+          id: true, total: true,
+          cliente: { select: { id: true, nombre: true } },
+          items: { select: { quantity: true, unitPrice: true } },
+        },
+        take: 5000,
+      });
+
+      const byCliente = {};
+
+      for (const p of pedidos) {
+        const cid = p.cliente?.id;
+        if (!cid) continue;
+        if (!byCliente[cid]) {
+          byCliente[cid] = {
+            clienteId: cid,
+            nombre: p.cliente.nombre,
+            numPedidos: 0,
+            totalFacturado: 0,
+            totalCoste: 0,
+          };
+        }
+        const totalSinIVA = (p.total ?? 0) / (1 + IVA_RENT);
+        const totalCoste = (p.items ?? []).reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
+        byCliente[cid].numPedidos += 1;
+        byCliente[cid].totalFacturado += totalSinIVA;
+        byCliente[cid].totalCoste += totalCoste;
+      }
+
+      const result = Object.values(byCliente).map(c => ({
+        ...c,
+        totalFacturado: parseFloat(c.totalFacturado.toFixed(2)),
+        totalCoste: parseFloat(c.totalCoste.toFixed(2)),
+        margen: parseFloat((c.totalFacturado - c.totalCoste).toFixed(2)),
+        pctMargen: c.totalFacturado > 0
+          ? parseFloat(((c.totalFacturado - c.totalCoste) / c.totalFacturado * 100).toFixed(1))
+          : 0,
+      })).sort((a, b) => b.margen - a.margen);
+
+      return NextResponse.json(result);
     }
 
     return NextResponse.json({ message: 'Tipo de informe no válido' }, { status: 400 });

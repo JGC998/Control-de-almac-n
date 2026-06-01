@@ -96,6 +96,7 @@ export async function GET(request) {
         },
       },
       orderBy: { fechaSubida: 'desc' },
+      take: 2000,
     });
 
     return NextResponse.json(documentos);

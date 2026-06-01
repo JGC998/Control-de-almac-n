@@ -172,6 +172,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null);
   const { data: todosProductos, error: prodError } = useSWR('/api/productos');
   const { data: config } = useSWR('/api/config');
+  const { data: tarifasCliente } = useSWR(clienteId ? `/api/tarifas-cliente?clienteId=${clienteId}` : null);
 
   const isCatalogLoading = !clientes || (isMarginRequired && !margenes) || !todosProductos;
 
@@ -434,13 +435,11 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
               </div>
 
               <div className="flex gap-2 items-center">
-                {formType === 'PRESUPUESTO' && (
-                  <TemplateManager
-                    onLoadTemplate={handleLoadTemplate}
-                    currentItems={items}
-                    currentMarginId={selectedMarginId}
-                  />
-                )}
+                <TemplateManager
+                  onLoadTemplate={handleLoadTemplate}
+                  currentItems={items}
+                  currentMarginId={selectedMarginId}
+                />
               </div>
             </div>
 
@@ -455,6 +454,31 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                   <button type="button" className="btn btn-square btn-primary"><Search className="w-4 h-4" /></button>
                 </div>
                 {!clienteId && <span className="text-xs text-gray-500 mt-1 ml-1">Clic para buscar o crear</span>}
+                {clienteId && tarifasCliente?.length > 0 && (
+                  <div className="mt-2 p-2 bg-primary/5 border border-primary/20 rounded-lg">
+                    <p className="text-xs font-semibold text-primary mb-1">Tarifas pactadas con este cliente:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {tarifasCliente.filter(t => t.activa).map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className="badge badge-outline badge-primary badge-sm cursor-pointer hover:badge-primary hover:text-primary-content"
+                          title={`Añadir línea: ${t.descripcion} — ${t.precioEspecial} €`}
+                          onClick={() => setItems(prev => [...prev, {
+                            id: Date.now() + Math.random(),
+                            descripcion: t.descripcion,
+                            quantity: 1,
+                            unitPrice: t.precioEspecial,
+                            productoId: t.productoId || null,
+                            pesoUnitario: 0,
+                          }])}
+                        >
+                          + {t.descripcion} ({t.precioEspecial} €)
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {formType === 'PEDIDO' && !isEditMode && (

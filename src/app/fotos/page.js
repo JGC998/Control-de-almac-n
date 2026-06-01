@@ -8,6 +8,7 @@ const FotosPage = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [stream, setStream] = useState(null);
   const [photos, setPhotos] = useState([]);
+  const [errorMsg, setErrorMsg] = useState(null);
   const videoRef = useRef(null);
   const photoRef = useRef(null);
 
@@ -36,7 +37,7 @@ const FotosPage = () => {
       const data = await response.json();
       setPhotos(data);
     } catch (error) {
-      console.error('Error fetching photos:', error);
+      setErrorMsg('Error al cargar las fotos. Inténtalo de nuevo.');
     }
   };
 
@@ -47,8 +48,7 @@ const FotosPage = () => {
       setStream(mediaStream);
       setCameraActive(true);
     } catch (err) {
-      console.error("Error accessing camera: ", err);
-      alert("No se pudo acceder a la cámara. Asegúrate de haber dado permisos.");
+      setErrorMsg("No se pudo acceder a la cámara. Asegúrate de haber dado permisos.");
     }
   };
 
@@ -93,14 +93,20 @@ const FotosPage = () => {
       const data = await response.json();
       alert(`Foto guardada en: ${data.path}`);
     } catch (error) {
-      console.error('Error saving photo:', error);
-      alert('Error al guardar la foto.');
+      setErrorMsg('Error al guardar la foto. Inténtalo de nuevo.');
     }
   };
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">Gestión de Fotos</h1>
+
+      {errorMsg && (
+        <div className="alert alert-error mb-4">
+          <span>{errorMsg}</span>
+          <button className="btn btn-xs btn-ghost" onClick={() => setErrorMsg(null)}>✕</button>
+        </div>
+      )}
 
       {!isMobile && (
         <p className="text-red-500 mb-4">

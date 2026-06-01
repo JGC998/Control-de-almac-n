@@ -3,11 +3,12 @@ import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, Legend,
+  CartesianGrid, Legend, LineChart, Line,
 } from 'recharts';
 import {
   BarChart2, Users, Package, Download, TrendingUp,
   TrendingDown, Clock, ShoppingCart, FileText, AlertCircle, Printer,
+  DollarSign, Package2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
@@ -445,13 +446,385 @@ function VentasPorCliente() {
   );
 }
 
+// ── Margen real por pedido (T-39) ────────────────────────────────────────────
+function MargenPedidos() {
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+
+  const params = new URLSearchParams({ tipo: 'margen-pedidos' });
+  if (desde) params.set('desde', desde);
+  if (hasta) params.set('hasta', hasta);
+
+  const { data, error, isLoading } = useSWR(`/api/informes?${params}`);
+
+  const resumen = useMemo(() => {
+    if (!data?.length) return null;
+    const totalVenta = data.reduce((s, p) => s + p.totalVenta, 0);
+    const totalCoste = data.reduce((s, p) => s + p.totalCoste, 0);
+    const margen = totalVenta - totalCoste;
+    return {
+      totalVenta: parseFloat(totalVenta.toFixed(2)),
+      totalCoste: parseFloat(totalCoste.toFixed(2)),
+      margen: parseFloat(margen.toFixed(2)),
+      pctMargen: totalVenta > 0 ? parseFloat((margen / totalVenta * 100).toFixed(1)) : 0,
+      numPedidos: data.length,
+    };
+  }, [data]);
+
+  return (
+    <div>
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <DollarSign className="w-5 h-5 text-success" /> Margen real por pedido
+        </h2>
+        <button className="btn btn-sm btn-outline" onClick={() => exportCSV(data, 'margen-pedidos.csv')} disabled={!data?.length}>
+          <Download className="w-4 h-4" /> CSV
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-4 p-3 bg-base-200 rounded-lg">
+        <div>
+          <label className="label py-1"><span className="label-text text-xs">Desde</span></label>
+          <input type="date" className="input input-bordered input-sm" value={desde} onChange={e => setDesde(e.target.value)} />
+        </div>
+        <div>
+          <label className="label py-1"><span className="label-text text-xs">Hasta</span></label>
+          <input type="date" className="input input-bordered input-sm" value={hasta} onChange={e => setHasta(e.target.value)} />
+        </div>
+        {(desde || hasta) && (
+          <div className="flex items-end">
+            <button className="btn btn-ghost btn-sm" onClick={() => { setDesde(''); setHasta(''); }}>Limpiar</button>
+          </div>
+        )}
+      </div>
+
+      {resumen && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="stat bg-base-200 rounded-xl py-3">
+            <div className="stat-title text-xs">Pedidos analizados</div>
+            <div className="stat-value text-lg">{resumen.numPedidos}</div>
+          </div>
+          <div className="stat bg-base-200 rounded-xl py-3">
+            <div className="stat-title text-xs">Total venta (sin IVA)</div>
+            <div className="stat-value text-lg">{formatCurrency(resumen.totalVenta)}</div>
+          </div>
+          <div className="stat bg-base-200 rounded-xl py-3">
+            <div className="stat-title text-xs">Total coste</div>
+            <div className="stat-value text-lg text-warning">{formatCurrency(resumen.totalCoste)}</div>
+          </div>
+          <div className="stat bg-success text-success-content rounded-xl py-3">
+            <div className="stat-title text-xs opacity-80">Margen bruto</div>
+            <div className="stat-value text-lg">{formatCurrency(resumen.margen)}</div>
+            <div className="stat-desc opacity-80">{resumen.pctMargen}% sobre venta</div>
+          </div>
+        </div>
+      )}
+
+      {isLoading && <div className="flex justify-center py-12"><span className="loading loading-dots loading-lg" /></div>}
+      {error && <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar los datos</span></div>}
+
+      {data && (
+        <div className="overflow-x-auto">
+          <table className="table table-sm w-full">
+            <thead>
+              <tr>
+                <th>Número</th>
+                <th>Cliente</th>
+                <th>Fecha</th>
+                <th className="text-right">Coste</th>
+                <th className="text-right">Venta (s/IVA)</th>
+                <th className="text-right text-success">Margen €</th>
+                <th className="text-right text-success">Margen %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map(p => (
+                <tr key={p.id} className="hover">
+                  <td><Link href={`/pedidos/${p.id}`} className="link link-primary font-mono text-sm">{p.numero}</Link></td>
+                  <td className="text-sm">
+                    {p.clienteId
+                      ? <Link href={`/gestion/clientes/${p.clienteId}`} className="link link-hover">{p.clienteNombre}</Link>
+                      : p.clienteNombre}
+                  </td>
+                  <td className="text-sm text-base-content/50">{new Date(p.fecha).toLocaleDateString('es-ES')}</td>
+                  <td className="text-right font-mono text-sm">{formatCurrency(p.totalCoste)}</td>
+                  <td className="text-right font-mono text-sm">{formatCurrency(p.totalVenta)}</td>
+                  <td className={`text-right font-mono font-bold ${p.margen >= 0 ? 'text-success' : 'text-error'}`}>
+                    {formatCurrency(p.margen)}
+                  </td>
+                  <td className="text-right">
+                    <span className={`badge badge-sm ${p.pctMargen >= 20 ? 'badge-success' : p.pctMargen >= 10 ? 'badge-warning' : 'badge-error'}`}>
+                      {p.pctMargen}%
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {data.length === 0 && (
+                <tr><td colSpan={7} className="text-center text-base-content/40 py-8">Sin pedidos para mostrar</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Rentabilidad por cliente (T-40) ──────────────────────────────────────────
+function RentabilidadClientes() {
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+
+  const params = new URLSearchParams({ tipo: 'rentabilidad-clientes' });
+  if (desde) params.set('desde', desde);
+  if (hasta) params.set('hasta', hasta);
+
+  const { data, error, isLoading } = useSWR(`/api/informes?${params}`);
+  const top10 = data?.slice(0, 10) ?? [];
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-success" /> Rentabilidad por cliente
+        </h2>
+        <button className="btn btn-sm btn-outline" onClick={() => exportCSV(data, 'rentabilidad-clientes.csv')} disabled={!data?.length}>
+          <Download className="w-4 h-4" /> CSV
+        </button>
+      </div>
+
+      <p className="text-sm text-base-content/50 mb-4">
+        Margen = (Total venta sin IVA) − (Suma de costes unitarios de los ítems). Ordenado de más a menos rentable.
+      </p>
+
+      <div className="flex flex-wrap gap-3 mb-4 p-3 bg-base-200 rounded-lg">
+        <div>
+          <label className="label py-1"><span className="label-text text-xs">Desde</span></label>
+          <input type="date" className="input input-bordered input-sm" value={desde} onChange={e => setDesde(e.target.value)} />
+        </div>
+        <div>
+          <label className="label py-1"><span className="label-text text-xs">Hasta</span></label>
+          <input type="date" className="input input-bordered input-sm" value={hasta} onChange={e => setHasta(e.target.value)} />
+        </div>
+        {(desde || hasta) && (
+          <div className="flex items-end">
+            <button className="btn btn-ghost btn-sm" onClick={() => { setDesde(''); setHasta(''); }}>Limpiar</button>
+          </div>
+        )}
+      </div>
+
+      {isLoading && <div className="flex justify-center py-12"><span className="loading loading-dots loading-lg" /></div>}
+      {error && <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar los datos</span></div>}
+
+      {top10.length > 0 && (
+        <div className="h-64 w-full mb-6">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={top10} layout="vertical" margin={{ top: 5, right: 20, left: 130, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" tickFormatter={v => `${(v / 1000).toFixed(0)}k€`} tick={{ fontSize: 12 }} />
+              <YAxis type="category" dataKey="nombre" tick={{ fontSize: 11 }} width={125} />
+              <Tooltip formatter={v => formatCurrency(v)} />
+              <Legend />
+              <Bar dataKey="totalFacturado" name="Venta s/IVA" fill="#36D399" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="margen" name="Margen €" fill="#570DF8" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {data && (
+        <div className="overflow-x-auto">
+          <table className="table table-sm w-full">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Cliente</th>
+                <th className="text-right">Pedidos</th>
+                <th className="text-right">Venta s/IVA</th>
+                <th className="text-right">Coste</th>
+                <th className="text-right text-success">Margen €</th>
+                <th className="text-right text-success">Margen %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data ?? []).map((c, i) => (
+                <tr key={c.clienteId} className="hover">
+                  <td className="text-base-content/40 text-sm">{i + 1}</td>
+                  <td className="font-medium">
+                    <Link href={`/gestion/clientes/${c.clienteId}`} className="link link-hover">{c.nombre}</Link>
+                  </td>
+                  <td className="text-right">{c.numPedidos}</td>
+                  <td className="text-right font-mono">{formatCurrency(c.totalFacturado)}</td>
+                  <td className="text-right font-mono text-base-content/60">{formatCurrency(c.totalCoste)}</td>
+                  <td className={`text-right font-mono font-bold ${c.margen >= 0 ? 'text-success' : 'text-error'}`}>
+                    {formatCurrency(c.margen)}
+                  </td>
+                  <td className="text-right">
+                    <span className={`badge badge-sm ${c.pctMargen >= 20 ? 'badge-success' : c.pctMargen >= 10 ? 'badge-warning' : 'badge-error'}`}>
+                      {c.pctMargen}%
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {(!data || data.length === 0) && (
+                <tr><td colSpan={7} className="text-center text-base-content/40 py-8">Sin datos de rentabilidad</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Histórico de precios de proveedor (T-41) ──────────────────────────────────
+function HistoricoPrecios() {
+  const { data, error, isLoading } = useSWR('/api/importaciones/historico-bobinas');
+  const [refSeleccionada, setRefSeleccionada] = useState('');
+
+  const detalle = refSeleccionada
+    ? data?.find(r => r.referencia === refSeleccionada)
+    : null;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <Package2 className="w-5 h-5 text-warning" /> Histórico de precios por bobina
+        </h2>
+      </div>
+      <p className="text-sm text-base-content/50 mb-4">
+        Evolución del USD/M y del €/metro real (con prorrateo de gastos) de cada referencia de bobina importada.
+        Requiere tener importaciones guardadas en la calculadora de contenedor.
+      </p>
+
+      {isLoading && <div className="flex justify-center py-12"><span className="loading loading-dots loading-lg" /></div>}
+      {error && <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar el historial</span></div>}
+
+      {data?.length === 0 && (
+        <div className="text-center py-12 text-base-content/40">
+          <Package2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
+          <p>No hay importaciones guardadas todavía.</p>
+          <p className="text-sm mt-1">Guarda cálculos en la <Link href="/herramientas/calculadora-contenedor" className="link">calculadora de contenedor</Link> para ver la evolución.</p>
+        </div>
+      )}
+
+      {data && data.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Lista de referencias */}
+          <div className="lg:col-span-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-base-content/40 mb-2">Referencias</p>
+            <div className="space-y-1">
+              {data.map(r => (
+                <button
+                  key={r.referencia}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${refSeleccionada === r.referencia ? 'bg-primary text-primary-content' : 'hover:bg-base-200'}`}
+                  onClick={() => setRefSeleccionada(r.referencia === refSeleccionada ? '' : r.referencia)}
+                >
+                  <div className="font-medium truncate">{r.referencia}</div>
+                  <div className={`text-xs flex items-center gap-1 ${refSeleccionada === r.referencia ? 'opacity-70' : 'text-base-content/50'}`}>
+                    {r.numImportaciones} importac. ·{' '}
+                    {r.variacionPct !== 0 && (
+                      <span className={r.variacionPct > 0 ? 'text-error' : 'text-success'}>
+                        {r.variacionPct > 0 ? '▲' : '▼'} {Math.abs(r.variacionPct)}%
+                      </span>
+                    )}
+                    {r.variacionPct === 0 && 'sin variación'}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Detalle */}
+          <div className="lg:col-span-2">
+            {!refSeleccionada && (
+              <div className="flex items-center justify-center h-48 text-base-content/30 text-sm">
+                Selecciona una referencia para ver su evolución
+              </div>
+            )}
+
+            {detalle && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold">{detalle.referencia}</h3>
+                  <button className="btn btn-xs btn-outline" onClick={() => exportCSV(detalle.datos.map(d => ({
+                    fecha: new Date(d.fecha).toLocaleDateString('es-ES'),
+                    descripcion: d.importacionDesc || '',
+                    usdPorMetro: d.usdPorMetro,
+                    tasaCambio: d.tasaCambio,
+                    costePorMetroEUR: d.costePorMetroEUR,
+                    metros: d.totalMetros,
+                  })), `precios-${detalle.referencia}.csv`)}>
+                    <Download className="w-3 h-3" /> CSV
+                  </button>
+                </div>
+
+                {detalle.datos.length >= 2 && (
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={detalle.datos.map(d => ({
+                        fecha: new Date(d.fecha).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+                        'USD/M': d.usdPorMetro,
+                        '€/M real': d.costePorMetroEUR,
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="USD/M" stroke="#F59E0B" strokeWidth={2} dot />
+                        <Line type="monotone" dataKey="€/M real" stroke="#570DF8" strokeWidth={2} dot />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto">
+                  <table className="table table-xs w-full">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Importación</th>
+                        <th className="text-right">USD/M</th>
+                        <th className="text-right">TC</th>
+                        <th className="text-right text-success">€/M real</th>
+                        <th className="text-right">Metros</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detalle.datos.map((d, i) => (
+                        <tr key={i} className="hover">
+                          <td className="font-mono text-xs">{new Date(d.fecha).toLocaleDateString('es-ES')}</td>
+                          <td className="text-xs text-base-content/60 max-w-[140px] truncate">{d.importacionDesc || '—'}</td>
+                          <td className="text-right font-mono">{d.usdPorMetro.toFixed(4)}</td>
+                          <td className="text-right font-mono text-xs text-base-content/50">{d.tasaCambio.toFixed(4)}</td>
+                          <td className="text-right font-mono font-bold text-success">{d.costePorMetroEUR.toFixed(4)} €</td>
+                          <td className="text-right font-mono text-xs">{d.totalMetros} m</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Página ───────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'mensuales', label: 'Ventas por Mes', icon: BarChart2, component: VentasMensuales },
-  { id: 'clientes', label: 'Top Clientes', icon: Users, component: TopClientes },
-  { id: 'por-cliente', label: 'Por Cliente', icon: FileText, component: VentasPorCliente },
-  { id: 'productos', label: 'Por Producto', icon: Package, component: VentasPorProducto },
-  { id: 'seguimiento', label: 'Sin Respuesta', icon: AlertCircle, component: PresupuestosSinRespuesta },
+  { id: 'mensuales',    label: 'Ventas por Mes',    icon: BarChart2,    component: VentasMensuales },
+  { id: 'clientes',    label: 'Top Clientes',       icon: Users,        component: TopClientes },
+  { id: 'por-cliente', label: 'Por Cliente',        icon: FileText,     component: VentasPorCliente },
+  { id: 'productos',   label: 'Por Producto',       icon: Package,      component: VentasPorProducto },
+  { id: 'seguimiento', label: 'Sin Respuesta',      icon: AlertCircle,  component: PresupuestosSinRespuesta },
+  { id: 'margen',      label: 'Margen por Pedido',  icon: DollarSign,   component: MargenPedidos },
+  { id: 'rentabilidad',label: 'Rentabilidad',       icon: TrendingUp,   component: RentabilidadClientes },
+  { id: 'precios-imp', label: 'Precios Importación',icon: Package2,     component: HistoricoPrecios },
 ];
 
 export default function InformesPage() {

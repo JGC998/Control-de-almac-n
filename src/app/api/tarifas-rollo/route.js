@@ -7,6 +7,7 @@ export async function GET() {
   try {
     const tarifas = await db.tarifaRollo.findMany({
       orderBy: [{ material: 'asc' }, { espesor: 'asc' }],
+      take: 2000,
     });
     return NextResponse.json(tarifas);
   } catch (error) {

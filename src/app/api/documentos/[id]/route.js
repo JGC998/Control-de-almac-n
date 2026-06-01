@@ -96,6 +96,12 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ message: 'Tipo, Referencia y Ruta del Archivo son requeridos.' }, { status: 400 });
     }
 
+    // SEC — Prevenir path traversal: la ruta debe ser relativa a /planos/
+    const rutaSegura = getSafeString(rutaArchivo);
+    if (!rutaSegura.startsWith('/planos/') || rutaSegura.includes('..')) {
+      return NextResponse.json({ message: 'Ruta de archivo inválida.' }, { status: 400 });
+    }
+
     const updatedDocumento = await db.documento.update({
       where: { id: id },
       data: {

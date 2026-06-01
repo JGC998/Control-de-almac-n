@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Plus, Ban, ReceiptText } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Plus, Ban, ReceiptText, ClipboardList } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
 
@@ -240,6 +240,9 @@ export default function PedidoDetalle() {
         <button onClick={handlePrintPDF} className="btn btn-outline gap-1">
           <Printer className="w-4 h-4" /> Imprimir PDF
         </button>
+        <Link href={`/pedidos/${id}/nota-trabajo`} className="btn btn-outline btn-warning gap-1">
+          <ClipboardList className="w-4 h-4" /> Nota de trabajo
+        </Link>
         <button onClick={openEditModal} className="btn btn-outline btn-primary">
           <Edit className="w-4 h-4" /> Editar Pedido
         </button>

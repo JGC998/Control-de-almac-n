@@ -16,7 +16,8 @@ const getSafeNumber = (value) => {
 export async function GET() {
   try {
     const referencias = await db.referenciaBobina.findMany({
-      orderBy: { referencia: 'asc' }, 
+      orderBy: { referencia: 'asc' },
+      take: 2000,
     });
     return NextResponse.json(referencias);
   } catch (error) {

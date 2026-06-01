@@ -5,6 +5,88 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-06-01 (auditoría)
+
+### Correcciones de seguridad y calidad — REVIEW.md (10 hallazgos)
+
+### 🔒 Seguridad
+- ✅ **SEC-01** — `middleware.js`: añadidos headers `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` en todos los entornos (no solo producción)
+- ✅ **SEC-03** — `middleware.js`: matcher mejorado con anchors `login$|login\?|api/auth/` para evitar coincidencias accidentales con rutas que empiecen igual
+
+### 🐛 Corregido
+- ✅ **BUG-01** — `informes/route.js`: `margen-pedidos` y `rentabilidad-clientes` leen ahora `iva_rate` de `db.config` (fallback 0.21) en lugar de tener el IVA hardcodeado
+- ✅ **BUG-02** — `documentos/[id]/route.js`: PUT valida que `rutaArchivo` empiece por `/planos/` y no contenga `..` antes de persistir en DB; previene rutas arbitrarias en la base de datos
+- ✅ **BUG-03** — `notas/route.js`, `movimientos/route.js`: contexto añadido a todas las llamadas `logApiError` (`'GET /api/notas'`, `'POST /api/notas'`, `'DELETE /api/notas'`, `'GET /api/movimientos'`)
+
+### ♻️ Cambiado
+- ✅ **BACK-02** — `export/csv/route.js`: `MAX_ROWS` reducido de 5000 a 2000 para evitar timeouts con catálogos grandes
+- ✅ **BACK-03** — `informes/route.js` + `informes/page.js`: `rentabilidad-clientes` acepta parámetros `desde`/`hasta` para filtrar por rango de fechas; UI actualizada con inputs de fecha
+- ✅ **API-01** — `validations.js`, `tarifas-cliente/route.js`, `importaciones/route.js`: schemas Zod formales (`tarifaClienteCreateSchema`, `tarifaClienteUpdateSchema`, `importacionContenedorSchema`) + `safeParse` en POST y PUT; respuesta 400 con errores detallados por campo
+- ✅ **FRONT-01** — `BusquedaGlobal.js`: estado de error visible cuando `/api/busqueda` falla — muestra "Error al buscar" en lugar del estado vacío indistinguible de "sin resultados"
+
+---
+
+## 2026-06-01 (madrugada)
+
+### T-39 · T-40 · T-41 — Análisis de rentabilidad
+
+- ✅ **T-39 — Margen real por pedido**: nuevo tab "Margen por Pedido" en `/informes`. Calcula por pedido: coste base (suma de `quantity × unitPrice` de ítems), venta sin IVA (`total / 1.21`), margen € y % margen. Filtro por rango de fechas. Resumen con 4 KPIs (pedidos, venta, coste, margen). Badge de color por porcentaje de margen (≥20% verde, ≥10% amarillo, <10% rojo). API `GET /api/informes?tipo=margen-pedidos`
+- ✅ **T-40 — Rentabilidad por cliente**: nuevo tab "Rentabilidad" en `/informes`. Agrupa T-39 por cliente: facturación, coste, margen € y % margen. Gráfico de barras horizontales con top 10 (venta vs margen). Ordenado de más a menos rentable. API `GET /api/informes?tipo=rentabilidad-clientes`
+- ✅ **T-41 — Histórico de precios de proveedor**: nuevo tab "Precios Importación" en `/informes`. Lista de referencias de bobina extraídas de las importaciones guardadas. Al seleccionar una referencia: gráfico de líneas de evolución USD/M y €/M real, tabla histórica con fecha, descripción de importación, TC y coste calculado. Recalcula el €/M real con prorrateo a partir de los datos almacenados. API `GET /api/importaciones/historico-bobinas`
+
+---
+
+## 2026-06-01 (noche)
+
+### T-43 · T-44 · T-45 — Calculadora de contenedor: nueva lógica de gastos + persistencia
+
+- ✅ **T-44 — Nueva regla de gastos**: `gastosRepercutibles = suplidos + exentos`. Los **Exentos (aranceles)** ahora se incluyen en el coste de producto (badge "✓ Repercute"). Los **Sujetos (21% IVA)** se guardan para control pero **nunca entran en el cálculo del €/metro** — el IVA es deducible y no es coste neto. Aviso informativo claro en la UI
+- ✅ **T-45 — Texto explicativo**: panel de metodología actualizado; etiquetas de cada casilla explican exactamente qué es cada concepto y por qué se trata así
+- ✅ **T-43 — Persistencia de importaciones**: nuevo modelo `ImportacionContenedor` (ambos schemas, `db push` aplicado). API `GET|POST /api/importaciones` + `DELETE /api/importaciones/[id]`. Botón "Guardar importación" aparece al completar el cálculo (abre modal con nombre opcional). Sección "Historial de importaciones" colapsable al pie de la página con tabla de todas las guardadas; cada fila tiene botón "Cargar" para restaurar los datos en la calculadora
+
+---
+
+## 2026-06-01 (tarde)
+
+### T-15 · T-16 · T-28-ext — Búsqueda global y acciones en bloque
+
+- ✅ **T-28-ext** — `@@fulltext([nombre])` añadido a `Cliente` y `Producto` en `schema.prisma` (MySQL producción); hace que la búsqueda por nombre sea índice de texto completo en lugar de full table scan
+- ✅ **T-15 — Búsqueda global Ctrl+K**: nuevo componente `BusquedaGlobal.js` — modal overlay al pulsar `Ctrl+K` (o `⌘K`), resultados agrupados por tipo (clientes, pedidos, presupuestos, productos), navegación con ↑↓/Enter/Esc. Botón "Buscar..." con atajo visible en el navbar desktop. Usa la API `/api/busqueda` ya existente
+- ✅ **T-16 — Acciones en bloque**: nuevo componente `TablaConSeleccion.jsx` reemplaza `TablaDatos` en pedidos y presupuestos. Añade checkbox por fila + "seleccionar todo". Barra flotante al seleccionar: acciones específicas por tipo (pedidos: Marcar Facturado / Cancelar; presupuestos: Aceptar / Rechazar) + exportar selección a CSV. APIs `POST /api/pedidos/bulk-update` y `POST /api/presupuestos/bulk-update` con validación Zod
+
+---
+
+## 2026-06-01 (mañana)
+
+### Fase 8 — CRM y precios avanzados (T-36 · T-37 · T-38)
+
+- ✅ **T-36 — Historial de precios por cliente**: nueva sección colapsable en la ficha de cliente con tabla de referencias históricas (último precio, media, mín/máx, nº de veces pedido, fecha última compra). API `GET /api/clientes/[id]/historial-precios` agrega PedidoItem por descripción/productoId
+- ✅ **T-37 — Tarifas pactadas por cliente**: nuevo modelo `TarifaCliente` (schema dev + prod, `prisma db push` aplicado). CRUD completo en ficha de cliente: añadir, activar/desactivar, eliminar. API `GET|POST|PUT|DELETE /api/tarifas-cliente`. En el formulario de pedido/presupuesto, al seleccionar un cliente con tarifas activas aparecen badges clicables que insertan la línea con el precio pactado directamente
+- ✅ **T-38 — Plantillas en pedidos**: `TemplateManager` habilitado también para "Nuevo pedido" (antes solo en presupuestos). Comparten el mismo pool de plantillas guardadas
+
+### Fase 7 — Logística documental (T-34 · T-35)
+
+- ✅ **T-34 — Carta de porte PDF**: nueva herramienta en `/herramientas/carta-porte`. Formulario con expedidor (prefilled desde config de empresa), destinatario, tabla de mercancías dinámica (descripción, nº palés, nº bultos, peso, valor declarado), agencia de transporte y observaciones. API `POST /api/herramientas/carta-porte` devuelve PDF. Enlace añadido en menú Herramientas
+- ✅ **T-35 — Inventario de palés**: integrado en T-34. Sección colapsable que permite detallar el contenido de cada palé (referencia, descripción, metros, rollos, peso). Al generar el PDF se añade una segunda página con tabla por palé incluyendo totales automáticos
+
+### Fase 6 — Taller + impresión (T-32 · T-33)
+
+- ✅ **T-32 — PWA instalable**: `public/manifest.json` con `display: standalone`, shortcuts a "Nuevo pedido" y "Stock". Meta tags Apple (`apple-mobile-web-app-capable`, `theme-color`) en `layout.js`. La app aparece instalable en Android/iOS
+- ✅ **T-33 — Nota de trabajo imprimible**: nueva ruta `/pedidos/[id]/nota-trabajo` con vista de impresión: cabecera empresa, datos del pedido, tabla de líneas (sin precios, con columna "Realizado"), notas, área de firma. Botón "Nota de trabajo" añadido en el detalle del pedido
+
+### Correcciones técnicas — PENDIENTE.md (39 ítems resueltos)
+
+- ✅ **CRIT-01**: eliminadas páginas `/guias` y `/guias/[id]` que llamaban a `/api/guias` inexistente
+- ✅ **SEC-01 + API-03**: Zod validation en `PUT /api/clientes/[id]`; campo `nif` incluido en el update
+- ✅ **BUG-01 + API-01**: `take: 500` por defecto en `crearManejadoresCRUD` GET; `take: 5000` en tarifas de transporte
+- ✅ **SEC-02 + BUG-03**: `logApiError` en `email.js` y `pdfGenerator.js` (eliminados todos los `console.error`)
+- ✅ **DB-01–04**: índices `@@index` en `Stock`, `MovimientoStock`, `Documento`, `BobinaPedido` (ambos schemas)
+- ✅ **BUG-02 + API-02**: `take` defensivo en `informes/ventas-mensuales`, `/api/precios`, `/api/tarifas-rollo`, `/api/configuracion/referencias`, `/api/documentos`
+- ✅ **CODE-01**: soporte `zodSchema` opcional en `crearManejadoresCRUD` POST
+- ✅ **CODE-02**: `console.error` en frontend reemplazado por estados de error visibles en UI (`fotos/page.js`, `configuracion/logistica/page.js`, `calculadora/actions.js`)
+
+---
+
 ## 2026-05-27 (madrugada)
 
 ### Calculadora de contenedor — rediseño completo (T-31 v2)

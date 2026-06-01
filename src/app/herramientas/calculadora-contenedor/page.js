@@ -1,6 +1,9 @@
 "use client";
 import React, { useState } from 'react';
-import { Package2, Plus, Trash2, Calculator, Info } from 'lucide-react';
+import useSWR, { mutate } from 'swr';
+import { Package2, Plus, Trash2, Calculator, Info, Save, History, X, ChevronDown, ChevronUp } from 'lucide-react';
+
+const fetcher = url => fetch(url).then(r => r.json());
 
 const nuevaBobina = (id) => ({
   id,
@@ -17,16 +20,185 @@ const fmt = (v, dec = 2) => isFinite(v) ? v.toFixed(dec) : '0.00';
 const fmtEur = (v) => `${fmt(v)} €`;
 const fmtUsd = (v) => `${fmt(v)} $`;
 
+function ModalGuardar({ datos, onClose }) {
+  const [descripcion, setDescripcion] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/importaciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...datos, descripcion: descripcion.trim() || null }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar');
+      mutate('/api/importaciones');
+      onClose();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal modal-open z-50">
+      <div className="modal-box max-w-md">
+        <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onClick={onClose}><X className="w-4 h-4" /></button>
+        <h3 className="font-bold text-lg mb-4">Guardar importación</h3>
+
+        <div className="space-y-3 mb-4 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-base-200 rounded p-2">
+              <p className="text-xs text-base-content/50">Bobinas</p>
+              <p className="font-mono font-bold">{fmtEur(datos.totalBobinasEUR)}</p>
+              <p className="text-xs text-base-content/40">{fmtUsd(datos.totalBobinasUSD)}</p>
+            </div>
+            <div className="bg-base-200 rounded p-2">
+              <p className="text-xs text-base-content/50">Coste producto</p>
+              <p className="font-mono font-bold text-success">{fmtEur(datos.costeProducto)}</p>
+            </div>
+            <div className="bg-base-200 rounded p-2">
+              <p className="text-xs text-base-content/50">Metros totales</p>
+              <p className="font-mono font-bold">{fmt(datos.totalMetros, 0)} m</p>
+            </div>
+            <div className="bg-base-200 rounded p-2">
+              <p className="text-xs text-base-content/50">€ / metro medio</p>
+              <p className="font-mono font-bold text-success">
+                {datos.totalMetros > 0 ? fmtEur(datos.costeProducto / datos.totalMetros) : '—'}/m
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-control mb-4">
+          <label className="label py-1"><span className="label-text text-sm">Descripción (opcional)</span></label>
+          <input
+            type="text"
+            className="input input-bordered"
+            placeholder="Ej: Contenedor enero 2026, proveedor X"
+            value={descripcion}
+            onChange={e => setDescripcion(e.target.value)}
+            autoFocus
+            onKeyDown={e => e.key === 'Enter' && handleSave()}
+          />
+        </div>
+
+        {error && <div className="alert alert-error py-2 text-sm mb-3">{error}</div>}
+
+        <div className="modal-action">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary gap-2" onClick={handleSave} disabled={saving}>
+            {saving ? <span className="loading loading-spinner loading-sm" /> : <Save className="w-4 h-4" />}
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistorialImportaciones({ onCargar }) {
+  const { data: importaciones, isLoading } = useSWR('/api/importaciones', fetcher);
+  const [abierto, setAbierto] = useState(false);
+
+  const handleDelete = async (id) => {
+    if (!confirm('¿Eliminar esta importación del historial?')) return;
+    await fetch(`/api/importaciones/${id}`, { method: 'DELETE' });
+    mutate('/api/importaciones');
+  };
+
+  return (
+    <div className="card bg-base-200 shadow-sm mt-6">
+      <div className="card-body p-4">
+        <button className="flex items-center justify-between w-full text-left" onClick={() => setAbierto(p => !p)}>
+          <h2 className="font-bold text-base flex items-center gap-2">
+            <History className="w-4 h-4" /> Historial de importaciones guardadas
+            {importaciones?.length > 0 && <span className="badge badge-ghost badge-sm">{importaciones.length}</span>}
+          </h2>
+          {abierto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+
+        {abierto && (
+          <div className="mt-4">
+            {isLoading && <span className="loading loading-spinner loading-sm" />}
+            {!isLoading && importaciones?.length === 0 && (
+              <p className="text-sm text-base-content/40">No hay importaciones guardadas todavía.</p>
+            )}
+            {importaciones?.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="table table-sm w-full">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Descripción</th>
+                      <th className="text-right">TC</th>
+                      <th className="text-right">Suplidos</th>
+                      <th className="text-right">Exentos</th>
+                      <th className="text-right">Sujetos</th>
+                      <th className="text-right">Coste producto</th>
+                      <th className="text-right">€/metro</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importaciones.map(imp => (
+                      <tr key={imp.id} className="hover">
+                        <td className="text-xs text-base-content/50 whitespace-nowrap">
+                          {new Date(imp.creadaEn).toLocaleDateString('es-ES')}
+                        </td>
+                        <td className="max-w-xs truncate text-sm">{imp.descripcion || <span className="text-base-content/30">Sin descripción</span>}</td>
+                        <td className="text-right font-mono text-xs">{fmt(imp.tasaCambio, 4)}</td>
+                        <td className="text-right font-mono text-xs">{fmtEur(imp.suplidos)}</td>
+                        <td className="text-right font-mono text-xs">{fmtEur(imp.exentos)}</td>
+                        <td className="text-right font-mono text-xs text-base-content/40">{fmtEur(imp.sujetos)}</td>
+                        <td className="text-right font-mono font-bold text-success">{fmtEur(imp.costeProducto)}</td>
+                        <td className="text-right font-mono font-bold text-success">
+                          {imp.totalMetros > 0 ? fmtEur(imp.costeProducto / imp.totalMetros) + '/m' : '—'}
+                        </td>
+                        <td>
+                          <div className="flex gap-1">
+                            <button
+                              className="btn btn-xs btn-ghost"
+                              title="Cargar estos datos en la calculadora"
+                              onClick={() => onCargar(imp)}
+                            >
+                              Cargar
+                            </button>
+                            <button
+                              className="btn btn-xs btn-ghost text-error"
+                              onClick={() => handleDelete(imp.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CalculadoraContenedorPage() {
   const [tasaCambio, setTasaCambio] = useState('0.9300');
   const [bobinas, setBobinas] = useState([nuevaBobina(1)]);
   const [suplidos, setSuplidos] = useState('');
   const [exentos, setExentos] = useState('');
-  const [sujetosBase, setSujetosBase] = useState('');
+  const [sujetos, setSujetos] = useState('');
   const [nextId, setNextId] = useState(2);
+  const [modalGuardar, setModalGuardar] = useState(false);
 
   const tc = n(tasaCambio);
-  const IVA = 0.21;
 
   // --- Cálculos bobinas ---
   const bobinasCals = bobinas.map(b => {
@@ -43,19 +215,18 @@ export default function CalculadoraContenedorPage() {
   const totalBobinasEUR = totalBobinasUSD * tc;
   const totalMetros = bobinasCals.reduce((s, b) => s + b.totalMetrosBobina, 0);
 
-  // --- Cálculos gastos ---
+  // --- Gastos ---
   const supl = n(suplidos);
   const exen = n(exentos);
-  const sujBase = n(sujetosBase);
-  const ivaGastos = sujBase * IVA;
+  const suj = n(sujetos);
+  const ivaGastos = suj * 0.21;
 
-  // Suplidos + Sujetos se repercuten en el coste del producto.
-  // Exentos (aranceles) son impuestos: se registran pero no se repercuten por metro.
-  const gastosRepercutibles = supl + sujBase;
+  // REGLA: suplidos + exentos se repercuten. Sujetos NUNCA entra en el cálculo.
+  const gastosRepercutibles = supl + exen;
   const costeProducto = totalBobinasEUR + gastosRepercutibles;
-  const totalDesembolso = totalBobinasEUR + supl + exen + sujBase + ivaGastos;
+  const totalDesembolso = totalBobinasEUR + supl + exen + suj + ivaGastos;
 
-  // --- Prorrateo por valor (proporción al precio total € de cada bobina) ---
+  // --- Prorrateo por valor ---
   const bobinasFinal = bobinasCals.map(b => {
     if (totalBobinasEUR === 0 || b.subtotalEUR === 0) {
       return { ...b, proporcion: 0, gastosProrrateados: 0, costeFinalEUR: b.subtotalEUR, costePorMetro: 0 };
@@ -80,18 +251,51 @@ export default function CalculadoraContenedorPage() {
     if (bobinas.length > 1) setBobinas(prev => prev.filter(b => b.id !== id));
   };
 
+  const handleCargarImportacion = (imp) => {
+    try {
+      const bobs = JSON.parse(imp.bobinas);
+      setBobinas(bobs.map((b, i) => ({ ...b, id: i + 1 })));
+      setNextId(bobs.length + 1);
+      setTasaCambio(String(imp.tasaCambio));
+      setSuplidos(String(imp.suplidos));
+      setExentos(String(imp.exentos));
+      setSujetos(String(imp.sujetos));
+    } catch {}
+  };
+
   const hayResultados = totalMetros > 0 && bobinasFinal.some(b => b.totalMetrosBobina > 0);
+
+  const datosParaGuardar = {
+    tasaCambio: tc,
+    totalBobinasUSD,
+    totalBobinasEUR,
+    totalMetros,
+    suplidos: supl,
+    exentos: exen,
+    sujetos: suj,
+    gastosRepercutibles,
+    costeProducto,
+    totalDesembolso,
+    bobinas: JSON.stringify(bobinas),
+  };
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Package2 className="w-8 h-8 text-warning" />
-        <div>
-          <h1 className="text-3xl font-bold">Calculadora de Contenedor</h1>
-          <p className="text-sm text-base-content/60">Coste real de importación por metro lineal, prorrateado por valor de cada bobina</p>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <Package2 className="w-8 h-8 text-warning" />
+          <div>
+            <h1 className="text-3xl font-bold">Calculadora de Contenedor</h1>
+            <p className="text-sm text-base-content/60">Coste real de importación por metro lineal, prorrateado por valor de cada bobina</p>
+          </div>
         </div>
+        {hayResultados && (
+          <button className="btn btn-success btn-sm gap-2" onClick={() => setModalGuardar(true)}>
+            <Save className="w-4 h-4" /> Guardar importación
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -232,18 +436,14 @@ export default function CalculadoraContenedorPage() {
           <div className="card bg-base-200 shadow-sm">
             <div className="card-body p-4">
               <h2 className="font-bold text-base mb-1">Gastos de importación (€)</h2>
-              <p className="text-xs text-base-content/50 mb-3">
-                <strong>Suplidos</strong> y <strong>Sujetos</strong> se repercuten en el coste del producto.
-                Los <strong>Exentos</strong> (aranceles) son impuestos: se registran como gasto pero no se incluyen en el €/metro.
-              </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
 
                 {/* Suplidos */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Suplidos</span>
-                    <span className="badge badge-success badge-sm">Repercute</span>
+                    <span className="badge badge-success badge-sm">✓ Repercute</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
@@ -261,7 +461,7 @@ export default function CalculadoraContenedorPage() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Exentos</span>
-                    <span className="badge badge-neutral badge-sm">Informativo</span>
+                    <span className="badge badge-success badge-sm">✓ Repercute</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
@@ -272,58 +472,65 @@ export default function CalculadoraContenedorPage() {
                     />
                     <span className="text-sm opacity-50">€</span>
                   </div>
-                  <p className="text-xs text-base-content/50">Aranceles e impuestos de aduana — no se repercuten</p>
+                  <p className="text-xs text-base-content/50">Aranceles de aduana — coste real para el negocio</p>
                 </div>
 
                 {/* Sujetos */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">Sujetos (base)</span>
-                    <div className="flex gap-1">
-                      <span className="badge badge-success badge-sm">Repercute</span>
-                      <span className="badge badge-warning badge-sm">+IVA 21%</span>
-                    </div>
+                    <span className="font-medium text-sm">Sujetos (21% IVA)</span>
+                    <span className="badge badge-neutral badge-sm">Solo almacenado</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="number" step="0.01" min="0" placeholder="0.00"
-                      value={sujetosBase}
-                      onChange={e => setSujetosBase(e.target.value)}
+                      value={sujetos}
+                      onChange={e => setSujetos(e.target.value)}
                       className="input input-bordered w-full font-mono"
                     />
                     <span className="text-sm opacity-50">€</span>
                   </div>
                   <p className="text-xs text-base-content/50">Transporte nacional, descarga en taller</p>
-                  {sujBase > 0 && (
-                    <p className="text-xs font-mono text-warning">
-                      IVA: {fmtEur(ivaGastos)} → Total factura: {fmtEur(sujBase + ivaGastos)}
+                  {suj > 0 && (
+                    <p className="text-xs font-mono text-base-content/40">
+                      IVA: {fmtEur(ivaGastos)} → Total factura: {fmtEur(suj + ivaGastos)}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Subtotales gastos */}
+              {/* Aviso sujetos */}
+              <div className="alert py-2 mt-3 text-xs bg-base-300 border-base-content/10">
+                <Info className="w-4 h-4 shrink-0" />
+                <span>
+                  <strong>Sujetos (21%)</strong> se guarda para control interno pero <strong>nunca entra en el cálculo del €/metro</strong>.
+                  El IVA de los sujetos es deducible y no es un coste neto.
+                  El coste de producto se calcula exclusivamente con <strong>Suplidos + Exentos</strong>.
+                </span>
+              </div>
+
+              {/* Subtotales */}
               <div className="mt-4 pt-3 border-t border-base-content/10 space-y-1.5">
                 <div className="flex justify-between text-sm font-medium text-success">
-                  <span>Gastos repercutidos en producto (suplidos + sujetos)</span>
+                  <span>Gastos repercutidos en producto (suplidos + exentos)</span>
                   <span className="font-mono">{fmtEur(gastosRepercutibles)}</span>
                 </div>
-                {exen > 0 && (
-                  <div className="flex justify-between text-sm text-base-content/50">
+                {suj > 0 && (
+                  <div className="flex justify-between text-sm text-base-content/40">
                     <span className="flex items-center gap-1">
-                      <Info className="w-3 h-3" /> Aranceles (no repercutidos)
+                      <Info className="w-3 h-3" /> Sujetos (solo almacenado, no repercutido)
                     </span>
-                    <span className="font-mono">{fmtEur(exen)}</span>
+                    <span className="font-mono">{fmtEur(suj)}</span>
                   </div>
                 )}
                 {ivaGastos > 0 && (
-                  <div className="flex justify-between text-sm text-warning">
+                  <div className="flex justify-between text-sm text-base-content/30 text-xs">
                     <span>IVA sujetos (21%) — deducible</span>
                     <span className="font-mono">{fmtEur(ivaGastos)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-bold border-t border-base-content/10 pt-1">
-                  <span>Total desembolso real</span>
+                  <span>Total desembolso real (todo incluido)</span>
                   <span className="font-mono">{fmtEur(totalDesembolso)}</span>
                 </div>
               </div>
@@ -331,7 +538,7 @@ export default function CalculadoraContenedorPage() {
           </div>
         </div>
 
-        {/* ── COLUMNA DERECHA: Resumen ── */}
+        {/* ── COLUMNA DERECHA ── */}
         <div className="space-y-5">
 
           <div className="card bg-primary text-primary-content shadow-lg lg:sticky lg:top-4">
@@ -350,19 +557,13 @@ export default function CalculadoraContenedorPage() {
                   <span className="font-mono">{fmtEur(supl)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="opacity-80">Sujetos ✓</span>
-                  <span className="font-mono">{fmtEur(sujBase)}</span>
+                  <span className="opacity-80">Exentos ✓</span>
+                  <span className="font-mono">{fmtEur(exen)}</span>
                 </div>
-                {exen > 0 && (
-                  <div className="flex justify-between opacity-50 text-xs">
-                    <span>Aranceles (ℹ no repercutidos)</span>
-                    <span className="font-mono">{fmtEur(exen)}</span>
-                  </div>
-                )}
-                {ivaGastos > 0 && (
-                  <div className="flex justify-between opacity-60 text-xs">
-                    <span>IVA sujetos (deducible)</span>
-                    <span className="font-mono">{fmtEur(ivaGastos)}</span>
+                {suj > 0 && (
+                  <div className="flex justify-between opacity-40 text-xs">
+                    <span>Sujetos (no entra en cálculo)</span>
+                    <span className="font-mono">{fmtEur(suj)}</span>
                   </div>
                 )}
               </div>
@@ -375,7 +576,7 @@ export default function CalculadoraContenedorPage() {
                   <span className="font-mono text-2xl font-bold">{fmtEur(costeProducto)}</span>
                 </div>
                 <div className="flex justify-between text-xs opacity-50">
-                  <span>Desembolso total (incl. aranceles + IVA)</span>
+                  <span>Desembolso total real</span>
                   <span className="font-mono">{fmtEur(totalDesembolso)}</span>
                 </div>
               </div>
@@ -399,15 +600,19 @@ export default function CalculadoraContenedorPage() {
           </div>
 
           <div className="alert text-xs p-3">
-            <div className="space-y-1">
-              <p className="font-bold">Metodología de prorrateo</p>
-              <p>Los gastos se distribuyen por <strong>valor económico</strong> de cada bobina. Una bobina que representa el 40 % del valor total recibe el 40 % de los gastos. Los aranceles no forman parte del coste de producto.</p>
+            <div className="space-y-1.5">
+              <p className="font-bold">Metodología</p>
+              <p>Prorrateo por <strong>valor económico</strong>: cada bobina asume el porcentaje de gastos proporcional a su precio total en €.</p>
+              <p className="pt-1 border-t border-base-content/10">
+                <strong>Se repercute:</strong> Suplidos + Exentos (aranceles)<br />
+                <strong>No se repercute:</strong> Sujetos (IVA deducible)
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Tabla de resultados por bobina ── */}
+      {/* ── Tabla resultados ── */}
       {hayResultados && (
         <div className="card bg-base-200 shadow-sm mt-6">
           <div className="card-body p-4">
@@ -476,6 +681,14 @@ export default function CalculadoraContenedorPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Historial ── */}
+      <HistorialImportaciones onCargar={handleCargarImportacion} />
+
+      {/* ── Modal guardar ── */}
+      {modalGuardar && (
+        <ModalGuardar datos={datosParaGuardar} onClose={() => setModalGuardar(false)} />
       )}
     </div>
   );

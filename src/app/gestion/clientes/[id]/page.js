@@ -1,11 +1,163 @@
 "use client";
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import useSWR from 'swr';
+import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, TrendingUp, ShoppingCart, Receipt } from 'lucide-react';
+import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, TrendingUp, ShoppingCart, Receipt, DollarSign, History, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import ClientEditModal from '@/componentes/modales/ModalEditarCliente';
 import { formatCurrency } from '@/utils/utilidades';
+
+const fetcher = url => fetch(url).then(r => r.json());
+
+function SeccionTarifas({ clienteId }) {
+  const { data: tarifas, mutate } = useSWR(`/api/tarifas-cliente?clienteId=${clienteId}`, fetcher);
+  const [form, setForm] = useState({ descripcion: '', precioEspecial: '', notas: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [abierto, setAbierto] = useState(false);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!form.descripcion || !form.precioEspecial) return;
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch('/api/tarifas-cliente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteId, ...form, precioEspecial: parseFloat(form.precioEspecial) }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Error');
+      mutate();
+      setForm({ descripcion: '', precioEspecial: '', notas: '' });
+    } catch (err) { setError(err.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('¿Eliminar esta tarifa?')) return;
+    await fetch('/api/tarifas-cliente', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    mutate();
+  };
+
+  const handleToggle = async (t) => {
+    await fetch('/api/tarifas-cliente', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id, activa: !t.activa }) });
+    mutate();
+  };
+
+  return (
+    <div className="bg-base-100 shadow-xl rounded-xl p-5 mb-6">
+      <button className="flex items-center justify-between w-full text-left" onClick={() => setAbierto(p => !p)}>
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <DollarSign className="w-5 h-5" /> Tarifas pactadas
+          {tarifas?.length > 0 && <span className="badge badge-primary badge-sm">{tarifas.length}</span>}
+        </h2>
+        {abierto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      {abierto && (
+        <div className="mt-4 space-y-4">
+          {tarifas?.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="table table-sm w-full">
+                <thead><tr><th>Descripción</th><th className="text-right">Precio especial</th><th>Notas</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                  {tarifas.map(t => (
+                    <tr key={t.id} className={`hover ${!t.activa ? 'opacity-40' : ''}`}>
+                      <td className="font-medium">{t.descripcion}</td>
+                      <td className="text-right font-mono font-bold text-primary">{formatCurrency(t.precioEspecial)}</td>
+                      <td className="text-sm text-gray-400">{t.notas || '—'}</td>
+                      <td>
+                        <button className={`badge ${t.activa ? 'badge-success' : 'badge-ghost'} badge-sm cursor-pointer`} onClick={() => handleToggle(t)}>
+                          {t.activa ? 'Activa' : 'Inactiva'}
+                        </button>
+                      </td>
+                      <td><button className="btn btn-ghost btn-xs text-error" onClick={() => handleDelete(t.id)}><Trash2 className="w-3 h-3" /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {tarifas?.length === 0 && <p className="text-sm text-gray-400 py-2">No hay tarifas pactadas.</p>}
+
+          <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end border-t pt-4">
+            <div className="md:col-span-2 form-control">
+              <label className="label py-0.5"><span className="label-text text-xs">Descripción *</span></label>
+              <input type="text" className="input input-bordered input-sm" placeholder="Ej: Banda PVC 5mm 300x3" value={form.descripcion} onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))} required />
+            </div>
+            <div className="form-control">
+              <label className="label py-0.5"><span className="label-text text-xs">Precio especial (€) *</span></label>
+              <input type="number" className="input input-bordered input-sm" step="0.01" min="0" placeholder="0.00" value={form.precioEspecial} onChange={e => setForm(p => ({ ...p, precioEspecial: e.target.value }))} required />
+            </div>
+            <div className="form-control">
+              <label className="label py-0.5"><span className="label-text text-xs">Notas</span></label>
+              <div className="flex gap-1">
+                <input type="text" className="input input-bordered input-sm flex-1" placeholder="Opcional" value={form.notas} onChange={e => setForm(p => ({ ...p, notas: e.target.value }))} />
+                <button type="submit" className="btn btn-sm btn-primary" disabled={saving}><Plus className="w-3 h-3" /></button>
+              </div>
+            </div>
+            {error && <p className="text-error text-xs md:col-span-4">{error}</p>}
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeccionHistorial({ clienteId }) {
+  const { data: historial, isLoading } = useSWR(`/api/clientes/${clienteId}/historial-precios`, fetcher);
+  const [abierto, setAbierto] = useState(false);
+
+  return (
+    <div className="bg-base-100 shadow-xl rounded-xl p-5 mb-6">
+      <button className="flex items-center justify-between w-full text-left" onClick={() => setAbierto(p => !p)}>
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <History className="w-5 h-5" /> Historial de precios
+          {historial?.length > 0 && <span className="badge badge-ghost badge-sm">{historial.length} referencias</span>}
+        </h2>
+        {abierto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      {abierto && (
+        <div className="mt-4">
+          {isLoading && <span className="loading loading-spinner loading-sm" />}
+          {!isLoading && historial?.length === 0 && <p className="text-sm text-gray-400">Sin pedidos registrados.</p>}
+          {historial?.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="table table-sm w-full">
+                <thead>
+                  <tr>
+                    <th>Descripción</th>
+                    <th className="text-right">Último precio</th>
+                    <th className="text-right">Precio medio</th>
+                    <th className="text-right">Min</th>
+                    <th className="text-right">Máx</th>
+                    <th className="text-center">Veces</th>
+                    <th>Último pedido</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historial.slice(0, 50).map((h, i) => (
+                    <tr key={i} className="hover">
+                      <td className="font-medium max-w-xs truncate">{h.descripcion}</td>
+                      <td className="text-right font-mono font-bold text-primary">{formatCurrency(h.ultimoPrecio)}</td>
+                      <td className="text-right font-mono text-sm">{formatCurrency(h.precioMedio)}</td>
+                      <td className="text-right font-mono text-xs text-gray-400">{formatCurrency(h.precioMin)}</td>
+                      <td className="text-right font-mono text-xs text-gray-400">{formatCurrency(h.precioMax)}</td>
+                      <td className="text-center"><span className="badge badge-ghost badge-sm">{h.numVeces}×</span></td>
+                      <td className="text-sm text-gray-400">{new Date(h.ultimaFecha).toLocaleDateString('es-ES')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {historial.length > 50 && <p className="text-xs text-gray-400 mt-2">Mostrando 50 de {historial.length} referencias.</p>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const ESTADO_BADGE = {
   Completado: 'badge-success',
@@ -168,6 +320,10 @@ export default function ClienteDetalle() {
           </table>
         </div>
       </div>
+
+      {/* Tarifas pactadas y Historial de precios */}
+      <SeccionTarifas clienteId={id} />
+      <SeccionHistorial clienteId={id} />
 
       <ClientEditModal
         cliente={cliente}

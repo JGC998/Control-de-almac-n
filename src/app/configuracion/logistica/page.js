@@ -9,6 +9,7 @@ function ConfigPaletizadoForm({ config, onSave }) {
     const [formData, setFormData] = useState(config);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [saveError, setSaveError] = useState(null);
 
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: parseFloat(value) || 0 }));
@@ -19,6 +20,7 @@ function ConfigPaletizadoForm({ config, onSave }) {
         setSaving(true);
         setSuccess(false);
 
+        setSaveError(null);
         try {
             const res = await fetch('/api/logistica/config-paletizado', {
                 method: 'PUT',
@@ -30,9 +32,11 @@ function ConfigPaletizadoForm({ config, onSave }) {
                 setSuccess(true);
                 mutate('/api/logistica/config-paletizado');
                 setTimeout(() => setSuccess(false), 3000);
+            } else {
+                setSaveError('Error al guardar los cambios. Inténtalo de nuevo.');
             }
         } catch (error) {
-            console.error(error);
+            setSaveError('Error de conexión al guardar.');
         } finally {
             setSaving(false);
         }
@@ -130,6 +134,12 @@ function ConfigPaletizadoForm({ config, onSave }) {
                             <span className="text-sm">Guardado correctamente</span>
                         </div>
                     )}
+                    {saveError && (
+                        <div className="alert alert-error py-2 px-3 flex-1">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-sm">{saveError}</span>
+                        </div>
+                    )}
                     <button type="submit" className="btn btn-primary" disabled={saving}>
                         <Save className="w-4 h-4" />
                         {saving ? 'Guardando...' : 'Guardar Cambios'}
@@ -144,6 +154,7 @@ function TablaTarifas({ tarifas }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
+    const [saveError, setSaveError] = useState(null);
 
     const filteredTarifas = tarifas?.filter(t =>
         t.provincia.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -156,6 +167,7 @@ function TablaTarifas({ tarifas }) {
     };
 
     const handleSave = async () => {
+        setSaveError(null);
         try {
             const res = await fetch(`/api/logistica/tarifas/${editingId}`, {
                 method: 'PUT',
@@ -166,9 +178,11 @@ function TablaTarifas({ tarifas }) {
             if (res.ok) {
                 mutate('/api/logistica/tarifas');
                 setEditingId(null);
+            } else {
+                setSaveError('Error al guardar la tarifa. Inténtalo de nuevo.');
             }
         } catch (error) {
-            console.error(error);
+            setSaveError('Error de conexión al guardar la tarifa.');
         }
     };
 
@@ -260,6 +274,12 @@ function TablaTarifas({ tarifas }) {
                     </table>
                 </div>
 
+                {saveError && (
+                    <div className="alert alert-error mt-2">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-sm">{saveError}</span>
+                    </div>
+                )}
                 {filteredTarifas.length > 20 && (
                     <div className="alert alert-info mt-2">
                         <AlertCircle className="w-4 h-4" />

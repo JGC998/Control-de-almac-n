@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { FileText, PlusCircle, Download } from 'lucide-react';
 import { db } from '@/lib/db';
-import TablaDatos from '@/componentes/compuestos/TablaDatos';
+import TablaConSeleccion from '@/componentes/compuestos/TablaConSeleccion';
 import { PaginacionServidor } from '@/componentes/ui';
 import FiltroEstadoPresupuesto from '@/componentes/ui/FiltroEstadoPresupuesto';
 import FiltroBusqueda from '@/componentes/ui/FiltroBusqueda';
@@ -101,15 +101,18 @@ export default async function PresupuestosPage({ searchParams: searchParamsPromi
         </div>
       </div>
 
-      {/* Tabla unificada */}
-      <TablaDatos
-        datos={presupuestos}
-        columnas={columnasPresupuesto}
-        titulo={`Presupuestos (${total})`}
-        icono={FileText}
-        rutaBase="/presupuestos"
-        colapsable={false}
-      />
+      {/* Tabla con selección */}
+      <div className="card bg-base-100 shadow-xl border border-base-200">
+        <div className="card-body p-0">
+          <TablaConSeleccion
+            tipo="presupuesto"
+            datos={presupuestos}
+            columnas={columnasPresupuesto}
+            rutaBase="/presupuestos"
+            mensajeVacio="No hay presupuestos registrados."
+          />
+        </div>
+      </div>
 
       {/* Paginación */}
       <div className="mt-4">

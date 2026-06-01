@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Package, PlusCircle, Download, Ban } from 'lucide-react';
 import { db } from '@/lib/db';
-import TablaDatos from '@/componentes/compuestos/TablaDatos';
+import TablaConSeleccion from '@/componentes/compuestos/TablaConSeleccion';
 import { PaginacionServidor, FiltroEstado } from '@/componentes/ui';
 import FiltroBusqueda from '@/componentes/ui/FiltroBusqueda';
 import FiltroFechas from '@/componentes/ui/FiltroFechas';
@@ -121,7 +121,8 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
       {/* Tabla */}
       <div className="card bg-base-100 shadow-xl border border-base-200">
         <div className="card-body p-0">
-          <TablaDatos
+          <TablaConSeleccion
+            tipo="pedido"
             datos={pedidos}
             columnas={columnasPedido}
             rutaBase="/pedidos"

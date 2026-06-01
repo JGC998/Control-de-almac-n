@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { z } from 'zod';
+
+const clienteUpdateSchema = z.object({
+  nombre: z.string().min(1, 'Nombre requerido'),
+  email: z.string().email('Email inválido').optional().nullable(),
+  direccion: z.string().optional().nullable(),
+  telefono: z.string().optional().nullable(),
+  nif: z.string().optional().nullable(),
+  categoria: z.string().optional().nullable(),
+});
 
 export async function GET(request, { params }) {
   try {
@@ -17,16 +27,15 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    const data = await request.json();
+    const body = await request.json();
+    const parsed = clienteUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: parsed.error.flatten().fieldErrors }, { status: 400 });
+    }
+    const { nombre, email, direccion, telefono, nif, categoria } = parsed.data;
     const updatedCliente = await db.cliente.update({
       where: { id },
-      data: {
-        nombre: data.nombre,
-        email: data.email,
-        direccion: data.direccion,
-        telefono: data.telefono,
-        tier: data.categoria,
-      },
+      data: { nombre, email, direccion, telefono, nif, tier: categoria },
     });
     revalidatePath('/gestion/clientes');
     revalidatePath(`/gestion/clientes/${id}`);

@@ -27,7 +27,7 @@ export async function GET(request) {
             return NextResponse.json({ message: 'Modelo no válido o no especificado' }, { status: 400 });
         }
 
-        const MAX_ROWS = 5000;
+        const MAX_ROWS = 2000;
         let data = [];
         if (model === 'tarifaLogistica') {
             data = await db.tarifaTransporte.findMany({ take: MAX_ROWS });

@@ -1,5 +1,6 @@
 "use server";
 import { db } from '@/lib/db';
+import { logApiError } from '@/lib/logger';
 
 /**
  * Calcula el precio de un producto personalizado basado en sus dimensiones.
@@ -41,7 +42,7 @@ export async function calculateCustomProductPrice(productoId, ancho, alto) {
         };
 
     } catch (error) {
-        console.error('Error en calculateCustomProductPrice:', error);
+        logApiError(error, 'Error en calculateCustomProductPrice');
         return { error: 'Error interno al calcular el precio.' };
     }
 }

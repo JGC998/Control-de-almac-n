@@ -6,9 +6,10 @@ import useSWR from 'swr';
 import {
   Warehouse, Package, FileText, Truck, Calculator, Users, Settings,
   Layers, Factory, ChevronDown, Menu, X, DollarSign,
-  FilePlus, PackagePlus, Ship, TrendingDown, LogOut
+  FilePlus, PackagePlus, Ship, TrendingDown, LogOut, Package2, Search
 } from 'lucide-react';
 import BarraBusqueda from '@/componentes/ui/BarraBusqueda';
+import BusquedaGlobal from '@/componentes/ui/BusquedaGlobal';
 
 // Secciones con grupos (dos bloques en el dropdown)
 // Secciones con links planos (lista simple)
@@ -86,9 +87,11 @@ const NAV = [
   {
     label: 'Herramientas', hub: '/herramientas',
     links: [
-      { href: '/calculadora',           label: 'Calculadora PVC',  icon: Calculator },
-      { href: '/calculadora/logistica', label: 'Calc. Envíos',     icon: Truck },
-      { href: '/calculadora/inversa',   label: 'Calc. Inversa',    icon: TrendingDown },
+      { href: '/calculadora',                    label: 'Calculadora PVC',   icon: Calculator },
+      { href: '/calculadora/logistica',          label: 'Calc. Envíos',      icon: Truck },
+      { href: '/calculadora/inversa',            label: 'Calc. Inversa',     icon: TrendingDown },
+      { href: '/herramientas/calculadora-contenedor', label: 'Contenedor',   icon: Package2 },
+      { href: '/herramientas/carta-porte',       label: 'Carta de porte',    icon: FileText },
     ]
   },
 
@@ -216,6 +219,7 @@ export default function Encabezado() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeNav, setActiveNav] = useState(null);
+  const [busquedaOpen, setBusquedaOpen] = useState(false);
   const configActive = pathname.startsWith('/configuracion');
   const navRef = useRef(null);
 
@@ -227,6 +231,17 @@ export default function Encabezado() {
     }
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    function handleCtrlK(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setBusquedaOpen(prev => !prev);
+      }
+    }
+    document.addEventListener('keydown', handleCtrlK);
+    return () => document.removeEventListener('keydown', handleCtrlK);
   }, []);
 
   const { data: authStatus } = useSWR('/api/auth/status');
@@ -280,11 +295,17 @@ export default function Encabezado() {
           )}
         </nav>
 
-        {/* Derecha: buscador + tema + configuración + hamburguesa */}
+        {/* Derecha: buscador + configuración + hamburguesa */}
         <div className="flex-none flex items-center gap-1.5 ml-auto">
-          <div className="hidden lg:block w-52">
-            <BarraBusqueda />
-          </div>
+          <button
+            className="hidden lg:flex items-center gap-2 h-8 px-3 rounded-lg border border-base-300 bg-base-200/60 hover:bg-base-200 transition-colors text-sm text-base-content/40"
+            onClick={() => setBusquedaOpen(true)}
+            title="Búsqueda global (Ctrl+K)"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span className="hidden xl:block">Buscar...</span>
+            <kbd className="kbd kbd-xs hidden xl:inline-flex">Ctrl+K</kbd>
+          </button>
 
           {/* Configuración → hub */}
           <div
@@ -398,5 +419,7 @@ export default function Encabezado() {
         </div>
       )}
     </header>
+
+    <BusquedaGlobal open={busquedaOpen} onClose={() => setBusquedaOpen(false)} />
   );
 }

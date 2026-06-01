@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import fs from 'fs/promises';
 import path from 'path';
 import QRCode from 'qrcode';
+import { logApiError } from '@/lib/logger';
 
 // Fallbacks para cuando ConfiguracionEmisor / Config no estén configurados
 const COMPANY_ADDRESS_FALLBACK = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
@@ -260,7 +261,7 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         return doc.output('arraybuffer');
 
     } catch (error) {
-        console.error("Error generating PDF:", error);
+        logApiError(error, "Error generating PDF");
         throw error;
     }
 }
@@ -511,7 +512,7 @@ export async function generateOrderPDF(order, config = {}) {
         return doc.output('arraybuffer');
 
     } catch (error) {
-        console.error("Error generating Order PDF:", error);
+        logApiError(error, "Error generating Order PDF");
         throw error;
     }
 }
@@ -669,7 +670,7 @@ export async function generateFacturaPDF(factura) {
 
         return doc.output('arraybuffer');
     } catch (error) {
-        console.error('Error generating Factura PDF:', error);
+        logApiError(error, 'Error generating Factura PDF');
         throw error;
     }
 }
@@ -787,7 +788,196 @@ export async function generateAlbaranPDF(albaran) {
 
         return doc.output('arraybuffer');
     } catch (error) {
-        console.error("Error generating Albaran PDF:", error);
+        logApiError(error, "Error generating Albaran PDF");
+        throw error;
+    }
+}
+
+export async function generarCartaPortePDF(datos) {
+    try {
+        const doc = new jsPDF();
+        const pageW = doc.internal.pageSize.getWidth();
+        const margin = 14;
+
+        const logoBase64 = await getLogoBase64();
+        if (logoBase64) {
+            doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', pageW - 65, 10, 50, 15);
+        }
+
+        // Título y cabecera
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.text('CARTA DE PORTE', margin, 22);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+        const fecha = datos.fecha
+            ? new Date(datos.fecha + 'T00:00:00').toLocaleDateString('es-ES')
+            : new Date().toLocaleDateString('es-ES');
+        doc.text(`Fecha: ${fecha}`, margin, 30);
+        if (datos.referencia) doc.text(`Referencia: ${datos.referencia}`, margin + 50, 30);
+        if (datos.agencia) doc.text(`Agencia: ${datos.agencia}`, margin + 110, 30);
+        doc.setTextColor(0);
+
+        // Boxes Expedidor / Destinatario
+        const boxTop = 38;
+        const boxH = 44;
+        const colW = (pageW - margin * 2 - 6) / 2;
+
+        const renderBox = (label, info, x) => {
+            doc.setDrawColor(160);
+            doc.setFillColor(245, 245, 245);
+            doc.rect(x, boxTop - 5, colW, 7, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(40);
+            doc.text(label, x + 2, boxTop - 0.5);
+            doc.setTextColor(0);
+            doc.setDrawColor(160);
+            doc.rect(x, boxTop, colW, boxH);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            let y = boxTop + 7;
+            if (info.nombre)   { doc.setFont('helvetica', 'bold'); doc.text(info.nombre, x + 3, y); doc.setFont('helvetica', 'normal'); y += 6; }
+            if (info.direccion) { doc.text(info.direccion, x + 3, y); y += 6; }
+            if (info.cp || info.ciudad) { doc.text(`${info.cp || ''} ${info.ciudad || ''}`.trim(), x + 3, y); y += 6; }
+            if (info.telefono) { doc.text(`Tel: ${info.telefono}`, x + 3, y); y += 6; }
+            if (info.nif)      { doc.text(`NIF: ${info.nif}`, x + 3, y); }
+        };
+
+        renderBox('EXPEDIDOR (REMITENTE)', datos.expedidor || {}, margin);
+        renderBox('DESTINATARIO (CONSIGNATARIO)', datos.destinatario || {}, margin + colW + 6);
+
+        let curY = boxTop + boxH + 14;
+
+        // Tabla mercancía
+        const rows = (datos.mercancias || []).map(r => [
+            r.descripcion || '',
+            r.numPales != null ? String(r.numPales) : '',
+            r.numBultos != null ? String(r.numBultos) : '',
+            r.pesoBruto != null ? `${r.pesoBruto} kg` : '',
+            r.valorDeclarado != null ? `${r.valorDeclarado} €` : '',
+        ]);
+
+        autoTable(doc, {
+            head: [['Descripción de la mercancía', 'Nº Palés', 'Nº Bultos', 'Peso bruto', 'Valor declarado']],
+            body: rows.length ? rows : [['', '', '', '', '']],
+            startY: curY,
+            theme: 'grid',
+            headStyles: { fillColor: [40, 40, 40], fontSize: 8, textColor: 255 },
+            bodyStyles: { fontSize: 9, minCellHeight: 8 },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 20, halign: 'center' },
+                2: { cellWidth: 22, halign: 'center' },
+                3: { cellWidth: 28, halign: 'right' },
+                4: { cellWidth: 32, halign: 'right' },
+            },
+            margin: { left: margin, right: margin },
+        });
+        curY = doc.lastAutoTable.finalY + 10;
+
+        // Observaciones
+        if (datos.observaciones) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setFillColor(245, 245, 245);
+            doc.rect(margin, curY - 1, pageW - margin * 2, 6, 'F');
+            doc.text('OBSERVACIONES', margin + 2, curY + 3.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const lines = doc.splitTextToSize(datos.observaciones, pageW - margin * 2 - 4);
+            doc.text(lines, margin + 2, curY + 11);
+            curY += 12 + lines.length * 5;
+        }
+
+        // Área de firmas
+        const firmaY = Math.max(curY + 12, 238);
+        const sigW = (pageW - margin * 2 - 12) / 3;
+        doc.setDrawColor(140);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        ['FIRMA EXPEDIDOR', 'FIRMA TRANSPORTISTA', 'FIRMA DESTINATARIO'].forEach((label, i) => {
+            const x = margin + i * (sigW + 6);
+            doc.rect(x, firmaY, sigW, 22);
+            doc.text(label, x + sigW / 2, firmaY + 27, { align: 'center' });
+        });
+
+        // Nota pie
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(150);
+        doc.text('Documento generado por CRM Taller', pageW / 2, 290, { align: 'center' });
+        doc.setTextColor(0);
+
+        // Inventario de palés (T-35) — página adicional
+        if (datos.pales && datos.pales.length > 0) {
+            doc.addPage();
+
+            if (logoBase64) {
+                doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', pageW - 65, 10, 50, 15);
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('INVENTARIO DE PALÉS', margin, 22);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(100);
+            doc.text(`Referencia: ${datos.referencia || '—'}   Fecha: ${fecha}`, margin, 30);
+            doc.setTextColor(0);
+
+            let paleY = 38;
+
+            for (const pale of datos.pales) {
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                const paleTitle = `Palé ${pale.numero}${pale.descripcion ? `  —  ${pale.descripcion}` : ''}`;
+                doc.text(paleTitle, margin, paleY);
+                paleY += 3;
+
+                const items = pale.items || [];
+                const pesoTotal = items.reduce((s, it) => s + (parseFloat(it.peso) || 0), 0);
+                const metrosTotal = items.reduce((s, it) => s + (parseFloat(it.metros) || 0), 0);
+                const rollosTotal = items.reduce((s, it) => s + (parseFloat(it.numRollos) || 0), 0);
+
+                autoTable(doc, {
+                    head: [['Referencia', 'Descripción', 'Nº Rollos', 'Metros', 'Peso est. (kg)']],
+                    body: items.map(it => [
+                        it.referencia || '',
+                        it.descripcion || '',
+                        it.numRollos != null ? String(it.numRollos) : '',
+                        it.metros != null ? String(it.metros) : '',
+                        it.peso != null ? String(it.peso) : '',
+                    ]),
+                    foot: [['', 'TOTALES', String(rollosTotal), metrosTotal.toFixed(1), `${pesoTotal.toFixed(1)} kg`]],
+                    startY: paleY,
+                    theme: 'striped',
+                    headStyles: { fillColor: [70, 70, 70], fontSize: 8, textColor: 255 },
+                    bodyStyles: { fontSize: 9 },
+                    footStyles: { fillColor: [220, 220, 220], fontStyle: 'bold', fontSize: 9 },
+                    columnStyles: {
+                        0: { cellWidth: 35 },
+                        1: { cellWidth: 'auto' },
+                        2: { cellWidth: 22, halign: 'center' },
+                        3: { cellWidth: 22, halign: 'right' },
+                        4: { cellWidth: 30, halign: 'right' },
+                    },
+                    margin: { left: margin, right: margin },
+                });
+
+                paleY = doc.lastAutoTable.finalY + 12;
+
+                if (paleY > 260 && datos.pales.indexOf(pale) < datos.pales.length - 1) {
+                    doc.addPage();
+                    paleY = 20;
+                }
+            }
+        }
+
+        return doc.output('arraybuffer');
+    } catch (error) {
+        logApiError(error, 'Error generating Carta de Porte PDF');
         throw error;
     }
 }

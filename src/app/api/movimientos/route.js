@@ -26,7 +26,7 @@ export async function GET(request) {
 
     return NextResponse.json(movimientos);
   } catch (error) {
-    logApiError(error);
+    logApiError(error, 'GET /api/movimientos');
     return NextResponse.json({ message: 'Error al obtener movimientos' }, { status: 500 });
   }
 }

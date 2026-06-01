@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingDown, Package2 } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingDown, Package2, FileText } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -38,6 +38,13 @@ export default function HerramientasHub() {
           titulo: 'Coste de contenedor',
           descripcion: 'Desglose de gastos de importación (suplidos, exentos, sujetos) y cálculo del coste real por metro lineal de cada bobina.',
           accion: 'Calcular contenedor',
+        },
+        {
+          href: '/herramientas/carta-porte',
+          icon: FileText,
+          titulo: 'Carta de porte',
+          descripcion: 'Genera un albarán de expedición PDF con datos de expedidor, destinatario, mercancía e inventario detallado de palés.',
+          accion: 'Crear carta de porte',
         },
       ]}
     />

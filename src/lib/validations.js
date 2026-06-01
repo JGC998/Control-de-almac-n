@@ -36,6 +36,42 @@ export const configPaletizadoSchema = z.object({
 });
 
 // ============================================
+// VALIDACIONES PARA CRM — TARIFAS Y CONTENEDOR
+// ============================================
+
+export const tarifaClienteCreateSchema = z.object({
+  clienteId: z.string().min(1, 'clienteId requerido'),
+  descripcion: z.string().min(1, 'Descripción requerida').max(200),
+  productoId: z.string().optional().nullable(),
+  precioEspecial: z.number().positive('El precio debe ser positivo').max(100_000),
+  notas: z.string().max(500).optional().nullable(),
+});
+
+export const tarifaClienteUpdateSchema = z.object({
+  id: z.string().min(1, 'id requerido'),
+  descripcion: z.string().min(1).max(200).optional(),
+  productoId: z.string().optional().nullable(),
+  precioEspecial: z.number().positive().max(100_000).optional(),
+  notas: z.string().max(500).optional().nullable(),
+  activa: z.boolean().optional(),
+});
+
+export const importacionContenedorSchema = z.object({
+  tasaCambio: z.number().positive('Tipo de cambio inválido').max(100),
+  totalBobinasUSD: z.number().min(0),
+  totalBobinasEUR: z.number().min(0),
+  totalMetros: z.number().min(0),
+  suplidos: z.number().min(0),
+  exentos: z.number().min(0),
+  sujetos: z.number().min(0),
+  gastosRepercutibles: z.number().min(0),
+  costeProducto: z.number().min(0),
+  totalDesembolso: z.number().min(0),
+  bobinas: z.string().min(2, 'Bobinas requeridas'),
+  descripcion: z.string().max(200).optional().nullable(),
+});
+
+// ============================================
 // VALIDACIONES PARA PEDIDOS
 // ============================================
 

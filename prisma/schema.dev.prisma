@@ -9,8 +9,8 @@ datasource db {
 }
 
 model Cliente {
-  id           String        @id @default(uuid())
-  nombre       String        @unique
+  id           String          @id @default(uuid())
+  nombre       String          @unique
   nif          String?
   email        String?
   direccion    String?
@@ -21,6 +21,7 @@ model Cliente {
   presupuestos Presupuesto[]
   albaranes    Albaran[]
   facturas     Factura[]
+  tarifas      TarifaCliente[]
 
   @@index([email])
 }
@@ -235,6 +236,10 @@ model Stock {
   costoMetro        Float?
   cantidadBobinas   Int?              @default(0)
   movimientos       MovimientoStock[]
+
+  @@index([material])
+  @@index([metrosDisponibles])
+  @@index([proveedor])
 }
 
 model MovimientoStock {
@@ -244,6 +249,9 @@ model MovimientoStock {
   fecha     DateTime @default(now())
   stockId   String?
   stockItem Stock?   @relation(fields: [stockId], references: [id], onDelete: SetNull)
+
+  @@index([stockId])
+  @@index([fecha])
 }
 
 model PedidoProveedor {
@@ -279,6 +287,9 @@ model BobinaPedido {
 
   referenciaId String?
   referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
+
+  @@index([pedidoId])
+  @@index([referenciaId])
 }
 
 model ReferenciaBobina {
@@ -340,6 +351,8 @@ model Documento {
   producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
   @@unique([referencia, rutaArchivo])
+  @@index([tipo])
+  @@index([productoId])
   @@map("Documento")
 }
 
@@ -404,11 +417,12 @@ model Producto {
   fabricante Fabricante? @relation(fields: [fabricanteId], references: [id])
   material   Material?   @relation(fields: [materialId], references: [id])
 
-  itemsPedido   PedidoItem[]
-  itemsPresup   PresupuestoItem[]
-  itemsAlbaran  AlbaranItem[]
-  itemsFactura  FacturaItem[]
-  documentos    Documento[]
+  itemsPedido    PedidoItem[]
+  itemsPresup    PresupuestoItem[]
+  itemsAlbaran   AlbaranItem[]
+  itemsFactura   FacturaItem[]
+  documentos     Documento[]
+  tarifasCliente TarifaCliente[]
 
   @@index([nombre])
   @@index([fabricanteId])
@@ -475,6 +489,40 @@ model PresupuestoTemplate {
   marginId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model TarifaCliente {
+  id             String    @id @default(uuid())
+  clienteId      String
+  cliente        Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  descripcion    String
+  productoId     String?
+  producto       Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+  precioEspecial Float
+  notas          String?
+  activa         Boolean   @default(true)
+  creadaEn       DateTime  @default(now())
+
+  @@index([clienteId])
+}
+
+model ImportacionContenedor {
+  id                  String   @id @default(uuid())
+  descripcion         String?
+  tasaCambio          Float
+  totalBobinasUSD     Float    @default(0)
+  totalBobinasEUR     Float    @default(0)
+  totalMetros         Float    @default(0)
+  suplidos            Float    @default(0)
+  exentos             Float    @default(0)
+  sujetos             Float    @default(0)
+  gastosRepercutibles Float    @default(0)
+  costeProducto       Float    @default(0)
+  totalDesembolso     Float    @default(0)
+  bobinas             String
+  creadaEn            DateTime @default(now())
+
+  @@index([creadaEn])
 }
 
 // VeriFactu — configuración del emisor (registro único, id siempre = 1)
