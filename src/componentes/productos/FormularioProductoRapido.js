@@ -60,10 +60,21 @@ export default function QuickProductForm({
         const method = productoAEditar ? 'PUT' : 'POST';
 
         try {
+            // Mapear campos del formulario a los nombres que espera la API
+            const payload = productoAEditar
+                ? {
+                    nombre: formData.nombre,
+                    precioUnitario: parseFloat(formData.precio) || 0,
+                }
+                : {
+                    nombre: formData.nombre,
+                    precioUnitario: parseFloat(formData.precio) || 0,
+                };
+
             const res = await fetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(payload),
             });
 
             if (!res.ok) {
