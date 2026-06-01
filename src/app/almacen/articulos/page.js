@@ -3,9 +3,9 @@ import { Box } from 'lucide-react';
 import { PaginaGestion } from '@/componentes/patrones';
 
 const CATEGORIAS = [
-  { valor: 'CORDON',        etiqueta: 'Cordón' },
+  { valor: 'CORDON',         etiqueta: 'Cordón' },
   { valor: 'BORDE_ONDULADO', etiqueta: 'Borde ondulado' },
-  { valor: 'OTRO',          etiqueta: 'Otro' },
+  { valor: 'OTRO',           etiqueta: 'Otro' },
 ];
 
 const UNIDADES = [
@@ -20,17 +20,11 @@ const etiquetaUnidad    = v => UNIDADES.find(u => u.valor === v)?.etiqueta ?? v;
 
 const columnas = [
   { clave: 'nombre',         etiqueta: 'Nombre' },
-  { clave: 'categoria',      etiqueta: 'Categoría',  formato: 'custom', render: v => etiquetaCategoria(v) },
-  { clave: 'unidad',         etiqueta: 'Unidad',     formato: 'custom', render: v => etiquetaUnidad(v) },
-  { clave: 'precioUnitario', etiqueta: 'Precio',     formato: 'moneda' },
+  { clave: 'categoria',      etiqueta: 'Categoría',  render: r => etiquetaCategoria(r.categoria) },
+  { clave: 'unidad',         etiqueta: 'Unidad',          render: r => etiquetaUnidad(r.unidad) },
+  { clave: 'precioUnitario', etiqueta: 'Precio',          formato: 'moneda' },
   { clave: 'fabricante',     etiqueta: 'Fabricante' },
-  {
-    clave: 'activo',
-    etiqueta: 'Estado',
-    formato: 'insignia',
-    insigniaConfig: { true: 'success', false: 'ghost' },
-    render: v => (v === true || v === 'true') ? 'Activo' : 'Inactivo',
-  },
+  { clave: 'activo',         etiqueta: 'Estado',          render: r => r.activo ? 'Activo' : 'Inactivo' },
 ];
 
 const campos = [
