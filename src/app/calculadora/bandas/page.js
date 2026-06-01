@@ -41,8 +41,8 @@ export default function CalculadoraBandasPage() {
         const doc = new jsPDF();
 
         // --- CONFIG ---
-        const COMPANY_ADDRESS = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
-        const COMPANY_PHONE = '957 68 28 19';
+        const COMPANY_ADDRESS = '';
+        const COMPANY_PHONE = '';
         const isTaller = type === 'TALLER';
         const title = isTaller ? "ORDEN DE TRABAJO - TALLER" : "PRESUPUESTO BANDAS";
         const filename = isTaller ? `orden_taller_${Date.now()}.pdf` : `presupuesto_bandas_${Date.now()}.pdf`;

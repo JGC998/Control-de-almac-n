@@ -37,7 +37,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [ancho, setAncho] = useState('');
     const [largo, setLargo] = useState('');
 
-    const [costeVulcanizadoMetro, setCosteVulcanizadoMetro] = useState(50);
+    const [costeVulcanizadoMetro, setCosteVulcanizadoMetro] = useState(0);
     const [mostrarConfigCostes, setMostrarConfigCostes] = useState(false);
 
     const [configuracionTacos, setConfiguracionTacos] = useState(null);

@@ -6,8 +6,8 @@ import QRCode from 'qrcode';
 import { logApiError } from '@/lib/logger';
 
 // Fallbacks para cuando ConfiguracionEmisor / Config no estén configurados
-const COMPANY_ADDRESS_FALLBACK = 'C. La Jarra, 41, 14540 La Rambla, Córdoba';
-const COMPANY_PHONE_FALLBACK   = '957 68 28 19';
+const COMPANY_ADDRESS_FALLBACK = '';
+const COMPANY_PHONE_FALLBACK   = '';
 
 async function getEmisorInfo() {
     try {

@@ -46,3 +46,11 @@ public/planos/*.PDF
 ideas.txt
 PENDIENTE.md
 documentacionVerifactu.md
+
+# ── Seed files con datos de negocio privados ────────────────────────────────
+# seed-dev.js y seed-mock.js son OK (datos ficticios aleatorios)
+prisma/seed.js
+prisma/seed-production.js
+prisma/seed-logistica.js
+prisma/seed-tarifas-logistica.js
+prisma/seed-tacos.js

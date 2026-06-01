@@ -66,7 +66,7 @@ export async function POST(request) {
             gastoFijoTotalAplicar = margenClienteRule.gastoFijo || 0;
           }
         } else {
-          margenAplicar = 1.3;
+          margenAplicar = 1.0;
         }
 
         if (margenAplicar !== null) {
