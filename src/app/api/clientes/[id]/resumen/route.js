@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { getMargenes } from '@/lib/config-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +21,7 @@ export async function GET(request, { params }) {
         orderBy: { fechaCreacion: 'desc' },
         take: 50,
       }),
-      db.reglaMargen.findMany(),
+      getMargenes(),
       db.pedido.aggregate({
         where: { clienteId: id, estado: { notIn: ['Cancelado', 'Borrador'] } },
         _sum: { total: true },

@@ -50,10 +50,11 @@ export async function GET(request) {
         return Object.values(byMonth).map(d => ({ ...d, totalVentas: parseFloat(d.totalVentas.toFixed(2)) }));
       };
 
-      const actual = await fetchYear(año);
+      const [actual, anterior] = comparar
+        ? await Promise.all([fetchYear(año), fetchYear(año - 1)])
+        : [await fetchYear(año), null];
 
-      if (comparar) {
-        const anterior = await fetchYear(año - 1);
+      if (comparar && anterior) {
         const anteriorMap = Object.fromEntries(anterior.map(d => [d.mes, d]));
         const merged = actual.map(d => ({ ...d, totalVentasAnterior: anteriorMap[d.mes]?.totalVentas ?? 0 }));
         return NextResponse.json({ data: merged, año, añoAnterior: año - 1 });
@@ -199,6 +200,7 @@ export async function GET(request) {
           cliente: { select: { id: true, nombre: true } },
         },
         orderBy: { fechaCreacion: 'asc' },
+        take: 100,
       });
 
       return NextResponse.json(presupuestos.map(p => ({

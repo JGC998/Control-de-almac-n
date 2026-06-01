@@ -2,6 +2,7 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { clearMargenesCache } from '@/lib/config-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,8 +51,8 @@ export async function POST(request) {
       await logCreate('ReglaMargen', nuevaRegla.id, nuevaRegla, 'Admin');
     } catch (e) { logApiError(e); }
 
-    const url = new URL('/api/pricing/margenes', request.url);
-    revalidatePath(url.pathname); // Revalidate cache
+    clearMargenesCache();
+    revalidatePath('/api/pricing/margenes');
 
     return NextResponse.json(nuevaRegla, { status: 201 });
   } catch (error) {

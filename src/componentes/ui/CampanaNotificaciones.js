@@ -20,7 +20,11 @@ export default function CampanaNotificaciones() {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
-  const { data } = useSWR('/api/notificaciones', { refreshInterval: 30000 });
+  const { data } = useSWR('/api/notificaciones', {
+    refreshInterval: 30000,
+    refreshWhenHidden: false,
+    refreshWhenOffline: false,
+  });
   const noLeidas  = data?.noLeidas ?? 0;
   const notifs    = data?.notificaciones ?? [];
 

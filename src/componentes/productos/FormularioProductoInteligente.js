@@ -59,7 +59,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       const d = await r.json();
       setOpciones(prev => ({ ...prev, espesores: d.espesores ?? [] }));
     } catch {
-      // red caída — sin espesores disponibles
+      setError('No se pudieron cargar las opciones de espesor. Comprueba la conexión.');
     } finally {
       setCargando(false);
     }
@@ -80,7 +80,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         aplicarTarifa(d.tarifas[0], form.ancho, form.largo);
       }
     } catch {
-      // red caída — sin colores/tarifas disponibles
+      setError('No se pudieron cargar las tarifas para ese espesor. Comprueba la conexión.');
     } finally {
       setCargando(false);
     }

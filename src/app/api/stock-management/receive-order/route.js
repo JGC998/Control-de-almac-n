@@ -26,7 +26,7 @@ export async function POST(request) {
     }, 0);
 
     await db.$transaction(async (tx) => {
-      for (const bobina of pedido.bobinas) {
+      await Promise.all(pedido.bobinas.map(bobina => {
         const metrosPorBobina = parseFloat(bobina.largo) || 0;
         const cantidadBobinas = parseInt(bobina.cantidad) || 1;
         const metrosTotales = metrosPorBobina * cantidadBobinas;
@@ -39,11 +39,9 @@ export async function POST(request) {
         const gastosAsignados = gastos * factorParticipacion;
         const costoMetroFinal = metrosTotales > 0 ? (precioBaseEUR + (gastosAsignados / metrosTotales)) : 0;
 
-        const materialNombre = pedido.material || 'Material';
-
-        await tx.stock.create({
+        return tx.stock.create({
           data: {
-            material: materialNombre,
+            material: pedido.material || 'Material',
             espesor: bobina.espesor,
             metrosDisponibles: metrosTotales,
             proveedor: pedido.proveedorId,
@@ -54,7 +52,7 @@ export async function POST(request) {
             },
           },
         });
-      }
+      }));
 
       await tx.pedidoProveedor.update({
         where: { id: pedidoId },

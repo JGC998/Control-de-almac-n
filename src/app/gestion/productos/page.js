@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Package, PlusCircle, Edit, Trash2 } from 'lucide-react';
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
@@ -15,8 +15,9 @@ export default function GestionProductosPage() {
   const [busqueda, setBusqueda] = useState('');
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
-  const filtrados = productos.filter(p =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  const filtrados = useMemo(
+    () => productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())),
+    [productos, busqueda]
   );
 
   function abrirNuevo() { setProductoEditando(null); setModalAbierto(true); }

@@ -27,11 +27,18 @@ function agrupar(results = []) {
 export default function BusquedaGlobal({ open, onClose }) {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [cursor, setCursor] = useState(-1);
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
-  const queryUrl = query.trim().length >= 2 ? `/api/busqueda?q=${encodeURIComponent(query.trim())}` : null;
+  // Debounce: esperar 250ms tras el último carácter antes de enviar al servidor
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const queryUrl = debouncedQuery.trim().length >= 2 ? `/api/busqueda?q=${encodeURIComponent(debouncedQuery.trim())}` : null;
   const { data: results = [], isLoading, error: searchError } = useSWR(queryUrl, {
     revalidateOnFocus: false,
     dedupingInterval: 300,

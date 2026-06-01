@@ -9,17 +9,23 @@ import { logApiError } from '@/lib/logger';
 const COMPANY_ADDRESS_FALLBACK = '';
 const COMPANY_PHONE_FALLBACK   = '';
 
+// Caché de info de emisor — datos de configuración que cambian raramente
+let _emisorCache = null;
+export function clearEmisorCache() { _emisorCache = null; }
+
 async function getEmisorInfo() {
+    if (_emisorCache) return _emisorCache;
     try {
         const { db } = await import('@/lib/db');
         const [emisor, phoneConfig] = await Promise.all([
             db.configuracionEmisor.findUnique({ where: { id: 1 } }),
             db.config.findUnique({ where: { key: 'empresa_telefono' } }),
         ]);
-        return {
+        _emisorCache = {
             address: emisor?.direccion || COMPANY_ADDRESS_FALLBACK,
             phone:   phoneConfig?.value || COMPANY_PHONE_FALLBACK,
         };
+        return _emisorCache;
     } catch {
         return { address: COMPANY_ADDRESS_FALLBACK, phone: COMPANY_PHONE_FALLBACK };
     }

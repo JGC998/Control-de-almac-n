@@ -74,10 +74,14 @@ export async function POST(request) {
 
         const { provincia, peso, altura, tipoPale } = validation.data;
 
-        // 1. Obtener configuración de paletizado
-        const configPale = await db.configPaletizado.findUnique({
-            where: { tipo: tipoPale }
-        });
+        // Determinar tipología antes de las queries (solo aritmética, sin I/O)
+        const tipologia = determinarTipologia(parseFloat(peso), parseFloat(altura), tipoPale);
+
+        // 1+3. Obtener configuración de paletizado y tarifa en paralelo
+        const [configPale, tarifa] = await Promise.all([
+            db.configPaletizado.findUnique({ where: { tipo: tipoPale } }),
+            db.tarifaTransporte.findFirst({ where: { provincia: provincia.toUpperCase() } }),
+        ]);
 
         if (!configPale) {
             return NextResponse.json(
@@ -92,18 +96,6 @@ export async function POST(request) {
             configPale.costeFilm +
             configPale.costeFleje +
             configPale.costePrecinto;
-
-        // 2. Determinar tipología según algoritmo
-        const tipologia = determinarTipologia(
-            parseFloat(peso),
-            parseFloat(altura),
-            tipoPale
-        );
-
-        // 3. Buscar tarifa de transporte por provincia
-        const tarifa = await db.tarifaTransporte.findFirst({
-            where: { provincia: provincia.toUpperCase() }
-        });
 
         if (!tarifa) {
             return NextResponse.json(

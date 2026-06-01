@@ -3,6 +3,7 @@ import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generateBudgetPDF } from '@/lib/pdfGenerator';
 import { sendEmail, getPresupuestoTemplate } from '@/lib/email';
+import { getMargenes } from '@/lib/config-cache';
 
 export async function POST(request, { params }) {
     try {
@@ -29,7 +30,7 @@ export async function POST(request, { params }) {
         // 2. Generar PDF (Reutilizando lógica)
         const [configIva, margenes] = await Promise.all([
             db.config.findUnique({ where: { key: 'iva_rate' } }),
-            db.reglaMargen.findMany(),
+            getMargenes(),
         ]);
         const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;
         const marginRule = margenes?.find(m => m.id === quote.marginId);

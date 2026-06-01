@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generateBudgetPDF } from '@/lib/pdfGenerator';
+import { getMargenes } from '@/lib/config-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ export async function GET(request, { params }) {
 
     const [configIva, margenes] = await Promise.all([
       db.config.findUnique({ where: { key: 'iva_rate' } }),
-      db.reglaMargen.findMany(),
+      getMargenes(),
     ]);
 
     const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;

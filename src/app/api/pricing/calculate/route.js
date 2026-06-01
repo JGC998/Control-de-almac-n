@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { getMargenes } from '@/lib/config-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export async function POST(request) {
     // 1. Obtener reglas de precios y cliente en paralelo
     const [cliente, margenes] = await Promise.all([
       clienteId ? db.cliente.findUnique({ where: { id: clienteId }, select: { id: true, tier: true } }) : Promise.resolve(null),
-      db.reglaMargen.findMany(),
+      getMargenes(),
     ]);
 
     // 2. Cargar todos los productos necesarios en una sola query (evita N+1)
