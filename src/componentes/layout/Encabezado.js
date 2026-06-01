@@ -254,6 +254,7 @@ export default function Encabezado() {
   }
 
   return (
+    <>
     <header className="sticky top-0 z-40 w-full bg-base-100 border-b border-base-200 shadow-sm">
       <div className="navbar px-4 min-h-14 h-14 max-w-screen-2xl mx-auto">
 
@@ -421,5 +422,6 @@ export default function Encabezado() {
     </header>
 
     <BusquedaGlobal open={busquedaOpen} onClose={() => setBusquedaOpen(false)} />
+    </>
   );
 }
