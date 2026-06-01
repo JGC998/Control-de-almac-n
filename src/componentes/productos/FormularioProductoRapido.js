@@ -5,10 +5,7 @@ import { Package, X, Save } from 'lucide-react';
 
 const initialFormState = {
     nombre: '',
-    descripcion: '',
     precio: '',
-    stock: 0,
-    categoria: ''
 };
 
 export default function QuickProductForm({
@@ -29,10 +26,7 @@ export default function QuickProductForm({
             if (productoAEditar) {
                 setFormData({
                     nombre: productoAEditar.nombre,
-                    descripcion: productoAEditar.descripcion || '',
-                    precio: productoAEditar.precio || '',
-                    stock: productoAEditar.stock || 0,
-                    categoria: productoAEditar.categoria || ''
+                    precio: productoAEditar.precioUnitario || '',
                 });
             } else {
                 setFormData(initialFormState);
@@ -115,56 +109,18 @@ export default function QuickProductForm({
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="form-control w-full">
-                            <label className="label"><span className="label-text">Precio (€)</span></label>
-                            <input
-                                type="number"
-                                name="precio"
-                                step="0.01"
-                                value={formData.precio}
-                                onChange={handleChange}
-                                placeholder="0.00"
-                                className="input input-bordered w-full"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-control w-full">
-                            <label className="label"><span className="label-text">Stock</span></label>
-                            <input
-                                type="number"
-                                name="stock"
-                                step="1"
-                                value={formData.stock}
-                                onChange={handleChange}
-                                placeholder="0"
-                                className="input input-bordered w-full"
-                            />
-                        </div>
-                    </div>
-
                     <div className="form-control w-full">
-                        <label className="label"><span className="label-text">Categoría</span></label>
+                        <label className="label"><span className="label-text">Precio unitario (€)</span></label>
                         <input
-                            type="text"
-                            name="categoria"
-                            value={formData.categoria}
+                            type="number"
+                            name="precio"
+                            step="0.01"
+                            value={formData.precio}
                             onChange={handleChange}
-                            placeholder="Ej: Goma, Fieltro"
+                            placeholder="0.00"
                             className="input input-bordered w-full"
+                            required
                         />
-                    </div>
-
-                    <div className="form-control w-full">
-                        <label className="label"><span className="label-text">Descripción</span></label>
-                        <textarea
-                            name="descripcion"
-                            value={formData.descripcion}
-                            onChange={handleChange}
-                            placeholder="Detalles adicionales..."
-                            className="textarea textarea-bordered h-24"
-                        ></textarea>
                     </div>
 
                     {error && <div className="alert alert-error text-sm">{error}</div>}

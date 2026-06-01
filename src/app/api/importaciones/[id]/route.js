@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 // DELETE /api/importaciones/[id]
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     await db.importacionContenedor.delete({ where: { id } });
     return NextResponse.json({ message: 'Importación eliminada' });
   } catch (error) {
@@ -20,7 +20,7 @@ export async function DELETE(request, { params }) {
 // GET /api/importaciones/[id]
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const imp = await db.importacionContenedor.findUnique({ where: { id } });
     if (!imp) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
     return NextResponse.json(imp);

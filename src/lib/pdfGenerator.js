@@ -343,9 +343,6 @@ export async function generateOrderPDF(order, config = {}) {
             let detalles = 'Item manual';
             if (item.producto) {
                 detalles = item.producto.nombre || 'Sin nombre';
-                if (item.producto.descripcion) {
-                    detalles += ` - ${item.producto.descripcion}`;
-                }
             }
 
             const tacosMatch = item.descripcion?.match(/\+ Tacos (RECTO|INCLINADO) (\d+)mm/);

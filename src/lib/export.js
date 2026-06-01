@@ -96,10 +96,12 @@ export const CSV_DEFINITIONS = {
     producto: [
         { label: 'ID', value: r => r.id },
         { label: 'Nombre', value: r => r.nombre },
-        { label: 'Descripción', value: r => r.descripcion },
-        { label: 'Precio', value: r => r.precio },
-        { label: 'Stock', value: r => r.stock },
-        { label: 'Categoría', value: r => r.categoria }
+        { label: 'Ref. Fabricante', value: r => r.referenciaFabricante },
+        { label: 'Precio Unitario', value: r => r.precioUnitario },
+        { label: 'Coste Unitario', value: r => r.costoUnitario },
+        { label: 'Peso (kg)', value: r => r.pesoUnitario },
+        { label: 'Fabricante', value: r => r.fabricante?.nombre },
+        { label: 'Material', value: r => r.material?.nombre },
     ],
     cliente: [
         { label: 'ID', value: r => r.id },

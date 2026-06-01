@@ -16,23 +16,21 @@ export async function calculateCustomProductPrice(productoId, ancho, alto) {
             return { error: 'Faltan parámetros requeridos (producto, ancho, alto).' };
         }
 
-        const id = parseInt(productoId);
-        if (isNaN(id)) {
+        if (typeof productoId !== 'string' || productoId.trim() === '') {
             return { error: 'ID de producto inválido.' };
         }
 
         // Obtener el precio base del producto
         const producto = await db.producto.findUnique({
-            where: { id: id },
-            select: { precio: true, nombre: true }
+            where: { id: productoId },
+            select: { precioUnitario: true, nombre: true }
         });
 
         if (!producto) {
             return { error: 'Producto no encontrado en la base de datos.' };
         }
 
-        // Convertir Decimal a número flotante
-        const precioBase = parseFloat(producto.precio);
+        const precioBase = parseFloat(producto.precioUnitario);
         const area = ancho * alto;
         const precioTotal = area * precioBase;
 

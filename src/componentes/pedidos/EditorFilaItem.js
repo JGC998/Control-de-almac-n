@@ -18,29 +18,19 @@ export default function EditorFilaItem({
     const stockStatus = useMemo(() => {
         if (isPVC) return 'pvc';
         if (!isCatalog) return 'manual';
-        if (item.producto?.stock === undefined || item.producto?.stock === null) return 'unknown';
-        const qty = parseFloat(item.quantity) || 0;
-        if (item.producto.stock >= qty) return 'ok';
-        if (item.producto.stock > 0) return 'low';
-        return 'out';
-    }, [isPVC, isCatalog, item.producto?.stock, item.quantity]);
+        return 'catalog';
+    }, [isPVC, isCatalog]);
 
     const statusIcon = {
-        ok:      <CheckCircle  className="w-4 h-4 text-success" />,
-        low:     <AlertTriangle className="w-4 h-4 text-warning" />,
-        out:     <XCircle      className="w-4 h-4 text-error" />,
         pvc:     <Ruler        className="w-4 h-4 text-secondary" />,
         manual:  <Pencil       className="w-4 h-4 text-base-content/30" />,
-        unknown: <Package      className="w-4 h-4 text-base-content/20" />,
+        catalog: <Package      className="w-4 h-4 text-info/60" />,
     }[stockStatus];
 
     const statusTip = {
-        ok:      'En stock',
-        low:     'Stock insuficiente',
-        out:     'Agotado',
         pvc:     'Banda PVC personalizada',
         manual:  'Línea manual',
-        unknown: 'Stock desconocido',
+        catalog: 'Producto de catálogo',
     }[stockStatus];
 
     return (

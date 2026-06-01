@@ -8,7 +8,7 @@ const EXCLUIDOS = ['Cancelado', 'Borrador'];
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const items = await db.pedidoItem.findMany({
       where: {
