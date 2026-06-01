@@ -46,8 +46,8 @@ export default async function PresupuestosPage({ searchParams: searchParamsPromi
 
   if (busqueda) {
     where.OR = [
-      { numero: { contains: busqueda, mode: 'insensitive' } },
-      { cliente: { nombre: { contains: busqueda, mode: 'insensitive' } } },
+      { numero: { contains: busqueda } },
+      { cliente: { nombre: { contains: busqueda } } },
     ];
   }
 

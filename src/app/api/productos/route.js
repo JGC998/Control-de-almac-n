@@ -16,14 +16,14 @@ export async function GET(request) {
 
     const whereClause = {};
     if (nombre) {
-      whereClause.nombre = { contains: nombre, mode: 'insensitive' };
+      whereClause.nombre = { contains: nombre };
     }
 
     // Búsqueda general
     if (q) {
       whereClause.OR = [
-        { nombre: { contains: q, mode: 'insensitive' } },
-        { referenciaFabricante: { contains: q, mode: 'insensitive' } },
+        { nombre: { contains: q } },
+        { referenciaFabricante: { contains: q } },
       ];
     }
 
