@@ -412,6 +412,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
       if (isEditMode) {
         if (onSuccess) onSuccess(savedData);
+        setIsLoading(false);
       } else {
         router.push(formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`);
       }

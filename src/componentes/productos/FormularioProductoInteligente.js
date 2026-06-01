@@ -69,7 +69,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     setCargando(true);
     const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(form.material)}&espesor=${espesor}`);
     const d = await r.json();
-    setOpciones(prev => ({ ...prev, colores: d.colores ?? [], tarifa: d.tarifas?.[0] ?? null }));
+    // Guardamos todas las tarifas para poder buscar por color después
+    setOpciones(prev => ({ ...prev, colores: d.colores ?? [], tarifas: d.tarifas ?? [], tarifa: d.tarifas?.[0] ?? null }));
     // Si solo hay una tarifa sin color → autocompletar precio
     if (d.tarifas?.length === 1 && !d.colores?.length) {
       aplicarTarifa(d.tarifas[0], form.ancho, form.largo);
@@ -77,14 +78,13 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     setCargando(false);
   }, [form.material, form.ancho, form.largo]);
 
-  // Cuando cambia el color → buscar tarifa exacta
+  // Cuando cambia el color → buscar la tarifa exacta en la lista completa
   const handleColorChange = useCallback((color) => {
     setForm(f => ({ ...f, color }));
-    const tarifa = opciones.tarifa?.color === color
-      ? opciones.tarifa
-      : null;
+    const tarifa = (opciones.tarifas ?? []).find(t => (t.color ?? '') === (color ?? ''))
+      ?? opciones.tarifa ?? null;
     if (tarifa) aplicarTarifa(tarifa, form.ancho, form.largo);
-  }, [opciones.tarifa, form.ancho, form.largo]);
+  }, [opciones.tarifas, opciones.tarifa, form.ancho, form.largo]);
 
   function aplicarTarifa(tarifa, ancho, largo) {
     if (!tarifa) return;

@@ -107,6 +107,9 @@ export default function CalculadoraInversa() {
                         disabled={margenesLoading}
                     >
                         <option value="">Selecciona una regla...</option>
+                        {(!margenes || margenes.length === 0) && !margenesLoading && (
+                            <option disabled>— Sin reglas de margen configuradas —</option>
+                        )}
                         {margenes?.map(m => (
                             <option key={m.id} value={m.id}>
                                 {m.descripcion} (x{m.multiplicador}{m.gastoFijo > 0 ? ` + ${m.gastoFijo}€ fijos` : ''})

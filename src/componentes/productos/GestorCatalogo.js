@@ -78,13 +78,15 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        // Fallback si la respuesta no tiene el campo .error
-        const errorMessage = errData.message || `Error ${res.status}: No se pudo guardar el registro.`;
+        let errorMessage = `Error ${res.status}: No se pudo guardar el registro.`;
+        try {
+          const errData = await res.json();
+          errorMessage = errData.message || errorMessage;
+        } catch {}
         throw new Error(errorMessage);
       }
 
-      mutate(cacheKey);
+      await mutate(cacheKey);
       closeModal();
     } catch (err) {
       setError(err.message);
@@ -97,10 +99,11 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
       try {
         const res = await fetch(`${endpoint}/${id}`, { method: 'DELETE' });
         if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.message || 'Error al eliminar el ítem. Puede tener elementos dependientes.');
+          let errorMessage = 'Error al eliminar el ítem. Puede tener elementos dependientes.';
+          try { const errData = await res.json(); errorMessage = errData.message || errorMessage; } catch {}
+          throw new Error(errorMessage);
         }
-        mutate(cacheKey);
+        await mutate(cacheKey);
       } catch (err) {
         alert(err.message);
       }
