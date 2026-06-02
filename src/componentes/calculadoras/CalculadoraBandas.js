@@ -51,15 +51,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
     const isPVC = selectedMaterial === 'PVC';
 
-    const coloresPVC = useMemo(() => {
-        if (!tarifas) return [];
-        return [...new Set(
-            tarifas
-                .filter(t => t.material === 'PVC' && (!selectedEspesor || Number(t.espesor) === Number(selectedEspesor)))
-                .map(t => t.color)
-                .filter(Boolean)
-        )].sort();
-    }, [tarifas, selectedEspesor]);
+    const PVC_COLORS = ['AZUL', 'BLANCO', 'NEGRO', 'VERDE'];
 
     const availableEspesores = useMemo(() => {
         if (!tarifas || !selectedMaterial) return [];
@@ -156,8 +148,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
         const tarifa = tarifas.find(t =>
             t.material === selectedMaterial &&
-            Number(t.espesor) === Number(selectedEspesor) &&
-            (!isPVC || t.color === selectedColor)
+            Number(t.espesor) === Number(selectedEspesor)
         );
         if (!tarifa) return { isValid: false, errorMessage: 'Tarifa no encontrada para esa combinación' };
 
@@ -295,7 +286,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                         <label className="label"><span className="label-text">Color</span></label>
                         <select className="select select-bordered w-full" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}>
                             <option value="">Seleccionar color...</option>
-                            {coloresPVC.map(c => <option key={c} value={c}>{c}</option>)}
+                            {PVC_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
                 )}

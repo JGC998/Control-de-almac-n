@@ -35,15 +35,7 @@ export default function CalculadoraMetrajesPage() {
     )].sort((a, b) => parseFloat(a) - parseFloat(b));
   }, [tarifas, selectedMaterial]);
 
-  const colores = useMemo(() => {
-    if (!tarifas || !isPVC || !selectedEspesor) return [];
-    return [...new Set(
-      tarifas
-        .filter(t => t.material === 'PVC' && Number(t.espesor) === Number(selectedEspesor))
-        .map(t => t.color)
-        .filter(Boolean)
-    )].sort();
-  }, [tarifas, isPVC, selectedEspesor]);
+  const PVC_COLORS = ['AZUL', 'BLANCO', 'NEGRO', 'VERDE'];
 
   const selectedMargin = useMemo(() => {
     if (!margenes || !selectedMarginId) return null;
@@ -63,8 +55,7 @@ export default function CalculadoraMetrajesPage() {
 
     const tarifa = tarifas.find(t =>
       t.material === selectedMaterial &&
-      Number(t.espesor) === Number(selectedEspesor) &&
-      (!isPVC || t.color === selectedColor)
+      Number(t.espesor) === Number(selectedEspesor)
     );
     if (!tarifa) return { isValid: false, errorMessage: 'Tarifa no encontrada para esa combinación' };
 
@@ -227,7 +218,7 @@ export default function CalculadoraMetrajesPage() {
                     onChange={e => setSelectedColor(e.target.value)}
                   >
                     <option value="">Seleccionar color...</option>
-                    {colores.map(c => <option key={c} value={c}>{c}</option>)}
+                    {PVC_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               )}
