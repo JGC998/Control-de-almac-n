@@ -586,7 +586,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                                     </tr>
                                                     <tr>
                                                         <td className="text-base-content/60 py-0.5 pl-3">Desperdicio</td>
-                                                        <td className="text-right font-mono text-warning">{calculoGrapa.desperdicio} mm × 2 extremos</td>
+                                                        <td className="text-right font-mono text-error">{calculoGrapa.desperdicio} mm × 2 extremos</td>
                                                     </tr>
                                                     <tr className="font-semibold border-t border-base-300">
                                                         <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
