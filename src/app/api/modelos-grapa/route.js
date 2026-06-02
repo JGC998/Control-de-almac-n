@@ -24,7 +24,7 @@ export async function POST(request) {
     if (!validation.success) {
       return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-    const { tipo, nombre, espesorDesde, espesorHasta, anchosDisponibles, precioMetroLineal } = validation.data;
+    const { tipo, nombre, espesorDesde, espesorHasta, anchosDisponibles, precioPor100mm } = validation.data;
     const modelo = await db.modeloGrapa.create({
       data: {
         tipo,
@@ -32,7 +32,7 @@ export async function POST(request) {
         espesorDesde,
         espesorHasta: espesorHasta ?? null,
         anchosDisponibles: anchosDisponibles ? anchosDisponibles.slice().sort((a, b) => a - b) : null,
-        precioMetroLineal,
+        precioPor100mm,
       },
     });
     return NextResponse.json(modelo, { status: 201 });

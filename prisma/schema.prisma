@@ -346,7 +346,7 @@ model ModeloGrapa {
   espesorDesde      Float
   espesorHasta      Float?   // null para UNA (coincidencia exacta con espesorDesde)
   anchosDisponibles Json?    // array de anchos en mm disponibles para compra, ej: [1000, 1200, 1500]
-  precioMetroLineal Float    @default(0)
+  precioPor100mm    Float    @default(0)
   activo            Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

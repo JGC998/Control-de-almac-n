@@ -186,7 +186,7 @@ export const modeloGrapaSchema = z.object({
   espesorDesde: z.coerce.number().positive('Espesor desde debe ser positivo'),
   espesorHasta: z.coerce.number().positive().optional().nullable(),
   anchosDisponibles: z.array(z.number().positive()).optional().nullable(),
-  precioMetroLineal: z.coerce.number().nonnegative('El precio no puede ser negativo').default(0),
+  precioPor100mm: z.coerce.number().nonnegative('El precio no puede ser negativo').default(0),
 });
 
 export const grapaSchema = z.object({

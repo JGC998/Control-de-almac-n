@@ -14,7 +14,7 @@ function espesorLabel(modelo) {
   return `${modelo.espesorDesde} – ${modelo.espesorHasta ?? '?'} mm`;
 }
 
-const FORM_VACIO = { tipo: 'NORMAL', nombre: '', espesorDesde: '', espesorHasta: '', anchosDisponibles: '', precioMetroLineal: '' };
+const FORM_VACIO = { tipo: 'NORMAL', nombre: '', espesorDesde: '', espesorHasta: '', anchosDisponibles: '', precioPor100mm: '' };
 
 // ── Sección: Modelos genéricos de grapa ──────────────────────────────────────
 
@@ -67,7 +67,7 @@ function SeccionModelosGenericos() {
       espesorDesde: String(m.espesorDesde),
       espesorHasta: m.espesorHasta != null ? String(m.espesorHasta) : '',
       anchosDisponibles: Array.isArray(m.anchosDisponibles) ? m.anchosDisponibles.join(', ') : '',
-      precioMetroLineal: String(m.precioMetroLineal),
+      precioPor100mm: String(m.precioPor100mm),
     });
     setEditandoId(m.id);
     setErrMsg('');
@@ -89,7 +89,7 @@ function SeccionModelosGenericos() {
       espesorDesde: parseFloat(form.espesorDesde),
       espesorHasta: form.tipo === 'UNA' ? null : (form.espesorHasta !== '' ? parseFloat(form.espesorHasta) : null),
       anchosDisponibles: anchosArr && anchosArr.length > 0 ? anchosArr : null,
-      precioMetroLineal: parseFloat(form.precioMetroLineal) || 0,
+      precioPor100mm: parseFloat(form.precioPor100mm) || 0,
     };
     try {
       const url = editandoId ? `/api/modelos-grapa/${editandoId}` : '/api/modelos-grapa';
@@ -253,15 +253,15 @@ function SeccionModelosGenericos() {
 
               {/* Precio */}
               <div className="form-control">
-                <label className="label py-1"><span className="label-text text-xs">Precio €/metro lineal</span></label>
+                <label className="label py-1"><span className="label-text text-xs">Precio €/100mm de par</span></label>
                 <input
                   type="number"
                   className="input input-bordered input-sm"
                   placeholder='0.00'
                   min={0}
-                  step={0.01}
-                  value={form.precioMetroLineal}
-                  onChange={e => setForm(f => ({ ...f, precioMetroLineal: e.target.value }))}
+                  step={0.001}
+                  value={form.precioPor100mm}
+                  onChange={e => setForm(f => ({ ...f, precioPor100mm: e.target.value }))}
                   required
                 />
               </div>
@@ -299,7 +299,7 @@ function SeccionModelosGenericos() {
                   <th>Nombre</th>
                   <th>Espesor</th>
                   <th>Anchos disponibles (mm)</th>
-                  <th className="text-right">€/metro lineal</th>
+                  <th className="text-right">€/100mm par</th>
                   <th></th>
                 </tr>
               </thead>
@@ -318,7 +318,7 @@ function SeccionModelosGenericos() {
                         ? m.anchosDisponibles.join(', ')
                         : <span className="text-base-content/30">—</span>}
                     </td>
-                    <td className="text-right font-mono">{formatCurrency(m.precioMetroLineal)}</td>
+                    <td className="text-right font-mono">{formatCurrency(m.precioPor100mm)}</td>
                     <td className="text-right">
                       <div className="flex gap-1 justify-end">
                         <button className="btn btn-xs btn-ghost" onClick={() => abrirEditar(m)}>

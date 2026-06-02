@@ -11,7 +11,7 @@ export async function PATCH(request, { params }) {
     if (!validation.success) {
       return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-    const { tipo, nombre, espesorDesde, espesorHasta, anchosDisponibles, precioMetroLineal } = validation.data;
+    const { tipo, nombre, espesorDesde, espesorHasta, anchosDisponibles, precioPor100mm } = validation.data;
     const updated = await db.modeloGrapa.update({
       where: { id: parseInt(id) },
       data: {
@@ -22,7 +22,7 @@ export async function PATCH(request, { params }) {
         ...(anchosDisponibles !== undefined && {
           anchosDisponibles: anchosDisponibles ? anchosDisponibles.slice().sort((a, b) => a - b) : null,
         }),
-        ...(precioMetroLineal !== undefined && { precioMetroLineal }),
+        ...(precioPor100mm !== undefined && { precioPor100mm }),
       },
     });
     return NextResponse.json(updated);

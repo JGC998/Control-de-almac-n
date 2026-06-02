@@ -1,6 +1,6 @@
 # ROADMAP — CRM Taller
 
-> Última actualización: 2026-06-02  
+> Última actualización: 2026-06-02 (rev. 2)  
 > Generado desde `ideas.txt`
 
 ---
@@ -28,6 +28,10 @@ El foco más inmediato es completar el sistema de **grapas inteligente**: añadi
 | T-55 | Vista Kanban de pedidos agrupados por estado | Frontend | Media | — |
 | T-56 | Módulo de devoluciones/incidencias asociadas a pedidos | Full-stack | Grande | — |
 | T-57 | Comparativa de proveedores para el mismo producto (tabla lado a lado con precio y plazo) | Frontend / Backend | Media | — |
+| T-58 | ⚠️ DECISIÓN PREVIA: elegir modelo de precio de grapa (A/B/C — ver Fase 5-ext) | Diseño | — | — |
+| T-59 | Renombrar campo `precioMetroLineal` → `precioPor100mm` en `ModeloGrapa` + migración + API | Backend / DB | Pequeña | T-58 |
+| T-60 | Calculadora: nueva fórmula de coste basada en €/100mm de par de grapa | Frontend | Media | T-58, T-59 |
+| T-61 | Calculadora: hint de optimización — mostrar empalmes por barra y barra óptima | Frontend | Media | T-60 |
 
 ---
 
@@ -56,6 +60,42 @@ El foco más inmediato es completar el sistema de **grapas inteligente**: añadi
 
 ---
 
+### Fase 5-ext — Refinamiento del modelo de precio de grapas ⚠️ REQUIERE DECISIÓN
+> Cambiar la unidad de precio de €/metro lineal a €/100mm y ajustar la fórmula según el modelo de consumo elegido. Estimación: 1-2 días — **bloqueada hasta decidir el modelo de precio**.
+
+#### El problema
+De una barra de grapa de X mm salen `floor(X / ancho_banda)` empalmes. El desperdicio = `X mod ancho_banda`. Tres opciones de precio:
+
+| Opción | Qué se cobra | Quién absorbe el desperdicio |
+|--------|-------------|------------------------------|
+| **A — consumo real** | `(ancho_banda / 100) × precio` | El negocio absorbe el desperdicio |
+| **B — coste prorrateado** | `(X / floor(X/ancho_banda)) / 100 × precio` | El cliente paga su parte del desperdicio |
+| **C — consumo + info** | `(ancho_banda / 100) × precio` + desglose visible del desperdicio | El negocio absorbe, pero se muestra para transparencia |
+
+**Recomendación: Opción A** — precio simple basado en lo que se consume realmente. El desglose de cuántos empalmes salen de cada barra es información de gestión de stock, no de precio al cliente.
+
+#### Casuística de optimización (solo informativa, no afecta al precio en Opción A)
+
+| Banda | Barra 1000mm | Barra 1200mm | Barra 1500mm |
+|-------|-------------|-------------|-------------|
+| 400mm | 2 empalmes, 200mm sobra | **3 empalmes, 0mm sobra** ✓ | 3 empalmes, 300mm sobra |
+| 495mm | 2 empalmes, 10mm sobra | 2 empalmes, 210mm sobra | **3 empalmes, 15mm sobra** ✓ |
+| 600mm | 1 empalme, 400mm sobra | 2 empalmes, 0mm sobra ✓ | 2 empalmes, 300mm sobra |
+
+- [x] **T-58** — ⚠️ DECISIÓN: Opción A confirmada ✅  
+  _Precio basado en consumo real: `(ancho_banda / 100) × €/100mm`. El negocio absorbe el desperdicio. El hint de optimización es solo informativo._
+
+- [x] **T-59** — Renombrar `precioMetroLineal` → `precioPor100mm` en DB, API y UI ✅  
+  _Migración SQL `20260602000001_rename_grapa_price_field`. Conversión automática: valor÷10. API, validaciones Zod y formulario de configuración actualizados._
+
+- [x] **T-60** — Nueva fórmula de coste en calculadora de bandas ✅  
+  _`coste = (ancho_banda / 100) × precioPor100mm`. Sin desperdicio en el precio. Desglose colapsable actualizado con fórmula explícita._
+
+- [x] **T-61** — Hint de optimización de barra en calculadora ✅  
+  _Para cada barra disponible: `floor(barra / banda)` empalmes y `barra mod banda` desperdicio. La barra óptima (★, mínimo desperdicio por empalme) se destaca en verde. Visible en el mini-desglose y en el desglose colapsable._
+
+---
+
 ### Fase 6 — Integración de Artículos Simples en el ciclo de venta
 > Completar la tarea pendiente de la Fase 4: que los artículos del almacén puedan añadirse a presupuestos y pedidos. Estimación: 2-3 días.
 
@@ -73,6 +113,12 @@ El foco más inmediato es completar el sistema de **grapas inteligente**: añadi
 
 ---
 
+## 💡 Ideas descartadas o pospuestas
+
+- **Grapa: absorción total del desperdicio por el negocio (Opción B/C)** — Pospuesta hasta confirmar modelo de precio en T-58.
+
+---
+
 ## 🚧 Dependencias y bloqueos
 
 - **T-47** requiere **T-46** (DB antes que la API)
@@ -81,6 +127,7 @@ El foco más inmediato es completar el sistema de **grapas inteligente**: añadi
 - **T-50** requiere **T-49** y **T-51** (necesita el modelo seleccionado y el % de merma)
 - **T-52** (alertas de stock) — el campo `umbralMinimo` requiere una pequeña migración en `AlmacenStock`
 - **T-56** (devoluciones) requiere decidir si afectan al cálculo de margen antes de implementar
+- **T-59**, **T-60**, **T-61** requieren **T-58** (decisión del modelo de precio de grapa)
 
 ---
 
