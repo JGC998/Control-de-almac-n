@@ -348,19 +348,33 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                             </div>
                         </div>
 
-                        {/* Modelo auto-sugerido */}
-                        {selectedEspesor && (
-                            modelosCompatibles.length === 0 ? (
+                        {/* Selector de modelo de grapa */}
+                        {(() => {
+                            const modelosTipo = todosModelosGrapa.filter(m => m.tipo === tipoGrapa);
+                            const compatiblesIds = new Set(modelosCompatibles.map(m => m.id));
+                            const otrosModelos = modelosTipo.filter(m => !compatiblesIds.has(m.id));
+                            const hayModelos = modelosTipo.length > 0;
+
+                            const optionLabel = m => {
+                                const rollos = Array.isArray(m.anchosDisponibles) && m.anchosDisponibles.length > 0
+                                    ? ` · rollos: ${m.anchosDisponibles.join('/')}mm`
+                                    : '';
+                                return `${m.nombre} · ${formatCurrency(m.precioMetroLineal)}/m lineal${rollos}`;
+                            };
+
+                            if (!hayModelos) return (
                                 <div className="alert alert-warning text-xs py-2">
-                                    Sin modelo {tipoGrapa === 'UNA' ? 'de uña' : 'normal'} para {selectedEspesor}mm.{' '}
+                                    Sin modelos de grapa {tipoGrapa === 'UNA' ? 'de uña' : 'normal'} configurados.{' '}
                                     <a href="/configuracion/grapas" className="link font-semibold">Configurar</a>
                                 </div>
-                            ) : (
+                            );
+
+                            return (
                                 <div className="form-control w-full">
                                     <label className="label py-1">
                                         <span className="label-text text-xs">Modelo</span>
-                                        {modeloGrapaSeleccionado && (
-                                            <span className="label-text-alt text-xs text-success">auto-sugerido</span>
+                                        {modeloGrapaSeleccionado && selectedEspesor && modelosCompatibles.length > 0 && (
+                                            <span className="label-text-alt text-xs text-success">auto-sugerido para {selectedEspesor}mm</span>
                                         )}
                                     </label>
                                     <select
@@ -368,18 +382,25 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                         value={modeloGrapaSeleccionado?.id ?? ''}
                                         onChange={e => setModeloGrapaId(e.target.value)}
                                     >
-                                        {modelosCompatibles.map(m => (
-                                            <option key={m.id} value={m.id}>
-                                                {m.nombre} · {formatCurrency(m.precioMetroLineal)}/m lineal
-                                                {Array.isArray(m.anchosDisponibles) && m.anchosDisponibles.length > 0
-                                                    ? ` · rollos: ${m.anchosDisponibles.join('/')}mm`
-                                                    : ''}
-                                            </option>
-                                        ))}
+                                        <option value="">Seleccionar modelo...</option>
+                                        {modelosCompatibles.length > 0 && (
+                                            <optgroup label={selectedEspesor ? `Compatibles con ${selectedEspesor}mm` : 'Compatibles'}>
+                                                {modelosCompatibles.map(m => (
+                                                    <option key={m.id} value={m.id}>{optionLabel(m)}</option>
+                                                ))}
+                                            </optgroup>
+                                        )}
+                                        {otrosModelos.length > 0 && (
+                                            <optgroup label="Otros modelos">
+                                                {otrosModelos.map(m => (
+                                                    <option key={m.id} value={m.id}>{optionLabel(m)}</option>
+                                                ))}
+                                            </optgroup>
+                                        )}
                                     </select>
                                 </div>
-                            )
-                        )}
+                            );
+                        })()}
 
                         {/* Desglose coste grapa */}
                         {calculoGrapa && ancho && (
