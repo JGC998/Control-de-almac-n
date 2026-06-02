@@ -310,11 +310,11 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     <label className="label"><span className="label-text font-bold">Tipo de Vulcanizado</span></label>
                     <div className="join w-full grid grid-cols-3">
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Sin Fin"
-                            checked={tipoConfeccion === 'VULCANIZADA'} onChange={() => { setTipoConfeccion('VULCANIZADA'); setSelectedGrapaId(''); }} />
+                            checked={tipoConfeccion === 'VULCANIZADA'} onChange={() => setTipoConfeccion('VULCANIZADA')} />
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Grapa"
                             checked={tipoConfeccion === 'GRAPA'} onChange={() => { setTipoConfeccion('GRAPA'); setModeloGrapaId(''); }} />
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Abierta"
-                            checked={tipoConfeccion === 'ABIERTA'} onChange={() => { setTipoConfeccion('ABIERTA'); setSelectedGrapaId(''); }} />
+                            checked={tipoConfeccion === 'ABIERTA'} onChange={() => setTipoConfeccion('ABIERTA')} />
                     </div>
                 </div>
 
