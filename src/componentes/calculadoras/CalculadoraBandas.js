@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Plus, Settings, Info, Layers, Link2, BookmarkPlus, Check } from 'lucide-react';
+import { Plus, Settings, Info, Layers, Link2, BookmarkPlus, Check, Calculator } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
 
