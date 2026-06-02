@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { fabricanteSchema, validateData } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    const { nombre } = await request.json();
-    const updatedItem = await db.fabricante.update({ where: { id }, data: { nombre } });
+    const body = await request.json();
+    const validation = validateData(fabricanteSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
+    }
+    const updatedItem = await db.fabricante.update({ where: { id }, data: { nombre: validation.data.nombre } });
     return NextResponse.json(updatedItem);
   } catch (error) {
     return handlePrismaError(error, {

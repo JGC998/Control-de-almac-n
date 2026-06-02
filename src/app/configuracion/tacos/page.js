@@ -34,6 +34,8 @@ const campos = [
     tipo: 'numero',
     requerido: true,
     placeholder: 'Ej: 10, 20, 40...',
+    min: 1,
+    step: '1',
   },
   {
     clave: 'precioMetro',
@@ -41,6 +43,8 @@ const campos = [
     tipo: 'numero',
     requerido: true,
     placeholder: '0.00',
+    min: 0,
+    step: '0.01',
   },
 ];
 

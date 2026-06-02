@@ -226,6 +226,7 @@ export default function CalculadoraPage() {
         <div className="tabs tabs-boxed">
           <Link href="/calculadora" className="tab tab-active">Piezas (m²)</Link>
           <Link href="/calculadora/bandas" className="tab">Bandas PVC</Link>
+          <Link href="/calculadora/metrajes" className="tab">Metrajes</Link>
         </div>
 
         {/* SOLO BOTÓN PDF */}

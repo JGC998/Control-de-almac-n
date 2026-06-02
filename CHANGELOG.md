@@ -5,6 +5,34 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-06-02
+
+### ✨ Añadido
+
+#### Sistema de grapas inteligente (T-46 → T-51)
+- ✅ **T-46** — Nuevo modelo `ModeloGrapa` en Prisma: `tipo` (NORMAL/UNA), `nombre`, `espesorDesde`, `espesorHasta`, `anchosDisponibles` (JSON con anchos de rollo disponibles en mm), `precioMetroLineal`. Migración SQL `20260602000000_add_modelo_grapa`
+- ✅ **T-47** — API CRUD `/api/modelos-grapa` (GET/POST), `/api/modelos-grapa/[id]` (PATCH/DELETE) y `/api/modelos-grapa/config-merma` (PUT para guardar `mermaGrapaPct` en `Config`). Schema Zod `modeloGrapaSchema` en `validations.js`
+- ✅ **T-48 + T-51** — `/configuracion/grapas` reconstruida con dos secciones: **Modelos genéricos** (nueva tabla con CRUD inline, campo de anchos disponibles CSV, config de % merma) y **Grapas de fabricante** (tabla existente rediseñada)
+- ✅ **T-49** — Calculadora de bandas: toggle **Normal / Uña** al activar confección por grapa. Filtrado automático de modelos compatibles por espesor + subtipo. Auto-selección del primer modelo compatible con override manual
+- ✅ **T-50** — Calculadora de bandas: cálculo preciso de coste de grapa por ancho de rollo. Selecciona el rollo más pequeño disponible ≥ ancho de banda → `coste = 2 × (anchoRollo/1000) × precio€/m`. Muestra rollo usado y desperdicio mm/extremo. Fallback a % merma si no hay anchos configurados. Advertencia si la banda supera todos los rollos disponibles
+- ✅ **Desglose colapsable** en calculadora de bandas (modo grapa): sección "▶ Desglose del cálculo" que muestra paso a paso dimensiones, área, coste de material, coste de grapa (con rollo seleccionado y fórmula explícita) y resumen final para verificación manual
+
+#### Calculadora de Metrajes (nueva)
+- ✅ Nueva página `/calculadora/metrajes`: calcula el precio de metros lineales de tira PVC a un ancho determinado, sin confección. Inputs: material, espesor, color (PVC), ancho mm, metros. Soporte de márgenes, desglose colapsable, lista acumulable de líneas, exportación PDF
+- ✅ Tab "Metrajes" añadido a las tres calculadoras (Piezas m², Bandas PVC, Metrajes) para navegación directa entre ellas
+- ✅ Hub `/herramientas`: nueva entrada "Calculadora de metrajes"
+
+### 🐛 Corregido
+- ✅ Hub `/herramientas`: el enlace "Calculadora de bandas PVC" apuntaba a `/calculadora` (piezas m²) en lugar de `/calculadora/bandas`
+
+### ♻️ Cambiado
+- ✅ `useGestionCRUD.js` + `PaginaGestion.jsx`: propagación de `erroresCampos` (errores Zod por campo) desde el hook hasta el modal de formulario
+- ✅ APIs `fabricantes`, `proveedores`, `clientes`, `tarifas-rollo`, `pricing/margenes`, `materiales`, `precios`: validación Zod añadida en POST/PUT con `zodSchema` en `crearManejadoresCRUD` o `validateData` directo; eliminados `parseFloat`/`parseInt` manuales sin validación previa
+- ✅ `almacen/page.js`: hub rediseñado — enlace "Rollos y materiales" apunta a `/tarifas`; eliminados accesos redundantes a Materiales, Productos y Fabricantes (ya accesibles desde Gestión)
+- ✅ `almacen/articulos/page.js` + `configuracion/tacos/page.js`: atributos `min` y `step` añadidos a campos numéricos para validación HTML nativa
+
+---
+
 ## 2026-06-01 (auditoría)
 
 ### Correcciones de seguridad y calidad — REVIEW.md (10 hallazgos)

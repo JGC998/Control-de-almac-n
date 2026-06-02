@@ -1,13 +1,13 @@
-# ROADMAP — Control de Almacén
+# ROADMAP — CRM Taller
 
-> Última actualización: 2026-06-01  
+> Última actualización: 2026-06-02  
 > Generado desde `ideas.txt`
 
 ---
 
 ## 🎯 Visión general
 
-El proyecto está desplegado y operativo en producción. La prioridad inmediata es cerrar la exposición de datos de negocio sensibles que están siendo subidos públicamente a GitHub a través de los scripts de siembra de la carpeta `prisma/`. A medio plazo, el proyecto puede seguir incorporando nuevas funcionalidades operativas conforme se vayan anotando en `ideas.txt`.
+El foco más inmediato es completar el sistema de **grapas inteligente**: añadir una tabla de modelos genéricos con precios por metro lineal y conectarla a la calculadora de bandas, de forma que al elegir el espesor el coste de la grapa se calcule automáticamente con el desperdicio configurado. En paralelo, quedan pendientes la integración de Artículos Simples en presupuestos/pedidos y un conjunto de mejoras de alto valor identificadas en la revisión del proyecto (alertas de stock, exportación Excel, Kanban de pedidos, informe de compras).
 
 ---
 
@@ -15,70 +15,114 @@ El proyecto está desplegado y operativo en producción. La prioridad inmediata 
 
 | ID | Tarea | Tipo | Complejidad | Depende de |
 |----|-------|------|-------------|------------|
-| T-01 | Excluir de git los seed files con datos de negocio sensibles | Seguridad / Infra | Pequeña | — |
+| T-07 | Añadir Artículos Simples al flujo de presupuesto/pedido | Frontend / Backend | Media | — |
+| T-46 | DB: modelo `ModeloGrapa` (tipo NORMAL/UNA, nombre, espesorDesde, espesorHasta, precioMetroLineal) | Backend / DB | Pequeña | — |
+| T-47 | API CRUD para `ModeloGrapa` | Backend | Pequeña | T-46 |
+| T-48 | UI en `/configuracion/grapas`: sección de modelos genéricos con precios y porcentaje de merma | Frontend | Media | T-47 |
+| T-49 | Calculadora de bandas: auto-selección de modelo genérico según espesor de la banda | Frontend | Media | T-48 |
+| T-50 | Calculadora de bandas: cálculo de coste de grapa (precio/m × 2 × (ancho_mm/1000 + merma)) | Frontend | Media | T-49 |
+| T-51 | Campo `porcentajeMermaGrapa` configurable en `/configuracion/grapas` (valor por defecto editable) | Frontend | Pequeña | T-48 |
+| T-52 | Dashboard: alertas de stock bajo con umbral configurable por material | Frontend / Backend | Media | — |
+| T-53 | Informes: nuevo tab "Compras a proveedor" (importe y frecuencia por proveedor, filtro por fecha) | Frontend / Backend | Media | — |
+| T-54 | Exportación Excel (.xlsx) en informes (exceljs ya instalado, sin dependencia nueva) | Frontend / Backend | Pequeña | — |
+| T-55 | Vista Kanban de pedidos agrupados por estado | Frontend | Media | — |
+| T-56 | Módulo de devoluciones/incidencias asociadas a pedidos | Full-stack | Grande | — |
+| T-57 | Comparativa de proveedores para el mismo producto (tabla lado a lado con precio y plazo) | Frontend / Backend | Media | — |
 
 ---
 
 ## 🗺️ Fases propuestas
 
-### Fase 1 — Seguridad y privacidad de datos
-> Eliminar la exposición de datos de negocio en el repositorio público. Estimación: 1-2 horas.
+### Fase 5 — Sistema de grapas inteligente
+> Completar el modelo de grapas para que la calculadora de bandas calcule automáticamente el coste de la grapa según el espesor seleccionado. Estimación: 2-3 días.
 
-- [ ] **T-01** — Dejar de trackear en git los archivos de seed que contienen precios y costes reales  
-  _Los siguientes archivos están actualmente en GitHub y contienen datos de negocio privados:_
-  - `prisma/seed.js` — tarifas Pallex 2026 (precios de transporte negociados)
-  - `prisma/seed-logistica.js` — costes internos de paletizado y logística
-  - `prisma/seed-tarifas-logistica.js` — tarifas Pallex 2026 (duplicado)
-  - `prisma/seed-tacos.js` — precios de tacos por tipo y altura
-  - `prisma/seed-production.js` — script de migración de datos de producción
+- [x] **T-46** — Modelo `ModeloGrapa` en Prisma ✅  
+  _Campos: `tipo` (NORMAL | UNA), `nombre`, `espesorDesde`, `espesorHasta` (nullable), `anchosDisponibles` (JSON, anchos de rollo disponibles en mm), `precioMetroLineal`. Migración SQL creada._
 
-  _Los siguientes archivos son seguros y pueden quedarse en git:_
-  - `prisma/seed-dev.js` — genera datos aleatorios (sin datos reales)
-  - `prisma/seed-mock.js` — datos de demostración ficticios
-  - `prisma/migrate-colors.js` — script sin datos hardcodeados
+- [x] **T-47** — API CRUD `/api/modelos-grapa` y `/api/modelos-grapa/[id]` ✅  
+  _GET devuelve `{ modelos, mermaGrapaPct }`. POST/PATCH con validación Zod. `/api/modelos-grapa/config-merma` PUT para guardar % merma en Config._
 
-  **Pasos concretos:**
-  ```bash
-  # 1. Añadir al .gitignore
-  echo "prisma/seed.js" >> .gitignore
-  echo "prisma/seed-logistica.js" >> .gitignore
-  echo "prisma/seed-tarifas-logistica.js" >> .gitignore
-  echo "prisma/seed-tacos.js" >> .gitignore
-  echo "prisma/seed-production.js" >> .gitignore
+- [x] **T-48** — UI en `/configuracion/grapas`: tabla de modelos genéricos ✅  
+  _Página reconstruida con dos secciones: "Modelos genéricos" (nueva) y "Grapas de fabricante" (existente). Formulario inline con campos tipo, nombre, espesor, anchos disponibles (CSV) y precio._
 
-  # 2. Dejar de trackearlos (sin borrarlos localmente)
-  git rm --cached prisma/seed.js prisma/seed-logistica.js prisma/seed-tarifas-logistica.js prisma/seed-tacos.js prisma/seed-production.js
+- [x] **T-51** — Porcentaje de merma configurable en `/configuracion/grapas` ✅  
+  _Campo numérico en la sección de modelos genéricos. Guardado en `Config.mermaGrapaPct`. Se usa como fallback si el modelo no tiene anchos disponibles configurados._
 
-  # 3. Commit y push
-  git commit -m "security: untrack sensitive seed files with business pricing data"
-  git push
-  ```
+- [x] **T-49** — Calculadora de bandas: toggle Normal/Uña + auto-selección de modelo ✅  
+  _Toggle Normal/Uña aparece al activar confección por grapa. Filtrado de modelos compatibles por espesor + tipo. Auto-selección del primer compatible, override manual disponible._
 
-  > ⚠️ Esto retira los archivos del historial FUTURO, pero no borra el historial pasado. Si los datos son críticos, considera rotar contraseñas/tarifas o usar `git filter-repo` para limpiar el historial completo.
+- [x] **T-50** — Calculadora de bandas: coste de grapa con anchos de rollo ✅  
+  _Fórmula precisa: selecciona el rollo más pequeño ≥ ancho banda → `coste = 2 × (anchoRollo/1000) × precioMetroLineal`. Muestra rollo seleccionado y desperdicio mm/extremo. Fallback a % merma si no hay anchos configurados. Advertencia si banda supera todos los rollos disponibles._
 
 ---
 
+### Fase 6 — Integración de Artículos Simples en el ciclo de venta
+> Completar la tarea pendiente de la Fase 4: que los artículos del almacén puedan añadirse a presupuestos y pedidos. Estimación: 2-3 días.
+
+- [ ] **T-07** — Artículos Simples en presupuesto/pedido  
+  _En el formulario de nuevo presupuesto/pedido, cuando el usuario busca un producto, los `ArticuloSimple` aparecen como opciones con su precio unitario precargado. Hay que distinguirlos de los `Producto` en la lista (badge "Artículo" vs "Producto"). Al añadirlos, se guardan como `PedidoItem` / `PresupuestoItem` igual que cualquier otra línea._
+
+---
+
+
 ## ⚡ Quick wins
 
-- [ ] **T-01** — Excluir seed files sensibles de git (~30 min)
+- [ ] **T-54** — Exportar Excel en informes con exceljs (ya instalado, ~2-3 horas)
+- [ ] **T-51** — Campo de merma de grapa en configuración (~30 min, preparatorio para T-50)
+- [ ] **T-47** — API de modelos genéricos de grapas (~1 hora, bloqueante para el resto de Fase 5)
 
 ---
 
 ## 🚧 Dependencias y bloqueos
 
-Ninguna. La tarea T-01 es completamente independiente y puede ejecutarse ahora mismo.
+- **T-47** requiere **T-46** (DB antes que la API)
+- **T-48** y **T-51** requieren **T-47** (API antes que la UI)
+- **T-49** requiere **T-48** (modelos disponibles en DB para auto-selección)
+- **T-50** requiere **T-49** y **T-51** (necesita el modelo seleccionado y el % de merma)
+- **T-52** (alertas de stock) — el campo `umbralMinimo` requiere una pequeña migración en `AlmacenStock`
+- **T-56** (devoluciones) requiere decidir si afectan al cálculo de margen antes de implementar
 
 ---
 
-## 💡 Ideas descartadas o pospuestas
-
-Ninguna idea descartada en esta ronda.
-
----
 
 ## ✅ Completado
 
-- Despliegue en producción completado (Prisma DB push, índices sincronizados)
+- Despliegue en producción (Prisma DB push, índices sincronizados)
+- Eliminados datos de negocio privados del repositorio GitHub; historial limpiado con git-filter-repo
+- **T-01** — Modelo `ArticuloSimple` creado en Prisma (dev + prod)
+- **T-02** — API REST CRUD `/api/articulos-simples` + `/api/articulos-simples/[id]`
+- **T-03** — Hub `/almacen` rediseñado: Rollos y materiales, Grapas, Tacos, Artículos varios
+- **T-04** — Stock e Inventario eliminado del hub de Almacén
+- **T-05** — Materiales accesible desde el hub de Almacén
+- **T-06** — Pantalla de gestión de Artículos varios (`/almacen/articulos`)
+- **T-08** — Auditoría completa de cobertura Zod en endpoints POST/PUT
+- **T-09** — Schemas Zod añadidos: `fabricanteSchema`, `proveedorSchema`, `tarifaRolloSchema`, `tarifaRolloUpdateSchema`, `tarifaClienteCreateSchema`, `importacionContenedorSchema`
+- **T-10** — `min`/`step` en campos numéricos; errores Zod por campo en formularios
+- **T-11** — `request.json()` en `try/catch` en rutas afectadas; manejo de errores uniforme
+- **T-12** — `try/catch` + `logApiError` en `sequence.js` (`getNextNumber`, `getCurrentNumber`)
+- **T-15** — Búsqueda global Ctrl+K con modal overlay y resultados agrupados
+- **T-16** — Acciones en bloque en pedidos y presupuestos (bulk-update con barra flotante)
+- **T-28-ext** — Índices `@@fulltext` en `Cliente` y `Producto` para búsqueda full-text en MySQL
+- **T-31** — Calculadora de contenedor: rediseño completo (prorrateo por valor, exentos, columna % valor)
+- **T-32** — PWA instalable (manifest.json, shortcuts, meta tags Apple)
+- **T-33** — Nota de trabajo imprimible en `/pedidos/[id]/nota-trabajo`
+- **T-34** — Carta de porte PDF en `/herramientas/carta-porte`
+- **T-35** — Inventario de palés integrado en la carta de porte (segunda página PDF)
+- **T-36** — Historial de precios por cliente en ficha de cliente
+- **T-37** — Tarifas pactadas por cliente (modelo `TarifaCliente`, integrado en formulario de pedido)
+- **T-38** — Plantillas habilitadas también en "Nuevo pedido"
+- **T-39** — Margen real por pedido (tab en `/informes`, filtro por fecha, badges de color)
+- **T-40** — Rentabilidad por cliente con gráfico barras horizontales y filtro por fecha
+- **T-41** — Histórico de precios por bobina importada (gráfico evolución USD/M y €/M)
+- **T-43** — Persistencia de importaciones (modelo `ImportacionContenedor`, historial y botón "Cargar")
+- **T-44** — Nueva regla de gastos en calculadora de contenedor (exentos repercuten, sujetos no)
+- **T-45** — Panel de metodología actualizado con explicaciones por casilla
+- **SEC-01/03** — Headers de seguridad y matcher de middleware reforzados
+- **BUG-01** — IVA leído de `db.config` en lugar de hardcodeado en informes de margen
+- **BUG-02** — Validación de `rutaArchivo` en documentos para prevenir rutas arbitrarias
+- **BACK-02/03** — `MAX_ROWS` reducido a 2000; `rentabilidad-clientes` acepta filtro de fechas
+- **API-01** — Schemas Zod en `tarifas-cliente` e `importaciones`; respuestas 400 por campo
+- **FRONT-01** — Estado de error visible en `BusquedaGlobal`
 
 ---
 

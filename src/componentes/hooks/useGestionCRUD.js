@@ -54,6 +54,7 @@ export function useGestionCRUD({
     // Estados de operaciones
     const [guardando, setGuardando] = useState(false);
     const [errorGuardado, setErrorGuardado] = useState(null);
+    const [erroresCampos, setErroresCampos] = useState({});
 
     // Resetear página al buscar
     const setBusquedaYResetear = useCallback((q) => {
@@ -94,6 +95,7 @@ export function useGestionCRUD({
         setFormData(camposIniciales);
         setEntidadActual(null);
         setErrorGuardado(null);
+        setErroresCampos({});
     }, [camposIniciales]);
 
     // Abrir modal para crear nuevo
@@ -159,6 +161,7 @@ export function useGestionCRUD({
 
         setGuardando(true);
         setErrorGuardado(null);
+        setErroresCampos({});
 
         try {
             const esEdicion = modoEdicion && entidadActual;
@@ -180,6 +183,11 @@ export function useGestionCRUD({
 
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
+                if (errorData.errors && Array.isArray(errorData.errors)) {
+                    const porCampo = {};
+                    errorData.errors.forEach(e => { if (e.field) porCampo[e.field] = e.message; });
+                    setErroresCampos(porCampo);
+                }
                 throw new Error(errorData.message || `Error al ${esEdicion ? 'actualizar' : 'crear'}`);
             }
 
@@ -255,6 +263,7 @@ export function useGestionCRUD({
         guardando,
         errorGuardado,
         setErrorGuardado,
+        erroresCampos,
         pagina,
         setPagina,
         meta,

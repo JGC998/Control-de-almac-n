@@ -15,8 +15,8 @@ const { GET, POST } = crearManejadoresCRUD('material', {
 export { GET, POST };
 
 export async function PUT(request) {
-  const { id, ...data } = await request.json();
   try {
+    const { id, ...data } = await request.json();
     if (!id || !data.nombre) {
       return NextResponse.json({ error: 'ID y Nombre del Material son requeridos para actualizar.' }, { status: 400 });
     }
@@ -43,8 +43,8 @@ export async function PUT(request) {
 }
 
 export async function DELETE(request) {
-  const { id } = await request.json();
   try {
+    const { id } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'ID del Material es requerido para eliminar.' }, { status: 400 });
     }

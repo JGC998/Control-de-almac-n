@@ -2,6 +2,7 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { logCreate } from '@/lib/audit';
+import { tarifaRolloSchema, validateData } from '@/lib/validations';
 
 export async function GET() {
   try {
@@ -18,24 +19,21 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { material, espesor, ancho, color, metrajeMinimo, precioBase, peso } = await request.json();
-
-    if (!material || espesor === undefined || precioBase === undefined || peso === undefined) {
-      return NextResponse.json(
-        { message: 'material, espesor, precioBase y peso son obligatorios' },
-        { status: 400 }
-      );
+    const body = await request.json();
+    const validation = validateData(tarifaRolloSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-
+    const { material, espesor, ancho, color, metrajeMinimo, precioBase, peso } = validation.data;
     const tarifa = await db.tarifaRollo.create({
       data: {
         material: material.trim().toUpperCase(),
-        espesor: parseFloat(espesor),
-        ancho: ancho ? parseFloat(ancho) : null,
+        espesor,
+        ancho: ancho ?? null,
         color: color?.trim().toUpperCase() || null,
-        metrajeMinimo: parseFloat(metrajeMinimo) || 10,
-        precioBase: parseFloat(precioBase),
-        peso: parseFloat(peso),
+        metrajeMinimo: metrajeMinimo ?? 10,
+        precioBase,
+        peso,
       },
     });
     await logCreate('TarifaRollo', tarifa.id, tarifa, 'Admin');

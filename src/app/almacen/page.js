@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Warehouse, Layers, Package, Factory, Link2, AlignJustify, Box } from 'lucide-react';
+import { Warehouse, Layers, Link2, AlignJustify, Box } from 'lucide-react';
 
 export const metadata = { title: 'Almacén — CRM Taller' };
 
@@ -12,25 +12,11 @@ export default function AlmacenHub() {
       color="info"
       items={[
         {
-          href: '/gestion/catalogos/materiales',
+          href: '/tarifas',
           icon: Layers,
-          titulo: 'Materiales',
-          descripcion: 'Tipos de material base: PVC, caucho, poliuretano, silicona… Usados en tarifas y cálculos.',
-          accion: 'Ver materiales',
-        },
-        {
-          href: '/gestion/productos',
-          icon: Package,
-          titulo: 'Productos',
-          descripcion: 'Catálogo completo de productos con tarifas, costes, pesos y referencias de fabricante.',
-          accion: 'Ver productos',
-        },
-        {
-          href: '/gestion/catalogos/fabricantes',
-          icon: Factory,
-          titulo: 'Fabricantes',
-          descripcion: 'Catálogo de fabricantes vinculados a los productos del sistema.',
-          accion: 'Ver fabricantes',
+          titulo: 'Rollos y materiales',
+          descripcion: 'Tarifas de material por m² y por rollo. Consulta y edita precios de venta y coste.',
+          accion: 'Ver tarifas',
         },
         {
           href: '/configuracion/grapas',

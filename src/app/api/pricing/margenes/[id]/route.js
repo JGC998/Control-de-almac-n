@@ -2,38 +2,31 @@ import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { reglaMargenSchema, validateData } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
 // PUT /api/pricing/margenes/[id] - Actualiza una regla de margen
 export async function PUT(request, { params }) {
   try {
-    // FIX CRÍTICO: Usamos await para desestructurar 'id'
     const { id } = await params;
     const data = await request.json();
-    // Usamos 'multiplicador' y 'gastoFijo'
-    const { descripcion, tipo, multiplicador, categoria, tierCliente, gastoFijo } = data;
-
-    const parsedMultiplicador = parseFloat(multiplicador);
-
-    // Validación de datos
-    if (!descripcion || !tipo || isNaN(parsedMultiplicador) || parsedMultiplicador <= 0) {
-      return NextResponse.json(
-        { message: 'Datos de margen incompletos o inválidos. Se requiere descripción, tipo y un multiplicador numérico positivo.' },
-        { status: 400 }
-      );
+    const validation = validateData(reglaMargenSchema, data);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
+    const { descripcion, multiplicador, gastoFijo, tierCliente } = validation.data;
 
-    // Obtener regla anterior
-    const oldRegla = await db.reglaMargen.findUnique({ where: { id: id } });
+    const oldRegla = await db.reglaMargen.findUnique({ where: { id } });
 
     const updatedData = {
-      descripcion: descripcion,
-      tipo: tipo,
-      multiplicador: parsedMultiplicador,
-      gastoFijo: parseFloat(gastoFijo) || 0,
-      categoria: categoria,
-      tierCliente: tierCliente,
+      descripcion,
+      tipo: data.tipo || descripcion,
+      base: validation.data.base || descripcion,
+      multiplicador,
+      gastoFijo: gastoFijo ?? 0,
+      categoria: data.categoria ?? null,
+      tierCliente: tierCliente ?? null,
     };
 
     const updatedRegla = await db.reglaMargen.update({

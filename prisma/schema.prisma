@@ -1,4 +1,4 @@
-generator client {
+1generator client {
   provider = "prisma-client-js"
 }
 
@@ -337,6 +337,19 @@ model Grapa {
   activo      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model ModeloGrapa {
+  id                Int      @id @default(autoincrement())
+  tipo              String   // "NORMAL" | "UNA"
+  nombre            String
+  espesorDesde      Float
+  espesorHasta      Float?   // null para UNA (coincidencia exacta con espesorDesde)
+  anchosDisponibles Json?    // array de anchos en mm disponibles para compra, ej: [1000, 1200, 1500]
+  precioMetroLineal Float    @default(0)
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model TarifaTransporte {

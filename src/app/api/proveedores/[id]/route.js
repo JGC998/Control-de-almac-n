@@ -2,14 +2,20 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { proveedorSchema, validateData } from '@/lib/validations';
 
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    const data = await request.json();
+    const body = await request.json();
+    const validation = validateData(proveedorSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
+    }
+    const { nombre, email, telefono, direccion } = validation.data;
     const updatedItem = await db.proveedor.update({
       where: { id },
-      data: { nombre: data.nombre, email: data.email, telefono: data.telefono, direccion: data.direccion },
+      data: { nombre, email, telefono, direccion },
     });
     revalidatePath('/proveedores');
     revalidatePath(`/proveedores/${id}`);

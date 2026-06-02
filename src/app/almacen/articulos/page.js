@@ -55,12 +55,16 @@ const campos = [
     tipo: 'numero',
     requerido: true,
     placeholder: '0.00',
+    min: 0,
+    step: '0.01',
   },
   {
     clave: 'costoUnitario',
     etiqueta: 'Coste unitario (€)',
     tipo: 'numero',
     placeholder: '0.00',
+    min: 0,
+    step: '0.01',
   },
   {
     clave: 'fabricante',

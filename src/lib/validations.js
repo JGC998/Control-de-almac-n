@@ -169,16 +169,25 @@ export const tarifaMaterialSchema = z.object({
 });
 
 export const reglaMargenSchema = z.object({
-    base: z.string().min(1, 'Base requerida'),
-    multiplicador: z.number().positive('Multiplicador debe ser positivo'),
-    gastoFijo: z.number().nonnegative().optional().nullable(),
+    base: z.string().min(1).optional().nullable(),
+    multiplicador: z.coerce.number().positive('Multiplicador debe ser positivo'),
+    gastoFijo: z.coerce.number().nonnegative().optional().nullable(),
     descripcion: z.string().min(1, 'Descripción requerida'),
-    tierCliente: z.string().optional().nullable()
+    tierCliente: z.string().optional().nullable(),
 });
 
 // ============================================
 // VALIDACIONES PARA GRAPAS
 // ============================================
+
+export const modeloGrapaSchema = z.object({
+  tipo: z.enum(['NORMAL', 'UNA'], { errorMap: () => ({ message: 'tipo debe ser NORMAL o UNA' }) }),
+  nombre: z.string().min(1, 'Nombre requerido').max(50),
+  espesorDesde: z.coerce.number().positive('Espesor desde debe ser positivo'),
+  espesorHasta: z.coerce.number().positive().optional().nullable(),
+  anchosDisponibles: z.array(z.number().positive()).optional().nullable(),
+  precioMetroLineal: z.coerce.number().nonnegative('El precio no puede ser negativo').default(0),
+});
 
 export const grapaSchema = z.object({
     nombre: z.string().min(1, 'Nombre requerido'),
@@ -284,6 +293,42 @@ export const pedidoProveedorSchema = z.object({
     numeroContenedor: z.string().optional().nullable(),
     naviera: z.string().optional().nullable(),
     fechaLlegadaEstimada: z.string().optional().nullable(),
+});
+
+// ============================================
+// VALIDACIONES PARA FABRICANTES Y PROVEEDORES
+// ============================================
+
+export const fabricanteSchema = z.object({
+  nombre: z.string().min(1, 'Nombre requerido').max(200),
+});
+
+export const proveedorSchema = z.object({
+  nombre: z.string().min(1, 'Nombre requerido').max(200),
+  email: z.string().email('Email inválido').optional().nullable(),
+  telefono: z.string().max(50).optional().nullable(),
+  direccion: z.string().max(500).optional().nullable(),
+});
+
+// ============================================
+// VALIDACIONES PARA TARIFAS DE ROLLO
+// ============================================
+
+export const tarifaRolloSchema = z.object({
+  material: z.string().min(1, 'Material requerido').max(100),
+  espesor: z.coerce.number().positive('Espesor debe ser positivo'),
+  ancho: z.coerce.number().positive().optional().nullable(),
+  color: z.string().max(100).optional().nullable(),
+  metrajeMinimo: z.coerce.number().positive().optional().default(10),
+  precioBase: z.coerce.number().nonnegative('Precio no puede ser negativo'),
+  peso: z.coerce.number().nonnegative('Peso no puede ser negativo'),
+});
+
+export const tarifaRolloUpdateSchema = z.object({
+  metrajeMinimo: z.coerce.number().positive().optional(),
+  precioBase: z.coerce.number().nonnegative().optional(),
+  peso: z.coerce.number().nonnegative().optional(),
+  ancho: z.coerce.number().positive().optional().nullable(),
 });
 
 // ============================================

@@ -154,6 +154,7 @@ export default function CalculadoraBandasPage() {
                 <div className="tabs tabs-boxed">
                     <Link href="/calculadora" className="tab">Piezas (m²)</Link>
                     <Link href="/calculadora/bandas" className="tab tab-active">Bandas PVC</Link>
+                    <Link href="/calculadora/metrajes" className="tab">Metrajes</Link>
                 </div>
 
                 <div className="flex gap-2">

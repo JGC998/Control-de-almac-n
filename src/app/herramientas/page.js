@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingDown, Package2, FileText } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingDown, Package2, FileText, Ruler } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -12,11 +12,18 @@ export default function HerramientasHub() {
       color="warning"
       items={[
         {
-          href: '/calculadora',
+          href: '/calculadora/bandas',
           icon: Calculator,
           titulo: 'Calculadora de bandas PVC',
           descripcion: 'Calcula el precio de fabricación de una banda PVC a partir de material, dimensiones y tipo de confección.',
           accion: 'Abrir calculadora',
+        },
+        {
+          href: '/calculadora/metrajes',
+          icon: Ruler,
+          titulo: 'Calculadora de metrajes',
+          descripcion: 'Calcula el precio de metros lineales de tira PVC a un ancho determinado, sin confección. Ideal para presupuestar material en rollo.',
+          accion: 'Calcular metraje',
         },
         {
           href: '/calculadora/logistica',

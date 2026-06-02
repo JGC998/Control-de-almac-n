@@ -117,6 +117,7 @@ export default function PaginaGestion({
         eliminar,
         guardando,
         errorGuardado,
+        erroresCampos,
         recargar,
         pagina,
         setPagina,
@@ -249,6 +250,7 @@ export default function PaginaGestion({
                 alCerrar={cerrarModal}
                 cargando={guardando}
                 error={errorGuardado}
+                erroresCampos={erroresCampos}
             />
 
             {/* Modal de confirmación */}

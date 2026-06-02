@@ -3,6 +3,7 @@ import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { clearMargenesCache } from '@/lib/config-cache';
+import { reglaMargenSchema, validateData } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,28 +21,21 @@ export async function GET() {
 export async function POST(request) {
   try {
     const data = await request.json();
-    // Ahora esperamos 'multiplicador' y 'gastoFijo'
-    const { descripcion, tipo, multiplicador, categoria, tierCliente, base, gastoFijo } = data;
-
-    const parsedMultiplicador = parseFloat(multiplicador);
-
-    // Validación explícita de campos obligatorios
-    if (!descripcion || !tipo || isNaN(parsedMultiplicador) || parsedMultiplicador <= 0) {
-      return NextResponse.json(
-        { message: 'Datos de margen incompletos o inválidos. Se requiere descripción, tipo y un multiplicador numérico positivo.' },
-        { status: 400 }
-      );
+    const validation = validateData(reglaMargenSchema, data);
+    if (!validation.success) {
+      return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
+    const { descripcion, multiplicador, gastoFijo, tierCliente } = validation.data;
 
     const nuevaRegla = await db.reglaMargen.create({
       data: {
-        descripcion: descripcion,
-        tipo: tipo,
-        base: base || descripcion, // Si no se proporciona base, usa la descripción
-        multiplicador: parsedMultiplicador,
-        gastoFijo: parseFloat(gastoFijo) || 0,
-        categoria: categoria,
-        tierCliente: tierCliente,
+        descripcion,
+        tipo: data.tipo || descripcion,
+        base: validation.data.base || descripcion,
+        multiplicador,
+        gastoFijo: gastoFijo ?? 0,
+        categoria: data.categoria ?? null,
+        tierCliente: tierCliente ?? null,
       },
     });
 

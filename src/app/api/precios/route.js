@@ -72,8 +72,8 @@ export async function POST(request) {
 
 // PUT /api/precios - Actualiza una tarifa existente
 export async function PUT(request) {
-  const { id, ...data } = await request.json();
   try {
+    const { id, ...data } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'ID de la tarifa es requerido para actualizar.' }, { status: 400 });
     }
@@ -106,8 +106,8 @@ export async function PUT(request) {
 
 // DELETE /api/precios - Elimina una tarifa
 export async function DELETE(request) {
-  const { id } = await request.json();
   try {
+    const { id } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'ID de la tarifa es requerido para eliminar.' }, { status: 400 });
     }

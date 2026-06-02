@@ -31,7 +31,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [selectedEspesor, setSelectedEspesor] = useState('');
     const [selectedColor, setSelectedColor] = useState('');
     const [tipoConfeccion, setTipoConfeccion] = useState('VULCANIZADA');
-    const [selectedGrapaId, setSelectedGrapaId] = useState('');
+    const [tipoGrapa, setTipoGrapa] = useState('NORMAL'); // 'NORMAL' | 'UNA'
 
     const [unidades, setUnidades] = useState('1');
     const [ancho, setAncho] = useState('');
@@ -47,7 +47,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [referenciaBanda, setReferenciaBanda] = useState('');
 
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
-    const { data: grapas, isLoading: grapasLoading } = useSWR('/api/grapas');
+    const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
 
     const isPVC = selectedMaterial === 'PVC';
 
@@ -69,10 +69,75 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
         return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
     }, [tarifas, selectedMaterial]);
 
-    const selectedGrapa = useMemo(() => {
-        if (!grapas || !selectedGrapaId) return null;
-        return grapas.find(g => g.id === parseInt(selectedGrapaId, 10));
-    }, [grapas, selectedGrapaId]);
+    const todosModelosGrapa = modelosGrapaData?.modelos ?? [];
+    const mermaGrapaPct = modelosGrapaData?.mermaGrapaPct ?? 20;
+
+    // Modelos compatibles según espesor + tipo seleccionado
+    const modelosCompatibles = useMemo(() => {
+        if (!selectedEspesor || !todosModelosGrapa.length) return [];
+        const esp = parseFloat(selectedEspesor);
+        return todosModelosGrapa.filter(m => {
+            if (m.tipo !== tipoGrapa) return false;
+            if (m.tipo === 'UNA') return Math.abs(m.espesorDesde - esp) < 0.01;
+            return esp >= m.espesorDesde && esp <= (m.espesorHasta ?? Infinity);
+        });
+    }, [todosModelosGrapa, selectedEspesor, tipoGrapa]);
+
+    // Auto-selección: si cambia espesor o tipo, elegir el primer compatible
+    const [modeloGrapaId, setModeloGrapaId] = useState('');
+    const modeloGrapaSeleccionado = useMemo(() => {
+        if (!modeloGrapaId) return modelosCompatibles[0] ?? null;
+        return modelosCompatibles.find(m => m.id === parseInt(modeloGrapaId, 10)) ?? modelosCompatibles[0] ?? null;
+    }, [modelosCompatibles, modeloGrapaId]);
+
+    // Cálculo del coste de grapa basado en anchos de rollo disponibles
+    const calculoGrapa = useMemo(() => {
+        if (!modeloGrapaSeleccionado || !ancho) return null;
+        const anchoBandaMm = parseFloat(ancho);
+        if (!anchoBandaMm || anchoBandaMm <= 0) return null;
+
+        const anchos = Array.isArray(modeloGrapaSeleccionado.anchosDisponibles)
+            ? modeloGrapaSeleccionado.anchosDisponibles.slice().sort((a, b) => a - b)
+            : [];
+
+        let anchoRollo = null;
+        let advertencia = null;
+
+        if (anchos.length > 0) {
+            // Buscar el rollo más pequeño que cubre el ancho de la banda
+            anchoRollo = anchos.find(a => a >= anchoBandaMm) ?? null;
+            if (!anchoRollo) {
+                anchoRollo = anchos[anchos.length - 1]; // el más ancho disponible
+                advertencia = `La banda (${anchoBandaMm}mm) supera el rollo más ancho (${anchoRollo}mm)`;
+            }
+        }
+
+        const precio = modeloGrapaSeleccionado.precioMetroLineal;
+
+        if (anchoRollo) {
+            // Cálculo preciso: se consume el rollo entero × 2 extremos
+            const coste = 2 * (anchoRollo / 1000) * precio;
+            const desperdicio = anchoRollo - anchoBandaMm;
+            return {
+                coste: Math.round(coste * 10000) / 10000,
+                anchoRollo,
+                desperdicio,
+                advertencia,
+                modo: 'rollo',
+            };
+        } else {
+            // Fallback: porcentaje de merma configurado
+            const coste = 2 * (anchoBandaMm / 1000) * (1 + mermaGrapaPct / 100) * precio;
+            return {
+                coste: Math.round(coste * 10000) / 10000,
+                anchoRollo: null,
+                desperdicio: null,
+                advertencia: null,
+                modo: 'porcentaje',
+                mermaGrapaPct,
+            };
+        }
+    }, [modeloGrapaSeleccionado, ancho, mermaGrapaPct]);
 
     const currentCalculation = useMemo(() => {
         const unas = parseInt(unidades) || 0;
@@ -85,8 +150,8 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
         if (isPVC && !selectedColor) {
             return { isValid: false, errorMessage: 'Selecciona un color para PVC' };
         }
-        if (tipoConfeccion === 'GRAPA' && !selectedGrapa) {
-            return { isValid: false, errorMessage: 'Selecciona un tipo de grapa' };
+        if (tipoConfeccion === 'GRAPA' && !modeloGrapaSeleccionado) {
+            return { isValid: false, errorMessage: 'No hay modelo de grapa compatible con ese espesor. Configura los modelos en Configuración → Grapas.' };
         }
 
         const tarifa = tarifas.find(t =>
@@ -108,9 +173,13 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
         if (tipoConfeccion === 'VULCANIZADA') {
             costeConfeccion = costeVulcanizadoMetro * ancM;
             desgloseConfeccion = `Vulcanizado (${formatCurrency(costeConfeccion)})`;
-        } else if (tipoConfeccion === 'GRAPA' && selectedGrapa) {
-            costeConfeccion = selectedGrapa.precioMetro * ancM;
-            desgloseConfeccion = `Grapa: ${selectedGrapa.nombre} (${formatCurrency(costeConfeccion)})`;
+        } else if (tipoConfeccion === 'GRAPA' && calculoGrapa) {
+            costeConfeccion = calculoGrapa.coste;
+            if (calculoGrapa.modo === 'rollo') {
+                desgloseConfeccion = `Grapa ${modeloGrapaSeleccionado.nombre} · rollo ${calculoGrapa.anchoRollo}mm · desperdicio ${calculoGrapa.desperdicio}mm/extremo`;
+            } else {
+                desgloseConfeccion = `Grapa ${modeloGrapaSeleccionado.nombre} · merma ${calculoGrapa.mermaGrapaPct}%`;
+            }
         }
 
         const costeTacos = configuracionTacos?.costeTacos ?? 0;
@@ -125,8 +194,10 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             precioUnitario,
             precioTotal: Math.round(precioUnitario * unas * 100) / 100,
             pesoTotal: (tarifa.peso * area) * unas,
+            tarifaPrecio: tarifa.precio,
+            area,
         };
-    }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, selectedGrapa, tipoConfeccion, unidades, ancho, largo, costeVulcanizadoMetro, configuracionTacos, isPVC]);
+    }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, tipoConfeccion, unidades, ancho, largo, costeVulcanizadoMetro, configuracionTacos, isPVC, modeloGrapaSeleccionado, calculoGrapa]);
 
     const handleAdd = () => {
         if (!currentCalculation.isValid) return;
@@ -144,7 +215,8 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             color: selectedColor,
             material: selectedMaterial,
             tipoConfeccion,
-            grapa: tipoConfeccion === 'GRAPA' ? selectedGrapa : null,
+            grapa: tipoConfeccion === 'GRAPA' ? modeloGrapaSeleccionado : null,
+            calculoGrapa: tipoConfeccion === 'GRAPA' ? calculoGrapa : null,
             unidades: uds,
             precioUnitario: currentCalculation.precioUnitario,
             precioTotal: currentCalculation.precioTotal,
@@ -211,7 +283,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 {/* Espesor */}
                 <div className="form-control w-full">
                     <label className="label"><span className="label-text">Espesor (PVC)</span></label>
-                    <select className="select select-bordered w-full" value={selectedEspesor} onChange={e => setSelectedEspesor(e.target.value)}>
+                    <select className="select select-bordered w-full" value={selectedEspesor} onChange={e => { setSelectedEspesor(e.target.value); setModeloGrapaId(''); }}>
                         <option value="">Seleccionar espesor...</option>
                         {availableEspesores.map(e => <option key={e} value={e}>{e} mm</option>)}
                     </select>
@@ -249,7 +321,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Sin Fin"
                             checked={tipoConfeccion === 'VULCANIZADA'} onChange={() => { setTipoConfeccion('VULCANIZADA'); setSelectedGrapaId(''); }} />
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Grapa"
-                            checked={tipoConfeccion === 'GRAPA'} onChange={() => setTipoConfeccion('GRAPA')} />
+                            checked={tipoConfeccion === 'GRAPA'} onChange={() => { setTipoConfeccion('GRAPA'); setModeloGrapaId(''); }} />
                         <input className="join-item btn btn-sm" type="radio" name="tipo-confeccion" aria-label="Abierta"
                             checked={tipoConfeccion === 'ABIERTA'} onChange={() => { setTipoConfeccion('ABIERTA'); setSelectedGrapaId(''); }} />
                     </div>
@@ -257,27 +329,86 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
                 {/* Selector de Grapa (visible solo cuando confección = GRAPA) */}
                 {tipoConfeccion === 'GRAPA' && (
-                    <div className="form-control w-full mt-2">
-                        <label className="label">
-                            <span className="label-text font-bold flex items-center gap-1">
-                                <Link2 className="w-3.5 h-3.5 text-primary" /> Tipo de Grapa
-                            </span>
-                        </label>
-                        {grapasLoading ? (
-                            <span className="loading loading-spinner loading-sm"></span>
-                        ) : !grapas || grapas.length === 0 ? (
-                            <div className="alert alert-warning text-xs py-2">
-                                No hay grapas configuradas. Ve a Configuración → Grapas.
+                    <div className="space-y-2 mt-2">
+                        {/* Toggle Normal / Uña */}
+                        <div className="form-control w-full">
+                            <label className="label py-1">
+                                <span className="label-text font-bold flex items-center gap-1">
+                                    <Link2 className="w-3.5 h-3.5 text-primary" /> Subtipo de grapa
+                                </span>
+                            </label>
+                            <div className="join w-full grid grid-cols-2">
+                                <input
+                                    className="join-item btn btn-sm"
+                                    type="radio"
+                                    name="tipo-grapa"
+                                    aria-label="Normal"
+                                    checked={tipoGrapa === 'NORMAL'}
+                                    onChange={() => { setTipoGrapa('NORMAL'); setModeloGrapaId(''); }}
+                                />
+                                <input
+                                    className="join-item btn btn-sm"
+                                    type="radio"
+                                    name="tipo-grapa"
+                                    aria-label="Uña"
+                                    checked={tipoGrapa === 'UNA'}
+                                    onChange={() => { setTipoGrapa('UNA'); setModeloGrapaId(''); }}
+                                />
                             </div>
-                        ) : (
-                            <select className="select select-bordered w-full" value={selectedGrapaId} onChange={e => setSelectedGrapaId(e.target.value)}>
-                                <option value="">Seleccionar grapa...</option>
-                                {grapas.map(g => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.nombre}{g.fabricante ? ` — ${g.fabricante}` : ''} ({formatCurrency(g.precioMetro)}/m)
-                                    </option>
-                                ))}
-                            </select>
+                        </div>
+
+                        {/* Modelo auto-sugerido */}
+                        {selectedEspesor && (
+                            modelosCompatibles.length === 0 ? (
+                                <div className="alert alert-warning text-xs py-2">
+                                    Sin modelo {tipoGrapa === 'UNA' ? 'de uña' : 'normal'} para {selectedEspesor}mm.{' '}
+                                    <a href="/configuracion/grapas" className="link font-semibold">Configurar</a>
+                                </div>
+                            ) : (
+                                <div className="form-control w-full">
+                                    <label className="label py-1">
+                                        <span className="label-text text-xs">Modelo</span>
+                                        {modeloGrapaSeleccionado && (
+                                            <span className="label-text-alt text-xs text-success">auto-sugerido</span>
+                                        )}
+                                    </label>
+                                    <select
+                                        className="select select-bordered select-sm w-full"
+                                        value={modeloGrapaSeleccionado?.id ?? ''}
+                                        onChange={e => setModeloGrapaId(e.target.value)}
+                                    >
+                                        {modelosCompatibles.map(m => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.nombre} · {formatCurrency(m.precioMetroLineal)}/m lineal
+                                                {Array.isArray(m.anchosDisponibles) && m.anchosDisponibles.length > 0
+                                                    ? ` · rollos: ${m.anchosDisponibles.join('/')}mm`
+                                                    : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )
+                        )}
+
+                        {/* Desglose coste grapa */}
+                        {calculoGrapa && ancho && (
+                            <div className={`rounded-lg px-3 py-2 text-xs space-y-0.5 ${calculoGrapa.advertencia ? 'bg-warning/10 border border-warning/30' : 'bg-base-200'}`}>
+                                {calculoGrapa.modo === 'rollo' ? (
+                                    <>
+                                        <p><span className="opacity-60">Rollo seleccionado:</span> <span className="font-semibold">{calculoGrapa.anchoRollo} mm</span></p>
+                                        <p><span className="opacity-60">Desperdicio:</span> <span className="font-semibold">{calculoGrapa.desperdicio} mm/extremo</span></p>
+                                        <p><span className="opacity-60">Coste (2 extremos):</span> <span className="font-semibold text-primary">{formatCurrency(calculoGrapa.coste)}</span></p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p><span className="opacity-60">Merma aplicada:</span> <span className="font-semibold">{calculoGrapa.mermaGrapaPct}%</span></p>
+                                        <p><span className="opacity-60">Coste (2 extremos):</span> <span className="font-semibold text-primary">{formatCurrency(calculoGrapa.coste)}</span></p>
+                                    </>
+                                )}
+                                {calculoGrapa.advertencia && (
+                                    <p className="text-warning font-medium">{calculoGrapa.advertencia}</p>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
@@ -356,6 +487,159 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                         <div className="text-center text-sm text-gray-400 py-2">Completa los datos para calcular</div>
                     )}
                 </div>
+
+                {/* Desglose completo del cálculo (solo con grapa) */}
+                {tipoConfeccion === 'GRAPA' && currentCalculation.isValid && calculoGrapa && (
+                    <div className="collapse collapse-arrow bg-base-200 mt-3 border border-base-300 rounded-xl">
+                        <input type="checkbox" />
+                        <div className="collapse-title text-xs font-semibold flex items-center gap-2 py-2 min-h-0">
+                            <Calculator className="w-3.5 h-3.5 text-base-content/50" />
+                            Desglose del cálculo
+                        </div>
+                        <div className="collapse-content pb-3">
+                            <div className="space-y-3 text-xs">
+
+                                {/* Dimensiones */}
+                                <div>
+                                    <p className="font-semibold text-base-content/40 uppercase tracking-wide text-[10px] mb-1">Dimensiones</p>
+                                    <table className="w-full">
+                                        <tbody>
+                                            <tr>
+                                                <td className="text-base-content/60 py-0.5">Ancho</td>
+                                                <td className="text-right font-mono">{ancho} mm = {(parseFloat(ancho)/1000).toFixed(4)} m</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="text-base-content/60 py-0.5">Largo</td>
+                                                <td className="text-right font-mono">{largo} mm = {(parseFloat(largo)/1000).toFixed(4)} m</td>
+                                            </tr>
+                                            <tr className="font-semibold border-t border-base-300">
+                                                <td className="text-base-content/60 py-0.5">Área</td>
+                                                <td className="text-right font-mono">
+                                                    ({parseFloat(ancho)/1000}) × ({parseFloat(largo)/1000}) = <span className="text-primary">{currentCalculation.area?.toFixed(6)} m²</span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="divider my-0.5" />
+
+                                {/* Material */}
+                                <div>
+                                    <p className="font-semibold text-base-content/40 uppercase tracking-wide text-[10px] mb-1">Material</p>
+                                    <table className="w-full">
+                                        <tbody>
+                                            <tr>
+                                                <td className="text-base-content/60 py-0.5">Tarifa {selectedMaterial} {selectedEspesor}mm{selectedColor ? ` ${selectedColor}` : ''}</td>
+                                                <td className="text-right font-mono">{formatCurrency(currentCalculation.tarifaPrecio)}/m²</td>
+                                            </tr>
+                                            <tr className="font-semibold border-t border-base-300">
+                                                <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
+                                                    {formatCurrency(currentCalculation.tarifaPrecio)} × {currentCalculation.area?.toFixed(6)} m²
+                                                </td>
+                                                <td className="text-right font-mono text-primary">{formatCurrency(currentCalculation.precioMaterial)}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="divider my-0.5" />
+
+                                {/* Grapa */}
+                                <div>
+                                    <p className="font-semibold text-base-content/40 uppercase tracking-wide text-[10px] mb-1">Grapa</p>
+                                    <table className="w-full">
+                                        <tbody>
+                                            <tr>
+                                                <td className="text-base-content/60 py-0.5">Modelo</td>
+                                                <td className="text-right font-semibold">{modeloGrapaSeleccionado?.nombre} ({tipoGrapa === 'UNA' ? 'Uña' : 'Normal'})</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="text-base-content/60 py-0.5">Precio</td>
+                                                <td className="text-right font-mono">{formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}/m lineal</td>
+                                            </tr>
+                                            {calculoGrapa.modo === 'rollo' ? (
+                                                <>
+                                                    <tr>
+                                                        <td className="text-base-content/60 py-0.5">Ancho banda</td>
+                                                        <td className="text-right font-mono">{ancho} mm</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="text-base-content/60 py-0.5">Rollos disponibles</td>
+                                                        <td className="text-right font-mono">{(modeloGrapaSeleccionado?.anchosDisponibles ?? []).join(' / ')} mm</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="text-base-content/60 py-0.5 font-semibold">Rollo usado</td>
+                                                        <td className="text-right font-mono font-semibold">{calculoGrapa.anchoRollo} mm</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="text-base-content/60 py-0.5 pl-3">Desperdicio</td>
+                                                        <td className="text-right font-mono text-warning">{calculoGrapa.desperdicio} mm × 2 extremos</td>
+                                                    </tr>
+                                                    <tr className="font-semibold border-t border-base-300">
+                                                        <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
+                                                            2 × ({calculoGrapa.anchoRollo}/1000 m) × {formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}
+                                                        </td>
+                                                        <td className="text-right font-mono text-primary">{formatCurrency(calculoGrapa.coste)}</td>
+                                                    </tr>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <tr>
+                                                        <td className="text-base-content/60 py-0.5">Merma aplicada</td>
+                                                        <td className="text-right font-mono">{calculoGrapa.mermaGrapaPct}%</td>
+                                                    </tr>
+                                                    <tr className="font-semibold border-t border-base-300">
+                                                        <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
+                                                            2 × ({ancho}/1000 m) × (1+{calculoGrapa.mermaGrapaPct}%) × {formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}
+                                                        </td>
+                                                        <td className="text-right font-mono text-primary">{formatCurrency(calculoGrapa.coste)}</td>
+                                                    </tr>
+                                                </>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="divider my-0.5" />
+
+                                {/* Resumen final */}
+                                <div>
+                                    <p className="font-semibold text-base-content/40 uppercase tracking-wide text-[10px] mb-1">Resumen</p>
+                                    <table className="w-full">
+                                        <tbody>
+                                            <tr>
+                                                <td className="text-base-content/60 py-0.5">Material</td>
+                                                <td className="text-right font-mono">{formatCurrency(currentCalculation.precioMaterial)}</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="text-base-content/60 py-0.5">Grapa</td>
+                                                <td className="text-right font-mono">{formatCurrency(currentCalculation.costeConfeccion)}</td>
+                                            </tr>
+                                            {currentCalculation.costeTacos > 0 && (
+                                                <tr>
+                                                    <td className="text-base-content/60 py-0.5">Tacos</td>
+                                                    <td className="text-right font-mono">{formatCurrency(currentCalculation.costeTacos)}</td>
+                                                </tr>
+                                            )}
+                                            <tr className="border-t-2 border-base-content/20 font-bold text-sm">
+                                                <td className="py-1">Total unitario</td>
+                                                <td className="text-right font-mono text-primary">{formatCurrency(currentCalculation.precioUnitario)}</td>
+                                            </tr>
+                                            {parseInt(unidades) > 1 && (
+                                                <tr>
+                                                    <td className="text-base-content/60 py-0.5">× {unidades} unidades</td>
+                                                    <td className="text-right font-mono font-semibold">{formatCurrency(currentCalculation.precioTotal)}</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {currentCalculation.isValid && (
                     <div className="form-control mt-4">
