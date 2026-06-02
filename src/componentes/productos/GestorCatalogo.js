@@ -17,7 +17,7 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
   const { data: items, error: swrError, isLoading } = useSWR(cacheKey);
 
   // Carga adicional de materiales para el selector en Tarifas
-  const { data: materiales } = useSWR(title === 'Tarifas de Material' ? '/api/materiales' : null);
+  const { data: materiales } = useSWR(title.includes('Tarifas de Material') ? '/api/materiales' : null);
 
 
   const openModal = (item = null) => {
@@ -136,7 +136,7 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
   }
 
   const renderFormFields = () => {
-    const isTarifas = title === 'Tarifas de Material';
+    const isTarifas = title.includes('Tarifas de Material');
 
     return formFields.map(field => {
       if (isTarifas && field.name === 'material') {
