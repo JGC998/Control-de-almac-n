@@ -92,37 +92,46 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             ? modeloGrapaSeleccionado.anchosDisponibles.slice().sort((a, b) => a - b)
             : [];
 
-        let anchoRollo = null;
+        // Las dos puntas salen del mismo trozo de grapa
+        const anchoNecesario = anchoBandaMm * 2;
+        let anchoGrapa = null;
         let advertencia = null;
 
         if (anchos.length > 0) {
-            // Buscar el rollo más pequeño que cubre el ancho de la banda
-            anchoRollo = anchos.find(a => a >= anchoBandaMm) ?? null;
-            if (!anchoRollo) {
-                anchoRollo = anchos[anchos.length - 1]; // el más ancho disponible
-                advertencia = `La banda (${anchoBandaMm}mm) supera el rollo más ancho (${anchoRollo}mm)`;
+            // Grapa más pequeña que cubre ambas puntas juntas
+            anchoGrapa = anchos.find(a => a >= anchoNecesario) ?? null;
+            if (!anchoGrapa) {
+                anchoGrapa = anchos[anchos.length - 1];
+                advertencia = `Las dos puntas (${anchoNecesario}mm) superan la grapa más ancha disponible (${anchoGrapa}mm)`;
             }
         }
 
         const precio = modeloGrapaSeleccionado.precioMetroLineal;
 
-        if (anchoRollo) {
-            // Cálculo preciso: se consume el rollo entero × 2 extremos
-            const coste = 2 * (anchoRollo / 1000) * precio;
-            const desperdicio = anchoRollo - anchoBandaMm;
+        if (anchoGrapa) {
+            const desperdicio = anchoGrapa - anchoNecesario;
+            const costeUsado = (anchoNecesario / 1000) * precio;
+            const costeDesperdicio = (desperdicio / 1000) * precio;
+            const coste = costeUsado + costeDesperdicio; // = (anchoGrapa/1000) * precio
             return {
                 coste: Math.round(coste * 10000) / 10000,
-                anchoRollo,
+                costeUsado: Math.round(costeUsado * 10000) / 10000,
+                costeDesperdicio: Math.round(costeDesperdicio * 10000) / 10000,
+                anchoGrapa,
+                anchoNecesario,
                 desperdicio,
                 advertencia,
-                modo: 'rollo',
+                modo: 'grapa',
             };
         } else {
             // Fallback: porcentaje de merma configurado
-            const coste = 2 * (anchoBandaMm / 1000) * (1 + mermaGrapaPct / 100) * precio;
+            const coste = (anchoNecesario / 1000) * (1 + mermaGrapaPct / 100) * precio;
             return {
                 coste: Math.round(coste * 10000) / 10000,
-                anchoRollo: null,
+                costeUsado: null,
+                costeDesperdicio: null,
+                anchoGrapa: null,
+                anchoNecesario,
                 desperdicio: null,
                 advertencia: null,
                 modo: 'porcentaje',
@@ -166,8 +175,8 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             desgloseConfeccion = `Vulcanizado (${formatCurrency(costeConfeccion)})`;
         } else if (tipoConfeccion === 'GRAPA' && calculoGrapa) {
             costeConfeccion = calculoGrapa.coste;
-            if (calculoGrapa.modo === 'rollo') {
-                desgloseConfeccion = `Grapa ${modeloGrapaSeleccionado.nombre} · rollo ${calculoGrapa.anchoRollo}mm · desperdicio ${calculoGrapa.desperdicio}mm/extremo`;
+            if (calculoGrapa.modo === 'grapa') {
+                desgloseConfeccion = `Grapa ${modeloGrapaSeleccionado.nombre} · ${calculoGrapa.anchoGrapa}mm · usado ${calculoGrapa.anchoNecesario}mm · desperdicio ${calculoGrapa.desperdicio}mm`;
             } else {
                 desgloseConfeccion = `Grapa ${modeloGrapaSeleccionado.nombre} · merma ${calculoGrapa.mermaGrapaPct}%`;
             }
@@ -357,7 +366,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
                             const optionLabel = m => {
                                 const rollos = Array.isArray(m.anchosDisponibles) && m.anchosDisponibles.length > 0
-                                    ? ` · rollos: ${m.anchosDisponibles.join('/')}mm`
+                                    ? ` · grapas: ${m.anchosDisponibles.join('/')}mm`
                                     : '';
                                 return `${m.nombre} · ${formatCurrency(m.precioMetroLineal)}/m lineal${rollos}`;
                             };
@@ -405,16 +414,19 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                         {/* Desglose coste grapa */}
                         {calculoGrapa && ancho && (
                             <div className={`rounded-lg px-3 py-2 text-xs space-y-0.5 ${calculoGrapa.advertencia ? 'bg-warning/10 border border-warning/30' : 'bg-base-200'}`}>
-                                {calculoGrapa.modo === 'rollo' ? (
+                                {calculoGrapa.modo === 'grapa' ? (
                                     <>
-                                        <p><span className="opacity-60">Rollo seleccionado:</span> <span className="font-semibold">{calculoGrapa.anchoRollo} mm</span></p>
-                                        <p><span className="opacity-60">Desperdicio:</span> <span className="font-semibold">{calculoGrapa.desperdicio} mm/extremo</span></p>
-                                        <p><span className="opacity-60">Coste (2 extremos):</span> <span className="font-semibold text-primary">{formatCurrency(calculoGrapa.coste)}</span></p>
+                                        <p><span className="opacity-60">Grapa seleccionada:</span> <span className="font-semibold">{calculoGrapa.anchoGrapa} mm</span></p>
+                                        <p><span className="opacity-60">Necesario (2 × {ancho}mm):</span> <span className="font-semibold">{calculoGrapa.anchoNecesario} mm</span></p>
+                                        <p><span className="opacity-60">Coste usado ({calculoGrapa.anchoNecesario}mm):</span> <span className="font-semibold">{formatCurrency(calculoGrapa.costeUsado)}</span></p>
+                                        <p><span className="opacity-60">Desperdicio ({calculoGrapa.desperdicio}mm):</span> <span className="font-semibold text-error">{formatCurrency(calculoGrapa.costeDesperdicio)}</span></p>
+                                        <p className="border-t border-base-300 pt-0.5 mt-0.5"><span className="opacity-60">Total grapa:</span> <span className="font-semibold text-primary">{formatCurrency(calculoGrapa.coste)}</span></p>
                                     </>
                                 ) : (
                                     <>
+                                        <p><span className="opacity-60">Necesario (2 × {ancho}mm):</span> <span className="font-semibold">{calculoGrapa.anchoNecesario} mm</span></p>
                                         <p><span className="opacity-60">Merma aplicada:</span> <span className="font-semibold">{calculoGrapa.mermaGrapaPct}%</span></p>
-                                        <p><span className="opacity-60">Coste (2 extremos):</span> <span className="font-semibold text-primary">{formatCurrency(calculoGrapa.coste)}</span></p>
+                                        <p><span className="opacity-60">Total grapa:</span> <span className="font-semibold text-primary">{formatCurrency(calculoGrapa.coste)}</span></p>
                                     </>
                                 )}
                                 {calculoGrapa.advertencia && (
@@ -570,40 +582,54 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                                 <td className="text-base-content/60 py-0.5">Precio</td>
                                                 <td className="text-right font-mono">{formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}/m lineal</td>
                                             </tr>
-                                            {calculoGrapa.modo === 'rollo' ? (
+                                            {calculoGrapa.modo === 'grapa' ? (
                                                 <>
                                                     <tr>
                                                         <td className="text-base-content/60 py-0.5">Ancho banda</td>
                                                         <td className="text-right font-mono">{ancho} mm</td>
                                                     </tr>
                                                     <tr>
-                                                        <td className="text-base-content/60 py-0.5">Rollos disponibles</td>
+                                                        <td className="text-base-content/60 py-0.5">Grapas disponibles</td>
                                                         <td className="text-right font-mono">{(modeloGrapaSeleccionado?.anchosDisponibles ?? []).join(' / ')} mm</td>
                                                     </tr>
                                                     <tr>
-                                                        <td className="text-base-content/60 py-0.5 font-semibold">Rollo usado</td>
-                                                        <td className="text-right font-mono font-semibold">{calculoGrapa.anchoRollo} mm</td>
+                                                        <td className="text-base-content/60 py-0.5 font-semibold">Grapa seleccionada</td>
+                                                        <td className="text-right font-mono font-semibold">{calculoGrapa.anchoGrapa} mm</td>
                                                     </tr>
                                                     <tr>
-                                                        <td className="text-base-content/60 py-0.5 pl-3">Desperdicio</td>
-                                                        <td className="text-right font-mono text-error">{calculoGrapa.desperdicio} mm × 2 extremos</td>
+                                                        <td className="text-base-content/60 py-0.5">Necesario (2 × {ancho}mm)</td>
+                                                        <td className="text-right font-mono">{calculoGrapa.anchoNecesario} mm</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
+                                                            usado: ({calculoGrapa.anchoNecesario}/1000 m) × {formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}
+                                                        </td>
+                                                        <td className="text-right font-mono">{formatCurrency(calculoGrapa.costeUsado)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="text-base-content/60 py-0.5 pl-3 font-mono text-[10px]">
+                                                            desperdicio ({calculoGrapa.desperdicio}mm): ({calculoGrapa.desperdicio}/1000 m) × {formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}
+                                                        </td>
+                                                        <td className="text-right font-mono text-error">{formatCurrency(calculoGrapa.costeDesperdicio)}</td>
                                                     </tr>
                                                     <tr className="font-semibold border-t border-base-300">
-                                                        <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
-                                                            2 × ({calculoGrapa.anchoRollo}/1000 m) × {formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}
-                                                        </td>
+                                                        <td className="text-base-content/60 py-0.5">Total grapa</td>
                                                         <td className="text-right font-mono text-primary">{formatCurrency(calculoGrapa.coste)}</td>
                                                     </tr>
                                                 </>
                                             ) : (
                                                 <>
                                                     <tr>
+                                                        <td className="text-base-content/60 py-0.5">Necesario (2 × {ancho}mm)</td>
+                                                        <td className="text-right font-mono">{calculoGrapa.anchoNecesario} mm</td>
+                                                    </tr>
+                                                    <tr>
                                                         <td className="text-base-content/60 py-0.5">Merma aplicada</td>
                                                         <td className="text-right font-mono">{calculoGrapa.mermaGrapaPct}%</td>
                                                     </tr>
                                                     <tr className="font-semibold border-t border-base-300">
                                                         <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
-                                                            2 × ({ancho}/1000 m) × (1+{calculoGrapa.mermaGrapaPct}%) × {formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}
+                                                            ({calculoGrapa.anchoNecesario}/1000 m) × (1+{calculoGrapa.mermaGrapaPct}%) × {formatCurrency(modeloGrapaSeleccionado?.precioMetroLineal)}
                                                         </td>
                                                         <td className="text-right font-mono text-primary">{formatCurrency(calculoGrapa.coste)}</td>
                                                     </tr>
