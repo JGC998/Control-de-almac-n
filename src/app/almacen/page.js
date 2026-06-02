@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Warehouse, Layers, Link2, AlignJustify, Box } from 'lucide-react';
+import { Warehouse, Layers, Link2, AlignJustify, Box, Package, RectangleHorizontal } from 'lucide-react';
 
 export const metadata = { title: 'Almacén — CRM Taller' };
 
@@ -17,6 +17,20 @@ export default function AlmacenHub() {
           titulo: 'Rollos y materiales',
           descripcion: 'Tarifas de material por m² y por rollo. Consulta y edita precios de venta y coste.',
           accion: 'Ver tarifas',
+        },
+        {
+          href: '/almacen/bandas',
+          icon: RectangleHorizontal,
+          titulo: 'Bandas PVC',
+          descripcion: 'Listado de bandas PVC guardadas desde la calculadora. Consulta dimensiones, color, precio y peso.',
+          accion: 'Ver bandas',
+        },
+        {
+          href: '/gestion/productos',
+          icon: Package,
+          titulo: 'Productos',
+          descripcion: 'Catálogo completo de productos con tarifas, costes, pesos y referencias de fabricante.',
+          accion: 'Ver productos',
         },
         {
           href: '/configuracion/grapas',
