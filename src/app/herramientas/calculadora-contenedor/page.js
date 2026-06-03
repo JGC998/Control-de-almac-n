@@ -12,7 +12,8 @@ const nuevaBobina = (id) => ({
   ancho: '',
   longitud: '',
   numRollos: '1',
-  usdPorMetro: '',
+  precio: '',
+  unidadPrecio: 'M', // 'M' = USD/metro lineal | 'SQM' = USD/m²
 });
 
 const n = (v) => parseFloat(v) || 0;
@@ -204,11 +205,16 @@ export default function CalculadoraContenedorPage() {
   const bobinasCals = bobinas.map(b => {
     const longitud = n(b.longitud);
     const numRollos = n(b.numRollos) || 1;
-    const usdPorMetro = n(b.usdPorMetro);
+    const anchoM = n(b.ancho) / 1000;
+    const precioEntrada = n(b.precio ?? b.usdPorMetro); // backward compat
+    // Convertir a USD/metro lineal según unidad seleccionada
+    const usdPorMetro = b.unidadPrecio === 'SQM'
+      ? precioEntrada * anchoM
+      : precioEntrada;
     const totalMetrosBobina = longitud * numRollos;
     const subtotalUSD = usdPorMetro * totalMetrosBobina;
     const subtotalEUR = subtotalUSD * tc;
-    return { ...b, longitud, numRollos, usdPorMetro, totalMetrosBobina, subtotalUSD, subtotalEUR };
+    return { ...b, longitud, numRollos, anchoM, precioEntrada, usdPorMetro, totalMetrosBobina, subtotalUSD, subtotalEUR };
   });
 
   const totalBobinasUSD = bobinasCals.reduce((s, b) => s + b.subtotalUSD, 0);
@@ -255,7 +261,12 @@ export default function CalculadoraContenedorPage() {
     try {
       const bobs = typeof imp.bobinas === 'string' ? JSON.parse(imp.bobinas) : imp.bobinas;
       if (!Array.isArray(bobs)) throw new Error('Formato inválido');
-      setBobinas(bobs.map((b, i) => ({ ...b, id: i + 1 })));
+      setBobinas(bobs.map((b, i) => ({
+        ...b,
+        id: i + 1,
+        precio: b.precio ?? b.usdPorMetro ?? '',
+        unidadPrecio: b.unidadPrecio || 'M',
+      })));
       setNextId(bobs.length + 1);
       setTasaCambio(String(imp.tasaCambio));
       setSuplidos(String(imp.suplidos));
@@ -347,7 +358,7 @@ export default function CalculadoraContenedorPage() {
                       <th>Ancho (mm)</th>
                       <th>Long./rollo (m)</th>
                       <th>Nº rollos</th>
-                      <th>USD/M</th>
+                      <th>Precio</th>
                       <th className="text-right">Total m</th>
                       <th className="text-right">Total $</th>
                       <th className="text-right">Total €</th>
@@ -400,12 +411,36 @@ export default function CalculadoraContenedorPage() {
                             />
                           </td>
                           <td>
-                            <input
-                              type="number" step="0.0001" min="0" placeholder="0.0000"
-                              value={b.usdPorMetro}
-                              onChange={e => handleBobinaChange(b.id, 'usdPorMetro', e.target.value)}
-                              className="input input-sm input-bordered w-24 font-mono"
-                            />
+                            <div className="space-y-1">
+                              <div className="join">
+                                <input
+                                  type="number" step="0.0001" min="0" placeholder="0.0000"
+                                  value={b.precio}
+                                  onChange={e => handleBobinaChange(b.id, 'precio', e.target.value)}
+                                  className="input input-sm input-bordered join-item w-20 font-mono"
+                                />
+                                <button
+                                  type="button"
+                                  className={`btn btn-xs join-item border border-base-300 ${b.unidadPrecio === 'M' ? 'btn-neutral' : 'btn-ghost text-base-content/40'}`}
+                                  onClick={() => handleBobinaChange(b.id, 'unidadPrecio', 'M')}
+                                  title="USD por metro lineal"
+                                >M</button>
+                                <button
+                                  type="button"
+                                  className={`btn btn-xs join-item border border-base-300 ${b.unidadPrecio === 'SQM' ? 'btn-neutral' : 'btn-ghost text-base-content/40'}`}
+                                  onClick={() => handleBobinaChange(b.id, 'unidadPrecio', 'SQM')}
+                                  title="USD por metro cuadrado"
+                                >SQM</button>
+                              </div>
+                              {b.unidadPrecio === 'SQM' && n(b.ancho) > 0 && n(b.precio) > 0 && (
+                                <p className="text-[10px] text-base-content/50 font-mono">
+                                  ≈ {fmt(n(b.precio) * n(b.ancho) / 1000, 4)} USD/M
+                                </p>
+                              )}
+                              {b.unidadPrecio === 'SQM' && !n(b.ancho) && (
+                                <p className="text-[10px] text-warning">Introduce el ancho</p>
+                              )}
+                            </div>
                           </td>
                           <td className="text-right font-mono text-sm">{fmt(cal.totalMetrosBobina, 0)} m</td>
                           <td className="text-right font-mono text-sm">{fmtUsd(cal.subtotalUSD)}</td>
