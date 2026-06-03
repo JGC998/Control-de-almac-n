@@ -22,11 +22,11 @@ export default function ComprasHub() {
               accion: 'Nuevo pedido',
             },
             {
-              href: '/proveedores/nuevo-importacion',
+              href: '/herramientas/calculadora-contenedor',
               icon: Ship,
-              titulo: 'Importación',
-              descripcion: 'Gestiona una importación: contenedor, naviera, tasa de cambio y fecha estimada de llegada.',
-              accion: 'Nueva importación',
+              titulo: 'Calculadora de contenedor',
+              descripcion: 'Calcula el coste real de importación por artículo: bobinas, tacos, grapas, máquinas. Prorrateo de gastos, informe PDF y trazabilidad del pedido.',
+              accion: 'Abrir calculadora',
             },
           ]
         },
