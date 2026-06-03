@@ -33,14 +33,14 @@ La siguiente fase del proyecto amplía la **Calculadora de Contenedor** en dos d
 - [x] **T-53** — Adaptar lógica de cálculo para artículos sin dimensiones lineales ✅ 2026-06-03  
   _Tacos: metros × USD/m. Grapas: nº cajas × USD/caja (ancho de grapa guardado). Máquinas/Otro: cantidad × USD/ud. El prorrateo de gastos sigue siendo por valor económico._
 
-- [ ] **T-54** — Actualizar JSON de artículos en el modelo Prisma con campos `tipo` y `unidades`  
-  _Pequeño cambio: el JSON ya almacenado seguirá leyéndose bien (backward compat). Los artículos nuevos guardarán `tipo: 'BOBINA' | 'GRAPA' | 'TACO' | 'MAQUINA' | 'OTRO'` y `unidades: number` (para artículos no lineales). No requiere migración de columnas, solo schema lógico del JSON._
+- [x] **T-54** — Actualizar validación Zod de importaciones para incluir `tipo` en el JSON de artículos ✅ 2026-06-03  
+  _`importacionContenedorSchema` actualizado: `bobinas` ahora valida con `refine` que sea JSON array válido. `articuloContenedorSchema` interno define los campos permitidos._
 
 ### Fase 2 — Informe PDF imprimible
 > Generar un documento descargable/imprimible con todos los datos de la importación. Estimación: 1 día.
 
-- [ ] **T-55** — Botón "Exportar PDF" que genera el informe completo de la importación  
-  _El PDF incluye: (1) cabecera con fecha, descripción de la importación y tipo de cambio; (2) tabla de artículos con referencia, categoría, dimensiones/unidades, coste USD y coste EUR; (3) sección de gastos de importación (suplidos, exentos, sujetos con IVA); (4) resumen: coste producto, desembolso total, total metros y €/metro medio; (5) desglose por artículo con gastos prorrateados y €/metro final. Usa jsPDF + jspdf-autotable (ya instalados en el proyecto)._
+- [x] **T-55** — Botón "Exportar PDF" que genera el informe completo de la importación ✅ 2026-06-03  
+  _PDF client-side con jsPDF: cabecera (fecha + TC), tabla de artículos (tipo, detalle, cant., USD, EUR), gastos de importación, resumen (coste producto + €/m), desglose por artículo (gastos prorrateados + €/m o €/ud). Paginación automática con pie de página._
 
 ---
 
@@ -48,8 +48,9 @@ La siguiente fase del proyecto amplía la **Calculadora de Contenedor** en dos d
 
 Tareas pequeñas que se pueden hacer rápido y aportan valor inmediato:
 
-- [ ] **T-52a** — Solo cambiar etiquetas "Bobinas" → "Artículos" en la UI sin tocar lógica (~30 min)
-- [ ] **T-55a** — Añadir estilos `@media print` a la página para imprimir desde el navegador como alternativa rápida al PDF (~1 hora). Oculta nav, botones y colores de fondo; deja visible solo el formulario y los resultados.
+- [x] **T-52a** — Solo cambiar etiquetas "Bobinas" → "Artículos" en la UI ✅ (completado como parte de T-52)
+- [x] **T-55a** — Añadir estilos `@media print` a globals.css ✅ 2026-06-03  
+  _Clase `print-contenedor` en el container, `no-print` en historial y botones de acción. Inputs y selects se vuelven transparentes, overflow-x visible para que la tabla no se corte._
 
 ---
 
@@ -69,6 +70,10 @@ _(Ninguna idea de esta ronda se descarta; todas son concretas y accionables)_
 
 ## ✅ Completado
 
+- ✅ **T-55** Exportar PDF informe de importación completo (2026-06-03)
+- ✅ **T-54** Validación Zod artículos JSON con tipo (2026-06-03)
+- ✅ **T-53** Cálculos multi-tipo: tacos, grapas, máquinas (2026-06-03)
+- ✅ **T-52** Artículos del pedido — selector de tipo por fila (2026-06-03)
 - ✅ Calculadora de Contenedor — layout ancho completo, sin scrollbar horizontal (2026-06-03)
 - ✅ Calculadora de Contenedor — barra de resumen superior (TC + Bobinas + Coste + Metros) en franja completa (2026-06-03)
 - ✅ Soporte USD/M y USD/M² (SQM) en precio de bobinas (2026-06-02)

@@ -56,6 +56,21 @@ export const tarifaClienteUpdateSchema = z.object({
   activa: z.boolean().optional(),
 });
 
+// Tipos válidos de artículo en una importación de contenedor
+const TIPOS_ARTICULO = ['BOBINA', 'TACO', 'GRAPA', 'MAQUINA', 'OTRO'];
+
+const articuloContenedorSchema = z.object({
+  id: z.number(),
+  tipo: z.enum(['BOBINA', 'TACO', 'GRAPA', 'MAQUINA', 'OTRO']).default('BOBINA'),
+  referencia: z.string().max(100).optional().nullable(),
+  espesor: z.union([z.string(), z.number()]).optional().nullable(),
+  ancho: z.union([z.string(), z.number()]).optional().nullable(),
+  longitud: z.union([z.string(), z.number()]).optional().nullable(),
+  numRollos: z.union([z.string(), z.number()]).optional().nullable(),
+  precio: z.union([z.string(), z.number()]).optional().nullable(),
+  unidadPrecio: z.string().optional().nullable(),
+});
+
 export const importacionContenedorSchema = z.object({
   tasaCambio: z.number().positive('Tipo de cambio inválido').max(100),
   totalBobinasUSD: z.number().min(0),
@@ -67,7 +82,17 @@ export const importacionContenedorSchema = z.object({
   gastosRepercutibles: z.number().min(0),
   costeProducto: z.number().min(0),
   totalDesembolso: z.number().min(0),
-  bobinas: z.string().min(2, 'Bobinas requeridas'),
+  bobinas: z.string()
+    .min(2, 'Artículos requeridos')
+    .refine(
+      (s) => {
+        try {
+          const arr = JSON.parse(s);
+          return Array.isArray(arr) && arr.length > 0;
+        } catch { return false; }
+      },
+      { message: 'Formato de artículos inválido (debe ser JSON array)' }
+    ),
   descripcion: z.string().max(200).optional().nullable(),
 });
 

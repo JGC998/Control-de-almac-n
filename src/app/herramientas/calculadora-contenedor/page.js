@@ -1,7 +1,9 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { fetcher } from '@/lib/fetcher';
 
@@ -299,6 +301,168 @@ export default function CalculadoraContenedorPage() {
 
   const hayResultados = bobinasFinal.some(b => b.subtotalEUR > 0);
 
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    let y = 20;
+
+    // ── CABECERA ──
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INFORME DE IMPORTACIÓN', margin, y);
+    y += 8;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, margin, y);
+    doc.text(`1 USD = ${fmt(tc, 4)} EUR`, pageW - margin, y, { align: 'right' });
+    y += 5;
+    doc.setDrawColor(180); doc.line(margin, y, pageW - margin, y);
+    y += 8;
+
+    // ── TABLA DE ARTÍCULOS ──
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text('Artículos del pedido', margin, y);
+    y += 5;
+    autoTable(doc, {
+      startY: y,
+      head: [['Referencia', 'Tipo', 'Detalle', 'Cant./Metros', 'Total USD', 'Total EUR']],
+      body: bobinasCals.map(b => {
+        const tipo = b.tipo || 'BOBINA';
+        let detalle = '—';
+        if (tipo === 'BOBINA' && (b.espesor || b.ancho)) {
+          detalle = [b.espesor && `${b.espesor}mm`, b.ancho && `${b.ancho}mm ancho`].filter(Boolean).join(' · ');
+        } else if (tipo === 'GRAPA' && b.ancho) {
+          detalle = `${b.ancho}mm ancho`;
+        }
+        let cantMetros = '';
+        if (tipo === 'BOBINA' || tipo === 'TACO') {
+          cantMetros = (b.numRollos > 1 && tipo === 'BOBINA')
+            ? `${b.numRollos}×${fmt(b.longitud, 0)} = ${fmt(b.totalMetrosBobina, 0)} m`
+            : `${fmt(b.totalMetrosBobina, 0)} m`;
+        } else {
+          const uLabel = tipo === 'GRAPA' ? 'caj.' : 'ud.';
+          cantMetros = `${b.numRollos} ${uLabel}`;
+        }
+        return [b.referencia || '—', tipo, detalle, cantMetros, fmtUsd(b.subtotalUSD), fmtEur(b.subtotalEUR)];
+      }),
+      foot: [['', '', '', 'TOTAL', fmtUsd(totalBobinasUSD), fmtEur(totalBobinasEUR)]],
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 30, 80], textColor: 255, fontStyle: 'bold' },
+      footStyles: { fillColor: [220, 220, 235], fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 32 }, 1: { cellWidth: 20 }, 2: { cellWidth: 38 },
+        3: { cellWidth: 38 }, 4: { cellWidth: 26, halign: 'right' }, 5: { cellWidth: 26, halign: 'right' },
+      },
+      margin: { left: margin, right: margin },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ── GASTOS DE IMPORTACIÓN ──
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text('Gastos de importación', margin, y);
+    y += 5;
+    const gastosBody = [
+      ['Suplidos (repercute en coste)', fmtEur(supl)],
+      ['Exentos / Aranceles (repercute en coste)', fmtEur(exen)],
+    ];
+    if (suj > 0) {
+      gastosBody.push(['Sujetos — transporte nacional (no repercute)', fmtEur(suj)]);
+      gastosBody.push(['IVA sujetos 21% (deducible)', fmtEur(ivaGastos)]);
+    }
+    gastosBody.push(['Gastos repercutibles totales', fmtEur(gastosRepercutibles)]);
+    autoTable(doc, {
+      startY: y,
+      body: gastosBody,
+      theme: 'plain',
+      styles: { fontSize: 9 },
+      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 32, halign: 'right', fontStyle: 'bold' } },
+      margin: { left: margin, right: margin },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ── RESUMEN FINAL ──
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text('Resumen', margin, y);
+    y += 5;
+    const resumenBody = [
+      ['Coste total artículos (convertido a EUR)', fmtEur(totalBobinasEUR)],
+      ['+ Gastos repercutibles (suplidos + exentos)', fmtEur(gastosRepercutibles)],
+      ['= COSTE PRODUCTO', fmtEur(costeProducto)],
+      ['Total desembolso real (incluyendo IVA sujetos)', fmtEur(totalDesembolso)],
+    ];
+    if (totalMetros > 0) {
+      resumenBody.push(['Total metros lineales (bobinas + tacos)', `${fmt(totalMetros, 0)} m`]);
+      resumenBody.push(['Coste medio por metro lineal', `${fmtEur(costeProducto / totalMetros)}/m`]);
+    }
+    autoTable(doc, {
+      startY: y,
+      body: resumenBody,
+      theme: 'plain',
+      styles: { fontSize: 9 },
+      didParseCell: (data) => {
+        if (data.row.index === 2) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fontSize = 11;
+        }
+      },
+      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 38, halign: 'right', fontStyle: 'bold' } },
+      margin: { left: margin, right: margin },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ── DESGLOSE POR ARTÍCULO ──
+    const artConValor = bobinasFinal.filter(b => b.subtotalEUR > 0);
+    if (artConValor.length > 0) {
+      if (y > 220) { doc.addPage(); y = 20; }
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+      doc.text('Desglose de gastos por artículo', margin, y);
+      y += 5;
+      autoTable(doc, {
+        startY: y,
+        head: [['Referencia', 'Tipo', '% Valor', 'Gastos repartidos', 'Coste final EUR', '€/metro o ud.']],
+        body: artConValor.map((b, idx) => {
+          const tipo = b.tipo || 'BOBINA';
+          const costeUd = b.costePorMetro > 0
+            ? `${fmtEur(b.costePorMetro)}/m`
+            : (b.costeFinalEUR > 0 && b.numRollos > 0 ? `${fmtEur(b.costeFinalEUR / b.numRollos)}/ud` : '—');
+          return [
+            b.referencia || `A${idx + 1}`,
+            tipo,
+            `${fmt(totalBobinasEUR > 0 ? b.subtotalEUR / totalBobinasEUR * 100 : 0, 1)}%`,
+            fmtEur(b.gastosProrrateados),
+            fmtEur(b.costeFinalEUR),
+            costeUd,
+          ];
+        }),
+        theme: 'striped',
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [30, 30, 80], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 32 }, 1: { cellWidth: 20 },
+          2: { cellWidth: 18, halign: 'right' }, 3: { cellWidth: 34, halign: 'right' },
+          4: { cellWidth: 34, halign: 'right' }, 5: { cellWidth: 34, halign: 'right' },
+        },
+        margin: { left: margin, right: margin },
+      });
+    }
+
+    // Footer en cada página
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(150);
+      doc.text(
+        `CRM Taller — Informe de Importación — ${new Date().toLocaleDateString('es-ES')} — Pág. ${i}/${pageCount}`,
+        pageW / 2, 290, { align: 'center' }
+      );
+      doc.setTextColor(0);
+    }
+
+    doc.save(`importacion-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   const datosParaGuardar = {
     tasaCambio: tc,
     totalBobinasUSD,
@@ -314,7 +478,7 @@ export default function CalculadoraContenedorPage() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-screen-xl">
+    <div className="container mx-auto p-4 max-w-screen-xl print-contenedor">
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-4">
@@ -326,9 +490,14 @@ export default function CalculadoraContenedorPage() {
           </div>
         </div>
         {hayResultados && (
-          <button className="btn btn-success btn-sm gap-2" onClick={() => setModalGuardar(true)}>
-            <Save className="w-4 h-4" /> Guardar importación
-          </button>
+          <div className="flex gap-2">
+            <button className="btn btn-outline btn-sm gap-2" onClick={handleExportPDF}>
+              <Download className="w-4 h-4" /> Exportar PDF
+            </button>
+            <button className="btn btn-success btn-sm gap-2" onClick={() => setModalGuardar(true)}>
+              <Save className="w-4 h-4" /> Guardar importación
+            </button>
+          </div>
         )}
       </div>
 
@@ -757,7 +926,9 @@ export default function CalculadoraContenedorPage() {
       )}
 
       {/* ── Historial ── */}
-      <HistorialImportaciones onCargar={handleCargarImportacion} />
+      <div className="no-print">
+        <HistorialImportaciones onCargar={handleCargarImportacion} />
+      </div>
 
       {/* ── Modal guardar ── */}
       {modalGuardar && (

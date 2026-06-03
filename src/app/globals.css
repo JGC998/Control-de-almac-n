@@ -31,6 +31,15 @@ tbody tr { transition: background-color 0.1s ease; }
   .btn { display: none !important; }
   table { page-break-inside: auto; }
   tr { page-break-inside: avoid; }
+
+  /* ── Calculadora de Contenedor ── */
+  .print-contenedor .overflow-x-auto { overflow: visible !important; }
+  .print-contenedor select,
+  .print-contenedor input { border: none !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; font-size: 0.8rem; }
+  .print-contenedor .join { flex-wrap: wrap; gap: 0; }
+  .print-contenedor .alert { border: 1px solid #ccc !important; background: #f9f9f9 !important; }
+  .print-contenedor .card.bg-primary { background: #e8e8f0 !important; color: black !important; }
+  .print-page-break { page-break-before: always; }
 }
 
 /* :root {
