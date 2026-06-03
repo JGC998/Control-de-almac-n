@@ -26,6 +26,7 @@ const ALLOWED_CONFIG_KEYS = [
   'iva_rate', 'empresa_nombre', 'empresa_nif', 'empresa_telefono',
   'empresa_email', 'empresa_direccion', 'empresa_cp', 'empresa_ciudad',
   'empresa_provincia', 'empresa_pais', 'empresa_web', 'empresa_logo',
+  'longitud_barra_tacos', 'costeVulcanizadoMetro',
 ];
 
 // PUT /api/config - Guarda o actualiza una o varias claves de configuración

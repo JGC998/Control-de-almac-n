@@ -296,6 +296,74 @@ function ConfigLongitudBarra() {
   );
 }
 
+// ─── Configuración de coste de vulcanizado ───────────────────────────────
+function ConfigCosteVulcanizado() {
+  const { data: config, isLoading } = useSWR('/api/config');
+  const [valor, setValor] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  React.useEffect(() => {
+    if (config?.costeVulcanizadoMetro !== undefined) {
+      setValor(String(config.costeVulcanizadoMetro));
+    }
+  }, [config]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ costeVulcanizadoMetro: parseFloat(valor) || 0 }),
+      });
+      if (!res.ok) throw new Error();
+      setMsg({ type: 'success', text: 'Guardado correctamente' });
+      mutate('/api/config');
+    } catch {
+      setMsg({ type: 'error', text: 'Error al guardar' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <div className="card bg-base-200 mb-6">
+      <div className="card-body py-4">
+        <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+          <Wrench className="w-4 h-4" /> Coste de vulcanizado Sin Fin
+        </h3>
+        <div className="flex items-end gap-3">
+          <div className="form-control">
+            <label className="label py-0 pb-1"><span className="label-text text-xs">Precio (€/metro lineal)</span></label>
+            <div className="join">
+              <input
+                type="number" min="0" step="0.01"
+                value={valor}
+                onChange={e => setValor(e.target.value)}
+                className="input input-bordered input-sm w-28 join-item"
+                placeholder="0.00"
+              />
+              <span className="btn btn-sm join-item no-animation bg-base-100 border-base-300 pointer-events-none">€/m</span>
+            </div>
+          </div>
+          <button className="btn btn-primary btn-sm gap-1" onClick={handleSave} disabled={saving}>
+            {saving ? <span className="loading loading-spinner loading-xs"></span> : <Save className="w-4 h-4" />}
+            Guardar
+          </button>
+        </div>
+        <p className="text-xs text-base-content/50 mt-1">
+          Coste por metro lineal de ancho de banda para confección Sin Fin. Se aplica automáticamente en la calculadora de bandas.
+        </p>
+        {msg && <div className={`alert alert-${msg.type} py-1 mt-2 text-xs`}><span>{msg.text}</span></div>}
+      </div>
+    </div>
+  );
+}
+
 // ─── Gestión inline de Grapas ─────────────────────────────────────────────
 function GestionGrapas() {
   const { data: grapas, isLoading, error } = useSWR('/api/grapas');
@@ -892,6 +960,7 @@ export default function ConfiguracionPage() {
       {/* ── CONFECCIÓN PVC ───────────────────────────────────────────────── */}
       {activeTab === 'confpvc' && (
         <div className="space-y-8">
+          <ConfigCosteVulcanizado />
           <ConfigLongitudBarra />
 
           <div>

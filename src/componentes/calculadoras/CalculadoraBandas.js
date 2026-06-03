@@ -1,30 +1,10 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Plus, Settings, Info, Layers, Link2, BookmarkPlus, Check, Calculator } from 'lucide-react';
+import { Plus, Info, Layers, Link2, BookmarkPlus, Check, Calculator } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
 
-const CostInput = ({ label, value, onChange, unit = '€', description }) => (
-    <div className="form-control w-full">
-        <label className="label py-1">
-            <span className="label-text-alt font-semibold">{label}</span>
-        </label>
-        <div className="join w-full">
-            <input
-                type="number"
-                step="0.01"
-                className="input input-sm input-bordered join-item w-full"
-                value={value}
-                onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-            />
-            <span className="btn btn-sm join-item no-animation bg-base-200 border-base-300 pointer-events-none">{unit}</span>
-        </div>
-        {description && (
-            <p className="text-[10px] leading-tight text-gray-500 px-1 pt-1 opacity-70">{description}</p>
-        )}
-    </div>
-);
 
 export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [selectedMaterial] = useState('PVC');
@@ -37,8 +17,6 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [ancho, setAncho] = useState('');
     const [largo, setLargo] = useState('');
 
-    const [costeVulcanizadoMetro, setCosteVulcanizadoMetro] = useState(0);
-    const [mostrarConfigCostes, setMostrarConfigCostes] = useState(false);
 
     const [configuracionTacos, setConfiguracionTacos] = useState(null);
     const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
@@ -48,6 +26,8 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
     const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
+    const { data: configData } = useSWR('/api/config');
+    const costeVulcanizadoMetro = configData?.costeVulcanizadoMetro ?? 0;
 
     const isPVC = selectedMaterial === 'PVC';
 
@@ -305,6 +285,17 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     </div>
                 </div>
 
+                {/* Info coste vulcanizado cuando modo Sin Fin */}
+                {tipoConfeccion === 'VULCANIZADA' && (
+                    <div className="text-xs text-base-content/50 flex items-center gap-1 mt-1 px-1">
+                        <Info className="w-3 h-3 shrink-0" />
+                        {costeVulcanizadoMetro > 0
+                            ? <span>Coste vulcanizado: <span className="font-semibold">{formatCurrency(costeVulcanizadoMetro)}/m</span></span>
+                            : <span>Coste vulcanizado no configurado — <a href="/configuracion/margenes#confpvc" className="link">Configuración → Confección PVC</a></span>
+                        }
+                    </div>
+                )}
+
                 {/* Selector de Grapa (visible solo cuando confección = GRAPA) */}
                 {tipoConfeccion === 'GRAPA' && (
                     <div className="space-y-2 mt-2">
@@ -436,23 +427,6 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                         </button>
                     )}
                 </div>
-
-                {/* Costes Extra (Colapsable) — solo vulcanizado */}
-                {tipoConfeccion === 'VULCANIZADA' && <div className="collapse collapse-arrow bg-base-200 mt-4 border border-base-300">
-                    <input type="checkbox" checked={mostrarConfigCostes} onChange={() => setMostrarConfigCostes(!mostrarConfigCostes)} />
-                    <div className="collapse-title text-sm font-medium flex items-center gap-2">
-                        <Settings className="w-4 h-4" /> Configuración de Costes
-                    </div>
-                    <div className="collapse-content space-y-3">
-                        <CostInput
-                            label="Coste Vulcanizado"
-                            value={costeVulcanizadoMetro}
-                            onChange={setCosteVulcanizadoMetro}
-                            unit="€/m"
-                            description="Precio por metro lineal de vulcanizado"
-                        />
-                    </div>
-                </div>}
 
                 {/* Cantidad y Resultado */}
                 <div className="mt-4 bg-base-200/50 p-4 rounded-lg border border-base-300">
