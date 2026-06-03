@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Package2, Plus, Trash2, Calculator, Info, Save, History, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { fetcher } from '@/lib/fetcher';
 
@@ -294,10 +294,10 @@ export default function CalculadoraContenedorPage() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
+    <div className="container mx-auto p-4 max-w-screen-xl">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 mb-6">
+      <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <Package2 className="w-8 h-8 text-warning" />
           <div>
@@ -312,53 +312,80 @@ export default function CalculadoraContenedorPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* ── FRANJA SUPERIOR: TC + Resumen ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-5">
+        {/* Tipo de cambio */}
+        <div className="card bg-base-200 shadow-sm">
+          <div className="card-body p-4">
+            <h2 className="font-bold text-sm mb-2 text-base-content/60 uppercase tracking-wide">Tipo de cambio</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-sm">1 USD =</span>
+              <input
+                type="number" step="0.0001" min="0.0001"
+                value={tasaCambio}
+                onChange={e => setTasaCambio(e.target.value)}
+                className="input input-bordered input-sm w-28 font-mono"
+              />
+              <span className="font-mono text-sm">EUR</span>
+            </div>
+            {tc > 0 && <p className="text-xs text-base-content/40 mt-1">1 EUR = {fmt(1/tc, 4)} USD</p>}
+          </div>
+        </div>
 
-        {/* ── COLUMNA IZQUIERDA ── */}
-        <div className="lg:col-span-2 space-y-5">
-
-          {/* Tipo de cambio */}
-          <div className="card bg-base-200 shadow-sm">
-            <div className="card-body p-4">
-              <h2 className="font-bold text-base mb-3">Tipo de cambio</h2>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="font-mono text-sm">1 USD =</span>
-                <input
-                  type="number" step="0.0001" min="0.0001"
-                  value={tasaCambio}
-                  onChange={e => setTasaCambio(e.target.value)}
-                  className="input input-bordered w-32 font-mono"
-                />
-                <span className="font-mono text-sm">EUR</span>
-                {tc > 0 && (
-                  <span className="text-xs text-base-content/40">
-                    (1 EUR = {fmt(1 / tc, 4)} USD)
-                  </span>
+        {/* Resumen compacto */}
+        <div className="lg:col-span-3 card bg-primary text-primary-content shadow-lg">
+          <div className="card-body p-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-center">
+              <div>
+                <p className="text-xs opacity-70">Bobinas</p>
+                <p className="font-mono font-bold">{fmtEur(totalBobinasEUR)}</p>
+                <p className="text-xs opacity-50">{fmtUsd(totalBobinasUSD)}</p>
+              </div>
+              <div>
+                <p className="text-xs opacity-70">Gastos repercutidos</p>
+                <p className="font-mono font-bold">{fmtEur(gastosRepercutibles)}</p>
+                <p className="text-xs opacity-50">Supl. {fmtEur(supl)} + Exen. {fmtEur(exen)}</p>
+              </div>
+              <div className="border-l border-primary-content/20 pl-4">
+                <p className="text-xs opacity-70">Coste producto</p>
+                <p className="font-mono text-2xl font-bold">{fmtEur(costeProducto)}</p>
+                <p className="text-xs opacity-50">Desembolso total: {fmtEur(totalDesembolso)}</p>
+              </div>
+              <div className="border-l border-primary-content/20 pl-4">
+                <p className="text-xs opacity-70">Total metros</p>
+                <p className="font-mono font-bold">{fmt(totalMetros, 0)} m</p>
+                {totalMetros > 0 && (
+                  <>
+                    <p className="text-xs opacity-70 mt-1">Coste medio</p>
+                    <p className="font-mono text-lg font-bold">{fmtEur(costeProducto / totalMetros)}/m</p>
+                  </>
                 )}
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Bobinas */}
-          <div className="card bg-base-200 shadow-sm">
-            <div className="card-body p-4">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="font-bold text-base">Bobinas — datos de la factura del proveedor</h2>
-                <button onClick={addBobina} className="btn btn-sm btn-primary gap-1">
-                  <Plus className="w-4 h-4" /> Añadir bobina
-                </button>
-              </div>
+      {/* ── BOBINAS — ancho completo ── */}
+      <div className="card bg-base-200 shadow-sm mb-5">
+        <div className="card-body p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="font-bold text-base">Bobinas — datos de la factura del proveedor</h2>
+            <button onClick={addBobina} className="btn btn-sm btn-primary gap-1">
+              <Plus className="w-4 h-4" /> Añadir bobina
+            </button>
+          </div>
 
-              <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
                 <table className="table table-sm w-full">
                   <thead>
                     <tr>
                       <th>Nº bobina</th>
-                      <th>Esp. (mm)</th>
-                      <th>Ancho (mm)</th>
-                      <th>Long./rollo (m)</th>
-                      <th>Nº rollos</th>
-                      <th>Precio</th>
+                      <th>Esp.<br/><span className="font-normal opacity-60">(mm)</span></th>
+                      <th>Ancho<br/><span className="font-normal opacity-60">(mm)</span></th>
+                      <th>Long./rollo<br/><span className="font-normal opacity-60">(m)</span></th>
+                      <th>Nº<br/><span className="font-normal opacity-60">rollos</span></th>
+                      <th>Precio<br/><span className="font-normal opacity-60">USD/unidad</span></th>
                       <th className="text-right">Total m</th>
                       <th className="text-right">Total $</th>
                       <th className="text-right">Total €</th>
@@ -375,7 +402,7 @@ export default function CalculadoraContenedorPage() {
                               type="text" placeholder={`B${idx + 1}`}
                               value={b.referencia}
                               onChange={e => handleBobinaChange(b.id, 'referencia', e.target.value)}
-                              className="input input-sm input-bordered w-16"
+                              className="input input-xs input-bordered w-24"
                             />
                           </td>
                           <td>
@@ -383,7 +410,7 @@ export default function CalculadoraContenedorPage() {
                               type="number" step="0.1" min="0" placeholder="—"
                               value={b.espesor}
                               onChange={e => handleBobinaChange(b.id, 'espesor', e.target.value)}
-                              className="input input-sm input-bordered w-16 font-mono"
+                              className="input input-xs input-bordered w-20 font-mono"
                             />
                           </td>
                           <td>
@@ -391,7 +418,7 @@ export default function CalculadoraContenedorPage() {
                               type="number" step="1" min="0" placeholder="—"
                               value={b.ancho}
                               onChange={e => handleBobinaChange(b.id, 'ancho', e.target.value)}
-                              className="input input-sm input-bordered w-16 font-mono"
+                              className="input input-xs input-bordered w-20 font-mono"
                             />
                           </td>
                           <td>
@@ -399,7 +426,7 @@ export default function CalculadoraContenedorPage() {
                               type="number" step="1" min="0" placeholder="0"
                               value={b.longitud}
                               onChange={e => handleBobinaChange(b.id, 'longitud', e.target.value)}
-                              className="input input-sm input-bordered w-20 font-mono"
+                              className="input input-xs input-bordered w-24 font-mono"
                             />
                           </td>
                           <td>
@@ -407,38 +434,34 @@ export default function CalculadoraContenedorPage() {
                               type="number" step="1" min="1" placeholder="1"
                               value={b.numRollos}
                               onChange={e => handleBobinaChange(b.id, 'numRollos', e.target.value)}
-                              className="input input-sm input-bordered w-16 font-mono"
+                              className="input input-xs input-bordered w-16 font-mono"
                             />
                           </td>
                           <td>
-                            <div className="space-y-1">
+                            <div>
                               <div className="join">
                                 <input
                                   type="number" step="0.0001" min="0" placeholder="0.0000"
                                   value={b.precio}
                                   onChange={e => handleBobinaChange(b.id, 'precio', e.target.value)}
-                                  className="input input-sm input-bordered join-item w-20 font-mono"
+                                  className="input input-xs input-bordered join-item w-32 font-mono"
                                 />
-                                <button
-                                  type="button"
-                                  className={`btn btn-xs join-item border border-base-300 ${b.unidadPrecio === 'M' ? 'btn-neutral' : 'btn-ghost text-base-content/40'}`}
-                                  onClick={() => handleBobinaChange(b.id, 'unidadPrecio', 'M')}
-                                  title="USD por metro lineal"
-                                >M</button>
-                                <button
-                                  type="button"
-                                  className={`btn btn-xs join-item border border-base-300 ${b.unidadPrecio === 'SQM' ? 'btn-neutral' : 'btn-ghost text-base-content/40'}`}
-                                  onClick={() => handleBobinaChange(b.id, 'unidadPrecio', 'SQM')}
-                                  title="USD por metro cuadrado"
-                                >SQM</button>
+                                <select
+                                  className="select select-xs join-item border-base-300 bg-base-100 font-mono w-20"
+                                  value={b.unidadPrecio}
+                                  onChange={e => handleBobinaChange(b.id, 'unidadPrecio', e.target.value)}
+                                >
+                                  <option value="M">$/M</option>
+                                  <option value="SQM">$/M²</option>
+                                </select>
                               </div>
                               {b.unidadPrecio === 'SQM' && n(b.ancho) > 0 && n(b.precio) > 0 && (
-                                <p className="text-[10px] text-base-content/50 font-mono">
-                                  ≈ {fmt(n(b.precio) * n(b.ancho) / 1000, 4)} USD/M
+                                <p className="text-[10px] text-base-content/50 font-mono mt-0.5">
+                                  ≈{fmt(n(b.precio) * n(b.ancho) / 1000, 4)} $/M
                                 </p>
                               )}
                               {b.unidadPrecio === 'SQM' && !n(b.ancho) && (
-                                <p className="text-[10px] text-warning">Introduce el ancho</p>
+                                <p className="text-[10px] text-warning mt-0.5">↑ falta ancho</p>
                               )}
                             </div>
                           </td>
@@ -574,79 +597,15 @@ export default function CalculadoraContenedorPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* ── COLUMNA DERECHA ── */}
-        <div className="space-y-5">
-
-          <div className="card bg-primary text-primary-content shadow-lg lg:sticky lg:top-4">
-            <div className="card-body p-4">
-              <h2 className="font-bold text-base flex items-center gap-2">
-                <Calculator className="w-4 h-4" /> Resumen
-              </h2>
-
-              <div className="mt-2 space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="opacity-80">Bobinas ({fmt(totalBobinasUSD, 2)} $)</span>
-                  <span className="font-mono">{fmtEur(totalBobinasEUR)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="opacity-80">Suplidos ✓</span>
-                  <span className="font-mono">{fmtEur(supl)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="opacity-80">Exentos ✓</span>
-                  <span className="font-mono">{fmtEur(exen)}</span>
-                </div>
-                {suj > 0 && (
-                  <div className="flex justify-between opacity-40 text-xs">
-                    <span>Sujetos (no entra en cálculo)</span>
-                    <span className="font-mono">{fmtEur(suj)}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="divider my-2 opacity-30"></div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-sm opacity-80">Coste producto</span>
-                  <span className="font-mono text-2xl font-bold">{fmtEur(costeProducto)}</span>
-                </div>
-                <div className="flex justify-between text-xs opacity-50">
-                  <span>Desembolso total real</span>
-                  <span className="font-mono">{fmtEur(totalDesembolso)}</span>
-                </div>
-              </div>
-
-              {totalMetros > 0 && (
-                <>
-                  <div className="divider my-2 opacity-30"></div>
-                  <div className="flex justify-between text-sm">
-                    <span className="opacity-80">Total metros</span>
-                    <span className="font-mono">{fmt(totalMetros, 0)} m</span>
-                  </div>
-                  <div className="flex justify-between items-baseline mt-1">
-                    <span className="text-sm opacity-80">Coste medio</span>
-                    <span className="font-mono text-lg font-bold">
-                      {fmtEur(costeProducto / totalMetros)}/m
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="alert text-xs p-3">
-            <div className="space-y-1.5">
-              <p className="font-bold">Metodología</p>
-              <p>Prorrateo por <strong>valor económico</strong>: cada bobina asume el porcentaje de gastos proporcional a su precio total en €.</p>
-              <p className="pt-1 border-t border-base-content/10">
-                <strong>Se repercute:</strong> Suplidos + Exentos (aranceles)<br />
-                <strong>No se repercute:</strong> Sujetos (IVA deducible)
-              </p>
-            </div>
-          </div>
+      <div className="alert text-xs p-3 mt-4">
+        <div className="space-y-1.5">
+          <p className="font-bold">Metodología</p>
+          <p>Prorrateo por <strong>valor económico</strong>: cada bobina asume el porcentaje de gastos proporcional a su precio total en €.</p>
+          <p className="pt-1 border-t border-base-content/10">
+            <strong>Se repercute:</strong> Suplidos + Exentos (aranceles)<br />
+            <strong>No se repercute:</strong> Sujetos (IVA deducible)
+          </p>
         </div>
       </div>
 

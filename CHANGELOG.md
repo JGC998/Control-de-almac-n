@@ -5,6 +5,19 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-06-03
+
+### 🐛 Corregido
+- ✅ **Calculadora de Contenedor** — corregidos 2 `</div>` sobrantes que cerraban el container principal en mitad del JSX, dejando la columna derecha, la tabla de resultados y el historial flotando fuera del contenedor DOM y rompiendo el layout
+
+### ♻️ Cambiado
+- ✅ **Calculadora de Contenedor — layout ancho completo**: eliminado el grid de 2 columnas (`lg:grid-cols-3`) que comprimía la tabla de bobinas a ~66% del ancho y obligaba a usar scrollbar horizontal. La calculadora ahora ocupa todo el ancho disponible (`max-w-screen-xl`)
+- ✅ **Calculadora de Contenedor — resumen superior**: la columna derecha sticky (panel azul de Resumen) se eliminó por ser redundante con la franja superior de 4 columnas (TC + Bobinas + Coste + Metros) que ya centraliza toda la información
+- ✅ **Calculadora de Contenedor — inputs tabla bobinas**: ampliados todos los campos de entrada para aprovechar el ancho disponible (referencia `w-16→w-24`, espesor/ancho `w-16→w-20`, longitud `w-20→w-24`, precio `w-24→w-32`, selector unidad `w-16→w-20`)
+- ✅ **Calculadora de Contenedor — metodología**: nota de metodología movida inline debajo de la sección de Gastos de importación (antes ocupaba espacio de columna lateral)
+
+---
+
 ## 2026-06-02
 
 ### ✨ Añadido
