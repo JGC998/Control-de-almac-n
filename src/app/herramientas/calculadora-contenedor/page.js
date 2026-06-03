@@ -392,10 +392,6 @@ export default function CalculadoraContenedorPage() {
       ['= COSTE PRODUCTO', fmtEur(costeProducto)],
       ['Total desembolso real (incluyendo IVA sujetos)', fmtEur(totalDesembolso)],
     ];
-    if (totalMetros > 0) {
-      resumenBody.push(['Total metros lineales (bobinas + tacos)', `${fmt(totalMetros, 0)} m`]);
-      resumenBody.push(['Coste medio por metro lineal', `${fmtEur(costeProducto / totalMetros)}/m`]);
-    }
     autoTable(doc, {
       startY: y,
       body: resumenBody,
@@ -421,28 +417,40 @@ export default function CalculadoraContenedorPage() {
       y += 5;
       autoTable(doc, {
         startY: y,
-        head: [['Referencia', 'Tipo', '% Valor', 'Gastos repartidos', 'Coste final EUR', '€/metro o ud.']],
+        head: [['Referencia', 'Esp.\n(mm)', 'Ancho\n(mm)', '% Valor', 'Gastos repartidos', 'Coste final €', '€/metro lineal', '€/m²']],
         body: artConValor.map((b, idx) => {
-          const tipo = b.tipo || 'BOBINA';
-          const costeUd = b.costePorMetro > 0
-            ? `${fmtEur(b.costePorMetro)}/m`
-            : (b.costeFinalEUR > 0 && b.numRollos > 0 ? `${fmtEur(b.costeFinalEUR / b.numRollos)}/ud` : '—');
+          const anchoMm = n(b.ancho);
+          // €/metro lineal: coste final dividido entre metros totales (independiente del ancho)
+          const eurosPorMetroLineal = b.costePorMetro > 0
+            ? fmtEur(b.costePorMetro)
+            : (b.costeFinalEUR > 0 && b.numRollos > 0 ? `${fmtEur(b.costeFinalEUR / b.numRollos)} /ud` : '—');
+          // €/m²: coste por metro lineal dividido entre el ancho en metros
+          const eurosPorM2 = b.costePorMetro > 0 && anchoMm > 0
+            ? fmtEur(b.costePorMetro / (anchoMm / 1000))
+            : '—';
           return [
             b.referencia || `A${idx + 1}`,
-            tipo,
+            b.espesor || '—',
+            anchoMm > 0 ? anchoMm : '—',
             `${fmt(totalBobinasEUR > 0 ? b.subtotalEUR / totalBobinasEUR * 100 : 0, 1)}%`,
             fmtEur(b.gastosProrrateados),
             fmtEur(b.costeFinalEUR),
-            costeUd,
+            eurosPorMetroLineal,
+            eurosPorM2,
           ];
         }),
         theme: 'striped',
         styles: { fontSize: 8 },
         headStyles: { fillColor: [30, 30, 80], textColor: 255, fontStyle: 'bold' },
         columnStyles: {
-          0: { cellWidth: 32 }, 1: { cellWidth: 20 },
-          2: { cellWidth: 18, halign: 'right' }, 3: { cellWidth: 34, halign: 'right' },
-          4: { cellWidth: 34, halign: 'right' }, 5: { cellWidth: 34, halign: 'right' },
+          0: { cellWidth: 28 },
+          1: { cellWidth: 15, halign: 'center' },
+          2: { cellWidth: 15, halign: 'center' },
+          3: { cellWidth: 13, halign: 'right' },
+          4: { cellWidth: 28, halign: 'right' },
+          5: { cellWidth: 25, halign: 'right' },
+          6: { cellWidth: 28, halign: 'right' },
+          7: { cellWidth: 30, halign: 'right' },
         },
         margin: { left: margin, right: margin },
       });
