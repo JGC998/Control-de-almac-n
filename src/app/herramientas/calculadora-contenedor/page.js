@@ -7,13 +7,14 @@ import { fetcher } from '@/lib/fetcher';
 
 const nuevaBobina = (id) => ({
   id,
+  tipo: 'BOBINA', // 'BOBINA' | 'TACO' | 'GRAPA' | 'MAQUINA' | 'OTRO'
   referencia: '',
   espesor: '',
   ancho: '',
   longitud: '',
   numRollos: '1',
   precio: '',
-  unidadPrecio: 'M', // 'M' = USD/metro lineal | 'SQM' = USD/m²
+  unidadPrecio: 'M', // 'M' = USD/metro lineal | 'SQM' = USD/m² (solo BOBINA)
 });
 
 const n = (v) => parseFloat(v) || 0;
@@ -201,20 +202,38 @@ export default function CalculadoraContenedorPage() {
 
   const tc = n(tasaCambio);
 
-  // --- Cálculos bobinas ---
+  // --- Cálculos artículos ---
   const bobinasCals = bobinas.map(b => {
+    const tipo = b.tipo || 'BOBINA';
+    const precio = n(b.precio ?? b.usdPorMetro);
+    const numRollos = Math.max(n(b.numRollos), 1);
     const longitud = n(b.longitud);
-    const numRollos = n(b.numRollos) || 1;
     const anchoM = n(b.ancho) / 1000;
-    const precioEntrada = n(b.precio ?? b.usdPorMetro); // backward compat
-    // Convertir a USD/metro lineal según unidad seleccionada
-    const usdPorMetro = b.unidadPrecio === 'SQM'
-      ? precioEntrada * anchoM
-      : precioEntrada;
-    const totalMetrosBobina = longitud * numRollos;
-    const subtotalUSD = usdPorMetro * totalMetrosBobina;
+
+    let totalMetrosBobina = 0;
+    let subtotalUSD = 0;
+    let usdPorMetro = 0;
+
+    if (tipo === 'TACO') {
+      // cantidad en metros × USD/m  (numRollos implícito = 1)
+      totalMetrosBobina = longitud;
+      subtotalUSD = precio * longitud;
+      usdPorMetro = precio;
+    } else if (tipo === 'GRAPA') {
+      // nº cajas × USD/caja  (longitud no aplica)
+      subtotalUSD = precio * numRollos;
+    } else if (tipo === 'MAQUINA' || tipo === 'OTRO') {
+      // cantidad × USD/unidad
+      subtotalUSD = precio * numRollos;
+    } else {
+      // BOBINA (default): puede ser $/M o $/M²
+      usdPorMetro = b.unidadPrecio === 'SQM' ? precio * anchoM : precio;
+      totalMetrosBobina = longitud * numRollos;
+      subtotalUSD = usdPorMetro * totalMetrosBobina;
+    }
+
     const subtotalEUR = subtotalUSD * tc;
-    return { ...b, longitud, numRollos, anchoM, precioEntrada, usdPorMetro, totalMetrosBobina, subtotalUSD, subtotalEUR };
+    return { ...b, tipo, longitud, numRollos, anchoM, usdPorMetro, totalMetrosBobina, subtotalUSD, subtotalEUR };
   });
 
   const totalBobinasUSD = bobinasCals.reduce((s, b) => s + b.subtotalUSD, 0);
@@ -264,6 +283,7 @@ export default function CalculadoraContenedorPage() {
       setBobinas(bobs.map((b, i) => ({
         ...b,
         id: i + 1,
+        tipo: b.tipo || 'BOBINA',
         precio: b.precio ?? b.usdPorMetro ?? '',
         unidadPrecio: b.unidadPrecio || 'M',
       })));
@@ -277,7 +297,7 @@ export default function CalculadoraContenedorPage() {
     }
   };
 
-  const hayResultados = totalMetros > 0 && bobinasFinal.some(b => b.totalMetrosBobina > 0);
+  const hayResultados = bobinasFinal.some(b => b.subtotalEUR > 0);
 
   const datosParaGuardar = {
     tasaCambio: tc,
@@ -302,7 +322,7 @@ export default function CalculadoraContenedorPage() {
           <Package2 className="w-8 h-8 text-warning" />
           <div>
             <h1 className="text-3xl font-bold">Calculadora de Contenedor</h1>
-            <p className="text-sm text-base-content/60">Coste real de importación por metro lineal, prorrateado por valor de cada bobina</p>
+            <p className="text-sm text-base-content/60">Coste real de importación por artículo, prorrateado por valor económico</p>
           </div>
         </div>
         {hayResultados && (
@@ -337,7 +357,7 @@ export default function CalculadoraContenedorPage() {
           <div className="card-body p-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-center">
               <div>
-                <p className="text-xs opacity-70">Bobinas</p>
+                <p className="text-xs opacity-70">Artículos</p>
                 <p className="font-mono font-bold">{fmtEur(totalBobinasEUR)}</p>
                 <p className="text-xs opacity-50">{fmtUsd(totalBobinasUSD)}</p>
               </div>
@@ -366,87 +386,118 @@ export default function CalculadoraContenedorPage() {
         </div>
       </div>
 
-      {/* ── BOBINAS — ancho completo ── */}
+      {/* ── ARTÍCULOS DEL PEDIDO — ancho completo ── */}
       <div className="card bg-base-200 shadow-sm mb-5">
         <div className="card-body p-4">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="font-bold text-base">Bobinas — datos de la factura del proveedor</h2>
+            <h2 className="font-bold text-base">Artículos del pedido — datos de la factura del proveedor</h2>
             <button onClick={addBobina} className="btn btn-sm btn-primary gap-1">
-              <Plus className="w-4 h-4" /> Añadir bobina
+              <Plus className="w-4 h-4" /> Añadir artículo
             </button>
           </div>
 
           <div className="overflow-x-auto">
-                <table className="table table-sm w-full">
-                  <thead>
-                    <tr>
-                      <th>Nº bobina</th>
-                      <th>Esp.<br/><span className="font-normal opacity-60">(mm)</span></th>
-                      <th>Ancho<br/><span className="font-normal opacity-60">(mm)</span></th>
-                      <th>Long./rollo<br/><span className="font-normal opacity-60">(m)</span></th>
-                      <th>Nº<br/><span className="font-normal opacity-60">rollos</span></th>
-                      <th>Precio<br/><span className="font-normal opacity-60">USD/unidad</span></th>
-                      <th className="text-right">Total m</th>
-                      <th className="text-right">Total $</th>
-                      <th className="text-right">Total €</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bobinas.map((b, idx) => {
-                      const cal = bobinasCals[idx];
-                      return (
-                        <tr key={b.id}>
-                          <td>
-                            <input
-                              type="text" placeholder={`B${idx + 1}`}
-                              value={b.referencia}
-                              onChange={e => handleBobinaChange(b.id, 'referencia', e.target.value)}
-                              className="input input-xs input-bordered w-24"
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="number" step="0.1" min="0" placeholder="—"
+            <table className="table table-sm w-full">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Referencia</th>
+                  <th>Esp.<br/><span className="font-normal opacity-60">(mm)</span></th>
+                  <th>Ancho<br/><span className="font-normal opacity-60">(mm)</span></th>
+                  <th>Long./Metros<br/><span className="font-normal opacity-60">(m)</span></th>
+                  <th>Rollos/<br/><span className="font-normal opacity-60">Cajas/Ud.</span></th>
+                  <th>Precio<br/><span className="font-normal opacity-60">USD/unidad</span></th>
+                  <th className="text-right">Total m</th>
+                  <th className="text-right">Total $</th>
+                  <th className="text-right">Total €</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {bobinas.map((b, idx) => {
+                  const cal = bobinasCals[idx];
+                  const tipo = b.tipo || 'BOBINA';
+                  const esBobina = tipo === 'BOBINA';
+                  const esTaco   = tipo === 'TACO';
+                  const esGrapa  = tipo === 'GRAPA';
+                  const esMaquina = tipo === 'MAQUINA' || tipo === 'OTRO';
+                  return (
+                    <tr key={b.id}>
+                      {/* Tipo */}
+                      <td>
+                        <select
+                          className="select select-xs select-bordered w-24"
+                          value={tipo}
+                          onChange={e => handleBobinaChange(b.id, 'tipo', e.target.value)}
+                        >
+                          <option value="BOBINA">Bobina</option>
+                          <option value="TACO">Taco</option>
+                          <option value="GRAPA">Grapa</option>
+                          <option value="MAQUINA">Máquina</option>
+                          <option value="OTRO">Otro</option>
+                        </select>
+                      </td>
+                      {/* Referencia */}
+                      <td>
+                        <input
+                          type="text" placeholder={`A${idx + 1}`}
+                          value={b.referencia}
+                          onChange={e => handleBobinaChange(b.id, 'referencia', e.target.value)}
+                          className="input input-xs input-bordered w-24"
+                        />
+                      </td>
+                      {/* Espesor — solo BOBINA */}
+                      <td>
+                        {esBobina
+                          ? <input type="number" step="0.1" min="0" placeholder="—"
                               value={b.espesor}
                               onChange={e => handleBobinaChange(b.id, 'espesor', e.target.value)}
                               className="input input-xs input-bordered w-20 font-mono"
                             />
-                          </td>
-                          <td>
-                            <input
-                              type="number" step="1" min="0" placeholder="—"
+                          : <span className="text-base-content/20 text-xs px-2">—</span>}
+                      </td>
+                      {/* Ancho — BOBINA, TACO y GRAPA */}
+                      <td>
+                        {(esBobina || esTaco || esGrapa)
+                          ? <input type="number" step="1" min="0" placeholder="—"
                               value={b.ancho}
                               onChange={e => handleBobinaChange(b.id, 'ancho', e.target.value)}
                               className="input input-xs input-bordered w-20 font-mono"
                             />
-                          </td>
-                          <td>
-                            <input
-                              type="number" step="1" min="0" placeholder="0"
+                          : <span className="text-base-content/20 text-xs px-2">—</span>}
+                      </td>
+                      {/* Longitud/Metros — BOBINA y TACO */}
+                      <td>
+                        {(esBobina || esTaco)
+                          ? <input type="number" step="1" min="0" placeholder="0"
                               value={b.longitud}
                               onChange={e => handleBobinaChange(b.id, 'longitud', e.target.value)}
                               className="input input-xs input-bordered w-24 font-mono"
                             />
-                          </td>
-                          <td>
-                            <input
-                              type="number" step="1" min="1" placeholder="1"
+                          : <span className="text-base-content/20 text-xs px-2">—</span>}
+                      </td>
+                      {/* Rollos / Cajas / Cantidad — todo excepto TACO */}
+                      <td>
+                        {!esTaco
+                          ? <input type="number" step="1" min="1" placeholder="1"
                               value={b.numRollos}
                               onChange={e => handleBobinaChange(b.id, 'numRollos', e.target.value)}
                               className="input input-xs input-bordered w-16 font-mono"
                             />
-                          </td>
-                          <td>
-                            <div>
-                              <div className="join">
-                                <input
-                                  type="number" step="0.0001" min="0" placeholder="0.0000"
-                                  value={b.precio}
-                                  onChange={e => handleBobinaChange(b.id, 'precio', e.target.value)}
-                                  className="input input-xs input-bordered join-item w-32 font-mono"
-                                />
-                                <select
+                          : <span className="text-base-content/20 text-xs px-2">—</span>}
+                      </td>
+                      {/* Precio */}
+                      <td>
+                        <div>
+                          <div className="join">
+                            <input
+                              type="number" step="0.0001" min="0" placeholder="0.0000"
+                              value={b.precio}
+                              onChange={e => handleBobinaChange(b.id, 'precio', e.target.value)}
+                              className="input input-xs input-bordered join-item w-32 font-mono"
+                            />
+                            {esBobina
+                              ? <select
                                   className="select select-xs join-item border-base-300 bg-base-100 font-mono w-20"
                                   value={b.unidadPrecio}
                                   onChange={e => handleBobinaChange(b.id, 'unidadPrecio', e.target.value)}
@@ -454,44 +505,52 @@ export default function CalculadoraContenedorPage() {
                                   <option value="M">$/M</option>
                                   <option value="SQM">$/M²</option>
                                 </select>
-                              </div>
-                              {b.unidadPrecio === 'SQM' && n(b.ancho) > 0 && n(b.precio) > 0 && (
-                                <p className="text-[10px] text-base-content/50 font-mono mt-0.5">
-                                  ≈{fmt(n(b.precio) * n(b.ancho) / 1000, 4)} $/M
-                                </p>
-                              )}
-                              {b.unidadPrecio === 'SQM' && !n(b.ancho) && (
-                                <p className="text-[10px] text-warning mt-0.5">↑ falta ancho</p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="text-right font-mono text-sm">{fmt(cal.totalMetrosBobina, 0)} m</td>
-                          <td className="text-right font-mono text-sm">{fmtUsd(cal.subtotalUSD)}</td>
-                          <td className="text-right font-mono text-sm">{fmtEur(cal.subtotalEUR)}</td>
-                          <td>
-                            {bobinas.length > 1 && (
-                              <button onClick={() => removeBobina(b.id)} className="btn btn-ghost btn-xs text-error">
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="font-bold">
-                      <td colSpan={6} className="text-sm">Total</td>
-                      <td className="text-right font-mono text-sm">{fmt(totalMetros, 0)} m</td>
-                      <td className="text-right font-mono text-sm">{fmtUsd(totalBobinasUSD)}</td>
-                      <td className="text-right font-mono text-sm">{fmtEur(totalBobinasEUR)}</td>
-                      <td></td>
+                              : <span className="join-item flex items-center px-2 border border-base-300 bg-base-200 text-xs font-mono whitespace-nowrap">
+                                  {esGrapa ? '$/caja' : esMaquina ? '$/ud' : '$/M'}
+                                </span>}
+                          </div>
+                          {esBobina && b.unidadPrecio === 'SQM' && n(b.ancho) > 0 && n(b.precio) > 0 && (
+                            <p className="text-[10px] text-base-content/50 font-mono mt-0.5">
+                              ≈{fmt(n(b.precio) * n(b.ancho) / 1000, 4)} $/M
+                            </p>
+                          )}
+                          {esBobina && b.unidadPrecio === 'SQM' && !n(b.ancho) && (
+                            <p className="text-[10px] text-warning mt-0.5">↑ falta ancho</p>
+                          )}
+                        </div>
+                      </td>
+                      {/* Total m */}
+                      <td className="text-right font-mono text-sm">
+                        {cal.totalMetrosBobina > 0
+                          ? `${fmt(cal.totalMetrosBobina, 0)} m`
+                          : <span className="text-base-content/20">—</span>}
+                      </td>
+                      <td className="text-right font-mono text-sm">{fmtUsd(cal.subtotalUSD)}</td>
+                      <td className="text-right font-mono text-sm">{fmtEur(cal.subtotalEUR)}</td>
+                      <td>
+                        {bobinas.length > 1 && (
+                          <button onClick={() => removeBobina(b.id)} className="btn btn-ghost btn-xs text-error">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </td>
                     </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="font-bold">
+                  <td colSpan={7} className="text-sm">Total</td>
+                  <td className="text-right font-mono text-sm">{totalMetros > 0 ? `${fmt(totalMetros, 0)} m` : '—'}</td>
+                  <td className="text-right font-mono text-sm">{fmtUsd(totalBobinasUSD)}</td>
+                  <td className="text-right font-mono text-sm">{fmtEur(totalBobinasEUR)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
+        </div>
+      </div>
 
           {/* Gastos de importación */}
           <div className="card bg-base-200 shadow-sm">
@@ -601,7 +660,7 @@ export default function CalculadoraContenedorPage() {
       <div className="alert text-xs p-3 mt-4">
         <div className="space-y-1.5">
           <p className="font-bold">Metodología</p>
-          <p>Prorrateo por <strong>valor económico</strong>: cada bobina asume el porcentaje de gastos proporcional a su precio total en €.</p>
+          <p>Prorrateo por <strong>valor económico</strong>: cada artículo (bobina, taco, grapa, máquina…) asume el porcentaje de gastos proporcional a su precio total en €.</p>
           <p className="pt-1 border-t border-base-content/10">
             <strong>Se repercute:</strong> Suplidos + Exentos (aranceles)<br />
             <strong>No se repercute:</strong> Sujetos (IVA deducible)
@@ -613,54 +672,71 @@ export default function CalculadoraContenedorPage() {
       {hayResultados && (
         <div className="card bg-base-200 shadow-sm mt-6">
           <div className="card-body p-4">
-            <h2 className="font-bold text-base mb-3">Coste real por bobina</h2>
+            <h2 className="font-bold text-base mb-3">Coste real por artículo</h2>
             <div className="overflow-x-auto">
               <table className="table table-sm w-full">
                 <thead>
                   <tr>
-                    <th>Ref.</th>
-                    <th>Esp.</th>
-                    <th>Ancho</th>
-                    <th className="text-right">Metros</th>
+                    <th>Referencia</th>
+                    <th>Tipo</th>
+                    <th>Detalle</th>
+                    <th className="text-right">Metros/Uds.</th>
                     <th className="text-right">Valor $ → €</th>
                     <th className="text-right">% valor</th>
                     <th className="text-right">Gastos repercutidos</th>
                     <th className="text-right">Coste total €</th>
-                    <th className="text-right text-success">€ / metro</th>
+                    <th className="text-right text-success">€/metro o ud.</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {bobinasFinal.filter(b => b.totalMetrosBobina > 0).map((b, idx) => (
-                    <tr key={b.id} className="hover">
-                      <td className="font-medium">{b.referencia || `B${idx + 1}`}</td>
-                      <td className="text-sm opacity-70">{b.espesor ? `${b.espesor} mm` : '—'}</td>
-                      <td className="text-sm opacity-70">{b.ancho ? `${b.ancho} mm` : '—'}</td>
-                      <td className="text-right font-mono text-sm">
-                        {b.numRollos > 1
-                          ? <span>{b.numRollos}×{fmt(b.longitud, 0)} m<br /><span className="opacity-50">= {fmt(b.totalMetrosBobina, 0)} m</span></span>
-                          : `${fmt(b.totalMetrosBobina, 0)} m`
-                        }
-                      </td>
-                      <td className="text-right font-mono text-sm">
-                        {fmtUsd(b.subtotalUSD)}<br />
-                        <span className="opacity-60">{fmtEur(b.subtotalEUR)}</span>
-                      </td>
-                      <td className="text-right font-mono text-sm">
-                        {totalBobinasEUR > 0 ? fmt(b.subtotalEUR / totalBobinasEUR * 100, 1) : '0.0'}%
-                      </td>
-                      <td className="text-right font-mono">{fmtEur(b.gastosProrrateados)}</td>
-                      <td className="text-right font-mono font-bold">{fmtEur(b.costeFinalEUR)}</td>
-                      <td className="text-right font-mono font-bold text-success text-base">
-                        {fmtEur(b.costePorMetro)}/m
-                      </td>
-                    </tr>
-                  ))}
+                  {bobinasFinal.filter(b => b.subtotalEUR > 0).map((b, idx) => {
+                    const tipo = b.tipo || 'BOBINA';
+                    const tieneMetos = tipo === 'BOBINA' || tipo === 'TACO';
+                    const numRollosLabel = tipo === 'GRAPA' ? 'caj.' : tipo === 'MAQUINA' || tipo === 'OTRO' ? 'ud.' : 'rol.';
+                    return (
+                      <tr key={b.id} className="hover">
+                        <td className="font-medium">{b.referencia || `A${idx + 1}`}</td>
+                        <td>
+                          <span className="badge badge-ghost badge-xs">{tipo}</span>
+                        </td>
+                        <td className="text-sm opacity-70">
+                          {tipo === 'BOBINA' && (b.espesor || b.ancho)
+                            ? [b.espesor && `${b.espesor}mm esp.`, b.ancho && `${b.ancho}mm ancho`].filter(Boolean).join(' · ')
+                            : tipo === 'GRAPA' && b.ancho
+                            ? `${b.ancho}mm ancho`
+                            : '—'}
+                        </td>
+                        <td className="text-right font-mono text-sm">
+                          {tieneMetos
+                            ? (b.numRollos > 1 && tipo === 'BOBINA'
+                                ? <span>{b.numRollos}×{fmt(b.longitud, 0)} m<br/><span className="opacity-50">= {fmt(b.totalMetrosBobina, 0)} m</span></span>
+                                : `${fmt(b.totalMetrosBobina, 0)} m`)
+                            : `${b.numRollos} ${numRollosLabel}`}
+                        </td>
+                        <td className="text-right font-mono text-sm">
+                          {fmtUsd(b.subtotalUSD)}<br />
+                          <span className="opacity-60">{fmtEur(b.subtotalEUR)}</span>
+                        </td>
+                        <td className="text-right font-mono text-sm">
+                          {totalBobinasEUR > 0 ? fmt(b.subtotalEUR / totalBobinasEUR * 100, 1) : '0.0'}%
+                        </td>
+                        <td className="text-right font-mono">{fmtEur(b.gastosProrrateados)}</td>
+                        <td className="text-right font-mono font-bold">{fmtEur(b.costeFinalEUR)}</td>
+                        <td className="text-right font-mono font-bold text-success text-base">
+                          {b.costePorMetro > 0
+                            ? `${fmtEur(b.costePorMetro)}/m`
+                            : b.costeFinalEUR > 0 && b.numRollos > 0
+                            ? `${fmtEur(b.costeFinalEUR / b.numRollos)}/ud`
+                            : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
-                {bobinasFinal.filter(b => b.totalMetrosBobina > 0).length > 1 && (
+                {bobinasFinal.filter(b => b.subtotalEUR > 0).length > 1 && (
                   <tfoot>
                     <tr className="font-bold border-t-2 border-base-content/20">
-                      <td colSpan={3}>Total</td>
-                      <td className="text-right font-mono">{fmt(totalMetros, 0)} m</td>
+                      <td colSpan={4}>Total</td>
                       <td className="text-right font-mono">
                         {fmtUsd(totalBobinasUSD)}<br />
                         <span className="font-normal opacity-60">{fmtEur(totalBobinasEUR)}</span>
@@ -669,7 +745,7 @@ export default function CalculadoraContenedorPage() {
                       <td className="text-right font-mono">{fmtEur(gastosRepercutibles)}</td>
                       <td className="text-right font-mono">{fmtEur(costeProducto)}</td>
                       <td className="text-right font-mono text-success">
-                        {fmtEur(totalMetros > 0 ? costeProducto / totalMetros : 0)}/m
+                        {totalMetros > 0 ? `${fmtEur(costeProducto / totalMetros)}/m` : '—'}
                       </td>
                     </tr>
                   </tfoot>
