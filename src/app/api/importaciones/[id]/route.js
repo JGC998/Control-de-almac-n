@@ -23,39 +23,30 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const parsed = importacionContenedorSchema.safeParse({
-      ...body,
-      tasaCambio: parseFloat(body.tasaCambio) || 0,
-      totalBobinasUSD: parseFloat(body.totalBobinasUSD) || 0,
-      totalBobinasEUR: parseFloat(body.totalBobinasEUR) || 0,
-      totalMetros: parseFloat(body.totalMetros) || 0,
-      suplidos: parseFloat(body.suplidos) || 0,
-      exentos: parseFloat(body.exentos) || 0,
-      sujetos: parseFloat(body.sujetos) || 0,
-      gastosRepercutibles: parseFloat(body.gastosRepercutibles) || 0,
-      costeProducto: parseFloat(body.costeProducto) || 0,
-      totalDesembolso: parseFloat(body.totalDesembolso) || 0,
-    });
+    const parsed = importacionContenedorSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Datos inválidos', errors: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
-    const { descripcion, bobinas, ...numeros } = parsed.data;
-    const proveedorId = body.proveedorId?.trim() || null;
+    const {
+      descripcion, bobinas,
+      proveedorId, numFactura, numContenedor, estado, fechaPedido, fechaLlegada,
+      ...numeros
+    } = parsed.data;
     const registro = await db.importacionContenedor.update({
       where: { id },
       data: {
         descripcion: descripcion?.trim() || null,
         ...numeros,
         bobinas: typeof bobinas === 'string' ? bobinas : JSON.stringify(bobinas),
-        proveedorId,
-        numFactura: body.numFactura?.trim() || null,
-        numContenedor: body.numContenedor?.trim() || null,
-        estado: body.estado || 'RECIBIDO',
-        fechaPedido: body.fechaPedido ? new Date(body.fechaPedido) : null,
-        fechaLlegada: body.fechaLlegada ? new Date(body.fechaLlegada) : null,
+        proveedorId: proveedorId || null,
+        numFactura: numFactura?.trim() || null,
+        numContenedor: numContenedor?.trim() || null,
+        estado: estado ?? 'RECIBIDO',
+        fechaPedido: fechaPedido ? new Date(fechaPedido) : null,
+        fechaLlegada: fechaLlegada ? new Date(fechaLlegada) : null,
       },
       include: { proveedor: { select: { id: true, nombre: true } } },
     });

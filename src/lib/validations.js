@@ -72,16 +72,18 @@ const articuloContenedorSchema = z.object({
 });
 
 export const importacionContenedorSchema = z.object({
-  tasaCambio: z.number().positive('Tipo de cambio inválido').max(100),
-  totalBobinasUSD: z.number().min(0),
-  totalBobinasEUR: z.number().min(0),
-  totalMetros: z.number().min(0),
-  suplidos: z.number().min(0),
-  exentos: z.number().min(0),
-  sujetos: z.number().min(0),
-  gastosRepercutibles: z.number().min(0),
-  costeProducto: z.number().min(0),
-  totalDesembolso: z.number().min(0),
+  // Numéricos — z.coerce.number() convierte strings a número, elimina parseFloat manual en las rutas
+  tasaCambio: z.coerce.number().positive('Tipo de cambio inválido').max(100),
+  totalBobinasUSD: z.coerce.number().min(0),
+  totalBobinasEUR: z.coerce.number().min(0),
+  totalMetros: z.coerce.number().min(0),
+  suplidos: z.coerce.number().min(0),
+  exentos: z.coerce.number().min(0),
+  sujetos: z.coerce.number().min(0),
+  gastosRepercutibles: z.coerce.number().min(0),
+  costeProducto: z.coerce.number().min(0),
+  totalDesembolso: z.coerce.number().min(0),
+  // Artículos (JSON stringificado)
   bobinas: z.string()
     .min(2, 'Artículos requeridos')
     .refine(
@@ -94,6 +96,13 @@ export const importacionContenedorSchema = z.object({
       { message: 'Formato de artículos inválido (debe ser JSON array)' }
     ),
   descripcion: z.string().max(200).optional().nullable(),
+  // Trazabilidad del pedido (SEC-01 / SEC-02)
+  proveedorId: z.string().uuid('ID de proveedor inválido').optional().nullable(),
+  numFactura: z.string().max(200).optional().nullable(),
+  numContenedor: z.string().max(100).optional().nullable(),
+  estado: z.enum(['PEDIDO', 'TRANSITO', 'ADUANA', 'RECIBIDO']).default('RECIBIDO'),
+  fechaPedido: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional().nullable(),
+  fechaLlegada: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional().nullable(),
 });
 
 // ============================================

@@ -26,11 +26,17 @@ const fmtEur = (v) => `${fmt(v)} €`;
 const fmtUsd = (v) => `${fmt(v)} $`;
 
 const ESTADOS_CONTENEDOR = [
-  { value: 'PEDIDO',   label: 'Pedido',             color: 'badge-ghost' },
-  { value: 'TRANSITO', label: 'En tránsito',         color: 'badge-info' },
-  { value: 'ADUANA',   label: 'En aduana',           color: 'badge-warning' },
-  { value: 'RECIBIDO', label: 'Recibido',            color: 'badge-success' },
+  { value: 'PEDIDO',   label: 'Pedido',      color: 'badge-ghost' },
+  { value: 'TRANSITO', label: 'En tránsito', color: 'badge-info' },
+  { value: 'ADUANA',   label: 'En aduana',   color: 'badge-warning' },
+  { value: 'RECIBIDO', label: 'Recibido',    color: 'badge-success' },
 ];
+
+// Fuente única de verdad para el estado vacío de trazabilidad (MAINT-02)
+const TRAZABILIDAD_VACIA = {
+  descripcion: '', proveedorId: '', numFactura: '', numContenedor: '',
+  estado: 'RECIBIDO', fechaPedido: '', fechaLlegada: '',
+};
 
 function EstadoBadge({ estado }) {
   const e = ESTADOS_CONTENEDOR.find(x => x.value === estado) || ESTADOS_CONTENEDOR[3];
@@ -262,7 +268,7 @@ export default function CalculadoraContenedorPage() {
   const [nextId, setNextId] = useState(2);
   const [modalGuardar, setModalGuardar] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
-  const [datosTrazabilidad, setDatosTrazabilidad] = useState({});
+  const [datosTrazabilidad, setDatosTrazabilidad] = useState(TRAZABILIDAD_VACIA);
 
   const tc = n(tasaCambio);
 
@@ -371,15 +377,15 @@ export default function CalculadoraContenedorPage() {
       setExentos(String(imp.exentos));
       setSujetos(String(imp.sujetos));
       setEditandoId(imp.id);
-      // Preservar metadatos de trazabilidad para el modal de actualización
       setDatosTrazabilidad({
+        ...TRAZABILIDAD_VACIA,
         descripcion: imp.descripcion || '',
         proveedorId: imp.proveedorId || '',
         numFactura: imp.numFactura || '',
         numContenedor: imp.numContenedor || '',
         estado: imp.estado || 'RECIBIDO',
-        fechaPedido: imp.fechaPedido || '',
-        fechaLlegada: imp.fechaLlegada || '',
+        fechaPedido: imp.fechaPedido ? String(imp.fechaPedido).slice(0, 10) : '',
+        fechaLlegada: imp.fechaLlegada ? String(imp.fechaLlegada).slice(0, 10) : '',
       });
     } catch {
       alert('No se pudieron cargar los datos de esta importación.');
@@ -392,10 +398,12 @@ export default function CalculadoraContenedorPage() {
     setTasaCambio('0.9300');
     setSuplidos(''); setExentos(''); setSujetos('');
     setEditandoId(null);
-    setDatosTrazabilidad({});
+    setDatosTrazabilidad(TRAZABILIDAD_VACIA);
   };
 
   const hayResultados = bobinasFinal.some(b => b.subtotalEUR > 0);
+  // PERF-01: calculado una vez, reutilizado en tabla de resultados y tfoot
+  const articulosConValor = bobinasFinal.filter(b => b.subtotalEUR > 0);
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -990,7 +998,7 @@ export default function CalculadoraContenedorPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bobinasFinal.filter(b => b.subtotalEUR > 0).map((b, idx) => {
+                  {articulosConValor.map((b, idx) => {
                     const tipo = b.tipo || 'BOBINA';
                     const tieneMetos = tipo === 'BOBINA' || tipo === 'TACO';
                     const numRollosLabel = tipo === 'GRAPA' ? 'caj.' : tipo === 'MAQUINA' || tipo === 'OTRO' ? 'ud.' : 'rol.';
@@ -1034,7 +1042,7 @@ export default function CalculadoraContenedorPage() {
                     );
                   })}
                 </tbody>
-                {bobinasFinal.filter(b => b.subtotalEUR > 0).length > 1 && (
+                {articulosConValor.length > 1 && (
                   <tfoot>
                     <tr className="font-bold border-t-2 border-base-content/20">
                       <td colSpan={4}>Total</td>

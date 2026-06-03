@@ -11,6 +11,18 @@ La Calculadora de Contenedor ya gestiona artículos multi-tipo (bobinas, tacos, 
 
 ---
 
+## 🔴 Hallazgos del code-review (2026-06-03) — pendientes de corrección
+
+| ID | Hallazgo | Severidad | Archivo |
+|----|----------|-----------|---------|
+| SEC-01 | `estado`, `numFactura`, `numContenedor`, `fechaPedido`, `fechaLlegada` se leen del body crudo sin validación Zod en POST y PUT — permite insertar cualquier string sin restricción | **Alta** | `api/importaciones/route.js` + `[id]/route.js` |
+| SEC-02 | Mismo gap en el handler PUT — los campos de trazabilidad no pasan por el schema | **Alta** | `api/importaciones/[id]/route.js` |
+| PERF-01 | `bobinasFinal.filter(b => b.subtotalEUR > 0)` se ejecuta 2 veces en cada render (líneas 993 y 1037) | Media | `calculadora-contenedor/page.js` |
+| MAINT-01 | Bloque de 10 `parseFloat()` duplicado línea a línea entre POST y PUT — si se añade campo numérico hay que actualizarlo en 2 sitios | Media | Ambas rutas |
+| MAINT-02 | `datosTrazabilidad` es estado paralelo sin constante de referencia — añadir campo nuevo requiere actualizar 3 sitios (cargar, reset, modal) | Baja | `calculadora-contenedor/page.js` |
+
+---
+
 ## 📋 Backlog completo
 
 | ID | Tarea | Tipo | Complejidad | Depende de |
@@ -74,6 +86,8 @@ La Calculadora de Contenedor ya gestiona artículos multi-tipo (bobinas, tacos, 
 ## ⚡ Quick wins
 
 Tareas pequeñas que se pueden hacer en menos de 1 hora:
+
+esataria genial poder editar un contenedor ya guardado
 
 - [ ] **T-60** — Resaltar en naranja filas con precio = 0 (~20 min)
 - [ ] **T-57** — Botón duplicar fila (~30 min)
