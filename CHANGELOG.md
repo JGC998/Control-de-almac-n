@@ -7,6 +7,14 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ## 2026-06-03
 
+### ♻️ Cambiado
+- ✅ **PDF informe de importación — tabla desglose**: columna `Tipo` sustituida por `Espesor (mm)`; añadida columna `Ancho (mm)`; columna renombrada de `€/metro o ud.` a `€/metro lineal`; nueva columna `€/m²` calculada como `(€/metro lineal) ÷ (ancho_mm / 1000)` — muestra `—` para artículos sin ancho (grapas, máquinas)
+- ✅ **PDF informe de importación — sección Resumen**: eliminadas filas `Total metros lineales` y `Coste medio por metro lineal` por ser redundantes e innecesarias para el análisis de la importación
+
+---
+
+## 2026-06-03
+
 ### 🐛 Corregido
 - ✅ **Calculadora de Contenedor** — corregidos 2 `</div>` sobrantes que cerraban el container principal en mitad del JSX, dejando la columna derecha, la tabla de resultados y el historial flotando fuera del contenedor DOM y rompiendo el layout
 
