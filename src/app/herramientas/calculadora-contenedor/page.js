@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download, Copy, Pencil } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -17,6 +17,7 @@ const nuevaBobina = (id) => ({
   numRollos: '1',
   precio: '',
   unidadPrecio: 'M', // 'M' = USD/metro lineal | 'SQM' = USD/m² (solo BOBINA)
+  notas: '',
 });
 
 const n = (v) => parseFloat(v) || 0;
@@ -24,19 +25,50 @@ const fmt = (v, dec = 2) => isFinite(v) ? v.toFixed(dec) : '0.00';
 const fmtEur = (v) => `${fmt(v)} €`;
 const fmtUsd = (v) => `${fmt(v)} $`;
 
-function ModalGuardar({ datos, onClose }) {
-  const [descripcion, setDescripcion] = useState('');
+const ESTADOS_CONTENEDOR = [
+  { value: 'PEDIDO',   label: 'Pedido',             color: 'badge-ghost' },
+  { value: 'TRANSITO', label: 'En tránsito',         color: 'badge-info' },
+  { value: 'ADUANA',   label: 'En aduana',           color: 'badge-warning' },
+  { value: 'RECIBIDO', label: 'Recibido',            color: 'badge-success' },
+];
+
+function EstadoBadge({ estado }) {
+  const e = ESTADOS_CONTENEDOR.find(x => x.value === estado) || ESTADOS_CONTENEDOR[3];
+  return <span className={`badge badge-sm ${e.color}`}>{e.label}</span>;
+}
+
+function ModalGuardar({ datos, editandoId, onClose }) {
+  const { data: proveedores } = useSWR('/api/proveedores', fetcher);
+  const [descripcion, setDescripcion] = useState(datos.descripcion || '');
+  const [proveedorId, setProveedorId] = useState(datos.proveedorId || '');
+  const [numFactura, setNumFactura] = useState(datos.numFactura || '');
+  const [numContenedor, setNumContenedor] = useState(datos.numContenedor || '');
+  const [estado, setEstado] = useState(datos.estado || 'RECIBIDO');
+  const [fechaPedido, setFechaPedido] = useState(datos.fechaPedido ? datos.fechaPedido.slice(0, 10) : '');
+  const [fechaLlegada, setFechaLlegada] = useState(datos.fechaLlegada ? datos.fechaLlegada.slice(0, 10) : '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const esEdicion = !!editandoId;
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch('/api/importaciones', {
-        method: 'POST',
+      const url = esEdicion ? `/api/importaciones/${editandoId}` : '/api/importaciones';
+      const method = esEdicion ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...datos, descripcion: descripcion.trim() || null }),
+        body: JSON.stringify({
+          ...datos,
+          descripcion: descripcion.trim() || null,
+          proveedorId: proveedorId || null,
+          numFactura: numFactura.trim() || null,
+          numContenedor: numContenedor.trim() || null,
+          estado,
+          fechaPedido: fechaPedido || null,
+          fechaLlegada: fechaLlegada || null,
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar');
       mutate('/api/importaciones');
@@ -50,54 +82,78 @@ function ModalGuardar({ datos, onClose }) {
 
   return (
     <div className="modal modal-open z-50">
-      <div className="modal-box max-w-md">
+      <div className="modal-box max-w-lg">
         <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onClick={onClose}><X className="w-4 h-4" /></button>
-        <h3 className="font-bold text-lg mb-4">Guardar importación</h3>
+        <h3 className="font-bold text-lg mb-4">{esEdicion ? 'Actualizar importación guardada' : 'Guardar importación'}</h3>
 
-        <div className="space-y-3 mb-4 text-sm">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-base-200 rounded p-2">
-              <p className="text-xs text-base-content/50">Bobinas</p>
-              <p className="font-mono font-bold">{fmtEur(datos.totalBobinasEUR)}</p>
-              <p className="text-xs text-base-content/40">{fmtUsd(datos.totalBobinasUSD)}</p>
-            </div>
-            <div className="bg-base-200 rounded p-2">
-              <p className="text-xs text-base-content/50">Coste producto</p>
-              <p className="font-mono font-bold text-success">{fmtEur(datos.costeProducto)}</p>
-            </div>
-            <div className="bg-base-200 rounded p-2">
-              <p className="text-xs text-base-content/50">Metros totales</p>
-              <p className="font-mono font-bold">{fmt(datos.totalMetros, 0)} m</p>
-            </div>
-            <div className="bg-base-200 rounded p-2">
-              <p className="text-xs text-base-content/50">€ / metro medio</p>
-              <p className="font-mono font-bold text-success">
-                {datos.totalMetros > 0 ? fmtEur(datos.costeProducto / datos.totalMetros) : '—'}/m
-              </p>
-            </div>
+        {/* Resumen de costes */}
+        <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+          <div className="bg-base-200 rounded p-2">
+            <p className="text-xs text-base-content/50">Artículos</p>
+            <p className="font-mono font-bold">{fmtEur(datos.totalBobinasEUR)}</p>
+            <p className="text-xs text-base-content/40">{fmtUsd(datos.totalBobinasUSD)}</p>
+          </div>
+          <div className="bg-base-200 rounded p-2">
+            <p className="text-xs text-base-content/50">Coste producto</p>
+            <p className="font-mono font-bold text-success">{fmtEur(datos.costeProducto)}</p>
           </div>
         </div>
 
-        <div className="form-control mb-4">
-          <label className="label py-1"><span className="label-text text-sm">Descripción (opcional)</span></label>
-          <input
-            type="text"
-            className="input input-bordered"
-            placeholder="Ej: Contenedor enero 2026, proveedor X"
-            value={descripcion}
-            onChange={e => setDescripcion(e.target.value)}
-            autoFocus
-            onKeyDown={e => e.key === 'Enter' && handleSave()}
-          />
+        {/* Campos de trazabilidad */}
+        <div className="space-y-3 mb-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-xs">Proveedor</span></label>
+              <select className="select select-bordered select-sm" value={proveedorId} onChange={e => setProveedorId(e.target.value)}>
+                <option value="">— Sin asignar —</option>
+                {(proveedores || []).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </div>
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-xs">Estado</span></label>
+              <select className="select select-bordered select-sm" value={estado} onChange={e => setEstado(e.target.value)}>
+                {ESTADOS_CONTENEDOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-xs">Nº factura proveedor</span></label>
+              <input type="text" className="input input-bordered input-sm" placeholder="INV-2026-001" value={numFactura} onChange={e => setNumFactura(e.target.value)} />
+            </div>
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-xs">Nº contenedor naviera</span></label>
+              <input type="text" className="input input-bordered input-sm" placeholder="MSCU1234567" value={numContenedor} onChange={e => setNumContenedor(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-xs">Fecha de pedido</span></label>
+              <input type="date" className="input input-bordered input-sm" value={fechaPedido} onChange={e => setFechaPedido(e.target.value)} />
+            </div>
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-xs">Fecha de llegada</span></label>
+              <input type="date" className="input input-bordered input-sm" value={fechaLlegada} onChange={e => setFechaLlegada(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-control">
+            <label className="label py-1"><span className="label-text text-xs">Descripción (opcional)</span></label>
+            <input
+              type="text" className="input input-bordered input-sm"
+              placeholder="Ej: Contenedor enero 2026 — PVC y fieltros"
+              value={descripcion} onChange={e => setDescripcion(e.target.value)}
+              autoFocus onKeyDown={e => e.key === 'Enter' && handleSave()}
+            />
+          </div>
         </div>
 
         {error && <div className="alert alert-error py-2 text-sm mb-3">{error}</div>}
 
         <div className="modal-action">
           <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary gap-2" onClick={handleSave} disabled={saving}>
+          <button className={`btn gap-2 ${esEdicion ? 'btn-warning' : 'btn-primary'}`} onClick={handleSave} disabled={saving}>
             {saving ? <span className="loading loading-spinner loading-sm" /> : <Save className="w-4 h-4" />}
-            Guardar
+            {esEdicion ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </div>
@@ -138,11 +194,11 @@ function HistorialImportaciones({ onCargar }) {
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Descripción</th>
+                      <th>Estado</th>
+                      <th>Descripción / Proveedor</th>
+                      <th>Nº Factura</th>
+                      <th>Nº Contenedor</th>
                       <th className="text-right">TC</th>
-                      <th className="text-right">Suplidos</th>
-                      <th className="text-right">Exentos</th>
-                      <th className="text-right">Sujetos</th>
                       <th className="text-right">Coste producto</th>
                       <th className="text-right">€/metro</th>
                       <th></th>
@@ -153,12 +209,16 @@ function HistorialImportaciones({ onCargar }) {
                       <tr key={imp.id} className="hover">
                         <td className="text-xs text-base-content/50 whitespace-nowrap">
                           {new Date(imp.creadaEn).toLocaleDateString('es-ES')}
+                          {imp.fechaLlegada && <div className="text-[10px] opacity-50">llegada: {new Date(imp.fechaLlegada).toLocaleDateString('es-ES')}</div>}
                         </td>
-                        <td className="max-w-xs truncate text-sm">{imp.descripcion || <span className="text-base-content/30">Sin descripción</span>}</td>
+                        <td><EstadoBadge estado={imp.estado || 'RECIBIDO'} /></td>
+                        <td className="text-sm">
+                          <div className="max-w-xs truncate">{imp.descripcion || <span className="text-base-content/30">Sin descripción</span>}</div>
+                          {imp.proveedor && <div className="text-xs text-base-content/50">{imp.proveedor.nombre}</div>}
+                        </td>
+                        <td className="text-xs font-mono">{imp.numFactura || '—'}</td>
+                        <td className="text-xs font-mono">{imp.numContenedor || '—'}</td>
                         <td className="text-right font-mono text-xs">{fmt(imp.tasaCambio, 4)}</td>
-                        <td className="text-right font-mono text-xs">{fmtEur(imp.suplidos)}</td>
-                        <td className="text-right font-mono text-xs">{fmtEur(imp.exentos)}</td>
-                        <td className="text-right font-mono text-xs text-base-content/40">{fmtEur(imp.sujetos)}</td>
                         <td className="text-right font-mono font-bold text-success">{fmtEur(imp.costeProducto)}</td>
                         <td className="text-right font-mono font-bold text-success">
                           {imp.totalMetros > 0 ? fmtEur(imp.costeProducto / imp.totalMetros) + '/m' : '—'}
@@ -201,6 +261,8 @@ export default function CalculadoraContenedorPage() {
   const [sujetos, setSujetos] = useState('');
   const [nextId, setNextId] = useState(2);
   const [modalGuardar, setModalGuardar] = useState(false);
+  const [editandoId, setEditandoId] = useState(null);
+  const [datosTrazabilidad, setDatosTrazabilidad] = useState({});
 
   const tc = n(tasaCambio);
 
@@ -278,6 +340,19 @@ export default function CalculadoraContenedorPage() {
     if (bobinas.length > 1) setBobinas(prev => prev.filter(b => b.id !== id));
   };
 
+  const duplicarBobina = (id) => {
+    const original = bobinas.find(b => b.id === id);
+    if (!original) return;
+    const copia = { ...original, id: nextId };
+    setBobinas(prev => {
+      const idx = prev.findIndex(b => b.id === id);
+      const arr = [...prev];
+      arr.splice(idx + 1, 0, copia);
+      return arr;
+    });
+    setNextId(n => n + 1);
+  };
+
   const handleCargarImportacion = (imp) => {
     try {
       const bobs = typeof imp.bobinas === 'string' ? JSON.parse(imp.bobinas) : imp.bobinas;
@@ -288,15 +363,36 @@ export default function CalculadoraContenedorPage() {
         tipo: b.tipo || 'BOBINA',
         precio: b.precio ?? b.usdPorMetro ?? '',
         unidadPrecio: b.unidadPrecio || 'M',
+        notas: b.notas || '',
       })));
       setNextId(bobs.length + 1);
       setTasaCambio(String(imp.tasaCambio));
       setSuplidos(String(imp.suplidos));
       setExentos(String(imp.exentos));
       setSujetos(String(imp.sujetos));
+      setEditandoId(imp.id);
+      // Preservar metadatos de trazabilidad para el modal de actualización
+      setDatosTrazabilidad({
+        descripcion: imp.descripcion || '',
+        proveedorId: imp.proveedorId || '',
+        numFactura: imp.numFactura || '',
+        numContenedor: imp.numContenedor || '',
+        estado: imp.estado || 'RECIBIDO',
+        fechaPedido: imp.fechaPedido || '',
+        fechaLlegada: imp.fechaLlegada || '',
+      });
     } catch {
       alert('No se pudieron cargar los datos de esta importación.');
     }
+  };
+
+  const handleNuevaImportacion = () => {
+    setBobinas([nuevaBobina(1)]);
+    setNextId(2);
+    setTasaCambio('0.9300');
+    setSuplidos(''); setExentos(''); setSujetos('');
+    setEditandoId(null);
+    setDatosTrazabilidad({});
   };
 
   const hayResultados = bobinasFinal.some(b => b.subtotalEUR > 0);
@@ -497,16 +593,32 @@ export default function CalculadoraContenedorPage() {
             <p className="text-sm text-base-content/60">Coste real de importación por artículo, prorrateado por valor económico</p>
           </div>
         </div>
-        {hayResultados && (
-          <div className="flex gap-2">
-            <button className="btn btn-outline btn-sm gap-2" onClick={handleExportPDF}>
-              <Download className="w-4 h-4" /> Exportar PDF
-            </button>
-            <button className="btn btn-success btn-sm gap-2" onClick={() => setModalGuardar(true)}>
-              <Save className="w-4 h-4" /> Guardar importación
-            </button>
-          </div>
-        )}
+        <div className="flex gap-2 items-center">
+          {editandoId && (
+            <div className="flex items-center gap-2">
+              <span className="badge badge-warning badge-sm gap-1">
+                <Pencil className="w-3 h-3" /> Editando importación guardada
+              </span>
+              <button className="btn btn-ghost btn-xs" onClick={handleNuevaImportacion} title="Descartar cambios y empezar nueva importación">
+                Nueva importación
+              </button>
+            </div>
+          )}
+          {hayResultados && (
+            <>
+              <button className="btn btn-outline btn-sm gap-2" onClick={handleExportPDF}>
+                <Download className="w-4 h-4" /> Exportar PDF
+              </button>
+              <button
+                className={`btn btn-sm gap-2 ${editandoId ? 'btn-warning' : 'btn-success'}`}
+                onClick={() => setModalGuardar(true)}
+              >
+                <Save className="w-4 h-4" />
+                {editandoId ? 'Actualizar importación' : 'Guardar importación'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── FRANJA SUPERIOR: TC + Resumen ── */}
@@ -598,8 +710,9 @@ export default function CalculadoraContenedorPage() {
                   const esTaco   = tipo === 'TACO';
                   const esGrapa  = tipo === 'GRAPA';
                   const esMaquina = tipo === 'MAQUINA' || tipo === 'OTRO';
+                  const sinPrecio = !n(b.precio);
                   return (
-                    <tr key={b.id}>
+                    <tr key={b.id} className={sinPrecio ? 'bg-warning/10' : ''}>
                       {/* Tipo */}
                       <td>
                         <select
@@ -614,13 +727,19 @@ export default function CalculadoraContenedorPage() {
                           <option value="OTRO">Otro</option>
                         </select>
                       </td>
-                      {/* Referencia */}
+                      {/* Referencia + Notas */}
                       <td>
                         <input
                           type="text" placeholder={`A${idx + 1}`}
                           value={b.referencia}
                           onChange={e => handleBobinaChange(b.id, 'referencia', e.target.value)}
                           className="input input-xs input-bordered w-24"
+                        />
+                        <input
+                          type="text" placeholder="notas…"
+                          value={b.notas || ''}
+                          onChange={e => handleBobinaChange(b.id, 'notas', e.target.value)}
+                          className="input input-xs w-24 text-[10px] opacity-50 mt-0.5 border-0 border-b border-base-content/20 rounded-none bg-transparent focus:opacity-80 focus:outline-none"
                         />
                       </td>
                       {/* Espesor — solo BOBINA */}
@@ -705,11 +824,16 @@ export default function CalculadoraContenedorPage() {
                       <td className="text-right font-mono text-sm">{fmtUsd(cal.subtotalUSD)}</td>
                       <td className="text-right font-mono text-sm">{fmtEur(cal.subtotalEUR)}</td>
                       <td>
-                        {bobinas.length > 1 && (
-                          <button onClick={() => removeBobina(b.id)} className="btn btn-ghost btn-xs text-error">
-                            <Trash2 className="w-3 h-3" />
+                        <div className="flex gap-0.5">
+                          <button onClick={() => duplicarBobina(b.id)} className="btn btn-ghost btn-xs text-base-content/40" title="Duplicar fila">
+                            <Copy className="w-3 h-3" />
                           </button>
-                        )}
+                          {bobinas.length > 1 && (
+                            <button onClick={() => removeBobina(b.id)} className="btn btn-ghost btn-xs text-error">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -940,7 +1064,11 @@ export default function CalculadoraContenedorPage() {
 
       {/* ── Modal guardar ── */}
       {modalGuardar && (
-        <ModalGuardar datos={datosParaGuardar} onClose={() => setModalGuardar(false)} />
+        <ModalGuardar
+          datos={{ ...datosParaGuardar, ...datosTrazabilidad }}
+          editandoId={editandoId}
+          onClose={() => setModalGuardar(false)}
+        />
       )}
     </div>
   );

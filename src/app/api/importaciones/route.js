@@ -11,6 +11,7 @@ export async function GET() {
     const importaciones = await db.importacionContenedor.findMany({
       orderBy: { creadaEn: 'desc' },
       take: 100,
+      include: { proveedor: { select: { id: true, nombre: true } } },
     });
     return NextResponse.json(importaciones);
   } catch (error) {
@@ -43,13 +44,21 @@ export async function POST(request) {
       );
     }
     const { descripcion, bobinas, ...numeros } = parsed.data;
+    const proveedorId = body.proveedorId?.trim() || null;
 
     const registro = await db.importacionContenedor.create({
       data: {
         descripcion: descripcion?.trim() || null,
         ...numeros,
         bobinas: typeof bobinas === 'string' ? bobinas : JSON.stringify(bobinas),
+        proveedorId,
+        numFactura: body.numFactura?.trim() || null,
+        numContenedor: body.numContenedor?.trim() || null,
+        estado: body.estado || 'RECIBIDO',
+        fechaPedido: body.fechaPedido ? new Date(body.fechaPedido) : null,
+        fechaLlegada: body.fechaLlegada ? new Date(body.fechaLlegada) : null,
       },
+      include: { proveedor: { select: { id: true, nombre: true } } },
     });
 
     return NextResponse.json(registro, { status: 201 });

@@ -204,12 +204,13 @@ model PresupuestoItem {
 }
 
 model Proveedor {
-  id        String            @id @default(uuid())
-  nombre    String            @unique
-  email     String?
-  telefono  String?
-  direccion String?
-  pedidos   PedidoProveedor[]
+  id            String                  @id @default(uuid())
+  nombre        String                  @unique
+  email         String?
+  telefono      String?
+  direccion     String?
+  pedidos       PedidoProveedor[]
+  importaciones ImportacionContenedor[]
 }
 
 model Stock {
@@ -508,22 +509,32 @@ model TarifaCliente {
 }
 
 model ImportacionContenedor {
-  id                  String   @id @default(uuid())
+  id                  String    @id @default(uuid())
   descripcion         String?
   tasaCambio          Float
-  totalBobinasUSD     Float    @default(0)
-  totalBobinasEUR     Float    @default(0)
-  totalMetros         Float    @default(0)
-  suplidos            Float    @default(0)
-  exentos             Float    @default(0)
-  sujetos             Float    @default(0)
-  gastosRepercutibles Float    @default(0)
-  costeProducto       Float    @default(0)
-  totalDesembolso     Float    @default(0)
+  totalBobinasUSD     Float     @default(0)
+  totalBobinasEUR     Float     @default(0)
+  totalMetros         Float     @default(0)
+  suplidos            Float     @default(0)
+  exentos             Float     @default(0)
+  sujetos             Float     @default(0)
+  gastosRepercutibles Float     @default(0)
+  costeProducto       Float     @default(0)
+  totalDesembolso     Float     @default(0)
   bobinas             String
-  creadaEn            DateTime @default(now())
+  creadaEn            DateTime  @default(now())
+
+  // Trazabilidad (T-56 + T-62)
+  proveedorId         String?
+  proveedor           Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  numFactura          String?
+  numContenedor       String?
+  estado              String    @default("RECIBIDO")
+  fechaPedido         DateTime?
+  fechaLlegada        DateTime?
 
   @@index([creadaEn])
+  @@index([proveedorId])
 }
 
 // VeriFactu — configuración del emisor (registro único, id siempre = 1)

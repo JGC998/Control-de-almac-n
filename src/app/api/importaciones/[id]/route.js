@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { importacionContenedorSchema } from '@/lib/validations';
 
 // DELETE /api/importaciones/[id]
 export async function DELETE(request, { params }) {
@@ -14,6 +15,57 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Importación no encontrada' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Error al eliminar la importación' }, { status: 500 });
+  }
+}
+
+// PUT /api/importaciones/[id]
+export async function PUT(request, { params }) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const parsed = importacionContenedorSchema.safeParse({
+      ...body,
+      tasaCambio: parseFloat(body.tasaCambio) || 0,
+      totalBobinasUSD: parseFloat(body.totalBobinasUSD) || 0,
+      totalBobinasEUR: parseFloat(body.totalBobinasEUR) || 0,
+      totalMetros: parseFloat(body.totalMetros) || 0,
+      suplidos: parseFloat(body.suplidos) || 0,
+      exentos: parseFloat(body.exentos) || 0,
+      sujetos: parseFloat(body.sujetos) || 0,
+      gastosRepercutibles: parseFloat(body.gastosRepercutibles) || 0,
+      costeProducto: parseFloat(body.costeProducto) || 0,
+      totalDesembolso: parseFloat(body.totalDesembolso) || 0,
+    });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Datos inválidos', errors: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    const { descripcion, bobinas, ...numeros } = parsed.data;
+    const proveedorId = body.proveedorId?.trim() || null;
+    const registro = await db.importacionContenedor.update({
+      where: { id },
+      data: {
+        descripcion: descripcion?.trim() || null,
+        ...numeros,
+        bobinas: typeof bobinas === 'string' ? bobinas : JSON.stringify(bobinas),
+        proveedorId,
+        numFactura: body.numFactura?.trim() || null,
+        numContenedor: body.numContenedor?.trim() || null,
+        estado: body.estado || 'RECIBIDO',
+        fechaPedido: body.fechaPedido ? new Date(body.fechaPedido) : null,
+        fechaLlegada: body.fechaLlegada ? new Date(body.fechaLlegada) : null,
+      },
+      include: { proveedor: { select: { id: true, nombre: true } } },
+    });
+    return NextResponse.json(registro);
+  } catch (error) {
+    logApiError(error, 'PUT /api/importaciones/[id]');
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'Importación no encontrada' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Error al actualizar la importación' }, { status: 500 });
   }
 }
 
