@@ -971,6 +971,21 @@ export default function CalculadoraContenedorPage() {
                           {esBobina && b.unidadPrecio === 'SQM' && !n(b.ancho) && (
                             <p className="text-[10px] text-warning mt-0.5">↑ falta ancho</p>
                           )}
+                          {/* T-64: Alerta variación de precio vs última importación */}
+                          {n(b.precio) > 0 && b.referencia?.trim() && (() => {
+                            const prev = preciosAnteriores[b.referencia.trim()];
+                            if (!prev) return null;
+                            const pct = ((n(b.precio) - prev.precio) / prev.precio) * 100;
+                            if (Math.abs(pct) < 10) return null;
+                            const sube = pct > 0;
+                            return (
+                              <p className={`text-[10px] font-mono mt-0.5 flex items-center gap-0.5 ${sube ? 'text-error' : 'text-success'}`}
+                                title={`Último precio: ${fmt(prev.precio, 4)} ${prev.unidad}`}>
+                                <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                                {sube ? '▲' : '▼'} {fmt(Math.abs(pct), 1)}% vs último
+                              </p>
+                            );
+                          })()}
                         </div>
                       </td>
                       {/* Total m */}
