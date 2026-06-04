@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingDown, FileText, Ruler } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingDown, FileText, Ruler, Scale } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -45,6 +45,13 @@ export default function HerramientasHub() {
           titulo: 'Carta de porte',
           descripcion: 'Genera un albarán de expedición PDF con datos de expedidor, destinatario, mercancía e inventario detallado de palés.',
           accion: 'Crear carta de porte',
+        },
+        {
+          href: '/herramientas/comparativa-reparto',
+          icon: Scale,
+          titulo: 'Comparativa reparto de gastos',
+          descripcion: 'Compara dos métodos de distribuir los gastos de importación entre los artículos: prorrateo por valor económico vs. porcentaje fijo por metro.',
+          accion: 'Ver comparativa',
         },
       ]}
     />
