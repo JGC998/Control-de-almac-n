@@ -29,8 +29,12 @@ export async function POST(request) {
       }
     }
 
+    // SEC-02: Guardar token HMAC, nunca el PIN en texto claro
+    const secret = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
+    const token = crypto.createHmac('sha256', secret).update(expected).digest('hex');
+
     const res = NextResponse.json({ ok: true });
-    res.cookies.set('crm-auth', expected || '', {
+    res.cookies.set('crm-auth', token, {
       httpOnly: true,
       sameSite: 'strict',
       path: '/',

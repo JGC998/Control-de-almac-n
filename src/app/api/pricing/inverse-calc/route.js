@@ -1,17 +1,22 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { z } from 'zod';
+
+const inverseCalcSchema = z.object({
+    targetPrice: z.number({ invalid_type_error: 'El precio objetivo debe ser un número' }).positive('El precio objetivo debe ser mayor que 0'),
+    quantity:    z.number({ invalid_type_error: 'La cantidad debe ser un número' }).int().positive('La cantidad debe ser un entero positivo'),
+    marginId:    z.string().uuid().optional().nullable(),
+    marginRule:  z.object({ multiplicador: z.number().positive(), gastoFijo: z.number().optional(), descripcion: z.string().optional() }).optional().nullable(),
+});
 
 export async function POST(request) {
     try {
-        const { targetPrice, quantity, marginId, marginRule } = await request.json();
-
-        if (!targetPrice || quantity <= 0) {
-            return NextResponse.json(
-                { message: 'Precio objetivo y cantidad válida son requeridos' },
-                { status: 400 }
-            );
+        const parsed = inverseCalcSchema.safeParse(await request.json());
+        if (!parsed.success) {
+            return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
         }
+        const { targetPrice, quantity, marginId, marginRule } = parsed.data;
 
         let rule = marginRule;
 

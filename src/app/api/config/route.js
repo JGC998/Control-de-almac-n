@@ -1,6 +1,10 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { clearEmisorCache } from '@/lib/pdfGenerator';
+
+// Claves de empresa que invalidan la caché del emisor en pdfGenerator
+const EMPRESA_KEYS = new Set(['empresa_nombre', 'empresa_nif', 'empresa_direccion', 'empresa_telefono']);
 
 // GET /api/config - Obtiene la configuración como un objeto
 export async function GET() {
@@ -52,6 +56,12 @@ export async function PUT(request) {
         })
       )
     );
+
+    // BACK-01: Invalidar caché del emisor si se actualizaron datos de empresa
+    if (entries.some(([k]) => EMPRESA_KEYS.has(k))) {
+      clearEmisorCache();
+    }
+
     return NextResponse.json({ message: `${entries.length} clave(s) guardada(s)` });
   } catch (error) {
     logApiError(error);

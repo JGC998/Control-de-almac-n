@@ -1,8 +1,18 @@
 ﻿import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export async function GET(request) {
+    // API-04: Rate limiting — 30 req/min (datos sensibles de auditoría)
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    const rl = checkRateLimit(`audit-log:${ip}`, 30);
+    if (!rl.allowed) {
+        return NextResponse.json(
+            { message: 'Demasiadas peticiones. Espera un momento.' },
+            { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+        );
+    }
     try {
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get('page') || '1', 10);

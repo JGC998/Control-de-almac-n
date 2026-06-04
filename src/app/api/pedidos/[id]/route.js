@@ -3,6 +3,7 @@ import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { pedidoSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,12 +57,14 @@ export async function GET(request, { params: paramsPromise }) {
 export async function PUT(request, { params: paramsPromise }) {
   const { id } = await paramsPromise;
   try {
-    const data = await request.json();
-    const { clienteId, items, notas, subtotal, tax, total, estado, marginId, presupuestoId } = data;
-
-    if (!items || items.length === 0) {
-      return NextResponse.json({ message: 'Se requiere al menos un item.' }, { status: 400 });
+    const body = await request.json();
+    // API-01: Validar con el mismo schema Zod que el POST
+    const parsed = pedidoSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
+    const { clienteId, items, notas, subtotal, tax, total, estado, marginId } = parsed.data;
+    const { presupuestoId } = body; // no está en el schema pero se permite en edición
 
     const updatedOrder = await db.$transaction(async (tx) => {
 

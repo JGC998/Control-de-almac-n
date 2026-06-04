@@ -1,6 +1,9 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { z } from 'zod';
+
+const notaSchema = z.object({ content: z.string().min(1, 'El contenido es requerido').max(2000, 'Máximo 2000 caracteres') });
 
 export const dynamic = 'force-dynamic';
 
@@ -21,14 +24,11 @@ export async function GET() {
 // POST /api/notas (Crear una nueva nota)
 export async function POST(request) {
   try {
-    const { content } = await request.json();
-    if (!content) {
-      return NextResponse.json({ message: 'El contenido es requerido' }, { status: 400 });
+    const parsed = notaSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
-
-    const newNote = await db.nota.create({
-      data: { content },
-    });
+    const newNote = await db.nota.create({ data: { content: parsed.data.content } });
     return NextResponse.json(newNote, { status: 201 });
   } catch (error) {
     logApiError(error, 'POST /api/notas');

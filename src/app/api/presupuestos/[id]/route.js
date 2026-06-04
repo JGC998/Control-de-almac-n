@@ -3,6 +3,7 @@ import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { presupuestoSchema } from '@/lib/validations';
 
 
 
@@ -32,14 +33,15 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    const data = await request.json();
-    // FIX: Aceptamos 'notas', 'observaciones' o 'notes' para máxima compatibilidad.
-    const { clienteId, items, estado, marginId, subtotal, tax, total, notes, notas, observaciones } = data;
-    const finalNotes = notes || notas || observaciones || null; // Coalesce para obtener el valor correcto
-
-    if (!clienteId || !items) {
-      return NextResponse.json({ message: 'Datos incompletos.' }, { status: 400 });
+    const body = await request.json();
+    // API-01: Validar con el mismo schema Zod que el POST
+    const parsed = presupuestoSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
+    const { clienteId, items, estado, marginId, subtotal, tax, total } = parsed.data;
+    // Aceptar 'notas', 'observaciones' o 'notes' para compatibilidad con el cliente
+    const finalNotes = body.notas ?? body.notes ?? body.observaciones ?? null;
 
     const updatedQuote = await db.$transaction(async (tx) => {
       // 1. Actualizar datos principales del presupuesto

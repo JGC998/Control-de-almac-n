@@ -64,11 +64,13 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
   const { data: clientes, error: clientesError } = useSWR('/api/clientes');
   const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null);
-  const { data: todosProductos, error: prodError } = useSWR('/api/productos');
+  // FRONT-02: Carga lazy — solo se piden productos cuando el modal de búsqueda está abierto.
+  // Evita cargar 500 productos en memoria en cada montaje del formulario.
+  const { data: todosProductos } = useSWR(productSearchState.isOpen ? '/api/productos?limit=200' : null);
   const { data: config } = useSWR('/api/config');
   const { data: tarifasCliente } = useSWR(clienteId ? `/api/tarifas-cliente?clienteId=${clienteId}` : null);
 
-  const isCatalogLoading = !clientes || (isMarginRequired && !margenes) || !todosProductos;
+  const isCatalogLoading = !clientes || (isMarginRequired && !margenes);
 
   // --- LÓGICA DE CLIENTES ---
   const handleSelectClient = (client) => {

@@ -58,7 +58,9 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
       }
 
       const records = await model.findMany({ take: 500, ...(options.findMany || {}) });
-      return NextResponse.json(records);
+      // BACK-02: Advertir al cliente cuando el resultado puede estar truncado a 500
+      const headers = records.length === 500 ? { 'X-Results-Truncated': 'true; max=500' } : {};
+      return NextResponse.json(records, { headers });
     } catch (e) {
       return manejarErrorApi(e);
     }

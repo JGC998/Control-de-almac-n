@@ -81,9 +81,11 @@ export async function POST(request) {
     return NextResponse.json(newPedido, { status: 201 });
 
   } catch (error) {
+    // BUG-02: Errores de negocio (sin código Prisma) → 409 Conflict, no 500
+    if (!error.code && error.message) {
+      return NextResponse.json({ message: error.message }, { status: 409 });
+    }
     logApiError(error, 'Error al convertir presupuesto a pedido:');
-    // Los errores sin `code` son los que lanzamos nosotros (mensajes de negocio seguros)
-    const msg = !error.code && error.message ? error.message : 'Error interno';
-    return NextResponse.json({ message: msg }, { status: 500 });
+    return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }
 }

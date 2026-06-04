@@ -6,7 +6,9 @@ import { Warehouse, Lock } from 'lucide-react';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/';
+  // FRONT-04: Validar redirect para evitar open redirect hacia dominios externos
+  const raw = searchParams.get('redirect') || '/';
+  const redirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
   const [pin, setPin]       = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState(null);

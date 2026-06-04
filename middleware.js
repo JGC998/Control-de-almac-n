@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
+import { createHmac } from 'crypto';
 
 // S1/S2 — Autenticación por PIN configurado en AUTH_PIN (env).
-// Si AUTH_PIN no está definido, no se aplica ninguna restricción.
+// CRÍTICO: En producción, AUTH_PIN es obligatorio. Sin él, el servidor devuelve 503.
 
 function addSecurityHeaders(response) {
   response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -12,6 +13,13 @@ function addSecurityHeaders(response) {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
   return response;
+}
+
+// SEC-02: Deriva un token opaco del PIN usando HMAC-SHA256 con SESSION_SECRET.
+// La cookie nunca almacena el PIN en texto claro.
+function derivarToken(pin) {
+  const secret = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
+  return createHmac('sha256', secret).update(String(pin)).digest('hex');
 }
 
 const MOBILE_UA = /Mobi|Android|iPhone|iPad|Tablet/i;
@@ -29,11 +37,25 @@ export function middleware(request) {
   }
 
   const pin = process.env.AUTH_PIN;
-  if (!pin) return addSecurityHeaders(NextResponse.next());
+
+  // CRÍTICO-01: En producción, AUTH_PIN es obligatorio.
+  // Sin él toda la app quedaría expuesta — bloqueamos con 503 en lugar de permitir acceso libre.
+  if (!pin) {
+    if (process.env.NODE_ENV === 'production') {
+      return new NextResponse(
+        JSON.stringify({ message: 'Servidor no configurado correctamente. Contacte al administrador.' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    // En desarrollo, permitir sin PIN (comportamiento original)
+    return addSecurityHeaders(NextResponse.next());
+  }
 
   const session = request.cookies.get('crm-auth')?.value;
+  const tokenEsperado = derivarToken(pin);
 
-  if (session === pin) return addSecurityHeaders(NextResponse.next());
+  // SEC-02: Comparar token HMAC, no el PIN en texto claro
+  if (session === tokenEsperado) return addSecurityHeaders(NextResponse.next());
 
   // API → 401 JSON
   if (pathname.startsWith('/api/')) {

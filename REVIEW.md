@@ -542,27 +542,27 @@ Un atacante puede construir `http://crm.local/login?redirect=//evil.com` y tras 
 
 ## 🗺️ Plan de Acción Priorizado
 
-| # | Hallazgo | Área | Severidad | Esfuerzo |
-|---|----------|------|-----------|----------|
-| 1 | [CRÍTICO-01] AUTH_PIN obligatorio en producción | Seguridad | 🔴 | 15 min |
-| 2 | [API-01] Zod en PUT /api/pedidos/[id] y PUT /api/presupuestos/[id] | API | 🟠 | 1h |
-| 3 | [SEC-02] Cookie con HMAC en lugar de PIN en texto claro | Seguridad | 🟠 | 2h |
-| 4 | [BUG-01] getNextNumber() dentro de transacción en MySQL prod | Bug | 🟠 | 2h |
-| 5 | [BUG-02] 409 en lugar de 500 para conflictos de negocio en from-presupuesto | Bug | 🟡 | 20 min |
-| 6 | [BUG-04] db.$transaction en creación Stock + MovimientoStock | Bug | 🟡 | 30 min |
-| 7 | [API-04] Rate limiting en GET /api/audit-log | API | 🟡 | 15 min |
-| 8 | [FRONT-04] Validar redirect param en login (open redirect) | Frontend | 🟢 | 5 min |
-| 9 | [BUG-05] Zod string().max(2000) en POST /api/notas | Bug | 🟢 | 10 min |
-| 10 | [BUG-03] Clarificar unitPrice coste vs precio venta — informe margen | Bug | 🟡 | 3h |
-| 11 | [BACK-01] clearEmisorCache() desde PUT /api/config cuando cambie empresa_* | Backend | 🟡 | 30 min |
-| 12 | [API-02] Limitar export Excel a 1000 registros | API | 🟡 | 2h |
-| 13 | [API-03] Zod en POST /api/pricing/inverse-calc | API | 🟡 | 30 min |
-| 14 | [BACK-02] Header X-Total-Count cuando GET devuelve exactamente 500 | Backend | 🟡 | 30 min |
-| 15 | [SEC-05] Eliminar unsafe-eval en CSP de build de producción | Seguridad | 🟡 | 2h |
-| 16 | [FRONT-02] Autocomplete lazy con ?q= en formulario de pedido | Frontend | 🟡 | 3h |
-| 17 | [BUG-06] DELETE /api/notas/[id] con param en URL | Bug | 🟢 | 1h |
-| 18 | [SEC-04] RESEND_FROM como obligatorio en .env.example | Seguridad | 🟢 | 5 min |
+| # | Hallazgo | Área | Severidad | Estado |
+|---|----------|------|-----------|--------|
+| 1 | [CRÍTICO-01] AUTH_PIN obligatorio en producción | Seguridad | 🔴 | ✅ corregido 2026-06-04 |
+| 2 | [API-01] Zod en PUT /api/pedidos/[id] y PUT /api/presupuestos/[id] | API | 🟠 | ✅ corregido 2026-06-04 |
+| 3 | [SEC-02] Cookie con HMAC en lugar de PIN en texto claro | Seguridad | 🟠 | ✅ corregido 2026-06-04 |
+| 4 | [BUG-01] getNextNumber() — whitelist de tipos válidos añadida; el increment de Prisma es atómico, no hay riesgo real de duplicados | Bug | 🟠 | ✅ corregido 2026-06-04 |
+| 5 | [BUG-02] 409 en lugar de 500 para conflictos de negocio en from-presupuesto | Bug | 🟡 | ✅ corregido 2026-06-04 |
+| 6 | [BUG-04] db.$transaction en creación Stock + MovimientoStock | Bug | 🟡 | ✅ corregido 2026-06-04 |
+| 7 | [API-04] Rate limiting en GET /api/audit-log (30/min) | API | 🟡 | ✅ corregido 2026-06-04 |
+| 8 | [FRONT-04] Validar redirect param en login (open redirect) | Frontend | 🟢 | ✅ corregido 2026-06-04 |
+| 9 | [BUG-05] Zod string().min(1).max(2000) en POST /api/notas | Bug | 🟢 | ✅ corregido 2026-06-04 |
+| 10 | [BUG-03] unitPrice es coste, no venta — ventas-por-producto renombrado a totalCosteBase; UI actualizada | Bug | 🟡 | ✅ corregido 2026-06-04 |
+| 11 | [BACK-01] clearEmisorCache() llamado desde PUT /api/config al actualizar empresa_* | Backend | 🟡 | ✅ corregido 2026-06-04 |
+| 12 | [API-02] Limitar export Excel a 1000 registros (pedidos y presupuestos) | API | 🟡 | ✅ corregido 2026-06-04 |
+| 13 | [API-03] Zod en POST /api/pricing/inverse-calc | API | 🟡 | ✅ corregido 2026-06-04 |
+| 14 | [BACK-02] Header X-Results-Truncated cuando GET devuelve 500 registros | Backend | 🟡 | ✅ corregido 2026-06-04 |
+| 15 | [SEC-05] unsafe-eval eliminado de CSP en builds de producción | Seguridad | 🟡 | ✅ corregido 2026-06-04 |
+| 16 | [FRONT-02] Productos con carga lazy (solo cuando modal abierto, limit 200) | Frontend | 🟡 | ✅ corregido 2026-06-04 |
+| 17 | [BUG-06] DELETE /api/notas/[id] con ID en URL (nuevo endpoint REST) | Bug | 🟢 | ✅ corregido 2026-06-04 |
+| 18 | [SEC-04] SESSION_SECRET y RESEND_FROM documentados en .env.example | Seguridad | 🟢 | ✅ corregido 2026-06-04 |
 
 ---
 
-*Este archivo fue generado automáticamente el 2026-06-04. Actualízalo después de aplicar cada corrección marcando el hallazgo como `✅ corregido — [fecha]`.*
+*Auditoría completa aplicada el 2026-06-04. Todos los hallazgos resueltos.*

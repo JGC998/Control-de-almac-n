@@ -136,15 +136,18 @@ export async function GET(request) {
         take: 5000,
       });
 
+      // BUG-03: unitPrice es el precio de COSTE introducido antes de aplicar el margen.
+      // Se renombra totalVentas → totalCosteBase para reflejar la realidad del campo.
+      // El precio de venta real está en pedido.total (margen ya aplicado), no en los items.
       const byProducto = {};
       for (const item of items) {
         const key = item.productoId ?? item.descripcion;
-        if (!byProducto[key]) byProducto[key] = { descripcion: item.descripcion, productoId: item.productoId, cantidadTotal: 0, totalVentas: 0 };
+        if (!byProducto[key]) byProducto[key] = { descripcion: item.descripcion, productoId: item.productoId, cantidadTotal: 0, totalCosteBase: 0 };
         byProducto[key].cantidadTotal += item.quantity;
-        byProducto[key].totalVentas += item.quantity * item.unitPrice;
+        byProducto[key].totalCosteBase += item.quantity * item.unitPrice;
       }
 
-      const sorted = Object.values(byProducto).sort((a, b) => b.totalVentas - a.totalVentas);
+      const sorted = Object.values(byProducto).sort((a, b) => b.totalCosteBase - a.totalCosteBase);
       return NextResponse.json(sorted.slice(0, 50));
     }
 

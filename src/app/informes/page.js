@@ -241,7 +241,7 @@ function VentasPorProducto() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold">Ventas por Producto (Top 50)</h2>
+        <h2 className="text-lg font-bold">Volumen por producto — coste base (Top 50)</h2>
         <button className="btn btn-sm btn-outline" onClick={() => exportCSV(data, 'ventas-por-producto.csv')} disabled={!data?.length}>
           <Download className="w-4 h-4" /> CSV
         </button>
@@ -255,7 +255,7 @@ function VentasPorProducto() {
               <XAxis type="number" tickFormatter={v => `${(v / 1000).toFixed(0)}k€`} tick={{ fontSize: 12 }} />
               <YAxis type="category" dataKey="descripcion" tick={{ fontSize: 10 }} width={155} />
               <Tooltip formatter={v => formatCurrency(v)} />
-              <Bar dataKey="totalVentas" name="Total ventas" fill="#F59E0B" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="totalCosteBase" name="Coste base (€)" fill="#F59E0B" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -263,14 +263,14 @@ function VentasPorProducto() {
 
       <div className="overflow-x-auto">
         <table className="table table-sm w-full">
-          <thead><tr><th>#</th><th>Descripción</th><th className="text-right">Cantidad</th><th className="text-right">Total Ventas</th></tr></thead>
+          <thead><tr><th>#</th><th>Descripción</th><th className="text-right">Cantidad</th><th className="text-right" title="Suma del precio de coste × unidades (unitPrice antes de aplicar margen)">Coste base</th></tr></thead>
           <tbody>
             {(data ?? []).map((row, i) => (
               <tr key={i} className="hover">
                 <td className="text-gray-400 text-sm">{i + 1}</td>
                 <td className="text-sm">{row.descripcion}</td>
                 <td className="text-right">{row.cantidadTotal}</td>
-                <td className="text-right font-semibold">{formatCurrency(row.totalVentas)}</td>
+                <td className="text-right font-semibold">{formatCurrency(row.totalCosteBase)}</td>
               </tr>
             ))}
             {(!data || data.length === 0) && <tr><td colSpan={4} className="text-center text-gray-400 py-6">Sin datos</td></tr>}

@@ -8,12 +8,18 @@ import { logApiError } from './logger';
  * @param {string} type - Tipo de documento ('pedido', 'presupuesto', etc.)
  * @returns {Promise<string>} - Número formateado (ej: "PEDIDO-001-2026")
  */
-// NOTA: getNextNumber() se llama deliberadamente FUERA de la transacción Prisma de
-// creación del documento. En SQLite, hacer un upsert dentro de una transacción que
-// a su vez escribe otras tablas puede causar "SQLITE_BUSY / database is locked".
-// Con concurrencia baja (app interna), el riesgo de número duplicado es mínimo.
-// En producción con MySQL se puede mover dentro de la transacción usando SELECT ... FOR UPDATE.
+// NOTA: El `upsert` con `increment: 1` es atómico a nivel de BD (una sola sentencia SQL
+// en SQLite y MySQL), por lo que no genera números duplicados bajo concurrencia.
+// Se mantiene fuera de la transacción de creación del documento para evitar deadlocks
+// en SQLite ("database is locked"). El único efecto de una creación fallida es un
+// hueco en la numeración, lo cual es aceptable.
+// BUG-01: Añadida whitelist de tipos válidos para evitar inserciones arbitrarias en Sequence.
+const VALID_SEQUENCE_TYPES = ['pedido', 'presupuesto', 'albaran', 'factura', 'rectificativa'];
+
 export async function getNextNumber(type) {
+    if (!VALID_SEQUENCE_TYPES.includes(type)) {
+        throw new Error(`Tipo de secuencia inválido: "${type}". Valores permitidos: ${VALID_SEQUENCE_TYPES.join(', ')}`);
+    }
     const currentYear = new Date().getFullYear();
     try {
         const sequence = await db.sequence.upsert({

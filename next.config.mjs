@@ -1,11 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
-    // CSP permisiva: 'unsafe-inline' y 'unsafe-eval' son necesarios para Next.js (hidratación, Turbopack).
-    // 'frame-ancestors none' reemplaza X-Frame-Options a nivel CSP.
+    // SEC-05: En producción se elimina 'unsafe-eval' (no necesario en builds de producción con App Router).
+    // En desarrollo se mantiene para el HMR de Turbopack.
+    const isProd = process.env.NODE_ENV === 'production';
+    const scriptSrc = isProd
+      ? "script-src 'self' 'unsafe-inline'"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      scriptSrc,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",

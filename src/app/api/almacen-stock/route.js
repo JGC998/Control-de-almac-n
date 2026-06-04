@@ -115,23 +115,25 @@ export async function POST(request) {
         return NextResponse.json({ message: 'Los metros disponibles deben ser un número positivo.' }, { status: 400 });
       }
 
-      const newStockItem = await db.stock.create({
-        data: {
-          material: data.material,
-          espesor: parseFloat(data.espesor) || 0,
-          metrosDisponibles: parseFloat(data.metrosDisponibles),
-          proveedor: data.proveedor || null,
-          cantidadBobinas: parseInt(data.cantidadBobinas) || 1,
-        },
-      });
-
-      // Crear movimiento de entrada
-      await db.movimientoStock.create({
-        data: {
-          tipo: "ENTRADA",
-          cantidad: parseFloat(data.metrosDisponibles),
-          stockId: newStockItem.id
-        }
+      // BUG-04: Envolver en transacción para garantizar consistencia
+      const newStockItem = await db.$transaction(async (tx) => {
+        const item = await tx.stock.create({
+          data: {
+            material: data.material,
+            espesor: parseFloat(data.espesor) || 0,
+            metrosDisponibles: parseFloat(data.metrosDisponibles),
+            proveedor: data.proveedor || null,
+            cantidadBobinas: parseInt(data.cantidadBobinas) || 1,
+          },
+        });
+        await tx.movimientoStock.create({
+          data: {
+            tipo: 'ENTRADA',
+            cantidad: parseFloat(data.metrosDisponibles),
+            stockId: item.id,
+          },
+        });
+        return item;
       });
       revalidatePath('/almacen');
       revalidatePath('/');
