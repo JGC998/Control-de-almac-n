@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator,
-  Users, Settings, Layers, Factory, ChevronDown, BarChart2
+  Users, Settings, Layers, Factory, ChevronDown, BarChart2, Scale
 } from 'lucide-react';
 
 const menuStructure = [
@@ -46,7 +46,8 @@ const menuStructure = [
     links: [
       { href: '/calculadora', label: 'Calculadora', icon: Layers },
       { href: '/calculadora/logistica', label: 'Calculadora Envíos', icon: Truck },
-      { href: '/calculadora/inversa', label: 'Calculadora Inversa', icon: DollarSign }
+      { href: '/calculadora/inversa', label: 'Calculadora Inversa', icon: DollarSign },
+      { href: '/herramientas/comparativa-reparto', label: 'Comparativa reparto gastos', icon: Scale }
     ]
   },
   {

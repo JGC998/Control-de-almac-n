@@ -19,6 +19,15 @@ export function handlePrismaError(error, { notFound, conflict, hasRelated } = {}
   return NextResponse.json({ message: 'Error interno del servidor' }, { status: 500 });
 }
 
+/**
+ * Convierte campos Decimal de Prisma a Number para serialización JSON.
+ * @param {object} obj - Objeto devuelto por Prisma
+ * @param {string[]} fields - Nombres de los campos Decimal a convertir
+ */
+export function serializeDecimals(obj, fields) {
+  return { ...obj, ...Object.fromEntries(fields.map(f => [f, obj[f] != null ? Number(obj[f]) : 0])) };
+}
+
 export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) {
   const model = db[modelName];
 

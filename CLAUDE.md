@@ -114,7 +114,8 @@ db.auditLog.create({ data: { action, entity, entityId, details } }).catch(() => 
 | `rateLimiter.js` | Sliding-window rate limiter (60s window) |
 | `audit.js` | `logCreate/logUpdate/logDelete` helpers |
 | `email.js` | Resend-based email with PDF attachments |
-| `manejadores-api.js` | `handlePrismaError` for common DB error responses |
+| `manejadores-api.js` | `handlePrismaError` for common DB error responses; `serializeDecimals(obj, fields)` to convert Prisma Decimal fields |
+| `api-response.js` | `ApiResponse` — unified response builder (`ok`, `created`, `notFound`, `conflict`, `badRequest`, `serverError`, `unauthorized`) |
 
 ---
 

@@ -2,120 +2,14 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import {
-  Plus, X, Save,
-  Package, Search, ArrowRight, User, Box, Ruler
-} from 'lucide-react';
+import { Plus, X, Save, Search, Ruler } from 'lucide-react';
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 import QuickProductForm from "@/componentes/productos/FormularioProductoRapido";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
 import ModalBusquedaBandasPVC from "@/componentes/modales/ModalBusquedaBandasPVC";
+import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
 import EditorFilaItem from './EditorFilaItem';
 import TemplateManager from '@/componentes/presupuestos/TemplateManager';
-
-
-// --- MODAL DE BÚSQUEDA DE CLIENTES (Restaurado) ---
-function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew, clientes = [], initialSearch = '' }) {
-  const [search, setSearch] = useState(initialSearch);
-
-  const filteredClients = useMemo(() => {
-    if (!clientes) return [];
-    return clientes.filter(c => {
-      const term = search.toLowerCase();
-      return c.nombre?.toLowerCase().includes(term) ||
-        c.email?.toLowerCase().includes(term) ||
-        c.telefono?.includes(term);
-    }).slice(0, 50);
-  }, [clientes, search]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="modal modal-open z-50">
-      <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <User className="w-5 h-5" /> Buscar Cliente
-          </h3>
-          <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="join w-full mb-4">
-          <label htmlFor="cliente-modal-search" className="sr-only">Buscar cliente por nombre, email o teléfono</label>
-          <input id="cliente-modal-search" type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, email o teléfono..." className="input input-bordered join-item w-full" autoFocus />
-          <button className="btn btn-primary join-item" onClick={() => onCreateNew(search)}><Plus className="w-4 h-4" /> Nuevo</button>
-        </div>
-        <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
-          <table className="table table-pin-rows w-full">
-            <thead><tr><th>Nombre</th><th>Categoría</th><th>Contacto</th><th className="text-right">Acción</th></tr></thead>
-            <tbody>
-              {filteredClients.map((cli) => (
-                <tr key={cli.id} className="hover:bg-base-200 cursor-pointer transition-colors" onClick={() => onSelect(cli)}>
-                  <td className="font-bold">{cli.nombre}</td>
-                  <td><span className="badge badge-sm badge-ghost">{cli.categoria || 'Estándar'}</span></td>
-                  <td className="text-sm opacity-70"><div className="flex flex-col"><span>{cli.email}</span><span>{cli.telefono}</span></div></td>
-                  <td className="text-right"><button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- MODAL DE BÚSQUEDA DE PRODUCTOS (Nuevo) ---
-function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos = [], initialSearch = '' }) {
-  const [search, setSearch] = useState(initialSearch);
-
-  const filteredProducts = useMemo(() => {
-    if (!productos) return [];
-    return productos.filter(p => {
-      const term = search.toLowerCase();
-      return p.nombre?.toLowerCase().includes(term) ||
-        p.referenciaFabricante?.toLowerCase().includes(term) ||
-        p.color?.toLowerCase().includes(term);
-    }).slice(0, 50);
-  }, [productos, search]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="modal modal-open z-50">
-      <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-lg flex items-center gap-2"><Box className="w-5 h-5" /> Buscar Producto</h3>
-          <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="join w-full mb-4">
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, color, referencia fabricante..." className="input input-bordered join-item w-full" autoFocus />
-          <button className="btn btn-primary join-item" onClick={() => onCreateNew(search)}><Plus className="w-4 h-4" /> Nuevo</button>
-        </div>
-        <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
-          <table className="table table-pin-rows w-full">
-            <thead><tr><th>Nombre</th><th>Color</th><th>Referencia</th><th>Precio unit.</th><th className="text-right">Acción</th></tr></thead>
-            <tbody>
-              {filteredProducts.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-10 text-gray-500">No se encontraron productos.</td></tr>
-              ) : (
-                filteredProducts.map((prod) => (
-                  <tr key={prod.id} className="hover:bg-base-200 cursor-pointer" onClick={() => onSelect(prod)}>
-                    <td className="font-bold">{prod.nombre}</td>
-                    <td className="text-sm">{prod.color || '-'}</td>
-                    <td className="text-sm">{prod.referenciaFabricante || '-'}</td>
-                    <td>{prod.precioUnitario != null ? parseFloat(prod.precioUnitario).toFixed(2) + '€' : '-'}</td>
-                    <td className="text-right"><button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="modal-action mt-4"><button className="btn" onClick={onClose}>Cancelar</button></div>
-      </div>
-    </div>
-  );
-}
 
 // --- COMPONENTE PRINCIPAL ---
 export default function FormularioPedidoCliente({ initialData = null, formType = "PRESUPUESTO", onSuccess, onCancel }) {
@@ -611,9 +505,55 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         </div>
       </form>
 
-      <ClienteSearchModal isOpen={isClientSearchOpen} onClose={() => setIsClientSearchOpen(false)} onSelect={handleSelectClient} onCreateNew={handleOpenCreateClient} clientes={clientes} initialSearch={clienteNombre} />
+      <ModalBusqueda
+        abierto={isClientSearchOpen}
+        alCerrar={() => setIsClientSearchOpen(false)}
+        alSeleccionar={handleSelectClient}
+        alCrearNuevo={handleOpenCreateClient}
+        items={clientes || []}
+        camposBusqueda={['nombre', 'email', 'telefono']}
+        titulo="Buscar Cliente"
+        placeholder="Nombre, email o teléfono..."
+        textoCrear="Nuevo Cliente"
+        busquedaInicial={clienteNombre}
+        renderItem={(cli) => (
+          <div className="flex-1">
+            <div className="font-bold">{cli.nombre}</div>
+            <div className="flex flex-wrap gap-2 text-sm opacity-70">
+              <span className="badge badge-sm badge-ghost">{cli.categoria || 'Estándar'}</span>
+              {cli.email && <span>{cli.email}</span>}
+              {cli.telefono && <span>{cli.telefono}</span>}
+            </div>
+          </div>
+        )}
+      />
 
-      <ProductSearchModal isOpen={productSearchState.isOpen} onClose={() => setProductSearchState(prev => ({ ...prev, isOpen: false }))} onSelect={handleProductSelect} onCreateNew={handleOpenCreateProduct} productos={todosProductos} initialSearch={productSearchState.initialSearch} />
+      <ModalBusqueda
+        abierto={productSearchState.isOpen}
+        alCerrar={() => setProductSearchState(prev => ({ ...prev, isOpen: false }))}
+        alSeleccionar={handleProductSelect}
+        alCrearNuevo={handleOpenCreateProduct}
+        items={todosProductos || []}
+        camposBusqueda={['nombre', 'referenciaFabricante', 'color']}
+        titulo="Buscar Producto"
+        placeholder="Nombre, color, referencia fabricante..."
+        textoCrear="Nuevo Producto"
+        busquedaInicial={productSearchState.initialSearch}
+        renderItem={(prod) => (
+          <div className="flex-1">
+            <div className="font-bold">{prod.nombre}</div>
+            <div className="flex flex-wrap gap-2 text-sm opacity-70">
+              {prod.color && <span>{prod.color}</span>}
+              {prod.referenciaFabricante && <span>{prod.referenciaFabricante}</span>}
+              {prod.precioUnitario != null && (
+                <span className="ml-auto font-medium text-primary">
+                  {parseFloat(prod.precioUnitario).toFixed(2)} €
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      />
 
       {modalState?.type === 'CLIENTE' && (
         <BaseQuickCreateModal isOpen={true} onClose={() => setModalState(null)} onCreated={handleClienteCreado} title="Crear Nuevo Cliente" endpoint="/api/clientes" cacheKey="/api/clientes" fields={[{ name: 'nombre', placeholder: 'Nombre', required: true, defaultValue: modalState.initialName }, { name: 'email', placeholder: 'Email', type: 'email' }, { name: 'telefono', placeholder: 'Teléfono' }]} />

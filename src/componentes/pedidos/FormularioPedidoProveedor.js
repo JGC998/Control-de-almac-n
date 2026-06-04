@@ -2,194 +2,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, UserPlus, X, Search, AlertCircle, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Save, X, Search, AlertCircle } from 'lucide-react';
 import "react-day-picker/style.css";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
-
-
-// --- MODAL DE BÚSQUEDA DE PROVEEDORES (NUEVO) ---
-function ProveedorSearchModal({ isOpen, onClose, onSelect, onCreateNew, proveedores = [], initialSearch = '' }) {
-  const [search, setSearch] = useState(initialSearch);
-
-
-
-  const filteredProveedores = useMemo(() => {
-    if (!proveedores) return [];
-    return proveedores.filter(p => {
-      const matchesText = !search ||
-        p.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-        p.email?.toLowerCase().includes(search.toLowerCase());
-      return matchesText;
-    }).slice(0, 50);
-  }, [proveedores, search]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="modal modal-open z-50">
-      <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <Search className="w-5 h-5" /> Buscar Proveedor
-          </h3>
-          <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
-        </div>
-
-        <div className="join w-full mb-4">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Escribe nombre o email..."
-            className="input input-bordered join-item w-full"
-            autoFocus
-          />
-          <button
-            className="btn btn-primary join-item"
-            onClick={() => onCreateNew(search)}
-          >
-            <Plus className="w-4 h-4" /> Crear Nuevo
-          </button>
-        </div>
-
-        <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
-          <table className="table table-pin-rows w-full">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Email</th>
-                <th>Teléfono</th>
-                <th className="text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProveedores.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="text-center py-10 text-gray-500">
-                    <p>No se encontraron proveedores.</p>
-                    <button onClick={() => onCreateNew(search)} className="btn btn-link btn-sm mt-2">
-                      Crear &quot;{search}&quot; ahora
-                    </button>
-                  </td>
-                </tr>
-              ) : (
-                filteredProveedores.map((prov) => (
-                  <tr key={prov.id} className="hover:bg-base-200 cursor-pointer transition-colors" onClick={() => onSelect(prov)}>
-                    <td className="font-bold">{prov.nombre}</td>
-                    <td>{prov.email || '-'}</td>
-                    <td>{prov.telefono || '-'}</td>
-                    <td className="text-right">
-                      <button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="modal-action mt-4">
-          <button className="btn" onClick={onClose}>Cancelar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- MODAL DE BÚSQUEDA DE REFERENCIAS ---
-function ReferenciaSearchModal({ isOpen, onClose, onSelect, onCreateNew, referencias = [], initialSearch = '', materialFilter = '' }) {
-  const [search, setSearch] = useState(initialSearch);
-
-
-
-  const filteredRefs = useMemo(() => {
-    if (!referencias) return [];
-    return referencias.filter(r => {
-      const matchesText = !search ||
-        r.referencia?.toLowerCase().includes(search.toLowerCase()) ||
-        (r.ancho && r.ancho.toString().includes(search));
-      return matchesText;
-    }).slice(0, 50);
-  }, [referencias, search]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="modal modal-open z-50">
-      <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <Search className="w-5 h-5" /> Buscar Referencia
-            {materialFilter && <span className="badge badge-ghost text-xs font-normal">Filtro sugerido: {materialFilter}</span>}
-          </h3>
-          <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
-        </div>
-
-        <div className="join w-full mb-4">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Escribe nombre, ancho..."
-            className="input input-bordered join-item w-full"
-            autoFocus
-          />
-          <button
-            className="btn btn-primary join-item"
-            onClick={() => onCreateNew(search)}
-          >
-            <Plus className="w-4 h-4" /> Crear Nueva
-          </button>
-        </div>
-
-        <div className="overflow-auto flex-1 bg-base-100 border rounded-lg">
-          <table className="table table-pin-rows w-full">
-            <thead>
-              <tr>
-                <th>Referencia</th>
-                <th>Ancho</th>
-                <th>Lonas</th>
-                <th>Peso/m</th>
-                <th className="text-right">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRefs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center py-10 text-gray-500">
-                    <p>No se encontraron referencias.</p>
-                    <button onClick={() => onCreateNew(search)} className="btn btn-link btn-sm mt-2">
-                      Crear &quot;{search}&quot; ahora
-                    </button>
-                  </td>
-                </tr>
-              ) : (
-                filteredRefs.map((ref) => (
-                  <tr key={ref.id} className="hover:bg-base-200 cursor-pointer transition-colors" onClick={() => onSelect(ref)}>
-                    <td className="font-bold">{ref.referencia}</td>
-                    <td>{ref.ancho ? `${ref.ancho} mm` : '-'}</td>
-                    <td>{ref.lonas || '-'}</td>
-                    <td>{ref.pesoPorMetroLineal ? `${ref.pesoPorMetroLineal} kg` : '-'}</td>
-                    <td className="text-right">
-                      <button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="modal-action mt-4">
-          <button className="btn" onClick={onClose}>Cancelar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
 
 // --- COMPONENTE PRINCIPAL ---
 
@@ -639,20 +458,49 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       </form>
 
       {/* MODALS */}
-      <ReferenciaSearchModal
-        key="modal-referencia"
-        isOpen={refSearchModalOpen} onClose={() => setRefSearchModalOpen(false)}
-        onSelect={handleSelectReferencia} onCreateNew={handleCreateNewReferencia}
-        referencias={referencias} initialSearch={formData.bobinas[activeRowIndex]?.referenciaNombre || ''}
-        materialFilter={formData.material}
+      <ModalBusqueda
+        abierto={refSearchModalOpen}
+        alCerrar={() => setRefSearchModalOpen(false)}
+        alSeleccionar={handleSelectReferencia}
+        alCrearNuevo={handleCreateNewReferencia}
+        items={referencias || []}
+        camposBusqueda={['referencia', 'ancho']}
+        titulo={`Buscar Referencia${formData.material ? ` — ${formData.material}` : ''}`}
+        placeholder="Referencia, ancho..."
+        textoCrear="Crear Nueva Referencia"
+        busquedaInicial={formData.bobinas[activeRowIndex]?.referenciaNombre || ''}
+        renderItem={(ref) => (
+          <div className="flex-1">
+            <div className="font-bold">{ref.referencia}</div>
+            <div className="flex gap-3 text-sm opacity-70">
+              {ref.ancho && <span>{ref.ancho} mm</span>}
+              {ref.lonas && <span>{ref.lonas} lonas</span>}
+              {ref.pesoPorMetroLineal && <span>{ref.pesoPorMetroLineal} kg/m</span>}
+            </div>
+          </div>
+        )}
       />
 
-      {/* MODAL DE BÚSQUEDA DE PROVEEDOR (NUEVO) */}
-      <ProveedorSearchModal
-        key="modal-proveedor"
-        isOpen={provSearchModalOpen} onClose={() => setProvSearchModalOpen(false)}
-        onSelect={handleSelectProveedor} onCreateNew={handleCreateNewProveedor}
-        proveedores={proveedores} initialSearch={proveedorBusqueda}
+      <ModalBusqueda
+        abierto={provSearchModalOpen}
+        alCerrar={() => setProvSearchModalOpen(false)}
+        alSeleccionar={handleSelectProveedor}
+        alCrearNuevo={handleCreateNewProveedor}
+        items={proveedores || []}
+        camposBusqueda={['nombre', 'email']}
+        titulo="Buscar Proveedor"
+        placeholder="Nombre o email..."
+        textoCrear="Crear Nuevo Proveedor"
+        busquedaInicial={proveedorBusqueda}
+        renderItem={(prov) => (
+          <div className="flex-1">
+            <div className="font-bold">{prov.nombre}</div>
+            <div className="flex gap-3 text-sm opacity-70">
+              {prov.email && <span>{prov.email}</span>}
+              {prov.telefono && <span>{prov.telefono}</span>}
+            </div>
+          </div>
+        )}
       />
 
       {modalState?.type === 'PROVEEDOR' && (

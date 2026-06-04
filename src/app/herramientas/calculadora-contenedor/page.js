@@ -1,9 +1,10 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download, Copy, Pencil } from 'lucide-react';
+import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download, Copy, Pencil, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import ExcelJS from 'exceljs';
 
 import { fetcher } from '@/lib/fetcher';
 
@@ -260,6 +261,40 @@ function HistorialImportaciones({ onCargar }) {
 }
 
 export default function CalculadoraContenedorPage() {
+  // Historial para T-58 (autocompletar) y T-64 (alerta precio)
+  const { data: importacionesHistorial } = useSWR('/api/importaciones', fetcher);
+
+  // T-58 — referencias únicas usadas en importaciones anteriores
+  const referenciasHistoricas = useMemo(() => {
+    if (!importacionesHistorial) return [];
+    const refs = new Set();
+    importacionesHistorial.forEach(imp => {
+      try {
+        const bobs = typeof imp.bobinas === 'string' ? JSON.parse(imp.bobinas) : imp.bobinas;
+        if (Array.isArray(bobs)) bobs.forEach(b => { if (b.referencia?.trim()) refs.add(b.referencia.trim()); });
+      } catch { /* JSON inválido — ignorar */ }
+    });
+    return [...refs].sort();
+  }, [importacionesHistorial]);
+
+  // T-64 — último precio conocido por referencia { ref → { precio, unidad } }
+  const preciosAnteriores = useMemo(() => {
+    if (!importacionesHistorial) return {};
+    const map = {};
+    [...importacionesHistorial].reverse().forEach(imp => {
+      try {
+        const bobs = typeof imp.bobinas === 'string' ? JSON.parse(imp.bobinas) : imp.bobinas;
+        if (!Array.isArray(bobs)) return;
+        bobs.forEach(b => {
+          if (b.referencia?.trim() && n(b.precio) > 0) {
+            map[b.referencia.trim()] = { precio: n(b.precio), unidad: b.unidadPrecio || 'M' };
+          }
+        });
+      } catch { /* ignorar */ }
+    });
+    return map;
+  }, [importacionesHistorial]);
+
   const [tasaCambio, setTasaCambio] = useState('0.9300');
   const [bobinas, setBobinas] = useState([nuevaBobina(1)]);
   const [suplidos, setSuplidos] = useState('');
@@ -575,6 +610,117 @@ export default function CalculadoraContenedorPage() {
     doc.save(`importacion-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
+  // T-63 — Exportar Excel
+  const handleExportExcel = async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CRM Taller';
+    wb.created = new Date();
+    const fecha = new Date().toLocaleDateString('es-ES');
+    const hdrFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E1E50' } };
+    const hdrFont = { color: { argb: 'FFFFFFFF' }, bold: true };
+    const moneda = { numFmt: '#,##0.00 €' };
+    const monedaUSD = { numFmt: '#,##0.00 "$"' };
+
+    // ── Hoja 1: Artículos ──
+    const s1 = wb.addWorksheet('Artículos del pedido');
+    s1.columns = [
+      { header: 'Referencia', key: 'ref', width: 20 },
+      { header: 'Tipo', key: 'tipo', width: 12 },
+      { header: 'Esp. (mm)', key: 'esp', width: 10 },
+      { header: 'Ancho (mm)', key: 'ancho', width: 12 },
+      { header: 'Long./m', key: 'long', width: 10 },
+      { header: 'Rollos/Cajas', key: 'rollos', width: 12 },
+      { header: 'Precio USD', key: 'precio', width: 13 },
+      { header: 'Unidad', key: 'unidad', width: 9 },
+      { header: 'Notas', key: 'notas', width: 20 },
+      { header: 'Total m', key: 'totalM', width: 10 },
+      { header: 'Total USD', key: 'totalUSD', width: 13 },
+      { header: 'Total EUR', key: 'totalEUR', width: 13 },
+    ];
+    s1.getRow(1).eachCell(c => { c.fill = hdrFill; c.font = hdrFont; });
+    bobinasCals.forEach(b => {
+      const row = s1.addRow({
+        ref: b.referencia || '', tipo: b.tipo || 'BOBINA',
+        esp: b.espesor || '', ancho: b.ancho || '', long: b.longitud || '',
+        rollos: b.numRollos || 1, precio: n(b.precio), unidad: b.unidadPrecio || 'M',
+        notas: b.notas || '', totalM: b.totalMetrosBobina || 0,
+        totalUSD: b.subtotalUSD, totalEUR: b.subtotalEUR,
+      });
+      row.getCell('totalUSD').numFmt = monedaUSD.numFmt;
+      row.getCell('totalEUR').numFmt = moneda.numFmt;
+    });
+    const totRow = s1.addRow({
+      ref: 'TOTAL', tipo: '', esp: '', ancho: '', long: '', rollos: '', precio: '', unidad: '', notas: '',
+      totalM: totalMetros, totalUSD: totalBobinasUSD, totalEUR: totalBobinasEUR,
+    });
+    totRow.font = { bold: true };
+    totRow.getCell('totalUSD').numFmt = monedaUSD.numFmt;
+    totRow.getCell('totalEUR').numFmt = moneda.numFmt;
+
+    // ── Hoja 2: Desglose por artículo ──
+    const s2 = wb.addWorksheet('Desglose por artículo');
+    s2.columns = [
+      { header: 'Referencia', key: 'ref', width: 20 },
+      { header: 'Esp. (mm)', key: 'esp', width: 10 },
+      { header: 'Ancho (mm)', key: 'ancho', width: 12 },
+      { header: '% Valor', key: 'pct', width: 10 },
+      { header: 'Gastos repartidos', key: 'gastos', width: 18 },
+      { header: 'Coste final EUR', key: 'coste', width: 16 },
+      { header: '€/metro lineal', key: 'eurM', width: 14 },
+      { header: '€/m²', key: 'eurM2', width: 12 },
+    ];
+    s2.getRow(1).eachCell(c => { c.fill = hdrFill; c.font = hdrFont; });
+    articulosConValor.forEach(b => {
+      const anchoMm = n(b.ancho);
+      const row = s2.addRow({
+        ref: b.referencia || '',
+        esp: b.espesor || '', ancho: anchoMm || '',
+        pct: totalBobinasEUR > 0 ? b.subtotalEUR / totalBobinasEUR : 0,
+        gastos: b.gastosProrrateados,
+        coste: b.costeFinalEUR,
+        eurM: b.costePorMetro > 0 ? b.costePorMetro : (b.costeFinalEUR > 0 && b.numRollos > 0 ? b.costeFinalEUR / b.numRollos : 0),
+        eurM2: b.costePorMetro > 0 && anchoMm > 0 ? b.costePorMetro / (anchoMm / 1000) : '',
+      });
+      row.getCell('pct').numFmt = '0.0%';
+      ['gastos', 'coste', 'eurM', 'eurM2'].forEach(k => { row.getCell(k).numFmt = moneda.numFmt; });
+    });
+
+    // ── Hoja 3: Gastos y Resumen ──
+    const s3 = wb.addWorksheet('Gastos y Resumen');
+    const addSection = (title, rows) => {
+      const tRow = s3.addRow([title]);
+      tRow.font = { bold: true, size: 12 };
+      tRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8F0' } };
+      rows.forEach(([label, value]) => {
+        const r = s3.addRow([label, value]);
+        if (typeof value === 'number') r.getCell(2).numFmt = moneda.numFmt;
+      });
+      s3.addRow([]);
+    };
+    s3.getColumn(1).width = 42; s3.getColumn(2).width = 18;
+    addSection(`Informe de Importación — ${fecha}  |  TC: 1 USD = ${fmt(tc, 4)} EUR`, []);
+    addSection('Gastos de importación', [
+      ['Suplidos (repercute en coste)', supl],
+      ['Exentos / Aranceles (repercute en coste)', exen],
+      ...(suj > 0 ? [['Sujetos — transporte nacional (no repercute)', suj], ['IVA sujetos 21% (deducible)', ivaGastos]] : []),
+      ['Gastos repercutibles totales', gastosRepercutibles],
+    ]);
+    addSection('Resumen', [
+      ['Coste total artículos (EUR)', totalBobinasEUR],
+      ['+ Gastos repercutibles', gastosRepercutibles],
+      ['= COSTE PRODUCTO', costeProducto],
+      ['Total desembolso real', totalDesembolso],
+      ...(totalMetros > 0 ? [['Total metros lineales', `${fmt(totalMetros, 0)} m`], ['€/metro medio', costeProducto / totalMetros]] : []),
+    ]);
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `importacion-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   const datosParaGuardar = {
     tasaCambio: tc,
     totalBobinasUSD,
@@ -615,7 +761,10 @@ export default function CalculadoraContenedorPage() {
           {hayResultados && (
             <>
               <button className="btn btn-outline btn-sm gap-2" onClick={handleExportPDF}>
-                <Download className="w-4 h-4" /> Exportar PDF
+                <Download className="w-4 h-4" /> PDF
+              </button>
+              <button className="btn btn-outline btn-sm gap-2" onClick={handleExportExcel}>
+                <FileSpreadsheet className="w-4 h-4" /> Excel
               </button>
               <button
                 className={`btn btn-sm gap-2 ${editandoId ? 'btn-warning' : 'btn-success'}`}
@@ -735,10 +884,11 @@ export default function CalculadoraContenedorPage() {
                           <option value="OTRO">Otro</option>
                         </select>
                       </td>
-                      {/* Referencia + Notas */}
+                      {/* Referencia + Notas (T-58: datalist autocompletar) */}
                       <td>
                         <input
                           type="text" placeholder={`A${idx + 1}`}
+                          list="refs-historicas"
                           value={b.referencia}
                           onChange={e => handleBobinaChange(b.id, 'referencia', e.target.value)}
                           className="input input-xs input-bordered w-24"
@@ -857,6 +1007,10 @@ export default function CalculadoraContenedorPage() {
                 </tr>
               </tfoot>
             </table>
+            {/* T-58 — datalist global de referencias históricas */}
+            <datalist id="refs-historicas">
+              {referenciasHistoricas.map(ref => <option key={ref} value={ref} />)}
+            </datalist>
           </div>
         </div>
       </div>

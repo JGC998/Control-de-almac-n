@@ -5,6 +5,30 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-06-04
+
+### ✨ Añadido
+
+- ✅ **`src/lib/api-response.js`** — Nuevo helper `ApiResponse` con métodos unificados: `ok`, `created`, `noContent`, `notFound`, `conflict`, `badRequest`, `serverError`, `unauthorized`. Elimina el boilerplate de `NextResponse.json` disperso en las rutas.
+- ✅ **`src/lib/manejadores-api.js` — `serializeDecimals(obj, fields)`**: helper centralizado para convertir campos `Decimal` de Prisma a `Number`, eliminando el `Number(obj.campo)` manual disperso en rutas de productos, materiales, etc.
+- ✅ **Herramienta: Comparativa de métodos de reparto de gastos** (`/herramientas/comparativa-reparto`): nueva página que compara numéricamente dos métodos de distribución de gastos en importaciones de contenedor:
+  - **Método A — Prorrateo por valor económico** (cada artículo asume gastos proporcionales a su valor en €; todos se encarecen el mismo % relativo).
+  - **Método B — Porcentaje fijo por metro** (mismo €/metro para todos; los materiales baratos asumen relativamente más gastos).
+  - Carga importaciones reales desde `/api/importaciones`; incluye datos de ejemplo con contraste máximo para visualizar la diferencia sin datos guardados.
+  - Tabla lado a lado con markup %, €/metro y diferencia porcentual codificada en color; análisis automático del artículo más perjudicado/beneficiado; conclusión argumentativa con nota matemática.
+  - Enlace añadido en Barra lateral → Calculadoras.
+- ✅ **Calculadora de Contenedor — T-58: Autocompletar referencias históricas**: el campo "Referencia" de cada artículo sugiere automáticamente (via `<datalist>`) las referencias usadas en importaciones anteriores, extraídas con `useMemo` sobre el historial.
+- ✅ **Calculadora de Contenedor — T-63: Exportar a Excel (.xlsx)**: botón "Excel" junto al PDF. Genera workbook ExcelJS con 3 hojas: *Artículos del pedido*, *Desglose por artículo* (gastos prorrateados, €/metro, €/m²) y *Gastos y Resumen* (suplidos, aranceles, desembolso total). Columnas numéricas con formato de moneda nativo de Excel.
+- 🔄 **Calculadora de Contenedor — T-64 (datos preparados)**: computación `preciosAnteriores` — mapa `referencia → { precio, unidad }` con el último precio conocido por referencia desde el historial. Datos listos; alerta visual en la celda de precio pendiente de conectar.
+
+### ♻️ Refactorizado
+
+- ✅ **`FormularioPedidoCliente.js`**: eliminados `ClienteSearchModal` (~48 líneas) y `ProductSearchModal` (~51 líneas) inline. Reemplazados por `ModalBusqueda` genérico con `renderItem` personalizado. Eliminados imports huérfanos: `ArrowRight`, `User`, `Box`, `Package`. Reducción: 629 → 569 líneas.
+- ✅ **`FormularioPedidoProveedor.js`**: eliminados `ProveedorSearchModal` (~87 líneas) y `ReferenciaSearchModal` (~90 líneas) inline. Reemplazados por `ModalBusqueda` (título dinámico con material activo como contexto). Eliminados imports huérfanos: `UserPlus`, `ArrowRight`. Reducción: 682 → 530 líneas.
+- ✅ **`ROADMAP.md`**: actualizado con estado real de cada tarea tras los últimos commits — T-58, T-63, T-66, SEC-01/02, MAINT-01/02, PERF-01 marcados como ✅; tabla simplificada sin columna de dependencias.
+
+---
+
 ## 2026-06-03
 
 ### ♻️ Cambiado
