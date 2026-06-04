@@ -83,13 +83,13 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
       const finalData = options.mapearCrear ? options.mapearCrear(data) : data;
       const newRecord = await model.create({ data: finalData });
 
-      try {
-        const { logCreate } = await import('@/lib/audit');
-        const entityName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
-        await logCreate(entityName, newRecord.id, newRecord, 'System');
-      } catch (logError) {
-        logApiError(logError, 'Audit Log failed');
-      }
+      // BACK-03: Fire-and-forget real — no bloquea la respuesta al cliente
+      import('@/lib/audit')
+        .then(({ logCreate }) => {
+          const entityName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
+          return logCreate(entityName, newRecord.id, newRecord, 'System');
+        })
+        .catch(e => logApiError(e, 'Audit Log failed'));
 
       if (revalidationPath) revalidatePath(revalidationPath);
       return NextResponse.json(newRecord, { status: 201 });

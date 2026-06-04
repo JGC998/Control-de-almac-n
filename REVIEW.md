@@ -565,4 +565,10 @@ Un atacante puede construir `http://crm.local/login?redirect=//evil.com` y tras 
 
 ---
 
-*Auditoría completa aplicada el 2026-06-04. Todos los hallazgos resueltos.*
+| 19 | [BACK-03] Fire-and-forget real en `crearManejadoresCRUD` — eliminado `await` del logCreate | Backend | 🟢 | ✅ corregido 2026-06-04 |
+| 20 | [SEC-06] Headers duplicados entre middleware.js y next.config.mjs — eliminados de middleware, solo conserva HSTS (depende de NODE_ENV en runtime) | Seguridad | 🟢 | ✅ corregido 2026-06-04 |
+| 21 | [BACK-05] `clearMargenesCache()` ya estaba conectado en `POST /api/pricing/margenes` — falso positivo del REVIEW | Backend | — | ✅ verificado, no requería cambio |
+
+---
+
+*Auditoría completa aplicada el 2026-06-04. 20 hallazgos corregidos, 1 descartado como falso positivo.*

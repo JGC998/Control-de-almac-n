@@ -5,10 +5,9 @@ import { createHmac } from 'crypto';
 // CRÍTICO: En producción, AUTH_PIN es obligatorio. Sin él, el servidor devuelve 503.
 
 function addSecurityHeaders(response) {
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  // SEC-06: X-Content-Type-Options, X-Frame-Options y Referrer-Policy ya los añade
+  // next.config.mjs para todas las rutas. Aquí solo añadimos los que el config estático
+  // no puede calcular dinámicamente (HSTS depende de NODE_ENV en runtime).
   if (process.env.NODE_ENV === 'production') {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
