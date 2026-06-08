@@ -1,7 +1,7 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download, Copy, Pencil, FileSpreadsheet, AlertTriangle, ScanLine } from 'lucide-react';
+import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download, Copy, Pencil, FileSpreadsheet, AlertTriangle, ScanLine, MapPin, RefreshCw, Wifi } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
@@ -39,6 +39,7 @@ const ESTADOS_CONTENEDOR = [
 const TRAZABILIDAD_VACIA = {
   descripcion: '', proveedorId: '', numFactura: '', numContenedor: '',
   estado: 'RECIBIDO', fechaPedido: '', fechaLlegada: '',
+  blNumber: '', trackingActivo: false,
 };
 
 function EstadoBadge({ estado }) {
@@ -55,6 +56,8 @@ function ModalGuardar({ datos, editandoId, onClose }) {
   const [estado, setEstado] = useState(datos.estado || 'RECIBIDO');
   const [fechaPedido, setFechaPedido] = useState(datos.fechaPedido ? datos.fechaPedido.slice(0, 10) : '');
   const [fechaLlegada, setFechaLlegada] = useState(datos.fechaLlegada ? datos.fechaLlegada.slice(0, 10) : '');
+  const [blNumber, setBlNumber] = useState(datos.blNumber || '');
+  const [trackingActivo, setTrackingActivo] = useState(datos.trackingActivo || false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const esEdicion = !!editandoId;
@@ -77,6 +80,8 @@ function ModalGuardar({ datos, editandoId, onClose }) {
           estado,
           fechaPedido: fechaPedido || null,
           fechaLlegada: fechaLlegada || null,
+          blNumber: blNumber.trim() || null,
+          trackingActivo,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar');
@@ -145,6 +150,22 @@ function ModalGuardar({ datos, editandoId, onClose }) {
               <input type="date" className="input input-bordered input-sm" value={fechaLlegada} onChange={e => setFechaLlegada(e.target.value)} />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-xs">Nº BL (conocimiento de embarque)</span></label>
+              <input type="text" className="input input-bordered input-sm font-mono" placeholder="MSCUABCD12345678" value={blNumber} onChange={e => setBlNumber(e.target.value)} />
+            </div>
+            <div className="form-control">
+              <label className="label py-1"><span className="label-text text-xs">Tracking automático 3×/día</span></label>
+              <label className="flex items-center gap-3 cursor-pointer mt-1.5">
+                <input type="checkbox" className="toggle toggle-primary toggle-sm" checked={trackingActivo} onChange={e => setTrackingActivo(e.target.checked)} />
+                <span className="text-xs">{trackingActivo ? '✅ Activado' : 'Desactivado'}</span>
+              </label>
+              {trackingActivo && !blNumber.trim() && !numContenedor.trim() && (
+                <p className="text-xs text-warning mt-1">Necesitas Nº contenedor o BL para el tracking</p>
+              )}
+            </div>
+          </div>
           <div className="form-control">
             <label className="label py-1"><span className="label-text text-xs">Descripción (opcional)</span></label>
             <input
@@ -170,7 +191,147 @@ function ModalGuardar({ datos, editandoId, onClose }) {
   );
 }
 
-function HistorialImportaciones({ onCargar }) {
+// Iconos por estado de tracking (Ship24 status codes)
+const TRACKING_ICONS = {
+  in_transit:        { icon: '🚢', label: 'En tránsito' },
+  customs:           { icon: '🏛️', label: 'En aduana' },
+  available_for_pickup: { icon: '✅', label: 'Listo para recoger' },
+  delivered:         { icon: '📦', label: 'Entregado' },
+  out_for_delivery:  { icon: '🚚', label: 'En reparto' },
+  exception:         { icon: '⚠️', label: 'Incidencia' },
+  info_received:     { icon: '📋', label: 'Info recibida' },
+};
+
+function ModalTracking({ importacionId, numContenedor, blNumber, onClose }) {
+  const [datos, setDatos] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(null);
+
+  const cargar = async () => {
+    setCargando(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/importaciones/${importacionId}/tracking`);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Error ${res.status}`);
+      }
+      setDatos(await res.json());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const fmtFecha = (str) => {
+    if (!str) return '';
+    return new Date(str).toLocaleString('es-ES', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  };
+
+  return (
+    <div className="modal modal-open z-50">
+      <div className="modal-box max-w-2xl max-h-screen overflow-y-auto">
+        <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onClick={onClose}>
+          <X className="w-4 h-4" />
+        </button>
+
+        <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
+          <MapPin className="w-5 h-5 text-primary" />
+          Seguimiento del contenedor
+        </h3>
+        <p className="text-sm text-base-content/50 mb-4 font-mono">
+          {numContenedor || blNumber || '—'}
+        </p>
+
+        {cargando && (
+          <div className="flex justify-center py-10">
+            <span className="loading loading-spinner loading-md text-primary" />
+          </div>
+        )}
+
+        {error && (
+          <div className="alert alert-warning text-sm gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {!cargando && datos && (
+          <div className="space-y-4">
+            {/* ETA */}
+            {datos.eta && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center gap-3">
+                <span className="text-2xl">🎯</span>
+                <div>
+                  <p className="text-xs text-base-content/50">ETA estimada</p>
+                  <p className="font-bold">{fmtFecha(datos.eta)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Timeline de eventos */}
+            {datos.eventos?.length > 0 ? (
+              <div>
+                <p className="text-xs font-medium text-base-content/50 mb-2">
+                  {datos.eventos.length} eventos registrados
+                </p>
+                <ol className="relative border-l border-base-content/20 space-y-4 ml-3">
+                  {datos.eventos.map((ev, i) => {
+                    const info = TRACKING_ICONS[ev.status] || { icon: '📍', label: ev.status };
+                    return (
+                      <li key={i} className="ml-4">
+                        <span className="absolute -left-3 flex items-center justify-center w-6 h-6 rounded-full bg-base-200 ring-2 ring-base-100 text-sm">
+                          {info.icon}
+                        </span>
+                        <div className={`p-2 rounded-lg ${i === 0 ? 'bg-primary/5 border border-primary/20' : 'bg-base-200'}`}>
+                          <p className={`text-sm font-medium ${i === 0 ? 'text-primary' : ''}`}>
+                            {ev.description || info.label}
+                          </p>
+                          {ev.location && (
+                            <p className="text-xs text-base-content/50 mt-0.5">📍 {ev.location}</p>
+                          )}
+                          <p className="text-xs text-base-content/40 mt-0.5">
+                            {fmtFecha(ev.occurrenceDatetime)}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            ) : (
+              <div className="text-center py-6 text-base-content/30">
+                <p>Sin eventos de tracking todavía.</p>
+                <p className="text-xs mt-1">Puede tardar 24-48h desde que el contenedor se registra en la naviera.</p>
+              </div>
+            )}
+
+            <p className="text-xs text-base-content/30 text-right">
+              Consultado: {new Date(datos.consultadoEn).toLocaleString('es-ES')}
+            </p>
+          </div>
+        )}
+
+        <div className="modal-action">
+          <button className="btn btn-ghost gap-2" onClick={cargar} disabled={cargando}>
+            <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />
+            Actualizar ahora
+          </button>
+          <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+      <div className="modal-backdrop" onClick={onClose} />
+    </div>
+  );
+}
+
+function HistorialImportaciones({ onCargar, onVerTracking }) {
   const { data: importaciones, isLoading } = useSWR('/api/importaciones', fetcher);
   const [abierto, setAbierto] = useState(false);
 
@@ -242,7 +403,7 @@ function HistorialImportaciones({ onCargar }) {
                             {esBorrador ? '—' : (imp.totalMetros > 0 ? fmtEur(imp.costeProducto / imp.totalMetros) + '/m' : '—')}
                           </td>
                           <td>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-wrap">
                               <button
                                 className={`btn btn-xs ${esBorrador ? 'btn-warning' : 'btn-ghost'}`}
                                 title={esBorrador ? 'Completar esta recepción con TC y gastos' : 'Cargar estos datos en la calculadora'}
@@ -250,6 +411,15 @@ function HistorialImportaciones({ onCargar }) {
                               >
                                 {esBorrador ? 'Completar' : 'Cargar'}
                               </button>
+                              {imp.trackingActivo && !esBorrador && (
+                                <button
+                                  className="btn btn-xs btn-ghost text-primary"
+                                  title="Ver seguimiento del contenedor"
+                                  onClick={() => onVerTracking(imp)}
+                                >
+                                  <MapPin className="w-3 h-3" />
+                                </button>
+                              )}
                               <button
                                 className="btn btn-xs btn-ghost text-error"
                                 onClick={() => handleDelete(imp.id)}
@@ -315,6 +485,7 @@ export default function CalculadoraContenedorPage() {
   const [nextId, setNextId] = useState(2);
   const [modalGuardar, setModalGuardar] = useState(false);
   const [modalEscaner, setModalEscaner] = useState(false);
+  const [modalTracking, setModalTracking] = useState(null); // { id, numContenedor, blNumber }
   const [editandoId, setEditandoId] = useState(null);
   const [datosTrazabilidad, setDatosTrazabilidad] = useState(TRAZABILIDAD_VACIA);
 
@@ -1377,7 +1548,10 @@ export default function CalculadoraContenedorPage() {
 
       {/* ── Historial ── */}
       <div className="no-print">
-        <HistorialImportaciones onCargar={handleCargarImportacion} />
+        <HistorialImportaciones
+          onCargar={handleCargarImportacion}
+          onVerTracking={(imp) => setModalTracking({ id: imp.id, numContenedor: imp.numContenedor, blNumber: imp.blNumber })}
+        />
       </div>
 
       {/* ── Modal guardar ── */}
@@ -1394,6 +1568,16 @@ export default function CalculadoraContenedorPage() {
         <ModalEscanearEtiqueta
           onConfirmar={handleEtiquetaEscaneada}
           onClose={() => setModalEscaner(false)}
+        />
+      )}
+
+      {/* ── Modal tracking contenedor ── */}
+      {modalTracking && (
+        <ModalTracking
+          importacionId={modalTracking.id}
+          numContenedor={modalTracking.numContenedor}
+          blNumber={modalTracking.blNumber}
+          onClose={() => setModalTracking(null)}
         />
       )}
     </div>

@@ -100,9 +100,12 @@ export const importacionContenedorSchema = z.object({
   proveedorId: z.string().uuid('ID de proveedor inválido').optional().nullable(),
   numFactura: z.string().max(200).optional().nullable(),
   numContenedor: z.string().max(100).optional().nullable(),
-  estado: z.enum(['PEDIDO', 'TRANSITO', 'ADUANA', 'RECIBIDO']).default('RECIBIDO'),
+  estado: z.enum(['PEDIDO', 'TRANSITO', 'ADUANA', 'RECIBIDO', 'BORRADOR']).default('RECIBIDO'),
   fechaPedido: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional().nullable(),
   fechaLlegada: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional().nullable(),
+  // Tracking de contenedor
+  blNumber:       z.string().max(200).optional().nullable(),
+  trackingActivo: z.boolean().optional().default(false),
 });
 
 // ============================================

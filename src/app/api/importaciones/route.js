@@ -35,6 +35,7 @@ export async function POST(request) {
     const {
       descripcion, bobinas,
       proveedorId, numFactura, numContenedor, estado, fechaPedido, fechaLlegada,
+      blNumber, trackingActivo,
       ...numeros
     } = parsed.data;
 
@@ -49,6 +50,8 @@ export async function POST(request) {
         estado: estado ?? 'RECIBIDO',
         fechaPedido: fechaPedido ? new Date(fechaPedido) : null,
         fechaLlegada: fechaLlegada ? new Date(fechaLlegada) : null,
+        blNumber: blNumber?.trim() || null,
+        trackingActivo: trackingActivo ?? false,
       },
       include: { proveedor: { select: { id: true, nombre: true } } },
     });

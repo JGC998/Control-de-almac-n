@@ -419,6 +419,14 @@ model ImportacionContenedor {
   fechaPedido         DateTime?
   fechaLlegada        DateTime?
 
+  // Tracking automático de contenedor (Ship24 + CallMeBot WhatsApp)
+  blNumber              String?
+  trackingActivo        Boolean   @default(false)
+  ultimoEvento          String?
+  ultimoEstadoTracking  String?
+  ultimoTrackingCheck   DateTime?
+  etaEstimada           DateTime?
+
   @@index([creadaEn])
   @@index([proveedorId])
 }
