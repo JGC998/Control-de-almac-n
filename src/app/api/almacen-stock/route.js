@@ -59,7 +59,6 @@ export async function POST(request) {
 
       // BUG-01: capturar datos del stock ANTES de la transacción (puede borrarse si se agota)
       let datosParaNotificar = null;
-      let metrosFinales = 0;
 
       await db.$transaction(async (tx) => {
         const stockItem = await tx.stock.findUnique({ where: { id: stockId } });
@@ -89,7 +88,6 @@ export async function POST(request) {
 
         // 2. Actualizar el registro de Stock
         const newMetrosDisponibles = stockItem.metrosDisponibles - metrosADescontar;
-        metrosFinales = newMetrosDisponibles;
         // Capturar datos del item para poder notificar después, aunque se borre
         datosParaNotificar = { ...stockItem, metrosDisponibles: Math.max(0, newMetrosDisponibles) };
 
