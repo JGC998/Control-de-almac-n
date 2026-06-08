@@ -1,24 +1,27 @@
 import { NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
 
 // S1/S2 — Autenticación por PIN configurado en AUTH_PIN (env).
 // CRÍTICO: En producción, AUTH_PIN es obligatorio. Sin él, el servidor devuelve 503.
+// SEC-02: El token de sesión es HMAC-SHA256 del PIN — nunca se almacena el PIN en texto claro.
+// Usa Web Crypto API (subtleCrypto) porque middleware corre en Edge Runtime (sin Node.js built-ins).
 
 function addSecurityHeaders(response) {
-  // SEC-06: X-Content-Type-Options, X-Frame-Options y Referrer-Policy ya los añade
-  // next.config.mjs para todas las rutas. Aquí solo añadimos los que el config estático
-  // no puede calcular dinámicamente (HSTS depende de NODE_ENV en runtime).
   if (process.env.NODE_ENV === 'production') {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
   return response;
 }
 
-// SEC-02: Deriva un token opaco del PIN usando HMAC-SHA256 con SESSION_SECRET.
-// La cookie nunca almacena el PIN en texto claro.
-function derivarToken(pin) {
+async function derivarToken(pin) {
   const secret = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
-  return createHmac('sha256', secret).update(String(pin)).digest('hex');
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(String(pin)));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 const MOBILE_UA = /Mobi|Android|iPhone|iPad|Tablet/i;
@@ -27,10 +30,9 @@ function isMobile(request) {
   return MOBILE_UA.test(request.headers.get('user-agent') ?? '');
 }
 
-export function middleware(request) {
+export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Redirigir móviles/tablets a /tablet si acceden a la raíz del CRM
   if (pathname === '/' && isMobile(request)) {
     return NextResponse.redirect(new URL('/tablet', request.url));
   }
@@ -38,7 +40,6 @@ export function middleware(request) {
   const pin = process.env.AUTH_PIN;
 
   // CRÍTICO-01: En producción, AUTH_PIN es obligatorio.
-  // Sin él toda la app quedaría expuesta — bloqueamos con 503 en lugar de permitir acceso libre.
   if (!pin) {
     if (process.env.NODE_ENV === 'production') {
       return new NextResponse(
@@ -46,17 +47,14 @@ export function middleware(request) {
         { status: 503, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    // En desarrollo, permitir sin PIN (comportamiento original)
     return addSecurityHeaders(NextResponse.next());
   }
 
   const session = request.cookies.get('crm-auth')?.value;
-  const tokenEsperado = derivarToken(pin);
+  const tokenEsperado = await derivarToken(pin);
 
-  // SEC-02: Comparar token HMAC, no el PIN en texto claro
   if (session === tokenEsperado) return addSecurityHeaders(NextResponse.next());
 
-  // API → 401 JSON
   if (pathname.startsWith('/api/')) {
     return new NextResponse(
       JSON.stringify({ message: 'Sesión requerida. Accede a /login.' }),
@@ -64,7 +62,6 @@ export function middleware(request) {
     );
   }
 
-  // Páginas → redirigir a /login
   const loginUrl = new URL('/login', request.url);
   if (pathname !== '/') loginUrl.searchParams.set('redirect', pathname);
   return NextResponse.redirect(loginUrl);
