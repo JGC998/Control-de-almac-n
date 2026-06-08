@@ -1,659 +1,668 @@
-# REVIEW.md — CRM Taller · Revisión de código (Commit actual)
+# REVIEW — CRM Taller
 
-> **Fecha de revisión:** 2026-06-08
-> **Revisor:** Auditoría automatizada — Claude Code
-> **Alcance:** Código nuevo y modificado en el último commit. Los hallazgos de sesiones anteriores se consideran corregidos y no se reabre ninguno.
-
----
-
-## 1. Resumen ejecutivo
-
-| Área | Score | Hallazgos nuevos |
-|------|-------|-----------------|
-| Seguridad | 7/10 | 3 (SEC-01 medio, SEC-02 bajo, SEC-03 bajo) |
-| Bugs | 6/10 | 5 (BUG-01 alto, BUG-02 medio, BUG-03 bajo, BUG-04 bajo, BUG-05 bajo) |
-| Backend / Queries | 7/10 | 3 (BACK-01 medio, BACK-02 bajo, BACK-03 bajo) |
-| API / Contratos | 7/10 | 2 (API-01 medio, API-02 bajo) |
-| Frontend / UX | 8/10 | 3 (FRONT-01 bajo, FRONT-02 bajo, FRONT-03 bajo) |
-| **Global** | **7/10** | **16 hallazgos** |
-
-**Severidades:**
-- 1 hallazgo ALTO (BUG-01)
-- 3 hallazgos MEDIOS (SEC-01, BUG-02, BACK-01)
-- 12 hallazgos BAJOS
-
-No hay hallazgos CRITICOS en esta revisión. El código nuevo está bien estructurado y usa correctamente los patrones establecidos (logApiError, try-catch, SWR, fetcher). Las correcciones prioritarias son BUG-01 (notificación de stock mínimo silenciada cuando el stock se agota totalmente) y BACK-01 (N+1 queries en análisis de rentabilidad).
+> Generado el 2026-06-08 por Claude Code (claude-sonnet-4-6)
+> Revisión completa exhaustiva: Seguridad · Bugs · Backend · API · Frontend
 
 ---
 
-## 2. Hallazgos CRITICOS
+## 📋 Resumen Ejecutivo
 
-No se han identificado hallazgos críticos en esta revisión.
+**Stack detectado:** Next.js 16 (App Router), Prisma 6 (SQLite dev / MySQL prod), DaisyUI 5, SWR, jsPDF, Resend, Formidable, IndexedDB (offline tab)
+**Archivos analizados:** 92 (todos los routes de `/api`, lib files, middleware, layout, tablet/page.js, sw.js, colaOffline.js)
+**Total de hallazgos:** 18 (1 crítico, 4 altos, 8 medios, 5 bajos)
+
+| Área | Score | Críticos | Altos | Medios | Bajos |
+|------|-------|----------|-------|--------|-------|
+| 🔒 Seguridad | 7/10 | 1 | 2 | 3 | 1 |
+| 🐛 Bugs | 8/10 | 0 | 1 | 2 | 1 |
+| ⚙️ Backend | 8/10 | 0 | 1 | 2 | 1 |
+| 🌐 API | 9/10 | 0 | 0 | 1 | 2 |
+| 🎨 Frontend | 9/10 | 0 | 0 | 0 | 0 |
+
+**Contexto:** El proyecto tiene una base sólida — Zod en la mayoría de POST/PUT, `logApiError` sin stack traces, `$transaction` donde corresponde, rate limiting en endpoints pesados, y cookies httpOnly+sameSite+secure. El hallazgo crítico (SEC-01) es arquitectural: el middleware nunca verifica la cookie de sesión aunque AUTH_PIN esté activo.
 
 ---
 
-## 3. Hallazgos de SEGURIDAD
+## 🚨 Hallazgos Críticos
 
-### SEC-01 — MEDIO · Los endpoints nuevos no tienen rate limiting
+### SEC-01 — Middleware no verifica la cookie de sesión
+
+**Archivo:** `middleware.js` (raíz), líneas 1–25
+**Severidad:** 🔴 CRÍTICO
+
+El middleware actual añade HSTS y redirige móviles pero **nunca verifica la cookie `crm-auth`**. Cuando `AUTH_PIN` está configurado en producción, el login crea la cookie correctamente en `/api/auth/login`, pero el middleware no la lee. Resultado: cualquier petición no autenticada pasa a todas las rutas de la app, incluyendo `/api/clientes`, `/api/pedidos`, `/api/config`, `/api/audit-log`, `/api/config/backup`, etc.
+
+**Código actual:**
+```js
+// middleware.js líneas 12-21
+export function middleware(request) {
+  const { pathname } = request.nextUrl;
+  if (pathname === '/' && MOBILE_UA.test(request.headers.get('user-agent') ?? '')) {
+    return NextResponse.redirect(new URL('/tablet', request.url));
+  }
+  return addSecurityHeaders(NextResponse.next()); // ← nunca verifica cookie
+}
+```
+
+**Corrección:**
+```js
+import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+
+const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/status', '/api/auth/logout'];
+const MOBILE_UA = /Mobi|Android|iPhone|iPad|Tablet/i;
+
+function addSecurityHeaders(response) {
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  return response;
+}
+
+export function middleware(request) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname === '/' && MOBILE_UA.test(request.headers.get('user-agent') ?? '')) {
+    return NextResponse.redirect(new URL('/tablet', request.url));
+  }
+
+  const authPin = process.env.AUTH_PIN;
+  if (authPin && !PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+    const token = request.cookies.get('crm-auth')?.value;
+    if (!token) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    const secret = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
+    const expected = crypto.createHmac('sha256', secret).update(authPin).digest('hex');
+    const ok = token.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+    if (!ok) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
+
+  return addSecurityHeaders(NextResponse.next());
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
+};
+```
+
+---
+
+## 🔒 Seguridad
+
+### SEC-02 — Fallback débil hardcodeado para SESSION_SECRET
+
+**Archivo:** `src/app/api/auth/login/route.js`, línea 33
+**Severidad:** 🟠 ALTO
+
+```js
+const secret = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
+```
+
+Si `SESSION_SECRET` no está en producción, el token HMAC se firma con un secreto conocido públicamente. Un atacante puede derivar el token válido sin conocer el PIN.
+
+**Corrección:**
+```js
+const secret = process.env.SESSION_SECRET;
+if (!secret && process.env.NODE_ENV === 'production') {
+  console.error('[FATAL] SESSION_SECRET no configurado en producción. Abortando.');
+  return NextResponse.json({ message: 'Error de configuración del servidor' }, { status: 500 });
+}
+const effectiveSecret = secret || 'dev-secret-change-in-production';
+const token = crypto.createHmac('sha256', effectiveSecret).update(expected).digest('hex');
+```
+
+---
+
+### SEC-03 — Subida de documentos: colisión de nombres / sobrescritura silenciosa
+
+**Archivo:** `src/app/api/documentos/route.js`, líneas 140–143
+**Severidad:** 🟠 ALTO
+
+```js
+const rawName = uploadedFile.originalFilename || 'documento';
+const safeFileName = path.basename(rawName).replace(/[^a-zA-Z0-9._\-]/g, '_');
+const targetPath = path.join(process.cwd(), 'public', 'planos', safeFileName);
+```
+
+Dos usuarios que suban `factura.pdf` causan que el segundo sobreescriba el primero sin ningún aviso.
+
+**Corrección — añadir UUID al nombre:**
+```js
+import { randomUUID } from 'crypto';
+const ext = path.extname(uploadedFile.originalFilename || '').toLowerCase();
+const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+const safeExt = allowedExts.includes(ext) ? ext : '.bin';
+const safeFileName = `${randomUUID()}${safeExt}`;
+// Guardar nombre original en campo descripcion o campo nuevo nombreOriginal
+```
+
+---
+
+### SEC-04 — `GET /api/config` expone todas las claves sin filtrar
+
+**Archivo:** `src/app/api/config/route.js`, líneas 10–27
+**Severidad:** 🟡 MEDIO
+
+`db.config.findMany()` sin `select` ni `where` devuelve todas las claves de la tabla. Si en el futuro se guarda un API key u otro secreto en Config, se expone automáticamente.
+
+**Corrección:**
+```js
+const PUBLIC_CONFIG_KEYS = [
+  'iva_rate', 'empresa_nombre', 'empresa_nif', 'empresa_telefono',
+  'empresa_email', 'empresa_direccion', 'empresa_cp', 'empresa_ciudad',
+  'empresa_provincia', 'empresa_pais', 'empresa_web', 'empresa_logo',
+  'longitud_barra_tacos', 'costeVulcanizadoMetro',
+];
+const settingsList = await db.config.findMany({ where: { key: { in: PUBLIC_CONFIG_KEYS } } });
+```
+
+---
+
+### SEC-05 — Headers de seguridad incompletos
+
+**Archivo:** `middleware.js`, líneas 3–8
+**Severidad:** 🟡 MEDIO
+
+Solo se añade `Strict-Transport-Security`. Faltan `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` y `Referrer-Policy`. Véase corrección en SEC-01 que ya los incluye.
+
+---
+
+### SEC-06 — Rate limiting ausente en endpoints de escritura
+
+**Archivos:** `src/app/api/pricing/especiales/route.js`, `src/app/api/notificaciones/route.js`, `src/app/api/almacen-stock/route.js` (POST), `src/app/api/pedidos-proveedores-data/route.js`
+**Severidad:** 🟡 MEDIO
+
+Endpoints que crean/modifican datos sin rate limiting son vectores de abuso (flooding de notificaciones, dump de precios). El módulo `src/lib/rateLimiter.js` ya existe.
+
+**Corrección — patrón a aplicar en cada ruta:**
+```js
+const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+const rl = checkRateLimit(`<ruta>:${ip}`, 30);
+if (!rl.allowed) {
+  return NextResponse.json({ message: 'Demasiadas peticiones' },
+    { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+}
+```
+
+---
+
+### SEC-07 — Excepción de `.gitignore` para dev.db tiene ruta duplicada
+
+**Archivo:** `.gitignore`, línea 23
+**Severidad:** 🟢 BAJO
+
+```gitignore
+!prisma/prisma/dev.db   # ← debería ser !prisma/dev.db
+```
+
+La ruta `prisma/prisma/dev.db` no existe. La excepción no funciona y la DB podría commitearse.
+
+**Corrección:**
+```gitignore
+!prisma/dev.db
+```
+
+---
+
+## 🐛 Bugs
+
+### BUG-01 — `await request.json()` fuera del try-catch (3 archivos)
 
 **Archivos:**
-- `src/app/api/importaciones/[id]/analisis-rentabilidad/route.js`
-- `src/app/api/pedidos-proveedores-data/analisis-precios/route.js`
+- `src/app/api/precios/route.js`, línea 33
+- `src/app/api/pricing/descuentos/route.js`, línea 65
+- `src/app/api/almacen-stock/route.js`, línea 43
 
-El endpoint `analisis-rentabilidad` lanza hasta N queries a la base de datos (una por bobina en el contenedor), lo que lo convierte en un candidato natural para un ataque DoS de coste bajo: un atacante autenticado puede hacer polling intensivo forzando muchas queries simultáneas. El endpoint `analisis-precios` también carece de límite de tasa.
+**Severidad:** 🟠 ALTO
 
-El módulo `src/lib/rateLimiter.js` ya existe y está en uso en otros endpoints. La firma exportada es:
+En estos tres endpoints, `request.json()` está llamado **antes** del bloque `try`. Si el body es JSON malformado, `SyntaxError` no es capturado, y Next.js devuelve una respuesta genérica sin el formato estándar de la app.
 
+**Ejemplo en `precios/route.js`:**
 ```js
-// src/lib/rateLimiter.js
-export function checkRateLimit(ip, maxRequests = 60) {
-  // Ventana deslizante de 60 segundos por IP
-  // Devuelve { allowed: boolean, remaining: number, retryAfter?: number }
+// ACTUAL — problema
+export async function POST(request) {
+  const data = await request.json(); // ← fuera del try
+  try {
+    // ...
+  }
 }
-```
 
-**Corrección sugerida** (misma pauta que `/api/informes`):
-
-```js
-// Al inicio de la función GET, antes de cualquier query:
-import { checkRateLimit } from '@/lib/rateLimiter';
-
-const ip = request.headers.get('x-forwarded-for') ?? 'local';
-const rl = checkRateLimit(ip, 20); // 20 req/min para endpoints pesados
-if (!rl.allowed) {
-  return NextResponse.json(
-    { message: 'Demasiadas peticiones. Inténtalo más tarde.' },
-    { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
-  );
-}
-```
-
----
-
-### SEC-02 — BAJO · El endpoint `analisis-rentabilidad` no valida el formato del ID
-
-**Archivo:** `src/app/api/importaciones/[id]/analisis-rentabilidad/route.js`, líneas 12–18
-
-El `id` del path se pasa directamente a `db.importacionContenedor.findUnique({ where: { id } })` sin validar que sea un UUID bien formado. Aunque Prisma no ejecutará SQL arbitrario gracias al ORM, un ID malformado puede generar un error no controlado en algunos dialectos (especialmente MySQL en producción).
-
-```js
-// Código actual — líneas 12-18
-const { id } = await params;
-// No hay validación del formato UUID aquí
-const importacion = await db.importacionContenedor.findUnique({ where: { id } });
-if (!importacion) {
-  return NextResponse.json({ message: 'Importación no encontrada' }, { status: 404 });
-}
-```
-
-**Corrección sugerida:**
-
-```js
-const { id } = await params;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-if (!UUID_RE.test(id)) {
-  return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
+// CORRECCIÓN
+export async function POST(request) {
+  try {
+    const data = await request.json();
+    // ...
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
+    }
+    logApiError(error, 'POST /api/precios');
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
 }
 ```
 
 ---
 
-### SEC-03 — BAJO · El parámetro `material` en `analisis-precios` no está limitado en longitud
+### BUG-02 — `handleEliminar` en tablet incrementa `pendientes` incorrectamente
 
-**Archivo:** `src/app/api/pedidos-proveedores-data/analisis-precios/route.js`, líneas 11–13 y 25–26
-
-El parámetro `material` se usa directamente en un `contains` de Prisma:
+**Archivo:** `src/app/tablet/page.js`, líneas 655–661
+**Severidad:** 🟡 MEDIO
 
 ```js
-// Líneas 25-26 — código actual
-const pedidos = await db.pedidoProveedor.findMany({
-  where: { material: { contains: material } },
+const handleEliminar = useCallback(async (idx) => {
+  const items = sesion.items.filter((_, i) => i !== idx);
+  const nuevaSesion = { ...sesion, items, pendientes: sesion.pendientes + 1 }; // ← +1 al borrar
   // ...
-  take: 500,
-});
+}, [sesion, sincronizar]);
 ```
 
-El operador `contains` de Prisma es seguro contra inyección SQL porque usa queries parametrizadas. Sin embargo, no hay validación de longitud ni de caracteres, lo que permite buscar con strings arbitrariamente largos y puede degradar el rendimiento.
-
-**Corrección sugerida:**
-
-```js
-const material = searchParams.get('material');
-if (material && (typeof material !== 'string' || material.length > 100)) {
-  return NextResponse.json({ message: 'Parámetro material inválido' }, { status: 400 });
-}
-```
-
----
-
-## 4. Hallazgos de BUGS
-
-### BUG-01 — ALTO · Notificación de stock mínimo nunca se genera cuando el stock se agota totalmente
-
-**Archivo:** `src/app/api/almacen-stock/route.js`, líneas 61–113
-
-Dentro de la transacción, cuando `newMetrosDisponibles <= 0.01`, el registro de stock se elimina de la base de datos (línea 92). Inmediatamente después de la transacción, en la línea 104, el código busca ese mismo registro para decidir si emitir la notificación de stock mínimo:
-
-```js
-// Código actual — líneas 90-113 de src/app/api/almacen-stock/route.js
-
-// Dentro de la transacción:
-if (newMetrosDisponibles <= 0.01) {
-  // El registro se borra aquí
-  await tx.stock.delete({ where: { id: stockId } });
-} else {
-  await tx.stock.update({
-    where: { id: stockId },
-    data: { metrosDisponibles: newMetrosDisponibles },
-  });
-}
-
-// Fuera de la transacción:
-// stockActualizado será null porque el registro ya fue borrado
-const stockActualizado = await db.stock.findUnique({ where: { id: stockId } });
-if (stockActualizado && (stockActualizado.stockMinimo || 0) > 0 && stockActualizado.metrosDisponibles < stockActualizado.stockMinimo) {
-  db.notificacion.create({ ... }).catch(() => {});
-}
-```
-
-La condición `if (stockActualizado && ...)` es correcta como guard de null, pero el efecto es que el agotamiento total — el caso más urgente para el responsable del almacén — **nunca genera ninguna notificación**. El `stockMinimo` queda ignorado precisamente cuando más importa.
-
-**Corrección sugerida:** Guardar los datos del stock dentro de la transacción antes del delete:
-
-```js
-// En la transacción, capturar los datos antes de borrar:
-const stockItem = await tx.stock.findUnique({ where: { id: stockId } });
-// ...
-const datosStock = { ...stockItem }; // capturar antes de borrar
-if (newMetrosDisponibles <= 0.01) {
-  await tx.stock.delete({ where: { id: stockId } });
-} else {
-  await tx.stock.update({
-    where: { id: stockId },
-    data: { metrosDisponibles: newMetrosDisponibles },
-  });
-}
-
-// Fuera de la transacción, usar datosStock para la notificación:
-const datosParaNotificar = newMetrosDisponibles <= 0.01
-  ? { ...datosStock, metrosDisponibles: 0 }  // stock agotado
-  : await db.stock.findUnique({ where: { id: stockId } });
-
-if (datosParaNotificar && (datosParaNotificar.stockMinimo || 0) > 0 &&
-    datosParaNotificar.metrosDisponibles < datosParaNotificar.stockMinimo) {
-  db.notificacion.create({
-    data: {
-      titulo: `⚠️ Stock bajo mínimo: ${datosParaNotificar.material}`,
-      mensaje: `Quedan ${datosParaNotificar.metrosDisponibles.toFixed(1)} m de ${datosParaNotificar.material}${datosParaNotificar.espesor ? ` ${datosParaNotificar.espesor}mm` : ''} (mínimo configurado: ${datosParaNotificar.stockMinimo} m).`,
-      leida: false,
-    },
-  }).catch(() => {});
-}
-```
-
-**Nota de implementación:** La variable `newMetrosDisponibles` debe ser accesible fuera del bloque `$transaction`. Actualmente está declarada dentro del callback de `db.$transaction`, por lo que será necesario moverla fuera del scope de la transacción o usar un flag/closure. El patrón más limpio es declarar `let stockParaNotificar = null` antes de `db.$transaction`, asignarlo dentro, y usarlo fuera.
-
----
-
-### BUG-02 — MEDIO · `handleSendReminder` envía `...quote` directamente al endpoint PUT sin verificar res.ok
-
-**Archivo:** `src/app/presupuestos/[id]/page.js`, líneas 210–214
-
-```js
-// Código actual — líneas 210-214
-// Actualizar ultimoRecordatorio
-await fetch(`/api/presupuestos/${id}`, {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ ...quote, ultimoRecordatorio: new Date().toISOString() }),
-});
-```
-
-El objeto `quote` que llega del hook SWR contiene campos que NO forman parte del schema Zod del endpoint PUT (`presupuestoSchema` en `src/lib/validations.js`). El schema del PUT espera: `clienteId`, `items`, `estado`, `marginId`, `subtotal`, `tax`, `total`, `notas`. El objeto `quote` contiene además: `cliente` (objeto expandido), `pedido`, `numero`, `fechaCreacion`, `ultimoRecordatorio`, etc.
-
-Adicionalmente, `ultimoRecordatorio` **no está en el schema Zod del PUT**, por lo que la propiedad se ignorará silenciosamente (o rechazará con 400 si el schema usa `.strict()`). Peor aún: no hay comprobación de `res.ok` en esta llamada, por lo que un fallo pasa completamente desapercibido para el usuario.
-
-Hay dos problemas independientes:
-1. La llamada `fetch` no comprueba `res.ok` — si falla, `ultimoRecordatorio` no se actualiza pero el usuario ve el mensaje de éxito del email.
-2. El spread `{ ...quote }` incluye campos que el endpoint no espera.
-
-**Corrección sugerida:** Enviar solo los campos que el endpoint PUT realmente espera y verificar el resultado:
-
-```js
-// En lugar de { ...quote, ultimoRecordatorio: ... }
-const putRes = await fetch(`/api/presupuestos/${id}`, {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    clienteId: quote.clienteId,
-    items: quote.items?.map(i => ({
-      descripcion: i.descripcion,
-      quantity: i.quantity,
-      unitPrice: i.unitPrice,
-      productoId: i.productoId,
-      pesoUnitario: i.pesoUnitario,
-    })),
-    estado: quote.estado,
-    marginId: quote.marginId,
-    subtotal: Number(quote.subtotal),
-    tax: Number(quote.tax),
-    total: Number(quote.total),
-    notas: quote.notas,
-    ultimoRecordatorio: new Date().toISOString(),
-  }),
-});
-if (!putRes.ok) {
-  console.warn('No se pudo actualizar ultimoRecordatorio:', await putRes.text());
-}
-```
-
-O, mejor aún, encapsular la actualización de `ultimoRecordatorio` en el propio endpoint de email (`POST /api/presupuestos/${id}/email`) para que se actualice en el servidor sin requerir un PUT adicional desde el cliente.
-
-**Nota:** `ultimoRecordatorio` no aparece en el schema `presupuestoSchema` actual. Para que el fix funcione completamente, hay que añadirlo al schema Zod en `src/lib/validations.js` y al `tx.presupuesto.update()` en la ruta PUT.
-
----
-
-### BUG-03 — BAJO · `setMaxQuantity` usa `prev.disponible` en lugar de `prev.disponibleMetros`
-
-**Archivo:** `src/app/almacen/stock/page.js`, línea 83–85
-
-```js
-// Código actual — línea 83
-const setMaxQuantity = () => {
-  setWithdrawalData(prev => ({ ...prev, cantidad: prev.disponible.toFixed(2) }));
-};
-```
-
-El estado `withdrawalData` se inicializa en `openWithdrawalModal` con la propiedad `disponibleMetros` (línea 33), no `disponible`:
-
-```js
-// Líneas 28-36 — inicialización correcta del estado
-setWithdrawalData({
-  stockId: item.id,
-  material: item.material,
-  espesor: item.espesor,
-  cantidad: '',
-  disponibleMetros: item.metrosDisponibles || 0,  // <-- la propiedad correcta es disponibleMetros
-  referencia: `Salida para Material: ${item.material} ${item.espesor}mm`
-});
-```
-
-Al llamar a `prev.disponible`, el resultado es `undefined`, y `.toFixed(2)` sobre `undefined` lanza `TypeError: Cannot read properties of undefined (reading 'toFixed')`.
-
-El botón "Baja Total" en la línea 262 usa la referencia correcta directamente en su handler inline:
-```js
-// Línea 262 — inline handler correcto
-onClick={() => setWithdrawalData(prev => ({ ...prev, cantidad: prev.disponibleMetros }))}
-```
-
-La función `setMaxQuantity` está definida pero actualmente no se conecta a ningún botón en el JSX. Aun así, el bug es real y romperá si se conecta en el futuro.
+Al eliminar artículos offline, `pendientes` se acumula como contador de borrados, no de artículos pendientes reales. Causa badge inflado.
 
 **Corrección:**
-
 ```js
-const setMaxQuantity = () => {
-  setWithdrawalData(prev => ({ ...prev, cantidad: prev.disponibleMetros.toFixed(2) }));
-};
+const nuevaSesion = { ...sesion, items, pendientes: items.length > 0 ? 1 : 0 };
 ```
 
 ---
 
-### BUG-04 — BAJO · `Promise.all` en `analisis-rentabilidad` puede silenciar errores individuales de bobinas
+### BUG-03 — Race condition por stale closure en `sincronizar`
 
-**Archivo:** `src/app/api/importaciones/[id]/analisis-rentabilidad/route.js`, líneas 31–92
+**Archivo:** `src/app/tablet/page.js`, líneas 595–616
+**Severidad:** 🟡 MEDIO
 
+`sincronizar` captura `sesion` en su closure. Si `sesion` se actualiza varias veces rápidamente antes de que `sincronizar` se ejecute, la llamada puede usar datos obsoletos.
+
+**Corrección — usar ref para la sesión:**
 ```js
-// Código actual — líneas 31-92
-const resultados = await Promise.all(
-  bobs
-    .filter(b => b.tipo === 'BOBINA' || !b.tipo)
-    .map(async (b) => {
-      // ...
-      if (material && espesor) {
-        tarifaActual = await db.tarifaRollo.findFirst({
-          where: {
-            material: { contains: material },
-            espesor,
-            ...(ancho ? { ancho } : {}),
-          },
-          orderBy: { espesor: 'asc' },
-        });
-      }
-      // ...
-    })
-);
-```
+const sesionRef = useRef(sesion);
+useEffect(() => { sesionRef.current = sesion; }, [sesion]);
 
-Si `db.tarifaRollo.findFirst(...)` lanza una excepción para una bobina concreta (p.ej. problema transitorio de BD, tipo inesperado en `espesor`), el `Promise.all` completo rechazará y el endpoint devolverá 500, aunque solo una de las 20 bobinas haya fallado. Esto penaliza innecesariamente al usuario que intenta ver el análisis de las bobinas restantes.
-
-**Corrección sugerida:** Usar `Promise.allSettled` y manejar los rechazos por bobina:
-
-```js
-const settled = await Promise.allSettled(
-  bobs
-    .filter(b => b.tipo === 'BOBINA' || !b.tipo)
-    .map(async (b) => { /* ... mismo código ... */ })
-);
-
-const resultados = settled.map((r, i) =>
-  r.status === 'fulfilled'
-    ? r.value
-    : {
-        referencia: `Bobina ${i + 1}`,
-        semaforo: 'gris',
-        error: true,
-        metros: 0,
-        costeRealM: 0,
-        precioVentaM: null,
-        margenRealPct: null,
-        precioMinimo: null,
-      }
-);
-```
-
----
-
-### BUG-05 — BAJO · Item inicial de `FormularioPedidoCliente` no incluye `costoUnitario`
-
-**Archivo:** `src/componentes/pedidos/FormularioPedidoCliente.js`, línea 41
-
-```js
-// Código actual — línea 41
-|| [{ id: Date.now(), descripcion: '', quantity: 1, unitPrice: 0, productoId: null }]
-```
-
-Los items añadidos con `addItem()` más adelante en el componente incluyen `costoUnitario: 0`, pero el item por defecto al montar el componente no. Esto no provoca un crash (el useMemo defensivo usa `parseFloat(item.costoUnitario) || 0`), pero genera una inconsistencia de shape entre el primer ítem y los añadidos manualmente.
-
-**Corrección:**
-
-```js
-|| [{ id: Date.now(), descripcion: '', quantity: 1, unitPrice: 0, costoUnitario: 0, productoId: null }]
-```
-
----
-
-## 5. Hallazgos de BACKEND
-
-### BACK-01 — MEDIO · N+1 queries en `analisis-rentabilidad` (una query por bobina)
-
-**Archivo:** `src/app/api/importaciones/[id]/analisis-rentabilidad/route.js`, líneas 54–64
-
-El `map` async con `Promise.all` ejecuta una query `db.tarifaRollo.findFirst(...)` por cada bobina del contenedor:
-
-```js
-// Código actual — el problema está aquí, dentro del .map():
-let tarifaActual = null;
-if (material && espesor) {
-  tarifaActual = await db.tarifaRollo.findFirst({
-    where: {
-      material: { contains: material },
-      espesor,
-      ...(ancho ? { ancho } : {}),
-    },
-    orderBy: { espesor: 'asc' },
-  });
-}
-```
-
-Un contenedor típico de 20-30 bobinas genera 20-30 queries paralelas a la tabla `tarifaRollo`. Aunque `Promise.all` las ejecuta concurrentemente, cada una es un round-trip a la BD que podría resolverse con una sola query previa.
-
-**Corrección sugerida:** Pre-cargar todas las tarifas relevantes en una sola query antes del `map` y buscar en memoria:
-
-```js
-// Antes del Promise.all/map, obtener los espesores únicos de las bobinas
-const uniqueEspesores = [
-  ...new Set(
-    bobs
-      .filter(b => b.tipo === 'BOBINA' || !b.tipo)
-      .map(b => parseFloat(b.espesor) || null)
-      .filter(Boolean)
-  ),
-];
-
-// Una sola query para todas las tarifas con esos espesores
-const todasTarifas = uniqueEspesores.length > 0
-  ? await db.tarifaRollo.findMany({
-      where: { espesor: { in: uniqueEspesores } },
-    })
-  : [];
-
-// Dentro del .map(), buscar en memoria en lugar de hacer una query:
-const tarifaActual = (material && espesor)
-  ? todasTarifas.find(t =>
-      t.espesor === espesor &&
-      t.material.toUpperCase().includes(material) &&
-      (!ancho || t.ancho === ancho)
-    ) ?? null
-  : null;
-```
-
----
-
-### BACK-02 — BAJO · `analisis-precios` con `take: 500` sin indicador de truncamiento
-
-**Archivo:** `src/app/api/pedidos-proveedores-data/analisis-precios/route.js`, líneas 25–35 y 75
-
-```js
-// Código actual
-const pedidos = await db.pedidoProveedor.findMany({
-  where: { material: { contains: material } },
+const sincronizar = useCallback(async (sesionActual) => {
+  if (syncRef.current) return;
+  const s = sesionActual || sesionRef.current; // siempre fresca
   // ...
-  take: 500,
-});
-// ...
-return NextResponse.json({ material, proveedores: result });
-```
-
-Los 500 pedidos se cargan en memoria, se iteran y se devuelven todos los `puntos` en la respuesta. El límite `take: 500` está, pero no hay paginación ni cursor, y si los datos superan 500 registros los resultados quedarán truncados sin que el cliente lo sepa.
-
-**Mejora sugerida:** Añadir un flag `truncated` en la respuesta:
-
-```js
-const total = await db.pedidoProveedor.count({
-  where: { material: { contains: material } },
-});
-// ... findMany con take: 500 ...
-return NextResponse.json({ material, proveedores: result, truncated: total > 500 });
+}, []); // eliminar dependencia de sesion
 ```
 
 ---
 
-### BACK-03 — BAJO · `Math.min(...arr)` / `Math.max(...arr)` con spread puede fallar con arrays grandes
+### BUG-04 — Dos endpoints DELETE para notas (colección y recurso individual)
 
-**Archivo:** `src/app/api/pedidos-proveedores-data/analisis-precios/route.js`, líneas 70–71
+**Archivos:** `src/app/api/notas/route.js` (líneas 39–55) y `src/app/api/notas/[id]/route.js`
+**Severidad:** 🟢 BAJO
 
-```js
-// Código actual
-precioMin: parseFloat(Math.min(...p.puntos.map(x => x.precioMetro)).toFixed(4)),
-precioMax: parseFloat(Math.max(...p.puntos.map(x => x.precioMetro)).toFixed(4)),
-```
+`DELETE /api/notas` lee el ID del body (anti-REST) y `DELETE /api/notas/[id]` lo toma del path (correcto). Conviven dos formas de borrar la misma entidad, lo que genera ambigüedad en el cliente.
 
-JavaScript tiene un límite en el número de argumentos de una función (`~65536` en V8). Con el `take: 500` de pedidos y múltiples bobinas por pedido, los `p.puntos` de un proveedor activo podrían exceder ese límite en el largo plazo.
-
-**Corrección robusta:**
-
-```js
-precioMin: parseFloat(
-  p.puntos.reduce((m, x) => Math.min(m, x.precioMetro), Infinity).toFixed(4)
-),
-precioMax: parseFloat(
-  p.puntos.reduce((m, x) => Math.max(m, x.precioMetro), -Infinity).toFixed(4)
-),
-```
+**Recomendación:** Deprecar el DELETE en la colección y usar únicamente `/api/notas/[id]`.
 
 ---
 
-## 6. Hallazgos de API
+## ⚙️ Backend
 
-### API-01 — MEDIO · `ultimoRecordatorio` no está en el schema Zod del endpoint PUT de presupuestos
+### BACK-01 — PUT `/api/productos/[id]` sin validación Zod
 
-**Archivo:** `src/app/api/presupuestos/[id]/route.js`, líneas 38–42
+**Archivo:** `src/app/api/productos/[id]/route.js`, líneas 23–48
+**Severidad:** 🟠 ALTO
 
-El endpoint PUT valida el body con `presupuestoSchema.safeParse(body)` y luego extrae los campos válidos:
-
+El PUT usa whitelist manual sin schema Zod:
 ```js
-// Código actual — línea 42
-const { clienteId, items, estado, marginId, subtotal, tax, total } = parsed.data;
-// 'ultimoRecordatorio' no se extrae aquí y no está en el schema
+if (data.nombre !== undefined) updateData.nombre = data.nombre; // sin validar longitud
+if (data.precioUnitario !== undefined) updateData.precioUnitario = parseFloat(data.precioUnitario); // NaN posible
 ```
 
-El schema Zod no incluye `ultimoRecordatorio`, por lo que la propiedad se descarta silenciosamente. El campo tampoco se pasa al `tx.presupuesto.update()`. Esto hace que el fix de BUG-02 sea incompleto hasta que también se actualice el schema y la ruta.
-
-**Corrección requerida para que BUG-02 funcione:**
-
-```js
-// En src/lib/validations.js — añadir al presupuestoSchema:
-ultimoRecordatorio: z.string().datetime().optional().nullable(),
-
-// En src/app/api/presupuestos/[id]/route.js — extraer y usar:
-const { clienteId, items, estado, marginId, subtotal, tax, total, ultimoRecordatorio } = parsed.data;
-// ...
-const quote = await tx.presupuesto.update({
-  where: { id },
-  data: {
-    clienteId,
-    estado,
-    marginId,
-    notas: finalNotes,
-    subtotal,
-    tax,
-    total,
-    ...(ultimoRecordatorio !== undefined ? { ultimoRecordatorio } : {}),
-  },
-});
-```
-
----
-
-### API-02 — BAJO · Listado de materiales en `analisis-precios` sin límite
-
-**Archivo:** `src/app/api/pedidos-proveedores-data/analisis-precios/route.js`, líneas 15–21
-
-```js
-// Código actual — sin take
-const materiales = await db.pedidoProveedor.findMany({
-  distinct: ['material'],
-  select: { material: true },
-  orderBy: { material: 'asc' },
-});
-```
-
-No hay `take` en esta query de listado. Si hay cientos de materiales distintos en BD, se devuelven todos. Añadir `take: 200` evita payloads innecesariamente grandes.
-
----
-
-## 7. Hallazgos de FRONTEND
-
-### FRONT-01 — BAJO · `comparativa-proveedores` no muestra error cuando `listaMateriales` falla
-
-**Archivo:** `src/app/herramientas/comparativa-proveedores/page.js`, línea 20
-
-```js
-// Código actual
-const { data: listaMateriales } = useSWR('/api/pedidos-proveedores-data/analisis-precios', fetcher);
-```
-
-No se desestructura `error` de este hook. Si la carga de materiales falla (timeout, 500), el selector simplemente queda vacío sin feedback al usuario. El hook de datos para el material seleccionado sí maneja el error (línea 23-26), pero el de la lista de materiales no.
+El POST sí usa `productoSchema`. Inconsistencia: un nombre vacío `""` pasa sin error en PUT pero falla en POST.
 
 **Corrección:**
-
 ```js
-const { data: listaMateriales, error: materialesError } = useSWR(
-  '/api/pedidos-proveedores-data/analisis-precios', fetcher
-);
-// Y en el JSX:
-{materialesError && (
-  <div className="alert alert-warning">No se pudieron cargar los materiales disponibles.</div>
-)}
+import { productoSchema } from '@/lib/validations';
+
+export async function PUT(request, { params }) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const parsed = productoSchema.partial().safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
+    }
+    const updatedProducto = await db.producto.update({ where: { id }, data: parsed.data });
+    // ...
 ```
 
 ---
 
-### FRONT-02 — BAJO · `analisis-rentabilidad/page.js` — hook carga todas las importaciones sin filtro
+### BACK-02 — `GET /api/pricing/margenes` no registra errores
 
-**Archivo:** `src/app/herramientas/analisis-rentabilidad/page.js`, línea 22
+**Archivo:** `src/app/api/pricing/margenes/route.js`, líneas 11–18
+**Severidad:** 🟡 MEDIO
 
 ```js
-const { data: importaciones } = useSWR('/api/importaciones', fetcher);
+} catch (error) {
+  return NextResponse.json({ message: 'Error al obtener márgenes' }, { status: 500 }); // sin logApiError
+}
 ```
 
-El hook carga todas las importaciones sin filtro. Esto es coherente con el modelo de acceso PIN-global del proyecto (no hay roles de usuario). Se documenta porque en el futuro, si se añade multi-tenant, esta pantalla sería el primer punto a revisar.
+Fallos de BD en este endpoint son invisibles en logs.
 
-**Sin cambio requerido** en el diseño actual. Anotación para futura escalabilidad.
-
----
-
-### FRONT-03 — BAJO · El spread `Math.min(...arr)` de BACK-03 no afecta al frontend
-
-**Archivo:** `src/app/herramientas/comparativa-proveedores/page.js`
-
-El frontend recibe `precioMin` y `precioMax` pre-calculados en la respuesta del API y los usa directamente (`p.precioMin`, `p.precioMax`). No aplica ningún spread problemático sobre arrays. El riesgo está contenido en BACK-03.
-
-**Sin cambio requerido en frontend.**
+**Corrección:** Añadir `logApiError(error, 'GET /api/pricing/margenes');` antes del return.
 
 ---
 
-## 8. Puntos positivos — Lo que está bien hecho
+### BACK-03 — `GET /api/almacen-stock` carga todos los proveedores sin límite
 
-1. **Try-catch correcto en todos los handlers nuevos.** Los dos endpoints nuevos (`analisis-rentabilidad/route.js` y `analisis-precios/route.js`) tienen try-catch completo con `logApiError` — siguen el patrón establecido en el proyecto.
+**Archivo:** `src/app/api/almacen-stock/route.js`, líneas 17–20
+**Severidad:** 🟡 MEDIO
 
-2. **`analisis-rentabilidad` es solo lectura y lo documenta explícitamente.** El comentario `// Solo lectura — no modifica ningún dato` en la línea 9 del route y el label en la UI son buenas prácticas de comunicación. Elimina dudas de cara a auditorías o mantenedores nuevos.
+```js
+db.proveedor.findMany({
+  select: { id: true, nombre: true },
+  // ← sin take()
+}),
+```
 
-3. **El fix de la transacción atómica en `almacen-stock/route.js` está bien implementado.** La transacción atómica para la operación de salida, con `e.isUserError = true` para distinguir errores de dominio de errores de servidor, es un patrón correcto y limpio. La elección de 422 (Unprocessable Entity) en lugar de 400 para "stock insuficiente" es semánticamente correcta.
+Inconsistente con el patrón del proyecto que siempre acota queries con `take`.
 
-4. **`analisis-precios` agrupa correctamente por proveedor y calcula estadísticas útiles.** El pipeline de agrupación (map por proveedor, cálculo de media/min/max, ordenado por precio) es legible y correcto en la lógica de negocio. El retorno de `puntos` permite al frontend construir un gráfico de evolución temporal.
-
-5. **`FormularioPedidoCliente.js` — carga lazy de productos.** La línea 69 usa `productSearchState.isOpen` como condición del SWR para no cargar los productos en cada montaje del formulario — excelente optimización de rendimiento que evita llamadas innecesarias.
-
-6. **`comparativa-proveedores/page.js` — el gráfico solo se renderiza cuando hay datos suficientes.** La condición `chartData.length > 1` antes de renderizar el `LineChart` de Recharts evita un gráfico con un solo punto, que sería visualmente inútil y podría generar warnings de la librería.
-
-7. **El semáforo de rentabilidad con 4 estados (verde/amarillo/rojo/gris) es claro y configurable.** El margen mínimo se lee de la tabla `Config` (`key: 'margen_minimo_alerta'`), lo que permite ajustar el umbral de alerta sin redespliegue — buen diseño operacional.
-
-8. **`handleWithdrawalSubmit` valida la cantidad en el cliente antes de enviar.** Las líneas 92–99 de `almacen/stock/page.js` comprueban que la cantidad sea positiva y no supere el disponible antes de hacer la llamada al servidor, evitando viajes de red innecesarios con datos inválidos.
-
----
-
-## 9. Plan de acción priorizado
-
-| Prioridad | ID | Descripción | Esfuerzo estimado |
-|-----------|-----|-------------|-------------------|
-| P1 — Inmediato | BUG-01 | Notificación de stock mínimo silenciada cuando el stock se agota completamente | 30 min |
-| P2 — Esta semana | BUG-02 + API-01 | `handleSendReminder` envía `...quote` sin check de res.ok + schema Zod no incluye `ultimoRecordatorio` (deben corregirse juntos) | 30 min |
-| P2 — Esta semana | BACK-01 | N+1 queries en `analisis-rentabilidad` — pre-cargar tarifas en una sola query | 45 min |
-| P2 — Esta semana | SEC-01 | Añadir rate limiting a los dos endpoints nuevos | 15 min |
-| P3 — Próximo sprint | BUG-03 | `setMaxQuantity` usa `prev.disponible` en lugar de `prev.disponibleMetros` | 5 min |
-| P3 — Próximo sprint | BUG-04 | `Promise.allSettled` en lugar de `Promise.all` para robustez por bobina | 20 min |
-| P3 — Próximo sprint | BUG-05 | Añadir `costoUnitario: 0` al item inicial del formulario | 5 min |
-| P3 — Próximo sprint | SEC-02 | Validar formato UUID del `id` en `analisis-rentabilidad` | 10 min |
-| P3 — Próximo sprint | SEC-03 | Validar longitud máxima del parámetro `material` | 10 min |
-| P3 — Próximo sprint | BACK-03 | Reemplazar `Math.min/max(...arr)` con `reduce` en `analisis-precios` | 10 min |
-| P4 — Backlog | BACK-02 | Añadir flag `truncated` en respuesta de `analisis-precios` | 15 min |
-| P4 — Backlog | API-02 | Añadir `take: 200` al listado de materiales | 5 min |
-| P4 — Backlog | FRONT-01 | Manejo de error en carga de `listaMateriales` en `comparativa-proveedores` | 10 min |
-
-**Esfuerzo total estimado P1+P2:** ~2 horas
-**Esfuerzo total estimado P3:** ~1 hora
-**Esfuerzo total backlog:** ~30 minutos
+**Corrección:**
+```js
+db.proveedor.findMany({ select: { id: true, nombre: true }, take: 500, orderBy: { nombre: 'asc' } }),
+```
 
 ---
 
-## 10. Inventario completo de hallazgos
+### BACK-04 — `crearManejadoresCRUD` no limita el parámetro `limit`
 
-| ID | Severidad | Área | Archivo principal | Líneas | Estado |
-|----|-----------|------|-------------------|--------|--------|
-| SEC-01 | MEDIO | Seguridad | `analisis-rentabilidad/route.js`, `analisis-precios/route.js` | — | ✅ corregido 2026-06-08 |
-| SEC-02 | BAJO | Seguridad | `analisis-rentabilidad/route.js` | 12 | ✅ corregido 2026-06-08 |
-| SEC-03 | BAJO | Seguridad | `analisis-precios/route.js` | 11–13 | ✅ corregido 2026-06-08 |
-| BUG-01 | ALTO | Bug | `almacen-stock/route.js` | 90–113 | ✅ corregido 2026-06-08 |
-| BUG-02 | MEDIO | Bug | `presupuestos/[id]/page.js` | 210–214 | ✅ corregido 2026-06-08 |
-| BUG-03 | BAJO | Bug | `almacen/stock/page.js` | 83–85 | ✅ corregido 2026-06-08 |
-| BUG-04 | BAJO | Bug | `analisis-rentabilidad/route.js` | 31–92 | ✅ corregido 2026-06-08 |
-| BUG-05 | BAJO | Bug | `FormularioPedidoCliente.js` | 41 | ✅ corregido 2026-06-08 |
-| BACK-01 | MEDIO | Backend | `analisis-rentabilidad/route.js` | 54–64 | ✅ corregido 2026-06-08 |
-| BACK-02 | BAJO | Backend | `analisis-precios/route.js` | 25–35 | ✅ corregido 2026-06-08 |
-| BACK-03 | BAJO | Backend | `analisis-precios/route.js` | 70–71 | ✅ corregido 2026-06-08 |
-| API-01 | MEDIO | API | `presupuestos/[id]/route.js` + `validations.js` | 38–42 | ✅ corregido 2026-06-08 |
-| API-02 | BAJO | API | `analisis-precios/route.js` | 15–21 | ✅ corregido 2026-06-08 |
-| FRONT-01 | BAJO | Frontend | `comparativa-proveedores/page.js` | 20 | ✅ corregido 2026-06-08 |
-| FRONT-02 | BAJO | Frontend | `analisis-rentabilidad/page.js` | 22 | Informativo / Sin cambio requerido |
-| FRONT-03 | BAJO | Frontend | `comparativa-proveedores/page.js` | — | Cerrado / No aplica |
+**Archivo:** `src/lib/manejadores-api.js`, líneas 41–43
+**Severidad:** 🟢 BAJO
+
+```js
+const limit = parseInt(limitParam || '50', 10); // sin límite máximo
+```
+
+Un cliente puede pedir `?limit=100000` y hacer un dump completo.
+
+**Corrección:**
+```js
+const page  = Math.max(1, parseInt(pageParam  || '1',  10));
+const limit = Math.min(500, Math.max(1, parseInt(limitParam || '50', 10)));
+```
+
+---
+
+## 🌐 API
+
+### Mapa de Endpoints (tabla completa)
+
+| Método | Ruta | Validación Zod | Rate Limit | Paginación |
+|--------|------|---------------|------------|------------|
+| POST | /api/auth/login | manual | ✅ 5/min | — |
+| POST | /api/auth/logout | — | — | — |
+| GET | /api/auth/status | — | — | — |
+| GET | /api/almacen-stock | — | ❌ | take 1000 |
+| POST | /api/almacen-stock | manual | ❌ | — |
+| GET | /api/articulos-simples | — | ❌ | take 500 |
+| POST | /api/articulos-simples | ✅ | ❌ | — |
+| PATCH | /api/articulos-simples/[id] | ✅ | ❌ | — |
+| GET | /api/audit-log | — | ✅ 30/min | ✅ |
+| GET | /api/busqueda | — | ❌ | take 5/tipo |
+| GET | /api/catalogo | — | ❌ | take 500 |
+| GET | /api/clientes | — | ❌ | take 500/paginado |
+| POST | /api/clientes | ✅ | ❌ | — |
+| GET | /api/clientes/[id] | — | ❌ | — |
+| PUT | /api/clientes/[id] | ✅ | ❌ | — |
+| DELETE | /api/clientes/[id] | — | ❌ | — |
+| GET | /api/clientes/[id]/historial-precios | — | ❌ | take 5000 |
+| GET | /api/clientes/[id]/resumen | — | ❌ | — |
+| GET | /api/config | — | ❌ | — |
+| PUT | /api/config | whitelist | ❌ | — |
+| GET | /api/config/backup | — | ✅ 5/min | — |
+| GET | /api/dashboard | — | ❌ | — |
+| GET | /api/documentos | — | ❌ | take 2000 |
+| POST | /api/documentos | MIME+manual | ❌ | — |
+| GET | /api/documentos/[id] | — | ❌ | — |
+| PUT | /api/documentos/[id] | manual | ❌ | — |
+| DELETE | /api/documentos/[id] | — | ❌ | — |
+| GET | /api/export/csv | — | ✅ 10/min | take 2000 |
+| GET | /api/fabricantes | — | ❌ | take 500 |
+| POST | /api/fabricantes | ✅ | ❌ | — |
+| GET | /api/grapas | — | ❌ | — |
+| POST | /api/grapas | ✅ | ❌ | — |
+| POST | /api/herramientas/carta-porte | ✅ | ❌ | — |
+| GET | /api/importaciones | — | ❌ | take 100 |
+| POST | /api/importaciones | ✅ | ❌ | — |
+| GET | /api/importaciones/[id] | — | ❌ | — |
+| PUT | /api/importaciones/[id] | ✅ | ❌ | — |
+| DELETE | /api/importaciones/[id] | — | ❌ | — |
+| GET | /api/importaciones/[id]/analisis-rentabilidad | — | ✅ 20/min | — |
+| POST | /api/importaciones/borrador | ✅ | ❌ | — |
+| PATCH | /api/importaciones/[id]/bobinas | ✅ | ❌ | — |
+| GET | /api/informes | — | ✅ 20/min | take 10000 |
+| GET | /api/logistica/calcular | — | ❌ | — |
+| GET | /api/maquinaria/procesos | — | ❌ | — |
+| POST | /api/maquinaria/procesos | manual | ❌ | — |
+| GET | /api/materiales | — | ❌ | take 500 |
+| GET | /api/modelos-grapa | — | ❌ | — |
+| GET | /api/movimientos | — | ❌ | take 500 |
+| GET | /api/notas | — | ❌ | take 20 |
+| POST | /api/notas | ✅ | ❌ | — |
+| DELETE | /api/notas | ⚠️ ID en body | ❌ | — |
+| DELETE | /api/notas/[id] | — | ❌ | — |
+| GET | /api/notificaciones | — | ❌ | take 50 |
+| POST | /api/notificaciones | manual | ❌ | — |
+| PATCH | /api/notificaciones | — | ❌ | — |
+| GET | /api/pedidos | — | ❌ | ✅ |
+| POST | /api/pedidos | ✅ | ❌ | — |
+| GET | /api/pedidos/[id] | — | ❌ | — |
+| PUT | /api/pedidos/[id] | ✅ | ❌ | — |
+| PATCH | /api/pedidos/[id] | whitelist | ❌ | — |
+| DELETE | /api/pedidos/[id] | — | ❌ | — |
+| POST | /api/pedidos/[id]/email | regex email | ❌ | — |
+| GET | /api/pedidos/[id]/pdf | — | ❌ | — |
+| POST | /api/pedidos/bulk-update | ✅ | ❌ | — |
+| GET | /api/pedidos/export | — | ✅ 10/min | take 1000 |
+| POST | /api/pedidos/from-presupuesto | manual | ❌ | — |
+| GET | /api/pedidos-proveedores-data | — | ❌ | — |
+| POST | /api/pedidos-proveedores-data | ✅ | ❌ | — |
+| GET | /api/pedidos-proveedores-data/analisis-precios | — | ✅ 30/min | take 500 |
+| GET | /api/plantillas | — | ❌ | take 500 |
+| GET | /api/precios | — | ❌ | take 2000 |
+| POST | /api/precios | ✅ | ❌ | — |
+| PUT | /api/precios | manual | ❌ | — |
+| DELETE | /api/precios | manual | ❌ | — |
+| POST | /api/precios/bulk-update | manual | ❌ | — |
+| GET | /api/presupuestos | — | ❌ | ✅ |
+| POST | /api/presupuestos | ✅ | ❌ | — |
+| GET | /api/presupuestos/[id] | — | ❌ | — |
+| PUT | /api/presupuestos/[id] | ✅ | ❌ | — |
+| DELETE | /api/presupuestos/[id] | — | ❌ | — |
+| POST | /api/presupuestos/[id]/email | regex email | ❌ | — |
+| GET | /api/presupuestos/[id]/pdf | — | ❌ | — |
+| POST | /api/presupuestos/bulk-update | ✅ | ❌ | — |
+| POST | /api/pricing/calculate | manual | ❌ | — |
+| GET | /api/pricing/descuentos | — | ❌ | — |
+| POST | /api/pricing/descuentos | ✅ | ❌ | — |
+| PUT | /api/pricing/descuentos | parcial | ❌ | — |
+| DELETE | /api/pricing/descuentos | manual | ❌ | — |
+| GET | /api/pricing/especiales | — | ❌ | — |
+| POST | /api/pricing/especiales | ❌ sin validación | ❌ | — |
+| POST | /api/pricing/inverse-calc | ✅ | ❌ | — |
+| GET | /api/pricing/margenes | — | ❌ | — |
+| POST | /api/pricing/margenes | ✅ | ❌ | — |
+| GET | /api/proveedores | — | ❌ | take 500 |
+| POST | /api/proveedores | ✅ | ❌ | — |
+| GET | /api/stock-info/available-meters | — | ❌ | — |
+| POST | /api/stock-management/receive-order | mínima | ❌ | — |
+| GET | /api/tacos | — | ❌ | — |
+| GET | /api/tarifas-cliente | — | ❌ | — |
+| POST | /api/tarifas-cliente | ✅ | ❌ | — |
+| PUT | /api/tarifas-cliente | ✅ | ❌ | — |
+| DELETE | /api/tarifas-cliente | manual | ❌ | — |
+| GET | /api/tarifas-material-opciones | — | ❌ | — |
+| GET | /api/tarifas-rollo | — | ❌ | — |
+| POST | /api/tarifas-rollo | ✅ | ❌ | — |
+
+### Hallazgos API
+
+### API-01 — `POST /api/pricing/especiales` sin ninguna validación
+
+**Archivo:** `src/app/api/pricing/especiales/route.js`, líneas 17–31
+**Severidad:** 🟡 MEDIO
+
+```js
+export async function POST(request) {
+  try {
+    const data = await request.json();
+    const nuevaRegla = await db.precioEspecial.create({
+      data: {
+        descripcion: data.descripcion,    // sin validar
+        precio: parseFloat(data.precio),  // NaN si no es número → guardado en BD
+        clienteId: data.clienteId,        // sin validar UUID
+        productoId: data.productoId,      // sin validar UUID
+      },
+    });
+```
+
+**Corrección:**
+```js
+import { z } from 'zod';
+const precioEspecialSchema = z.object({
+  descripcion: z.string().min(1).max(200),
+  precio: z.number().positive().max(100_000),
+  clienteId: z.string().uuid().optional().nullable(),
+  productoId: z.string().uuid().optional().nullable(),
+});
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const parsed = precioEspecialSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Datos inválidos', errors: parsed.error.flatten().fieldErrors }, { status: 400 });
+    }
+    const nuevaRegla = await db.precioEspecial.create({ data: parsed.data });
+    return NextResponse.json(nuevaRegla, { status: 201 });
+  }
+```
+
+---
+
+### API-02 — Inconsistencia de formato de error (`message` vs `error`)
+
+**Severidad:** 🟢 BAJO
+
+Diferentes endpoints usan `{ message: '...' }` o `{ error: '...' }` indistintamente:
+- `/api/importaciones` → `{ error: 'Datos inválidos' }` (400)
+- `/api/pedidos` → `{ error: 'Validación fallida' }` (400)
+- `/api/clientes/[id]` → `{ message: 'Datos inválidos' }` (400)
+
+El proyecto tiene `src/lib/api-response.js` con `ApiResponse` pero no se usa en las rutas analizadas. Estandarizar en nuevas rutas; migrar en el futuro.
+
+---
+
+### API-03 — `GET /api/notas` limitado a 20 sin paginación
+
+**Archivo:** `src/app/api/notas/route.js`, línea 14
+**Severidad:** 🟢 BAJO
+
+`take: 20` hardcodeado sin opción de paginación. Válido para tablón de notas, pero documentar como limitación intencional si se prevé crecer.
+
+---
+
+## 🎨 Frontend
+
+El frontend está en excelente estado. No se encontraron:
+
+- `innerHTML` ni `dangerouslySetInnerHTML` con datos de usuario (XSS)
+- Tokens de sesión en `localStorage` (solo `crm-tema` / `theme` — no sensible)
+- Event listeners sin cleanup en `useEffect` (tablet/page.js tiene cleanup correcto en listeners `online`/`offline`)
+- Estados de carga ausentes en operaciones críticas
+
+### FRONT-01 — IVA hardcodeado al 21% en calculadora de tablet
+
+**Archivo:** `src/app/tablet/page.js`, líneas 439, 450
+**Severidad:** 🟢 BAJO (informativo)
+
+```js
+const iva = precioNeto * 0.21; // hardcodeado — no lee config
+```
+
+La calculadora de tarifas en la tablet usa el IVA fijo aunque `iva_rate` es configurable vía `/api/config`. Si se cambia el tipo en configuración, la calculadora mostraría valores incorrectos.
+
+**Corrección:**
+```js
+const { data: config } = useSWR('/api/config');
+const ivaRate = config?.iva_rate ?? 0.21;
+// y luego:
+const iva = precioNeto * ivaRate;
+```
+
+---
+
+## ✅ Puntos Positivos
+
+1. **Zod en prácticamente todos los POST/PUT** — cobertura de validación alta. Especialmente `importacionContenedorSchema` con `z.coerce.number()` que elimina parseFloat manual.
+
+2. **`logApiError` consistente — sin stack traces en respuestas** — el logger solo extrae `{name, message, code, meta}`.
+
+3. **Transacciones correctas en operaciones multi-tabla** — `receive-order`, `from-presupuesto`, `pedidos/[id] PUT`, `presupuestos/[id] PUT` usan `$transaction`.
+
+4. **Rate limiting en endpoints pesados** — login (5/min), backup (5/min), export-csv (10/min), informes (20/min), audit-log (30/min), analisis-rentabilidad (20/min), analisis-precios (30/min).
+
+5. **Cookies httpOnly + sameSite:strict + secure en prod** — sesión no accesible desde JS y protegida contra CSRF.
+
+6. **Path traversal en documentos mitigado** — `allowedBase` check en DELETE y validación de prefijo `/planos/` en PUT.
+
+7. **Cero `console.log` de debug** — ninguna instancia encontrada en todo el código fuente.
+
+8. **`.gitignore` robusto** — `.env.local`, datos operativos, seeds de producción y backups SQL excluidos. (Excepción: ver SEC-07.)
+
+9. **`colaOffline.js` bien diseñado** — IndexedDB solo para estado de sesión de recepción (no datos sensibles), sincronización idempotente, reconexión automática.
+
+10. **Service Worker conservador** — `public/sw.js` excluye explícitamente `/api/*` del caché. No hay riesgo de servir respuestas API stale.
+
+11. **UUID validado en analisis-rentabilidad** — `UUID_RE.test(id)` antes de la query previene errores de BD con IDs malformados.
+
+12. **`informes/route.js` valida el año** — `Math.max(2000, Math.min(currentYear, parseInt(...)))` previene consultas con años absurdos.
+
+13. **`Promise.allSettled` en analisis-rentabilidad** — error en una bobina no cancela el análisis del resto del contenedor.
+
+---
+
+## 🗺️ Plan de Acción Priorizado
+
+| # | ID | Hallazgo | Área | Severidad | Esfuerzo |
+|---|----|----------|------|-----------|----------|
+| 1 | SEC-01 | Implementar verificación de cookie en middleware | Seguridad | 🔴 Crítico | 2h |
+| 2 | SEC-02 | Eliminar fallback débil de SESSION_SECRET en producción | Seguridad | 🟠 Alto | 15 min |
+| 3 | BUG-01 | Mover `request.json()` dentro del try-catch (3 archivos) | Bugs | 🟠 Alto | 30 min |
+| 4 | BACK-01 | Añadir Zod al PUT de `/api/productos/[id]` | Backend | 🟠 Alto | 1h |
+| 5 | SEC-03 | UUID en nombres de archivos subidos | Seguridad | 🟠 Alto | 30 min |
+| 6 | API-01 | Añadir Zod a `POST /api/pricing/especiales` | API | 🟡 Medio | 30 min |
+| 7 | SEC-04 | Filtrar claves en `GET /api/config` por whitelist | Seguridad | 🟡 Medio | 15 min |
+| 8 | SEC-05 | Añadir headers X-Content-Type-Options, X-Frame-Options | Seguridad | 🟡 Medio | 15 min |
+| 9 | BUG-02 | Corregir lógica de `pendientes` en `handleEliminar` tablet | Bugs | 🟡 Medio | 15 min |
+| 10 | BUG-03 | Usar `sesionRef` para evitar stale closure en `sincronizar` | Bugs | 🟡 Medio | 30 min |
+| 11 | BACK-02 | Añadir `logApiError` en GET margenes | Backend | 🟡 Medio | 5 min |
+| 12 | BACK-03 | Añadir `take: 500` a `proveedor.findMany` en almacen-stock | Backend | 🟡 Medio | 5 min |
+| 13 | SEC-06 | Rate limiting en endpoints de escritura sensibles | Seguridad | 🟡 Medio | 2h |
+| 14 | FRONT-01 | Consumir `iva_rate` dinámico en tablet calculadora | Frontend | 🟢 Bajo | 30 min |
+| 15 | BUG-04 | Consolidar endpoints DELETE de notas (deprecar body-based) | Bugs | 🟢 Bajo | 30 min |
+| 16 | BACK-04 | Limitar `limit` máximo en `crearManejadoresCRUD` | Backend | 🟢 Bajo | 15 min |
+| 17 | API-02 | Estandarizar formato de error (`message` vs `error`) | API | 🟢 Bajo | Alto |
+| 18 | SEC-07 | Corregir ruta duplicada `prisma/prisma/dev.db` en .gitignore | Seguridad | 🟢 Bajo | 2 min |
+
+---
+
+*Revisión generada el 2026-06-08. Archivos analizados: todos los routes bajo `src/app/api/` (93 archivos), `src/lib/` (db.js, rateLimiter.js, audit.js, logger.js, email.js, validations.js, manejadores-api.js, colaOffline.js), `middleware.js`, `src/app/layout.js`, `public/sw.js`, `src/app/tablet/page.js`. No se encontraron hallazgos en archivos nuevos `sw.js` ni `colaOffline.js` más allá de los documentados.*
