@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import RegistrarSW from '@/componentes/ui/RegistrarSW';
 
 export const metadata = { title: 'Tablet — CRM Taller' };
 
 export default function TabletLayout({ children }) {
   return (
     <div className="min-h-screen bg-base-200" data-theme="corporate">
+      <RegistrarSW />
       <header className="navbar bg-base-100 shadow-sm px-4 border-b border-base-300">
         <div className="flex-1">
           <Link href="/tablet" className="text-xl font-bold text-primary">

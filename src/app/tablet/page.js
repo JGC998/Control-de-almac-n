@@ -1,10 +1,15 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import {
   Search, Package, BarChart2, Calculator, X,
   ClipboardList, Plus, CheckCircle, AlertTriangle,
+  ScanLine, Wifi, WifiOff, Trash2, RotateCcw, ExternalLink,
 } from 'lucide-react';
+import ModalEscanearEtiqueta from '@/componentes/calculadoras/ModalEscanearEtiqueta';
+import {
+  obtenerSesion, guardarSesion, borrarSesion, sincronizarSesion,
+} from '@/lib/colaOffline';
 
 // ── Utilidad de búsqueda ─────────────────────────────────────────────────────
 function useBusqueda(lista, campos) {
@@ -551,8 +556,353 @@ function TabCalculadora() {
   );
 }
 
+// ── Tab Recepción offline ────────────────────────────────────────────────────
+function TabRecepcion() {
+  const [sesion, setSesion]         = useState(null);   // sesión activa local
+  const [online, setOnline]         = useState(true);
+  const [sincronizando, setSinc]    = useState(false);
+  const [ultimaSync, setUltimaSync] = useState(null);   // timestamp
+  const [errorSync, setErrorSync]   = useState(null);
+  const [modalEscaner, setModal]    = useState(false);
+  const [cargando, setCargando]     = useState(true);
+
+  // Formulario "nueva sesión"
+  const [numContenedor, setNumContenedor] = useState('');
+  const [numFactura,    setNumFactura]    = useState('');
+  const [descripcion,   setDescripcion]  = useState('');
+
+  // Confirmación de borrar sesión
+  const [confirmBorrar, setConfirmBorrar] = useState(false);
+
+  const syncRef = useRef(null); // evita llamadas simultáneas
+
+  // Cargar sesión local al montar
+  useEffect(() => {
+    obtenerSesion().then(s => { setSesion(s); setCargando(false); });
+  }, []);
+
+  // Detectar cambios de conectividad
+  useEffect(() => {
+    const up   = () => setOnline(true);
+    const down = () => setOnline(false);
+    setOnline(navigator.onLine);
+    window.addEventListener('online',  up);
+    window.addEventListener('offline', down);
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
+  }, []);
+
+  // Auto-sync cuando vuelve la conexión
+  const sincronizar = useCallback(async (sesionActual) => {
+    if (syncRef.current) return;  // ya hay una sync en curso
+    const s = sesionActual || sesion;
+    if (!s || s.items.length === 0) return;
+    if (!navigator.onLine) return;
+
+    syncRef.current = true;
+    setSinc(true);
+    setErrorSync(null);
+
+    const resultado = await sincronizarSesion(s);
+
+    if (resultado.ok) {
+      setSesion(resultado.sesion);
+      setUltimaSync(Date.now());
+    } else if (resultado.razon !== 'offline') {
+      setErrorSync(resultado.razon);
+    }
+
+    setSinc(false);
+    syncRef.current = false;
+  }, [sesion]);
+
+  useEffect(() => {
+    if (online && sesion?.pendientes > 0) {
+      sincronizar();
+    }
+  }, [online]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Iniciar nueva sesión
+  const handleIniciar = async () => {
+    if (!numContenedor.trim() && !numFactura.trim()) return;
+    const nueva = {
+      realId:        null,
+      numContenedor: numContenedor.trim(),
+      numFactura:    numFactura.trim(),
+      descripcion:   descripcion.trim(),
+      items:         [],
+      pendientes:    0,
+      iniciadaEn:    Date.now(),
+    };
+    await guardarSesion(nueva);
+    setSesion(nueva);
+    setNumContenedor(''); setNumFactura(''); setDescripcion('');
+  };
+
+  // Añadir artículo escaneado
+  const handleArticuloEscaneado = useCallback(async (campos) => {
+    const nuevaSesion = {
+      ...sesion,
+      items: [...sesion.items, campos],
+      pendientes: sesion.pendientes + 1,
+    };
+    await guardarSesion(nuevaSesion);
+    setSesion(nuevaSesion);
+    // Intentar sync inmediata si hay wifi
+    if (navigator.onLine) sincronizar(nuevaSesion);
+  }, [sesion, sincronizar]);
+
+  // Eliminar artículo de la lista
+  const handleEliminar = useCallback(async (idx) => {
+    const items = sesion.items.filter((_, i) => i !== idx);
+    const nuevaSesion = { ...sesion, items, pendientes: sesion.pendientes + 1 };
+    await guardarSesion(nuevaSesion);
+    setSesion(nuevaSesion);
+    if (navigator.onLine) sincronizar(nuevaSesion);
+  }, [sesion, sincronizar]);
+
+  // Finalizar y abrir en calculadora
+  const handleFinalizar = () => {
+    if (!sesion?.realId) return;
+    window.open(`/herramientas/calculadora-contenedor`, '_blank');
+  };
+
+  // Borrar sesión local (con confirmación)
+  const handleBorrar = async () => {
+    await borrarSesion();
+    setSesion(null);
+    setConfirmBorrar(false);
+    setUltimaSync(null);
+    setErrorSync(null);
+  };
+
+  if (cargando) {
+    return <div className="flex justify-center py-20"><span className="loading loading-spinner loading-lg" /></div>;
+  }
+
+  // ── Sin sesión activa ──
+  if (!sesion) {
+    return (
+      <div className="max-w-lg mx-auto space-y-5">
+        <div className="alert alert-info text-sm">
+          <ScanLine className="w-5 h-5 shrink-0" />
+          <span>Introduce el número de contenedor o de factura para empezar a registrar los artículos recibidos. Puedes escanear sin wifi — los datos se sincronizan solos en cuanto vuelve la conexión.</span>
+        </div>
+
+        <div className="card bg-base-100 shadow-sm">
+          <div className="card-body gap-4">
+            <h3 className="font-bold text-lg">Nueva recepción de contenedor</h3>
+
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Nº Contenedor naviera</span></label>
+              <input
+                type="text"
+                className="input input-bordered input-lg"
+                placeholder="MSCU1234567"
+                value={numContenedor}
+                onChange={e => setNumContenedor(e.target.value)}
+              />
+            </div>
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Nº Factura proveedor</span></label>
+              <input
+                type="text"
+                className="input input-bordered input-lg"
+                placeholder="INV-2026-001"
+                value={numFactura}
+                onChange={e => setNumFactura(e.target.value)}
+              />
+            </div>
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Descripción (opcional)</span></label>
+              <input
+                type="text"
+                className="input input-bordered input-lg"
+                placeholder="Ej: PVC junio 2026"
+                value={descripcion}
+                onChange={e => setDescripcion(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleIniciar()}
+              />
+            </div>
+
+            <button
+              className="btn btn-primary btn-lg w-full gap-2 mt-2"
+              onClick={handleIniciar}
+              disabled={!numContenedor.trim() && !numFactura.trim()}
+            >
+              <ScanLine className="w-5 h-5" />
+              Iniciar recepción
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Sesión activa ──
+  const hayItems = sesion.items.length > 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Cabecera sesión + estado online */}
+      <div className="card bg-base-100 shadow-sm">
+        <div className="card-body p-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="font-bold text-lg">
+                {sesion.numContenedor || sesion.numFactura || 'Recepción en curso'}
+              </p>
+              <p className="text-sm text-base-content/50">
+                {sesion.numContenedor && `Contenedor: ${sesion.numContenedor}`}
+                {sesion.numContenedor && sesion.numFactura && ' · '}
+                {sesion.numFactura && `Factura: ${sesion.numFactura}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Indicador online/offline */}
+              <div className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full ${online ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}>
+                {online ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+                {online ? 'Con wifi' : 'Sin wifi'}
+              </div>
+              {/* Pendientes de sync */}
+              {sesion.pendientes > 0 && (
+                <span className="badge badge-warning badge-lg">
+                  {sesion.pendientes} pendiente{sesion.pendientes !== 1 ? 's' : ''}
+                </span>
+              )}
+              {sesion.pendientes === 0 && hayItems && (
+                <span className="badge badge-success badge-lg">Sincronizado</span>
+              )}
+            </div>
+          </div>
+
+          {/* Sync status */}
+          {sincronizando && (
+            <div className="flex items-center gap-2 text-sm text-base-content/60 mt-2">
+              <span className="loading loading-spinner loading-xs" />
+              Sincronizando con el servidor…
+            </div>
+          )}
+          {errorSync && (
+            <div className="alert alert-warning text-sm py-2 mt-2 gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>No se pudo sincronizar: {errorSync}. Se reintentará cuando haya conexión.</span>
+              <button className="btn btn-xs btn-ghost ml-auto" onClick={() => sincronizar()}>
+                <RotateCcw className="w-3 h-3" /> Reintentar
+              </button>
+            </div>
+          )}
+          {ultimaSync && !sincronizando && !errorSync && (
+            <p className="text-xs text-base-content/40 mt-1">
+              Última sync: {new Date(ultimaSync).toLocaleTimeString('es-ES')}
+              {sesion.realId && <span className="ml-2">· ID: <code className="font-mono">{sesion.realId.slice(0, 8)}…</code></span>}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Botón escanear — grande, táctil */}
+      <button
+        className="btn btn-primary btn-lg w-full h-20 text-xl gap-3 shadow-md"
+        onClick={() => setModal(true)}
+      >
+        <ScanLine className="w-8 h-8" />
+        Escanear etiqueta
+        <span className="badge badge-primary-content badge-lg">{sesion.items.length}</span>
+      </button>
+
+      {/* Lista de artículos */}
+      {hayItems ? (
+        <div className="card bg-base-100 shadow-sm">
+          <div className="card-body p-4">
+            <h3 className="font-bold mb-3">
+              Artículos registrados ({sesion.items.length})
+            </h3>
+            <div className="space-y-2">
+              {sesion.items.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-3 bg-base-200 rounded-lg px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono font-semibold truncate">
+                      {item.referencia || <span className="text-base-content/40">Sin referencia</span>}
+                    </p>
+                    <p className="text-xs text-base-content/50">
+                      {item.tipo}
+                      {item.espesor && ` · ${item.espesor}mm esp.`}
+                      {item.ancho   && ` · ${item.ancho}mm ancho`}
+                      {item.longitud && ` · ${item.longitud}m`}
+                      {item.numRollos > 1 && ` · ${item.numRollos} rollos`}
+                      {item.notas && ` · ${item.notas}`}
+                    </p>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm text-error shrink-0"
+                    onClick={() => handleEliminar(idx)}
+                    aria-label="Eliminar artículo"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-10 text-base-content/30">
+          <ScanLine className="w-12 h-12 mx-auto mb-3" />
+          <p>Todavía no hay artículos. ¡Escanea el primero!</p>
+        </div>
+      )}
+
+      {/* Acciones finales */}
+      {hayItems && (
+        <div className="card bg-base-100 shadow-sm">
+          <div className="card-body p-4 gap-3">
+            <p className="text-sm text-base-content/60">
+              Cuando hayas terminado de descargar el camión, abre la calculadora desde el ordenador de la oficina para añadir el tipo de cambio y los gastos.
+            </p>
+            <button
+              className="btn btn-success btn-lg w-full gap-2"
+              onClick={handleFinalizar}
+              disabled={!sesion.realId}
+              title={!sesion.realId ? 'Necesitas wifi para enviar los datos antes de continuar' : ''}
+            >
+              <ExternalLink className="w-5 h-5" />
+              Abrir en calculadora
+              {!sesion.realId && <span className="badge badge-warning badge-sm">requiere sync</span>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Borrar sesión */}
+      <div className="text-center">
+        {!confirmBorrar ? (
+          <button className="btn btn-ghost btn-sm text-base-content/40 gap-1" onClick={() => setConfirmBorrar(true)}>
+            <Trash2 className="w-3 h-3" /> Descartar esta recepción
+          </button>
+        ) : (
+          <div className="flex gap-2 justify-center">
+            <button className="btn btn-error btn-sm gap-1" onClick={handleBorrar}>
+              <Trash2 className="w-3 h-3" /> Sí, descartar todo
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setConfirmBorrar(false)}>Cancelar</button>
+          </div>
+        )}
+      </div>
+
+      {/* Modal escanear */}
+      {modalEscaner && (
+        <ModalEscanearEtiqueta
+          onConfirmar={handleArticuloEscaneado}
+          onClose={() => setModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Página principal ─────────────────────────────────────────────────────────
 const TABS = [
+  { id: 'recepcion',   label: 'Recepción',  icon: ScanLine      },
   { id: 'tarifas',     label: 'Tarifas',    icon: BarChart2     },
   { id: 'stock',       label: 'Stock',      icon: Package       },
   { id: 'pedidos',     label: 'Pedidos',    icon: ClipboardList },
@@ -560,7 +910,7 @@ const TABS = [
 ];
 
 export default function TabletPage() {
-  const [tab, setTab] = useState('tarifas');
+  const [tab, setTab] = useState('recepcion');
 
   return (
     <div>
@@ -577,6 +927,7 @@ export default function TabletPage() {
       </div>
 
       <div className="bg-base-100 rounded-2xl shadow p-4">
+        {tab === 'recepcion'   && <TabRecepcion />}
         {tab === 'tarifas'     && <TabTarifas />}
         {tab === 'stock'       && <TabStock />}
         {tab === 'pedidos'     && <TabPedidos />}

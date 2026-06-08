@@ -28,6 +28,7 @@ const fmtEur = (v) => `${fmt(v)} €`;
 const fmtUsd = (v) => `${fmt(v)} $`;
 
 const ESTADOS_CONTENEDOR = [
+  { value: 'BORRADOR', label: 'Borrador',    color: 'badge-warning' },
   { value: 'PEDIDO',   label: 'Pedido',      color: 'badge-ghost' },
   { value: 'TRANSITO', label: 'En tránsito', color: 'badge-info' },
   { value: 'ADUANA',   label: 'En aduana',   color: 'badge-warning' },
@@ -213,43 +214,53 @@ function HistorialImportaciones({ onCargar }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {importaciones.map(imp => (
-                      <tr key={imp.id} className="hover">
-                        <td className="text-xs text-base-content/50 whitespace-nowrap">
-                          {new Date(imp.creadaEn).toLocaleDateString('es-ES')}
-                          {imp.fechaLlegada && <div className="text-[10px] opacity-50">llegada: {new Date(imp.fechaLlegada).toLocaleDateString('es-ES')}</div>}
-                        </td>
-                        <td><EstadoBadge estado={imp.estado || 'RECIBIDO'} /></td>
-                        <td className="text-sm">
-                          <div className="max-w-xs truncate">{imp.descripcion || <span className="text-base-content/30">Sin descripción</span>}</div>
-                          {imp.proveedor && <div className="text-xs text-base-content/50">{imp.proveedor.nombre}</div>}
-                        </td>
-                        <td className="text-xs font-mono">{imp.numFactura || '—'}</td>
-                        <td className="text-xs font-mono">{imp.numContenedor || '—'}</td>
-                        <td className="text-right font-mono text-xs">{fmt(imp.tasaCambio, 4)}</td>
-                        <td className="text-right font-mono font-bold text-success">{fmtEur(imp.costeProducto)}</td>
-                        <td className="text-right font-mono font-bold text-success">
-                          {imp.totalMetros > 0 ? fmtEur(imp.costeProducto / imp.totalMetros) + '/m' : '—'}
-                        </td>
-                        <td>
-                          <div className="flex gap-1">
-                            <button
-                              className="btn btn-xs btn-ghost"
-                              title="Cargar estos datos en la calculadora"
-                              onClick={() => onCargar(imp)}
-                            >
-                              Cargar
-                            </button>
-                            <button
-                              className="btn btn-xs btn-ghost text-error"
-                              onClick={() => handleDelete(imp.id)}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {importaciones.map(imp => {
+                      const esBorrador = imp.estado === 'BORRADOR';
+                      return (
+                        <tr key={imp.id} className={esBorrador ? 'bg-warning/10 hover' : 'hover'}>
+                          <td className="text-xs text-base-content/50 whitespace-nowrap">
+                            {new Date(imp.creadaEn).toLocaleDateString('es-ES')}
+                            {imp.fechaLlegada && <div className="text-[10px] opacity-50">llegada: {new Date(imp.fechaLlegada).toLocaleDateString('es-ES')}</div>}
+                          </td>
+                          <td><EstadoBadge estado={imp.estado || 'RECIBIDO'} /></td>
+                          <td className="text-sm">
+                            <div className="max-w-xs truncate">
+                              {esBorrador && <span className="text-warning font-semibold mr-1">Borrador tablet —</span>}
+                              {imp.descripcion || <span className="text-base-content/30">Sin descripción</span>}
+                            </div>
+                            {imp.proveedor && <div className="text-xs text-base-content/50">{imp.proveedor.nombre}</div>}
+                          </td>
+                          <td className="text-xs font-mono">{imp.numFactura || '—'}</td>
+                          <td className="text-xs font-mono">{imp.numContenedor || '—'}</td>
+                          <td className="text-right font-mono text-xs">
+                            {esBorrador ? <span className="text-base-content/30">—</span> : fmt(imp.tasaCambio, 4)}
+                          </td>
+                          <td className="text-right font-mono font-bold text-success">
+                            {esBorrador ? <span className="text-base-content/30 font-normal">pendiente</span> : fmtEur(imp.costeProducto)}
+                          </td>
+                          <td className="text-right font-mono font-bold text-success">
+                            {esBorrador ? '—' : (imp.totalMetros > 0 ? fmtEur(imp.costeProducto / imp.totalMetros) + '/m' : '—')}
+                          </td>
+                          <td>
+                            <div className="flex gap-1">
+                              <button
+                                className={`btn btn-xs ${esBorrador ? 'btn-warning' : 'btn-ghost'}`}
+                                title={esBorrador ? 'Completar esta recepción con TC y gastos' : 'Cargar estos datos en la calculadora'}
+                                onClick={() => onCargar(imp)}
+                              >
+                                {esBorrador ? 'Completar' : 'Cargar'}
+                              </button>
+                              <button
+                                className="btn btn-xs btn-ghost text-error"
+                                onClick={() => handleDelete(imp.id)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
