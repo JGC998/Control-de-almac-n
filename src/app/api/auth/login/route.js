@@ -29,9 +29,13 @@ export async function POST(request) {
       }
     }
 
-    // SEC-02: Guardar token HMAC, nunca el PIN en texto claro
-    const secret = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
-    const token = crypto.createHmac('sha256', secret).update(expected).digest('hex');
+    // SEC-02: SESSION_SECRET obligatorio en producción
+    const secret = process.env.SESSION_SECRET;
+    if (!secret && process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ message: 'Error de configuración del servidor' }, { status: 500 });
+    }
+    const effectiveSecret = secret || 'dev-secret-change-in-production';
+    const token = crypto.createHmac('sha256', effectiveSecret).update(expected).digest('hex');
 
     const res = NextResponse.json({ ok: true });
     res.cookies.set('crm-auth', token, {

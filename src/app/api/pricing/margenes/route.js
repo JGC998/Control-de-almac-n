@@ -13,6 +13,7 @@ export async function GET() {
     const data = await db.reglaMargen.findMany();
     return NextResponse.json(data);
   } catch (error) {
+    logApiError(error, 'GET /api/pricing/margenes');
     return NextResponse.json({ message: 'Error al obtener márgenes' }, { status: 500 });
   }
 }

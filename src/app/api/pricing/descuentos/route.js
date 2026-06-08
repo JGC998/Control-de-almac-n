@@ -62,10 +62,9 @@ export async function POST(request) {
 
 // PUT /api/pricing/descuentos - Actualiza una regla de descuento (con tiers anidados)
 export async function PUT(request) {
+    try {
     const { id, ...data } = await request.json();
     const { tiers, ...reglaData } = data; // Separar tiers
-
-    try {
         if (!id) {
             return NextResponse.json({ error: 'ID de la regla de descuento es requerido.' }, { status: 400 });
         }
@@ -113,8 +112,8 @@ export async function PUT(request) {
 
 // DELETE /api/pricing/descuentos - Elimina una regla de descuento (con tiers)
 export async function DELETE(request) {
-    const { id } = await request.json();
     try {
+    const { id } = await request.json();
         if (!id) {
             return NextResponse.json({ error: 'ID de la regla de descuento es requerido.' }, { status: 400 });
         }

@@ -30,8 +30,8 @@ export async function GET() {
 
 // POST /api/precios - Crea una nueva tarifa
 export async function POST(request) {
-  const data = await request.json();
   try {
+    const data = await request.json();
     const validation = validateData(tarifaMaterialSchema, {
       material: data.material,
       espesor: getSafeFloat(data.espesor),

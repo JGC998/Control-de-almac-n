@@ -38,8 +38,8 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
       const limitParam = searchParams.get('limit');
 
       if (pageParam || limitParam) {
-        const page = parseInt(pageParam || '1', 10);
-        const limit = parseInt(limitParam || '50', 10);
+        const page  = Math.max(1, parseInt(pageParam  || '1',  10));
+        const limit = Math.min(500, Math.max(1, parseInt(limitParam || '50', 10)));
         const skip = (page - 1) * limit;
 
         const [records, total] = await Promise.all([

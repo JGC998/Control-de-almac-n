@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export async function GET() {
   try {
@@ -17,6 +18,15 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    // SEC-06: rate limit — prevenir flooding de notificaciones
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    const rl = checkRateLimit(`notificaciones:${ip}`, 30);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { message: 'Demasiadas peticiones' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+      );
+    }
     const { titulo, mensaje, tipo = 'PENDIENTE', url } = await request.json();
     if (!titulo || !mensaje) {
       return NextResponse.json({ message: 'titulo y mensaje requeridos' }, { status: 400 });

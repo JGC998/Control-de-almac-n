@@ -398,6 +398,9 @@ function TabPedidos() {
 function TabCalculadora() {
   const { data: rollos }     = useSWR('/api/tarifas-rollo');
   const { data: materiales } = useSWR('/api/precios');
+  const { data: configData } = useSWR('/api/config');
+  // FRONT-01: leer iva_rate desde config en lugar de hardcodear 0.21
+  const ivaRate = configData?.iva_rate ?? 0.21;
 
   const [modo, setModo]         = useState('rollo');
   const [material, setMaterial] = useState('');
@@ -435,7 +438,7 @@ function TabCalculadora() {
       if (!tarifa) { setResultado({ error: 'No se encontró tarifa para esa combinación.' }); return; }
       const m = parseFloat(metros) || 0;
       const precioNeto = m * Number(tarifa.precioBase);
-      const iva = precioNeto * 0.21;
+      const iva = precioNeto * ivaRate;
       setResultado({
         tipo: 'Rollo/Metro', tarifa: `${Number(tarifa.precioBase).toFixed(2)} €/m`,
         metros: m, peso: m * Number(tarifa.peso), precioNeto, iva, total: precioNeto + iva,
@@ -447,7 +450,7 @@ function TabCalculadora() {
       if (!tarifa) { setResultado({ error: 'No se encontró tarifa para esa combinación.' }); return; }
       const q = parseInt(cantidad) || 1;
       const precioNeto = q * Number(tarifa.precio);
-      const iva = precioNeto * 0.21;
+      const iva = precioNeto * ivaRate;
       setResultado({
         tipo: 'Lámina/Unidad', tarifa: `${Number(tarifa.precio).toFixed(2)} €/u`,
         cantidad: q, peso: q * Number(tarifa.peso), precioNeto, iva, total: precioNeto + iva, aviso: null,
@@ -574,11 +577,12 @@ function TabRecepcion() {
   // Confirmación de borrar sesión
   const [confirmBorrar, setConfirmBorrar] = useState(false);
 
-  const syncRef = useRef(null); // evita llamadas simultáneas
+  const syncRef    = useRef(null);  // evita llamadas simultáneas
+  const sesionRef  = useRef(null);  // BUG-03: ref siempre actualizada para evitar stale closure
 
   // Cargar sesión local al montar
   useEffect(() => {
-    obtenerSesion().then(s => { setSesion(s); setCargando(false); });
+    obtenerSesion().then(s => { setSesion(s); sesionRef.current = s; setCargando(false); });
   }, []);
 
   // Detectar cambios de conectividad
@@ -592,9 +596,10 @@ function TabRecepcion() {
   }, []);
 
   // Auto-sync cuando vuelve la conexión
+  // BUG-03: usa sesionRef para evitar stale closure — siempre trabaja con la sesión más reciente
   const sincronizar = useCallback(async (sesionActual) => {
     if (syncRef.current) return;  // ya hay una sync en curso
-    const s = sesionActual || sesion;
+    const s = sesionActual || sesionRef.current;
     if (!s || s.items.length === 0) return;
     if (!navigator.onLine) return;
 
@@ -605,7 +610,7 @@ function TabRecepcion() {
     const resultado = await sincronizarSesion(s);
 
     if (resultado.ok) {
-      setSesion(resultado.sesion);
+      setSesion(resultado.sesion); sesionRef.current = resultado.sesion;
       setUltimaSync(Date.now());
     } else if (resultado.razon !== 'offline') {
       setErrorSync(resultado.razon);
@@ -634,7 +639,7 @@ function TabRecepcion() {
       iniciadaEn:    Date.now(),
     };
     await guardarSesion(nueva);
-    setSesion(nueva);
+    setSesion(nueva); sesionRef.current = nueva;
     setNumContenedor(''); setNumFactura(''); setDescripcion('');
   };
 
@@ -646,7 +651,7 @@ function TabRecepcion() {
       pendientes: sesion.pendientes + 1,
     };
     await guardarSesion(nuevaSesion);
-    setSesion(nuevaSesion);
+    setSesion(nuevaSesion); sesionRef.current = nuevaSesion;
     // Intentar sync inmediata si hay wifi
     if (navigator.onLine) sincronizar(nuevaSesion);
   }, [sesion, sincronizar]);
@@ -654,9 +659,10 @@ function TabRecepcion() {
   // Eliminar artículo de la lista
   const handleEliminar = useCallback(async (idx) => {
     const items = sesion.items.filter((_, i) => i !== idx);
-    const nuevaSesion = { ...sesion, items, pendientes: sesion.pendientes + 1 };
+    // BUG-02: pendientes refleja si hay cambios sin sincronizar, no la cantidad borrada
+    const nuevaSesion = { ...sesion, items, pendientes: items.length > 0 ? 1 : 0 };
     await guardarSesion(nuevaSesion);
-    setSesion(nuevaSesion);
+    setSesion(nuevaSesion); sesionRef.current = nuevaSesion;
     if (navigator.onLine) sincronizar(nuevaSesion);
   }, [sesion, sincronizar]);
 

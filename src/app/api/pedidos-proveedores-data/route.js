@@ -2,6 +2,7 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { pedidoProveedorSchema, validateData } from '@/lib/validations';
+import { checkRateLimit } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +79,15 @@ export async function GET(request) {
 // POST /api/pedidos-proveedores-data (Modificado para nueva lógica)
 export async function POST(request) {
   try {
+    // SEC-06: rate limit en escritura
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    const rl = checkRateLimit(`pedidos-prov:${ip}`, 30);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { message: 'Demasiadas peticiones' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+      );
+    }
     const body = await request.json();
     const validation = validateData(pedidoProveedorSchema, body);
     if (!validation.success) {

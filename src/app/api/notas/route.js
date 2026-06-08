@@ -36,7 +36,8 @@ export async function POST(request) {
   }
 }
 
-// DELETE /api/notas (Eliminar una nota por ID)
+// DELETE /api/notas — BUG-04: deprecated. Usar DELETE /api/notas/[id].
+// Se mantiene por compatibilidad con el frontend actual (TablonNotas.js).
 export async function DELETE(request) {
   try {
     const { id } = await request.json();

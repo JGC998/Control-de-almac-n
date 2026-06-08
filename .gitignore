@@ -20,7 +20,7 @@ node_modules/
 *.db-journal
 *.sqlite
 *.sqlite3
-!prisma/prisma/dev.db
+!prisma/dev.db
 /backups/
 
 # ── Datos sensibles ─────────────────────────────────────────────────────────

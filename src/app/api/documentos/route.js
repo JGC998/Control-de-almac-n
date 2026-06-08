@@ -3,6 +3,7 @@ import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import Formidable from 'formidable';
 import { Readable } from 'stream';
 
@@ -137,8 +138,11 @@ export async function POST(request) {
       );
     }
 
-    const rawName = uploadedFile.originalFilename || 'documento';
-    const safeFileName = path.basename(rawName).replace(/[^a-zA-Z0-9._\-]/g, '_');
+    // SEC-03: usar UUID para evitar colisiones y sobrescrituras silenciosas
+    const ALLOWED_EXTS = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    const rawExt = path.extname(uploadedFile.originalFilename || '').toLowerCase();
+    const safeExt = ALLOWED_EXTS.includes(rawExt) ? rawExt : '.bin';
+    const safeFileName = `${randomUUID()}${safeExt}`;
     const rutaArchivo = `/planos/${safeFileName}`;
     const targetPath = path.join(process.cwd(), 'public', 'planos', safeFileName);
 

@@ -17,6 +17,8 @@ export async function GET() {
       }),
       db.proveedor.findMany({
         select: { id: true, nombre: true },
+        take: 500,
+        orderBy: { nombre: 'asc' },
       }),
     ]);
 
@@ -38,11 +40,10 @@ export async function GET() {
 
 // POST /api/almacen-stock?action=[entrada|salida] - Maneja ambas operaciones
 export async function POST(request) {
+  try {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const data = await request.json();
-
-  try {
     if (action === 'salida') {
       // --- Lógica de SALIDA (Baja de Stock por Metros) ---
       const { stockId, cantidad, cantidadBobinasToDiscard, referencia } = data;
