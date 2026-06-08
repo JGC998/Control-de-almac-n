@@ -5,6 +5,19 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-06-08 (2)
+
+### ✨ Añadido
+
+- ✅ **Escaneo de etiquetas con OCR en la calculadora de contenedor** — Nuevo botón "Escanear etiqueta" en la tabla de artículos. Usa `tesseract.js` (OCR en navegador, sin API externa) para leer la foto de la etiqueta desde la cámara del tablet y extraer automáticamente: referencia, espesor (mm ≤ 20), ancho (mm > 20), metros lineales y número de rollos. Muestra formulario de confirmación con el texto OCR crudo al lado para corregir lo que no se detectó. Al confirmar, añade la fila directamente a la tabla (precio vacío para rellenar manualmente).
+- ✅ **`src/componentes/calculadoras/ModalEscanearEtiqueta.js`** — Nuevo componente modal con 3 pasos: (1) captura con cámara trasera (`capture="environment"`), (2) barra de progreso OCR en tiempo real, (3) formulario editable con los campos extraídos.
+
+### ♻️ Cambiado
+
+- `package.json` / `package-lock.json`: añadida dependencia `tesseract.js` (OCR en cliente).
+
+---
+
 ## 2026-06-08
 
 ### ✨ Añadido

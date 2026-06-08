@@ -1,12 +1,13 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download, Copy, Pencil, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download, Copy, Pencil, FileSpreadsheet, AlertTriangle, ScanLine } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 
 import { fetcher } from '@/lib/fetcher';
+import ModalEscanearEtiqueta from '@/componentes/calculadoras/ModalEscanearEtiqueta';
 
 const nuevaBobina = (id) => ({
   id,
@@ -302,6 +303,7 @@ export default function CalculadoraContenedorPage() {
   const [sujetos, setSujetos] = useState('');
   const [nextId, setNextId] = useState(2);
   const [modalGuardar, setModalGuardar] = useState(false);
+  const [modalEscaner, setModalEscaner] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
   const [datosTrazabilidad, setDatosTrazabilidad] = useState(TRAZABILIDAD_VACIA);
 
@@ -434,6 +436,21 @@ export default function CalculadoraContenedorPage() {
     setSuplidos(''); setExentos(''); setSujetos('');
     setEditandoId(null);
     setDatosTrazabilidad(TRAZABILIDAD_VACIA);
+  };
+
+  const handleEtiquetaEscaneada = (campos) => {
+    const nueva = {
+      ...nuevaBobina(nextId),
+      tipo: campos.tipo || 'BOBINA',
+      referencia: campos.referencia || '',
+      espesor: campos.espesor || '',
+      ancho: campos.ancho || '',
+      longitud: campos.longitud || '',
+      numRollos: campos.numRollos || '1',
+      notas: campos.notas || '',
+    };
+    setBobinas(prev => [...prev, nueva]);
+    setNextId(id => id + 1);
   };
 
   const hayResultados = bobinasFinal.some(b => b.subtotalEUR > 0);
@@ -837,9 +854,14 @@ export default function CalculadoraContenedorPage() {
         <div className="card-body p-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-bold text-base">Artículos del pedido — datos de la factura del proveedor</h2>
-            <button onClick={addBobina} className="btn btn-sm btn-primary gap-1">
-              <Plus className="w-4 h-4" /> Añadir artículo
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setModalEscaner(true)} className="btn btn-sm btn-outline gap-1">
+                <ScanLine className="w-4 h-4" /> Escanear etiqueta
+              </button>
+              <button onClick={addBobina} className="btn btn-sm btn-primary gap-1">
+                <Plus className="w-4 h-4" /> Añadir artículo
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -1245,6 +1267,14 @@ export default function CalculadoraContenedorPage() {
           datos={{ ...datosParaGuardar, ...datosTrazabilidad }}
           editandoId={editandoId}
           onClose={() => setModalGuardar(false)}
+        />
+      )}
+
+      {/* ── Modal escanear etiqueta ── */}
+      {modalEscaner && (
+        <ModalEscanearEtiqueta
+          onConfirmar={handleEtiquetaEscaneada}
+          onClose={() => setModalEscaner(false)}
         />
       )}
     </div>
