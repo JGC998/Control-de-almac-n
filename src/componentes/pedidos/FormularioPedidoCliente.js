@@ -38,7 +38,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       id: item.id || Date.now() + Math.random(),
       descripcion: item.producto?.nombre || item.descripcion,
       producto: item.producto,
-    })) || [{ id: Date.now(), descripcion: '', quantity: 1, unitPrice: 0, productoId: null }]
+    })) || [{ id: Date.now(), descripcion: '', quantity: 1, unitPrice: 0, costoUnitario: 0, productoId: null }]
   );
 
   const [notes, setNotes] = useState(initialData?.notas || '');

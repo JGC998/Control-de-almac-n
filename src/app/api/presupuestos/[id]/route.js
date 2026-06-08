@@ -39,7 +39,7 @@ export async function PUT(request, { params }) {
     if (!parsed.success) {
       return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
-    const { clienteId, items, estado, marginId, subtotal, tax, total } = parsed.data;
+    const { clienteId, items, estado, marginId, subtotal, tax, total, ultimoRecordatorio } = parsed.data;
     // Aceptar 'notas', 'observaciones' o 'notes' para compatibilidad con el cliente
     const finalNotes = body.notas ?? body.notes ?? body.observaciones ?? null;
 
@@ -48,13 +48,14 @@ export async function PUT(request, { params }) {
       const quote = await tx.presupuesto.update({
         where: { id: id },
         data: {
-          clienteId: clienteId,
-          estado: estado,
-          marginId: marginId,
-          notas: finalNotes, // Usamos el valor coalesced
-          subtotal: subtotal,
-          tax: tax,
-          total: total,
+          clienteId,
+          estado,
+          marginId,
+          notas: finalNotes,
+          subtotal,
+          tax,
+          total,
+          ...(ultimoRecordatorio !== undefined ? { ultimoRecordatorio: new Date(ultimoRecordatorio) } : {}),
         },
       });
 

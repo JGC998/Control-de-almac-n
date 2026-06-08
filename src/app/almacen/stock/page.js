@@ -81,7 +81,7 @@ export default function AlmacenPage() {
   };
 
   const setMaxQuantity = () => {
-    setWithdrawalData(prev => ({ ...prev, cantidad: prev.disponible.toFixed(2) }));
+    setWithdrawalData(prev => ({ ...prev, cantidad: (prev.disponibleMetros || 0).toFixed(2) }));
   };
 
   const handleWithdrawalSubmit = async (e) => {

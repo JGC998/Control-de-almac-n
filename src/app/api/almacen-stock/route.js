@@ -57,7 +57,10 @@ export async function POST(request) {
         );
       }
 
-      // Usar una transacción para asegurar la atomicidad
+      // BUG-01: capturar datos del stock ANTES de la transacción (puede borrarse si se agota)
+      let datosParaNotificar = null;
+      let metrosFinales = 0;
+
       await db.$transaction(async (tx) => {
         const stockItem = await tx.stock.findUnique({ where: { id: stockId } });
 
@@ -86,27 +89,27 @@ export async function POST(request) {
 
         // 2. Actualizar el registro de Stock
         const newMetrosDisponibles = stockItem.metrosDisponibles - metrosADescontar;
+        metrosFinales = newMetrosDisponibles;
+        // Capturar datos del item para poder notificar después, aunque se borre
+        datosParaNotificar = { ...stockItem, metrosDisponibles: Math.max(0, newMetrosDisponibles) };
 
         if (newMetrosDisponibles <= 0.01) {
-          // Si se agotan los metros, eliminar el item de stock
           await tx.stock.delete({ where: { id: stockId } });
         } else {
           await tx.stock.update({
             where: { id: stockId },
-            data: {
-              metrosDisponibles: newMetrosDisponibles,
-            },
+            data: { metrosDisponibles: newMetrosDisponibles },
           });
         }
       });
 
-      // N-05: Comprobar si se ha caído por debajo del stock mínimo y notificar
-      const stockActualizado = await db.stock.findUnique({ where: { id: stockId } });
-      if (stockActualizado && (stockActualizado.stockMinimo || 0) > 0 && stockActualizado.metrosDisponibles < stockActualizado.stockMinimo) {
+      // N-05: Notificar si el stock resultante está por debajo del mínimo (incluso si fue borrado = 0 m)
+      if (datosParaNotificar && (datosParaNotificar.stockMinimo || 0) > 0 &&
+          datosParaNotificar.metrosDisponibles < datosParaNotificar.stockMinimo) {
         db.notificacion.create({
           data: {
-            titulo: `⚠️ Stock bajo mínimo: ${stockActualizado.material}`,
-            mensaje: `Quedan ${stockActualizado.metrosDisponibles.toFixed(1)} m de ${stockActualizado.material}${stockActualizado.espesor ? ` ${stockActualizado.espesor}mm` : ''} (mínimo configurado: ${stockActualizado.stockMinimo} m).`,
+            titulo: `⚠️ Stock bajo mínimo: ${datosParaNotificar.material}`,
+            mensaje: `Quedan ${datosParaNotificar.metrosDisponibles.toFixed(1)} m de ${datosParaNotificar.material}${datosParaNotificar.espesor ? ` ${datosParaNotificar.espesor}mm` : ''} (mínimo configurado: ${datosParaNotificar.stockMinimo} m).`,
             leida: false,
           },
         }).catch(() => {});

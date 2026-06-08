@@ -206,12 +206,32 @@ export default function PresupuestoDetalle() {
         body: JSON.stringify({ mensaje: reminderMsg || undefined }),
       });
       if (!res.ok) throw new Error((await res.json()).message || 'Error al enviar el recordatorio');
-      // Actualizar ultimoRecordatorio
-      await fetch(`/api/presupuestos/${id}`, {
+      // BUG-02: enviar solo los campos que acepta el schema Zod del endpoint PUT
+      const putRes = await fetch(`/api/presupuestos/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...quote, ultimoRecordatorio: new Date().toISOString() }),
+        body: JSON.stringify({
+          clienteId: quote.clienteId,
+          items: quote.items?.map(i => ({
+            descripcion: i.descripcion,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            productoId: i.productoId ?? null,
+            pesoUnitario: i.pesoUnitario ?? 0,
+          })),
+          estado: quote.estado,
+          marginId: quote.marginId,
+          subtotal: Number(quote.subtotal),
+          tax: Number(quote.tax),
+          total: Number(quote.total),
+          notas: quote.notas,
+          ultimoRecordatorio: new Date().toISOString(),
+        }),
       });
+      if (!putRes.ok) {
+        // No bloquea el flujo: el email ya se envió, solo fallará el registro de fecha
+        console.warn('No se pudo actualizar ultimoRecordatorio');
+      }
       mutate(`/api/presupuestos/${id}`);
       setShowReminderModal(false);
       setReminderMsg('');

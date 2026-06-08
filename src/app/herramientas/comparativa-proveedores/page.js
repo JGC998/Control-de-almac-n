@@ -17,7 +17,7 @@ export default function ComparativaProveedoresPage() {
   const [material, setMaterial] = useState('');
 
   // Cargar lista de materiales disponibles
-  const { data: listaMateriales } = useSWR('/api/pedidos-proveedores-data/analisis-precios', fetcher);
+  const { data: listaMateriales, error: materialesError } = useSWR('/api/pedidos-proveedores-data/analisis-precios', fetcher);
 
   // Cargar análisis para el material seleccionado
   const { data, isLoading, error } = useSWR(
@@ -73,6 +73,7 @@ export default function ComparativaProveedoresPage() {
               onChange={e => setMaterial(e.target.value)}
             >
               <option value="">— Selecciona material —</option>
+              {materialesError && <option disabled>Error al cargar materiales</option>}
               {listaMateriales?.materiales?.map(m => (
                 <option key={m} value={m}>{m}</option>
               ))}
