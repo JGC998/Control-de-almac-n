@@ -75,16 +75,17 @@ model PedidoItem {
 }
 
 model Presupuesto {
-  id            String    @id @default(uuid())
-  numero        String    @unique
-  fechaCreacion DateTime  @default(now())
-  estado        String
-  notas         String?
-  subtotal      Float
-  tax           Float
-  total         Float
-  clienteId     String?
-  marginId      String?
+  id                  String    @id @default(uuid())
+  numero              String    @unique
+  fechaCreacion       DateTime  @default(now())
+  estado              String
+  notas               String?
+  subtotal            Float
+  tax                 Float
+  total               Float
+  clienteId           String?
+  marginId            String?
+  ultimoRecordatorio  DateTime?
 
   cliente Cliente?          @relation(fields: [clienteId], references: [id])
   items   PresupuestoItem[]
@@ -124,6 +125,7 @@ model Stock {
   material          String
   espesor           Float?
   metrosDisponibles Float
+  stockMinimo       Float             @default(0)
   proveedor         String?
   costoMetro        Float?
   cantidadBobinas   Int?              @default(0)

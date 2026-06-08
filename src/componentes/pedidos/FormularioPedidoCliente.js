@@ -103,7 +103,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
   // --- LÓGICA DE ITEMS ---
   const addItem = () => {
-    setItems(prev => [...prev, { id: Date.now() + Math.random(), descripcion: '', quantity: 1, unitPrice: 0, productoId: null }]);
+    setItems(prev => [...prev, { id: Date.now() + Math.random(), descripcion: '', quantity: 1, unitPrice: 0, costoUnitario: 0, productoId: null }]);
   };
 
   const removeItem = (itemId) => {
@@ -145,6 +145,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     newItems[index].descripcion = product.nombre;
     newItems[index].productoId = product.id;
     newItems[index].unitPrice = parseFloat(product.precioUnitario) || 0;
+    newItems[index].costoUnitario = parseFloat(product.costoUnitario) || 0;
     newItems[index].producto = product;
 
     setItems(newItems);
@@ -226,10 +227,16 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   };
 
   // --- TOTALES ---
-  const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado } = useMemo(() => {
+  const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado, totalCosteBase, margenEstimadoPct, articulosSinCoste } = useMemo(() => {
     const subtotalBase = items.reduce((acc, item) =>
       acc + ((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0))
       , 0);
+
+    // N-02: Coste base real (costoUnitario × cantidad)
+    const totalCosteBase = items.reduce((acc, item) =>
+      acc + ((parseFloat(item.quantity) || 0) * (parseFloat(item.costoUnitario) || 0))
+      , 0);
+    const articulosSinCoste = items.filter(i => i.productoId && !(parseFloat(i.costoUnitario) > 0)).length;
 
     const ivaRate = config?.iva_rate ? parseFloat(config.iva_rate) : 0.21;
 
@@ -249,6 +256,10 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     const tax = subtotalConMargen * ivaRate;
     const total = subtotalConMargen + tax;
 
+    const margenEstimadoPct = totalCosteBase > 0
+      ? ((subtotalConMargen - totalCosteBase) / totalCosteBase) * 100
+      : null;
+
     return {
       subtotalBase: parseFloat(subtotalBase.toFixed(2)),
       subtotalConMargen: parseFloat(subtotalConMargen.toFixed(2)),
@@ -256,6 +267,9 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       total: parseFloat(total.toFixed(2)),
       ivaRate,
       margenAplicado,
+      totalCosteBase: parseFloat(totalCosteBase.toFixed(2)),
+      margenEstimadoPct,
+      articulosSinCoste,
     };
   }, [items, config, selectedMarginId, margenes, isMarginRequired]);
 
@@ -492,6 +506,29 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                 <div className="divider my-1"></div>
 
                 <div className="flex justify-between font-bold text-lg text-primary"><span>Total</span><span>{total.toFixed(2)} €</span></div>
+
+                {/* N-02: Indicador de rentabilidad estimada */}
+                {margenEstimadoPct !== null && (
+                  <div className={`mt-3 p-2 rounded-lg text-sm border ${
+                    margenEstimadoPct >= 20 ? 'bg-success/10 border-success/30 text-success' :
+                    margenEstimadoPct >= 10 ? 'bg-warning/10 border-warning/30 text-warning' :
+                    'bg-error/10 border-error/30 text-error'
+                  }`}>
+                    <div className="flex justify-between font-semibold">
+                      <span>Margen estimado</span>
+                      <span>{margenEstimadoPct >= 0 ? '+' : ''}{margenEstimadoPct.toFixed(1)} %</span>
+                    </div>
+                    <div className="flex justify-between text-xs opacity-75 mt-0.5">
+                      <span>Ganancia bruta</span>
+                      <span>{(subtotalConMargen - totalCosteBase).toFixed(2)} €</span>
+                    </div>
+                  </div>
+                )}
+                {articulosSinCoste > 0 && (
+                  <p className="text-xs text-base-content/50 mt-1">
+                    ⚠ {articulosSinCoste} artículo{articulosSinCoste > 1 ? 's' : ''} sin coste registrado
+                  </p>
+                )}
               </div>
             </div>
           </div>

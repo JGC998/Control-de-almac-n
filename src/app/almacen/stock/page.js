@@ -6,7 +6,7 @@ import MovimientoStockModal from '@/componentes/productos/ModalMovimientoStock';
 
 
 export default function AlmacenPage() {
-  const [formData, setFormData] = useState({ material: '', espesor: '', metrosDisponibles: '', proveedor: '' });
+  const [formData, setFormData] = useState({ material: '', espesor: '', metrosDisponibles: '', proveedor: '', stockMinimo: '' });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
   const [withdrawalData, setWithdrawalData] = useState({ stockId: '', material: '', espesor: '', cantidadBobinas: 0, disponibleBobinas: 0, disponibleMetros: 0, referencia: '' });
@@ -147,16 +147,23 @@ export default function AlmacenPage() {
                   <th>Material</th>
                   <th>Espesor</th>
                   <th>Metros Disp.</th>
+                  <th>Mín.</th>
                   <th>Cant. Bobinas</th>
                   <th>Proveedor</th>
                   <th>Acción</th>
                 </tr></thead>
                 <tbody>
-                  {data?.stock?.map(item => (
-                    <tr key={item.id} className="hover">
+                  {data?.stock?.map(item => {
+                    const bajoMinimo = (item.stockMinimo || 0) > 0 && item.metrosDisponibles < item.stockMinimo;
+                    return (
+                    <tr key={item.id} className={`hover ${bajoMinimo ? 'bg-error/5' : ''}`}>
                       <td className="font-bold">{item.material}</td>
                       <td>{item.espesor}</td>
-                      <td>{item.metrosDisponibles.toFixed(2)} m</td>
+                      <td className={bajoMinimo ? 'text-error font-bold' : ''}>
+                        {item.metrosDisponibles.toFixed(2)} m
+                        {bajoMinimo && <span className="ml-1 badge badge-error badge-xs">bajo mín.</span>}
+                      </td>
+                      <td className="text-sm text-base-content/60">{item.stockMinimo ? `${item.stockMinimo} m` : '—'}</td>
                       <td>{item.cantidadBobinas || 0}</td>
                       <td>{item.proveedorNombre}</td>
                       <td className="flex gap-1">
@@ -175,7 +182,8 @@ export default function AlmacenPage() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -218,6 +226,7 @@ export default function AlmacenPage() {
               <input type="text" name="material" value={formData.material} onChange={handleChange} placeholder="Material" className="input input-bordered w-full" required />
               <input type="text" name="espesor" value={formData.espesor} onChange={handleChange} placeholder="Espesor (mm)" className="input input-bordered w-full" />
               <input type="number" step="0.01" name="metrosDisponibles" value={formData.metrosDisponibles} onChange={handleChange} placeholder="Metros Disponibles" className="input input-bordered w-full" required />
+              <input type="number" step="0.01" min="0" name="stockMinimo" value={formData.stockMinimo} onChange={handleChange} placeholder="Stock mínimo (metros) — alerta cuando baje de aquí" className="input input-bordered w-full" />
               <input type="text" name="proveedor" value={formData.proveedor} onChange={handleChange} placeholder="Proveedor (ID o nombre)" className="input input-bordered w-full" />
               {error && <p className="text-red-500 text-sm">{error}</p>}
               <div className="modal-action">

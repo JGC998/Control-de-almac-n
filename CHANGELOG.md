@@ -5,6 +5,23 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-06-08
+
+### ✨ Añadido
+
+- ✅ **N-05: Stock mínimo configurable** — Nuevo campo `stockMinimo` en la tabla `Stock`. En el formulario de entrada se puede configurar. La tabla de inventario muestra badge "bajo mín." en rojo cuando los metros disponibles caen por debajo. Al registrar una salida, si el stock baja del mínimo se crea automáticamente una notificación.
+- ✅ **N-04: Reenvío de presupuestos caducados** — Botón "Recordar al cliente" en la vista detalle del presupuesto (visible cuando el estado es "Enviado" y el cliente tiene email). Abre un modal con el PDF adjunto y mensaje personalizable. Registra la fecha del último recordatorio en el campo `ultimoRecordatorio` del presupuesto.
+- ✅ **N-02: Indicador de rentabilidad en tiempo real al crear pedido** — En el resumen de totales del `FormularioPedidoCliente`, cuando se seleccionan productos del catálogo con `costoUnitario`, se muestra el margen estimado en % y la ganancia bruta. Semáforo: verde ≥20%, naranja ≥10%, rojo <10%. Aviso si hay artículos sin coste registrado.
+- ✅ **N-01: Semáforo de rentabilidad post-importación** — Nueva herramienta `/herramientas/analisis-rentabilidad`. API `GET /api/importaciones/[id]/analisis-rentabilidad` cruza el coste real por metro (precio USD + gastos prorrateados) con el precio de venta actual en `tarifas-rollo`. Muestra tabla con semáforo 🟢🟡🔴, precio mínimo necesario y margen real por referencia. Solo lectura, sin modificar nada.
+- ✅ **N-03: Comparativa histórica de precios por proveedor** — Nueva herramienta `/herramientas/comparativa-proveedores`. API `GET /api/pedidos-proveedores-data/analisis-precios?material=X` agrupa `BobinaPedido` por proveedor y devuelve histórico de precios. La página muestra gráfico de líneas (Recharts) por proveedor, tabla comparativa con precio mínimo/máximo/medio y conclusión de ahorro.
+
+### ♻️ Cambiado
+
+- ✅ **`prisma/schema.dev.prisma` + `prisma/schema.prisma`**: añadidos campos `Stock.stockMinimo Float @default(0)` y `Presupuesto.ultimoRecordatorio DateTime?`. DB dev sincronizada.
+- ✅ **Barra lateral y hub de herramientas**: añadidos accesos directos a las 3 nuevas herramientas.
+
+---
+
 ## 2026-06-04
 
 ### ✨ Añadido

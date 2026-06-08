@@ -100,6 +100,18 @@ export async function POST(request) {
         }
       });
 
+      // N-05: Comprobar si se ha caído por debajo del stock mínimo y notificar
+      const stockActualizado = await db.stock.findUnique({ where: { id: stockId } });
+      if (stockActualizado && (stockActualizado.stockMinimo || 0) > 0 && stockActualizado.metrosDisponibles < stockActualizado.stockMinimo) {
+        db.notificacion.create({
+          data: {
+            titulo: `⚠️ Stock bajo mínimo: ${stockActualizado.material}`,
+            mensaje: `Quedan ${stockActualizado.metrosDisponibles.toFixed(1)} m de ${stockActualizado.material}${stockActualizado.espesor ? ` ${stockActualizado.espesor}mm` : ''} (mínimo configurado: ${stockActualizado.stockMinimo} m).`,
+            leida: false,
+          },
+        }).catch(() => {});
+      }
+
       revalidatePath('/almacen');
       revalidatePath('/');
       return NextResponse.json({ message: 'Salida de stock procesada correctamente.' }, { status: 200 });

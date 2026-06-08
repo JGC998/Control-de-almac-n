@@ -13,18 +13,18 @@ El CRM tiene la base operativa completa (pedidos, presupuestos, stock, importaci
 
 ## 📋 Backlog completo
 
-| ID | Tarea | Tipo | Complejidad | Depende de |
-|----|-------|------|-------------|------------|
-| T-61 | Plantillas de contenedor reutilizables | Full stack + DB | Media | — |
-| T-65 | Vincular referencias con materiales del catálogo | Full stack | Grande | T-61 |
-| N-01 | Semáforo de rentabilidad post-importación | Full stack | Media | — |
-| N-02 | Indicador de margen en tiempo real al crear pedido | Frontend | Media | — |
-| N-03 | Comparativa histórica de precios por proveedor | Full stack | Media | — |
-| N-04 | Reenvío de presupuestos caducados con un clic | Frontend | Pequeña | — |
-| N-05 | Alerta de stock mínimo configurable | Full stack | Pequeña | — |
-| N-06 | Dashboard ejecutivo con KPIs reales | Frontend | Media | — |
-| N-07 | Portal público de cliente (link para ver presupuesto) | Full stack | Grande | — |
-| N-08 | Modo picking en tablet para preparar pedidos | Full stack | Grande | — |
+| ID | Tarea | Tipo | Complejidad | Estado |
+|----|-------|------|-------------|--------|
+| T-61 | Plantillas de contenedor reutilizables | Full stack + DB | Media | ⏳ |
+| T-65 | Vincular referencias con materiales del catálogo | Full stack | Grande | ⏳ |
+| N-01 | Semáforo de rentabilidad post-importación | Full stack | Media | ✅ |
+| N-02 | Indicador de margen en tiempo real al crear pedido | Frontend | Media | ✅ |
+| N-03 | Comparativa histórica de precios por proveedor | Full stack | Media | ✅ |
+| N-04 | Reenvío de presupuestos caducados con un clic | Frontend | Pequeña | ✅ |
+| N-05 | Alerta de stock mínimo configurable | Full stack | Pequeña | ✅ |
+| N-06 | Dashboard ejecutivo con KPIs reales | Frontend | Media | ⏳ |
+| N-07 | Portal público de cliente (link para ver presupuesto) | Full stack | Grande | ⏳ |
+| N-08 | Modo picking en tablet para preparar pedidos | Full stack | Grande | ⏳ |
 
 ---
 

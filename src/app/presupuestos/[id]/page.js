@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, DollarSign, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, DollarSign, FileText, Mail } from 'lucide-react';
 
 
 
@@ -145,7 +145,11 @@ export default function PresupuestoDetalle() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [reminderMsg, setReminderMsg] = useState('');
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   // Cargamos el presupuesto y la información necesaria para el cálculo
   const { data: quote, error: quoteError, isLoading: quoteLoading } = useSWR(id ? `/api/presupuestos/${id}` : null);
@@ -192,6 +196,34 @@ export default function PresupuestoDetalle() {
     }
   };
 
+  const handleSendReminder = async () => {
+    setIsSendingReminder(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/presupuestos/${id}/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensaje: reminderMsg || undefined }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || 'Error al enviar el recordatorio');
+      // Actualizar ultimoRecordatorio
+      await fetch(`/api/presupuestos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...quote, ultimoRecordatorio: new Date().toISOString() }),
+      });
+      mutate(`/api/presupuestos/${id}`);
+      setShowReminderModal(false);
+      setReminderMsg('');
+      setSuccess('Recordatorio enviado correctamente.');
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
   const handleCreateOrder = async () => {
     setIsCreatingOrder(true);
     try {
@@ -235,6 +267,7 @@ export default function PresupuestoDetalle() {
       </button>
 
       {error && <div className="alert alert-error shadow-lg mb-4">{error}</div>}
+      {success && <div className="alert alert-success shadow-lg mb-4">{success}</div>}
 
       {/* Acciones */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -242,6 +275,16 @@ export default function PresupuestoDetalle() {
           {isDownloading ? <span className="loading loading-spinner loading-xs" /> : <Download className="w-4 h-4" />}
           Descargar PDF
         </button>
+        {quote?.estado === 'Enviado' && quote?.cliente?.email && (
+          <button onClick={() => setShowReminderModal(true)} className="btn btn-outline btn-info">
+            <Mail className="w-4 h-4" /> Recordar al cliente
+            {quote.ultimoRecordatorio && (
+              <span className="badge badge-sm badge-ghost ml-1">
+                {new Date(quote.ultimoRecordatorio).toLocaleDateString('es-ES')}
+              </span>
+            )}
+          </button>
+        )}
         <button onClick={handleCreateOrder} className="btn btn-primary" disabled={isCreatingOrder}>
           {isCreatingOrder ? <span className="loading loading-spinner loading-xs" /> : <FileText className="w-4 h-4" />}
           Crear Pedido
@@ -254,6 +297,33 @@ export default function PresupuestoDetalle() {
           Eliminar
         </button>
       </div>
+
+      {/* Modal de recordatorio */}
+      {showReminderModal && (
+        <div className="modal modal-open z-50">
+          <div className="modal-box max-w-md">
+            <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+              <Mail className="w-5 h-5 text-info" /> Recordatorio al cliente
+            </h3>
+            <p className="text-sm text-base-content/60 mb-3">
+              Se enviará el PDF del presupuesto <strong>{quote.numero}</strong> a <strong>{quote.cliente?.email}</strong>.
+            </p>
+            <textarea
+              className="textarea textarea-bordered w-full h-28 text-sm"
+              placeholder="Mensaje adicional (opcional)…"
+              value={reminderMsg}
+              onChange={e => setReminderMsg(e.target.value)}
+            />
+            <div className="modal-action mt-3">
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowReminderModal(false)}>Cancelar</button>
+              <button className="btn btn-info btn-sm" onClick={handleSendReminder} disabled={isSendingReminder}>
+                {isSendingReminder ? <span className="loading loading-spinner loading-xs" /> : <Mail className="w-4 h-4" />}
+                Enviar recordatorio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detalles del Presupuesto */}
       <div className="bg-base-100 shadow-xl rounded-lg p-6">

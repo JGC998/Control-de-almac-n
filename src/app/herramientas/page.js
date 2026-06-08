@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingDown, FileText, Ruler, Scale } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingDown, TrendingUp, FileText, Ruler, Scale, Factory } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -52,6 +52,20 @@ export default function HerramientasHub() {
           titulo: 'Comparativa reparto de gastos',
           descripcion: 'Compara dos métodos de distribuir los gastos de importación entre los artículos: prorrateo por valor económico vs. porcentaje fijo por metro.',
           accion: 'Ver comparativa',
+        },
+        {
+          href: '/herramientas/analisis-rentabilidad',
+          icon: TrendingUp,
+          titulo: 'Semáforo de rentabilidad',
+          descripcion: 'Compara el coste real de cada bobina importada con tu tarifa de venta actual. Muestra en verde, amarillo o rojo si estás vendiendo con margen suficiente.',
+          accion: 'Analizar importación',
+        },
+        {
+          href: '/herramientas/comparativa-proveedores',
+          icon: Factory,
+          titulo: 'Comparativa de proveedores',
+          descripcion: 'Historial de precios por proveedor y material. Gráfico de evolución y resumen: quién vende más barato y en qué porcentaje.',
+          accion: 'Comparar proveedores',
         },
       ]}
     />
