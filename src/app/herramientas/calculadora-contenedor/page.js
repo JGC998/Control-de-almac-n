@@ -638,6 +638,111 @@ export default function CalculadoraContenedorPage() {
     doc.save(`importacion-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
+  // T-71 — PDF simplificado: cabecera + tabla referencia/tipo/ancho/largo/$/m²/€/m²
+  const handleExportPDFSimple = () => {
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const fecha = new Date().toLocaleDateString('es-ES');
+    let y = 20;
+
+    // ── CABECERA ──
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('IMPORTACIÓN', margin, y);
+    y += 8;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    const parteIzq = [
+      datosTrazabilidad.numFactura    && `Nº Factura: ${datosTrazabilidad.numFactura}`,
+      datosTrazabilidad.numContenedor && `Nº Contenedor: ${datosTrazabilidad.numContenedor}`,
+    ].filter(Boolean);
+    const parteDer = [
+      `Fecha: ${fecha}`,
+      `1 USD = ${fmt(tc, 4)} EUR`,
+    ];
+
+    if (parteIzq.length > 0) {
+      parteIzq.forEach(l => { doc.text(l, margin, y); y += 5; });
+    }
+    parteDer.forEach(l => { doc.text(l, margin, y); y += 5; });
+
+    doc.setDrawColor(180);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+
+    // ── TABLA ARTÍCULOS ──
+    autoTable(doc, {
+      startY: y,
+      head: [['Referencia', 'Tipo', 'Ancho\n(mm)', 'Long. / Ud.', '$/m²', '€/m²']],
+      body: bobinasFinal.map((b, idx) => {
+        const tipo = b.tipo || 'BOBINA';
+        const anchoMm = n(b.ancho);
+        const anchoM  = anchoMm / 1000;
+        const tieneMedidas = tipo === 'BOBINA' || tipo === 'TACO';
+
+        // Cantidad
+        const cantCol = tieneMedidas
+          ? `${fmt(b.totalMetrosBobina, 0)} m`
+          : `${b.numRollos} ud`;
+
+        // $/m² — USD por metro lineal ÷ ancho en metros
+        let usdM2 = '—';
+        if (anchoM > 0 && b.usdPorMetro > 0) {
+          usdM2 = `${fmt(b.usdPorMetro / anchoM, 2)} $`;
+        } else if (b.usdPorMetro > 0) {
+          usdM2 = `${fmt(b.usdPorMetro, 4)} $/m`;
+        }
+
+        // €/m² — coste final por metro lineal ÷ ancho en metros
+        let eurM2 = '—';
+        if (b.costePorMetro > 0 && anchoM > 0) {
+          eurM2 = `${fmt(b.costePorMetro / anchoM, 2)} €`;
+        } else if (b.costePorMetro > 0) {
+          eurM2 = `${fmt(b.costePorMetro, 4)} €/m`;
+        } else if (b.costeFinalEUR > 0 && n(b.numRollos) > 0) {
+          eurM2 = `${fmt(b.costeFinalEUR / n(b.numRollos), 2)} €/ud`;
+        }
+
+        return [
+          b.referencia || `Art.${idx + 1}`,
+          tipo,
+          anchoMm > 0 ? String(anchoMm) : '—',
+          cantCol,
+          usdM2,
+          eurM2,
+        ];
+      }),
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 30, 80], textColor: 255, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 38 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 28, halign: 'right' },
+        4: { cellWidth: 32, halign: 'right' },
+        5: { cellWidth: 32, halign: 'right' },
+      },
+      margin: { left: margin, right: margin },
+    });
+
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(150);
+      doc.text(
+        `CRM Taller — ${fecha} — Pág. ${i}/${pageCount}`,
+        pageW / 2, 290, { align: 'center' }
+      );
+      doc.setTextColor(0);
+    }
+
+    doc.save(`importacion-resumen-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   // T-63 — Exportar Excel
   const handleExportExcel = async () => {
     const wb = new ExcelJS.Workbook();
@@ -788,8 +893,11 @@ export default function CalculadoraContenedorPage() {
           )}
           {hayResultados && (
             <>
+              <button className="btn btn-outline btn-sm gap-2" onClick={handleExportPDFSimple}>
+                <Download className="w-4 h-4" /> PDF Resumen
+              </button>
               <button className="btn btn-outline btn-sm gap-2" onClick={handleExportPDF}>
-                <Download className="w-4 h-4" /> PDF
+                <Download className="w-4 h-4" /> PDF Completo
               </button>
               <button className="btn btn-outline btn-sm gap-2" onClick={handleExportExcel}>
                 <FileSpreadsheet className="w-4 h-4" /> Excel
