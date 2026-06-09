@@ -1,5 +1,5 @@
 /**
- * Helpers para tracking de contenedores via Ship24 + notificación WhatsApp via CallMeBot.
+ * Tracking de contenedores via Ship24 + notificaciones WhatsApp via CallMeBot.
  *
  * Variables de entorno requeridas:
  *   SHIP24_API_KEY   — API key de ship24.com
@@ -10,6 +10,10 @@
  *   Idempotente — crea el tracker la primera vez y devuelve resultados.
  *   Llamadas posteriores con el mismo payload devuelven el estado actualizado.
  *   Primera llamada puede tardar hasta 60 s (fetch síncrono a la naviera).
+ *
+ * NOTA: Ship24 es fiable para paquetería. Para contenedores marítimos Yang Ming
+ * la cobertura es limitada. La alternativa ideal es solicitar el API DCSA de
+ * Yang Ming directamente en e-solution.yangming.com (gratuito para clientes).
  *
  * Formato de respuesta (según OpenAPI ship24-tracking-api.yaml):
  *   { data: { trackings: [{ tracker, shipment, events, statistics }] } }
