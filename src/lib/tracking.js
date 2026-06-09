@@ -81,17 +81,45 @@ function esT49Id(val) {
 }
 
 /**
- * Busca el UUID de contenedor en Terminal49 por número de contenedor.
- * Devuelve el UUID o null si aún no ha sido procesado.
+ * Busca el UUID de contenedor en Terminal49 a través del tracking_request.
+ * Primero encuentra el tracking_request por número, luego sigue al shipment
+ * y obtiene el primer contenedor asociado.
+ * Devuelve { containerUuid, shipmentUuid } o null si aún no está procesado.
  */
-async function buscarContainerUuid(trackingNumber, headers) {
-  const res = await fetch(
-    `${T49_BASE}/containers?filter[number]=${encodeURIComponent(trackingNumber.trim().toUpperCase())}`,
+async function buscarContainerDesdeTrackingRequest(trackingNumber, headers) {
+  // 1. Buscar tracking_request por número de contenedor
+  const trRes = await fetch(
+    `${T49_BASE}/tracking_requests?filter[request_number]=${encodeURIComponent(trackingNumber.trim().toUpperCase())}&include=tracked_object`,
     { headers, signal: AbortSignal.timeout(20_000) }
   );
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json?.data?.[0]?.id ?? null;
+  if (!trRes.ok) return null;
+  const trJson = await trRes.json();
+
+  const trackingReq = trJson?.data?.[0];
+  if (!trackingReq) return null;
+
+  // 2. Obtener shipment UUID desde tracked_object
+  const shipmentId =
+    trackingReq.relationships?.tracked_object?.data?.id ??
+    (trJson?.included ?? []).find(i => i.type === 'shipment')?.id ??
+    null;
+  if (!shipmentId) return null;
+
+  // 3. Obtener containers del shipment
+  const shRes = await fetch(
+    `${T49_BASE}/shipments/${shipmentId}?include=containers`,
+    { headers, signal: AbortSignal.timeout(20_000) }
+  );
+  if (!shRes.ok) return null;
+  const shJson = await shRes.json();
+
+  const containers = (shJson?.included ?? []).filter(i => i.type === 'container');
+  const container = containers.find(
+    c => c.attributes?.number?.toUpperCase() === trackingNumber.trim().toUpperCase()
+  ) ?? containers[0];
+
+  if (!container) return null;
+  return { containerUuid: container.id, shipmentUuid: shipmentId };
 }
 
 /**
@@ -146,17 +174,30 @@ export async function buscarTracking(trackingNumber, t49Uuid = null) {
   const headers = t49Headers(apiKey);
 
   // Obtener UUID del contenedor en Terminal49
-  let containerId = esT49Id(t49Uuid) ? t49Uuid : null;
+  let containerId  = esT49Id(t49Uuid) ? t49Uuid : null;
+  let shipmentUuid = null;
 
   if (!containerId) {
-    // Buscar si ya está registrado en Terminal49
-    containerId = await buscarContainerUuid(trackingNumber, headers);
+    // Buscar si ya hay un tracking_request para este número
+    const found = await buscarContainerDesdeTrackingRequest(trackingNumber, headers);
 
-    if (!containerId) {
+    if (found) {
+      containerId  = found.containerUuid;
+      shipmentUuid = found.shipmentUuid;
+    } else {
       // Primera vez: registrar (consume 1 crédito del plan gratuito)
       await registrarTracking(trackingNumber, headers);
-      console.info(`[tracking] ${trackingNumber} registrado en Terminal49 — datos disponibles en ~minutos`);
-      return null; // El siguiente sync (4h) ya tendrá datos
+      console.info(`[tracking] ${trackingNumber} registrado en Terminal49 — esperando procesamiento`);
+
+      // Intentar encontrar el contenedor inmediatamente (Terminal49 suele ser rápido)
+      await new Promise(r => setTimeout(r, 3000));
+      const retry = await buscarContainerDesdeTrackingRequest(trackingNumber, headers);
+      if (retry) {
+        containerId  = retry.containerUuid;
+        shipmentUuid = retry.shipmentUuid;
+      } else {
+        return null; // Aún procesando — el siguiente sync tendrá datos
+      }
     }
   }
 
@@ -204,19 +245,21 @@ export async function buscarTracking(trackingNumber, t49Uuid = null) {
 
   const ultimoEvento = eventos[0] ?? null;
 
-  // Obtener ETA desde el contenedor (incluye shipment con pod_eta)
+  // Obtener ETA desde el shipment (ya tenemos el UUID del proceso anterior)
   let eta = null;
   try {
-    const cRes = await fetch(
-      `${T49_BASE}/containers/${containerId}?include=shipment`,
-      { headers, signal: AbortSignal.timeout(15_000) }
-    );
-    if (cRes.ok) {
-      const cJson = await cRes.json();
-      const shipment = (cJson?.included ?? []).find(i => i.type === 'shipment');
-      eta = shipment?.attributes?.pod_eta
-        ?? shipment?.attributes?.destination_eta_at
-        ?? null;
+    const sid = shipmentUuid;
+    if (sid) {
+      const shRes = await fetch(
+        `${T49_BASE}/shipments/${sid}`,
+        { headers, signal: AbortSignal.timeout(15_000) }
+      );
+      if (shRes.ok) {
+        const shJson = await shRes.json();
+        eta = shJson?.data?.attributes?.pod_eta
+          ?? shJson?.data?.attributes?.destination_eta_at
+          ?? null;
+      }
     }
   } catch {
     // ETA no crítica — continuar sin ella
