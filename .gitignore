@@ -47,6 +47,11 @@ ideas.txt
 PENDIENTE.md
 documentacionVerifactu.md
 
+# Archivos de referencia de APIs externas
+*.yaml
+*.yml
+!.github/**/*.yml
+
 # ── Seed files con datos de negocio privados ────────────────────────────────
 # seed-dev.js y seed-mock.js son OK (datos ficticios aleatorios)
 prisma/seed.js
