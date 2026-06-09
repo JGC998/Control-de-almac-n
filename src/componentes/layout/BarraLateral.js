@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator,
-  Users, Settings, Layers, Factory, ChevronDown, BarChart2, Scale, TrendingUp
+  Users, Settings, Layers, Factory, ChevronDown, BarChart2, Scale, TrendingUp, Ship
 } from 'lucide-react';
 
 const menuStructure = [
@@ -28,6 +28,7 @@ const menuStructure = [
     category: 'Compras',
     icon: Truck,
     links: [
+      { href: '/compras/contenedores', label: 'Contenedores', icon: Ship },
       { href: '/proveedores', label: 'Pedidos Proveedor', icon: Truck },
       { href: '/gestion/catalogos/proveedores', label: 'Gestión Proveedores', icon: Factory }
     ]

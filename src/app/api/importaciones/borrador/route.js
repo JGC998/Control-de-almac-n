@@ -3,18 +3,23 @@ import { z } from 'zod';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
-// Schema mínimo para borradores — sin campos financieros obligatorios
+// Schema para borradores — usado tanto desde la recepción tablet como desde el nuevo rastreador
 const borradorSchema = z.object({
-  numContenedor: z.string().max(100).optional().nullable(),
-  numFactura:    z.string().max(200).optional().nullable(),
-  descripcion:   z.string().max(200).optional().nullable(),
-  proveedorId:   z.string().uuid().optional().nullable(),
-  bobinas:       z.string().min(2, 'Artículos requeridos'),
+  numContenedor:  z.string().max(100).optional().nullable(),
+  numFactura:     z.string().max(200).optional().nullable(),
+  descripcion:    z.string().max(200).optional().nullable(),
+  proveedorId:    z.string().uuid().optional().nullable(),
+  bobinas:        z.string().min(2).default('[]'),
+  // Tracking
+  blNumber:       z.string().max(200).optional().nullable(),
+  trackingActivo: z.boolean().optional().default(false),
+  // Estado: BORRADOR para recepciones tablet, PEDIDO/TRANSITO/ADUANA para rastreadores
+  estado:         z.enum(['BORRADOR', 'PEDIDO', 'TRANSITO', 'ADUANA']).default('BORRADOR'),
 });
 
 // POST /api/importaciones/borrador
-// Crea una importación en estado BORRADOR con datos parciales.
-// No requiere tipo de cambio ni gastos — se rellenarán desde la calculadora.
+// Crea una importación parcial sin datos financieros.
+// Usada por: tablet offline reception + formulario "Nuevo rastreador".
 export async function POST(request) {
   try {
     const body   = await request.json();
@@ -25,16 +30,21 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    const { numContenedor, numFactura, descripcion, proveedorId, bobinas } = parsed.data;
+    const {
+      numContenedor, numFactura, descripcion, proveedorId,
+      bobinas, blNumber, trackingActivo, estado,
+    } = parsed.data;
 
     const registro = await db.importacionContenedor.create({
       data: {
-        estado:      'BORRADOR',
+        estado,
         bobinas,
-        descripcion: descripcion?.trim() || null,
-        numContenedor: numContenedor?.trim() || null,
-        numFactura:    numFactura?.trim()    || null,
-        proveedorId:   proveedorId           || null,
+        descripcion:    descripcion?.trim()    || null,
+        numContenedor:  numContenedor?.trim()   || null,
+        numFactura:     numFactura?.trim()      || null,
+        proveedorId:    proveedorId             || null,
+        blNumber:       blNumber?.trim()        || null,
+        trackingActivo: trackingActivo ?? false,
         // Campos financieros en cero — se completarán desde la calculadora
         tasaCambio:          0,
         totalBobinasUSD:     0,
@@ -47,6 +57,7 @@ export async function POST(request) {
         costeProducto:       0,
         totalDesembolso:     0,
       },
+      include: { proveedor: { select: { id: true, nombre: true } } },
     });
 
     return NextResponse.json(registro, { status: 201 });

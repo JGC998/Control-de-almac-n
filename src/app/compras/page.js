@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { ShoppingCart, Truck, Ship, Package, Factory } from 'lucide-react';
+import { ShoppingCart, Truck, Ship, Package, Factory, MapPin } from 'lucide-react';
 
 export const metadata = { title: 'Compras — CRM Taller' };
 
@@ -12,7 +12,26 @@ export default function ComprasHub() {
       color="secondary"
       groups={[
         {
-          titulo: 'Crear pedido',
+          titulo: 'Contenedores',
+          items: [
+            {
+              href: '/compras/contenedores',
+              icon: Ship,
+              titulo: 'Contenedores',
+              descripcion: 'Listado de todos los contenedores: rastreadores activos, en tránsito y recibidos. Crea un rastreador o abre la calculadora de costes.',
+              accion: 'Ver contenedores',
+            },
+            {
+              href: '/compras/contenedores/nuevo-rastreador',
+              icon: MapPin,
+              titulo: 'Nuevo rastreador',
+              descripcion: 'Registra un contenedor en camino y recibe avisos automáticos por WhatsApp cuando cambie de estado.',
+              accion: 'Nuevo rastreador',
+            },
+          ]
+        },
+        {
+          titulo: 'Pedidos nacionales',
           items: [
             {
               href: '/proveedores/nuevo-nacional',
@@ -22,24 +41,17 @@ export default function ComprasHub() {
               accion: 'Nuevo pedido',
             },
             {
-              href: '/herramientas/calculadora-contenedor',
-              icon: Ship,
-              titulo: 'Calculadora de contenedor',
-              descripcion: 'Calcula el coste real de importación por artículo: bobinas, tacos, grapas, máquinas. Prorrateo de gastos, informe PDF y trazabilidad del pedido.',
-              accion: 'Abrir calculadora',
-            },
-          ]
-        },
-        {
-          titulo: 'Ver y gestionar',
-          items: [
-            {
               href: '/proveedores',
               icon: Package,
               titulo: 'Pedidos a proveedor',
               descripcion: 'Listado de todos los pedidos: pendientes, en tránsito y recibidos.',
               accion: 'Ver pedidos',
             },
+          ]
+        },
+        {
+          titulo: 'Gestión',
+          items: [
             {
               href: '/gestion/catalogos/proveedores',
               icon: Factory,

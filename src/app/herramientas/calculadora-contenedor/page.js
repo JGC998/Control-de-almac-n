@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import { Package2, Plus, Trash2, Info, Save, History, X, ChevronDown, ChevronUp, Download, Copy, Pencil, FileSpreadsheet, AlertTriangle, ScanLine, MapPin, RefreshCw, Wifi } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -442,7 +443,7 @@ function HistorialImportaciones({ onCargar, onVerTracking }) {
   );
 }
 
-export default function CalculadoraContenedorPage() {
+function CalculadoraContenedorPage() {
   // Historial para T-58 (autocompletar) y T-64 (alerta precio)
   const { data: importacionesHistorial } = useSWR('/api/importaciones', fetcher);
 
@@ -486,6 +487,18 @@ export default function CalculadoraContenedorPage() {
   const [modalGuardar, setModalGuardar] = useState(false);
   const [modalEscaner, setModalEscaner] = useState(false);
   const [modalTracking, setModalTracking] = useState(null); // { id, numContenedor, blNumber }
+
+  // Soporte ?cargar=ID — carga automáticamente una importación desde la URL
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const id = searchParams?.get('cargar');
+    if (!id) return;
+    fetch(`/api/importaciones/${id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(imp => { if (imp) handleCargarImportacion(imp); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [editandoId, setEditandoId] = useState(null);
   const [datosTrazabilidad, setDatosTrazabilidad] = useState(TRAZABILIDAD_VACIA);
 
@@ -1581,5 +1594,14 @@ export default function CalculadoraContenedorPage() {
         />
       )}
     </div>
+  );
+}
+
+import { Suspense } from 'react';
+export default function Page() {
+  return (
+    <Suspense>
+      <CalculadoraContenedorPage />
+    </Suspense>
   );
 }
