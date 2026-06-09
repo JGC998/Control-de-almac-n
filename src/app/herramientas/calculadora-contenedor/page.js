@@ -524,7 +524,7 @@ function CalculadoraContenedorPage() {
     } else if (tipo === 'GRAPA') {
       // nº cajas × USD/caja  (longitud no aplica)
       subtotalUSD = precio * numRollos;
-    } else if (tipo === 'MAQUINA' || tipo === 'OTRO') {
+    } else if (tipo === 'MAQUINA' || tipo === 'ESTRELLA' || tipo === 'OTRO') {
       // cantidad × USD/unidad
       subtotalUSD = precio * numRollos;
     } else {
@@ -1118,6 +1118,24 @@ function CalculadoraContenedorPage() {
               <span className="font-mono text-sm">EUR</span>
             </div>
             {tc > 0 && <p className="text-xs text-base-content/40 mt-1">1 EUR = {fmt(1/tc, 4)} USD</p>}
+            {/* Convertidor tipo DUA: el DUA pone "1 EUR = X USD", hay que invertirlo */}
+            <div className="mt-2 pt-2 border-t border-base-300">
+              <p className="text-xs text-base-content/40 mb-1">Convertir tipo DUA</p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-mono text-base-content/60">1 EUR =</span>
+                <input
+                  type="number" step="0.0001" min="0.0001"
+                  placeholder="1.1733"
+                  className="input input-bordered input-xs w-24 font-mono"
+                  onChange={e => {
+                    const v = parseFloat(e.target.value);
+                    if (v > 0) setTasaCambio(String((1 / v).toFixed(4)));
+                  }}
+                />
+                <span className="text-xs font-mono text-base-content/60">USD</span>
+              </div>
+              <p className="text-xs text-base-content/30 mt-0.5">→ calcula 1 ÷ tipo automáticamente</p>
+            </div>
           </div>
         </div>
 
@@ -1194,7 +1212,7 @@ function CalculadoraContenedorPage() {
                   const esBobina = tipo === 'BOBINA';
                   const esTaco   = tipo === 'TACO';
                   const esGrapa  = tipo === 'GRAPA';
-                  const esMaquina = tipo === 'MAQUINA' || tipo === 'OTRO';
+                  const esMaquina = tipo === 'MAQUINA' || tipo === 'ESTRELLA' || tipo === 'OTRO';
                   const sinPrecio = !n(b.precio);
                   return (
                     <tr key={b.id} className={sinPrecio ? 'bg-warning/10' : ''}>
@@ -1209,6 +1227,7 @@ function CalculadoraContenedorPage() {
                           <option value="TACO">Taco</option>
                           <option value="GRAPA">Grapa</option>
                           <option value="MAQUINA">Máquina</option>
+                          <option value="ESTRELLA">Estrella</option>
                           <option value="OTRO">Otro</option>
                         </select>
                       </td>
@@ -1498,7 +1517,7 @@ function CalculadoraContenedorPage() {
                   {articulosConValor.map((b, idx) => {
                     const tipo = b.tipo || 'BOBINA';
                     const tieneMetos = tipo === 'BOBINA' || tipo === 'TACO';
-                    const numRollosLabel = tipo === 'GRAPA' ? 'caj.' : tipo === 'MAQUINA' || tipo === 'OTRO' ? 'ud.' : 'rol.';
+                    const numRollosLabel = tipo === 'GRAPA' ? 'caj.' : tipo === 'MAQUINA' || tipo === 'ESTRELLA' || tipo === 'OTRO' ? 'ud.' : 'rol.';
                     return (
                       <tr key={b.id} className="hover">
                         <td className="font-medium">{b.referencia || `A${idx + 1}`}</td>

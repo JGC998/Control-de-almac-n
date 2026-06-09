@@ -279,6 +279,7 @@ export default function ModalEscanearEtiqueta({ onConfirmar, onClose }) {
                     <option value="TACO">Taco</option>
                     <option value="GRAPA">Grapa</option>
                     <option value="MAQUINA">Máquina</option>
+                    <option value="ESTRELLA">Estrella</option>
                     <option value="OTRO">Otro</option>
                   </select>
                 </div>
