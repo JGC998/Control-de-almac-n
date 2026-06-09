@@ -156,6 +156,19 @@ export default function ContenedoresPage() {
   const recibidos = ordenados.filter(i => i.estado === 'RECIBIDO');
   const conTracking = activos.filter(i => i.trackingActivo).length;
 
+  // Contador de trackers Ship24 consumidos este mes (cuota: 10/mes)
+  const CUOTA_MENSUAL = 10;
+  const ahora = new Date();
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  const proximoMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1);
+  const trackersEsteMes = (importaciones || []).filter(i =>
+    (i.numContenedor || i.blNumber) && new Date(i.creadaEn) >= inicioMes
+  ).length;
+  const cuotaColor = trackersEsteMes >= CUOTA_MENSUAL ? 'badge-error'
+    : trackersEsteMes >= CUOTA_MENSUAL - 2 ? 'badge-warning'
+    : 'badge-success';
+  const resetLabel = proximoMes.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
 
@@ -170,6 +183,16 @@ export default function ContenedoresPage() {
                 ? `${conTracking} contenedor${conTracking !== 1 ? 'es' : ''} con seguimiento activo`
                 : 'Seguimiento de importaciones y cálculo de costes'}
             </p>
+            {importaciones && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className={`badge badge-sm ${cuotaColor}`}>
+                  {trackersEsteMes} / {CUOTA_MENSUAL} trackers Ship24
+                </span>
+                <span className="text-xs text-base-content/40">
+                  · se reinicia el {resetLabel}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
