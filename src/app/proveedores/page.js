@@ -106,8 +106,8 @@ const PedidoCard = ({ pedido, onReceive, onDelete, onViewDetails }) => {
                                         <tr key={bobina.id}>
                                             <td>{bobina.referencia?.nombre || 'N/A'}</td>
                                             <td>{bobina.ancho}x{bobina.largo}</td>
-                                            <td>{bobina.precioMetro.toFixed(2)}</td>
-                                            <td className="font-bold">{bobina.costoFinalMetro?.toFixed(2) || '-'} €</td>
+                                            <td>{bobina.precioMetro.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                            <td className="font-bold">{bobina.costoFinalMetro?.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '-'} €</td>
                                         </tr>
                                     ))}
                                 </tbody>

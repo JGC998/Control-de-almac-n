@@ -47,7 +47,7 @@ function KPICards() {
   if (!data) return null;
 
   const varMes = data.totalMesAnterior > 0
-    ? ((data.totalMes - data.totalMesAnterior) / data.totalMesAnterior * 100).toFixed(1)
+    ? ((data.totalMes - data.totalMesAnterior) / data.totalMesAnterior * 100).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})
     : null;
   const subMes = varMes !== null
     ? `${varMes > 0 ? '+' : ''}${varMes}% vs mes anterior`
@@ -135,7 +135,7 @@ function VentasMensuales() {
           <BarChart data={chartDataLabeled} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="mesLabel" tick={{ fontSize: 12 }} />
-            <YAxis tickFormatter={v => `${(v / 1000).toFixed(0)}k€`} tick={{ fontSize: 12 }} />
+            <YAxis tickFormatter={v => `${(v / 1000).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}k€`} tick={{ fontSize: 12 }} />
             <Tooltip formatter={v => formatCurrency(v)} />
             {comparar && <Legend />}
             <Bar dataKey="totalVentas" name={String(año)} fill="#570DF8" radius={[4, 4, 0, 0]} />
@@ -202,7 +202,7 @@ function TopClientes() {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={top10} layout="vertical" margin={{ top: 5, right: 20, left: 100, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" tickFormatter={v => `${(v / 1000).toFixed(0)}k€`} tick={{ fontSize: 12 }} />
+            <XAxis type="number" tickFormatter={v => `${(v / 1000).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}k€`} tick={{ fontSize: 12 }} />
             <YAxis type="category" dataKey="nombre" tick={{ fontSize: 11 }} width={95} />
             <Tooltip formatter={v => formatCurrency(v)} />
             <Bar dataKey="totalFacturado" name="Total facturado" fill="#36D399" radius={[0, 4, 4, 0]} />
@@ -252,7 +252,7 @@ function VentasPorProducto() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={top10} layout="vertical" margin={{ top: 5, right: 20, left: 160, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" tickFormatter={v => `${(v / 1000).toFixed(0)}k€`} tick={{ fontSize: 12 }} />
+              <XAxis type="number" tickFormatter={v => `${(v / 1000).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}k€`} tick={{ fontSize: 12 }} />
               <YAxis type="category" dataKey="descripcion" tick={{ fontSize: 10 }} width={155} />
               <Tooltip formatter={v => formatCurrency(v)} />
               <Bar dataKey="totalCosteBase" name="Coste base (€)" fill="#F59E0B" radius={[0, 4, 4, 0]} />
@@ -621,7 +621,7 @@ function RentabilidadClientes() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={top10} layout="vertical" margin={{ top: 5, right: 20, left: 130, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" tickFormatter={v => `${(v / 1000).toFixed(0)}k€`} tick={{ fontSize: 12 }} />
+              <XAxis type="number" tickFormatter={v => `${(v / 1000).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}k€`} tick={{ fontSize: 12 }} />
               <YAxis type="category" dataKey="nombre" tick={{ fontSize: 11 }} width={125} />
               <Tooltip formatter={v => formatCurrency(v)} />
               <Legend />
@@ -797,9 +797,9 @@ function HistoricoPrecios() {
                         <tr key={i} className="hover">
                           <td className="font-mono text-xs">{new Date(d.fecha).toLocaleDateString('es-ES')}</td>
                           <td className="text-xs text-base-content/60 max-w-[140px] truncate">{d.importacionDesc || '—'}</td>
-                          <td className="text-right font-mono">{d.usdPorMetro.toFixed(4)}</td>
-                          <td className="text-right font-mono text-xs text-base-content/50">{d.tasaCambio.toFixed(4)}</td>
-                          <td className="text-right font-mono font-bold text-success">{d.costePorMetroEUR.toFixed(4)} €</td>
+                          <td className="text-right font-mono">{d.usdPorMetro.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})}</td>
+                          <td className="text-right font-mono text-xs text-base-content/50">{d.tasaCambio.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})}</td>
+                          <td className="text-right font-mono font-bold text-success">{d.costePorMetroEUR.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} €</td>
                           <td className="text-right font-mono text-xs">{d.totalMetros} m</td>
                         </tr>
                       ))}

@@ -88,8 +88,8 @@ export default function GestionProductosPage() {
                   <td>{p.ancho != null ? `${p.ancho} mm` : '—'}</td>
                   <td>{p.largo != null ? `${p.largo} m` : '—'}</td>
                   <td>{p.color || '—'}</td>
-                  <td>{p.precioUnitario != null ? `${Number(p.precioUnitario).toFixed(2)} €` : '—'}</td>
-                  <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toFixed(2)} kg` : '—'}</td>
+                  <td>{p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €` : '—'}</td>
+                  <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg` : '—'}</td>
                   <td className="text-right">
                     <div className="flex gap-1 justify-end">
                       <button onClick={() => abrirEditar(p)} className="btn btn-ghost btn-xs text-info">

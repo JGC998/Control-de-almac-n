@@ -58,7 +58,7 @@ export default function MovimientosRecientesTable({ data }) {
                                     <td className="font-medium">{movimiento.materialNombre || 'N/A'}</td>
                                     <td className="font-semibold text-right">
                                         {movimiento.tipo.includes('Entrada') ? '+' : '-'}
-                                        {movimiento.cantidad?.toFixed(2)}
+                                        {movimiento.cantidad?.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                     </td>
                                     <td className="text-sm text-gray-500">{movimiento.referencia || 'N/A'}</td>
                                     <td>

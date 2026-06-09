@@ -40,7 +40,7 @@ function PanelFacturasPendientes({ datos }) {
 
         <div className="flex justify-between items-center mb-3 pb-2 border-b border-base-200">
           <span className="text-sm text-base-content/60">Total pendiente</span>
-          <span className="font-bold text-lg">{Number(total ?? 0).toFixed(2)} €</span>
+          <span className="font-bold text-lg">{Number(total ?? 0).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
         </div>
 
         {/* Lista de facturas */}
@@ -62,7 +62,7 @@ function PanelFacturasPendientes({ datos }) {
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <p className={`text-sm font-semibold ${f.vencida ? 'text-error' : ''}`}>{f.total.toFixed(2)} €</p>
+                  <p className={`text-sm font-semibold ${f.vencida ? 'text-error' : ''}`}>{f.total.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</p>
                   {f.fechaVencimiento && (
                     <p className={`text-xs ${f.vencida ? 'text-error' : 'text-base-content/40'}`}>
                       {new Date(f.fechaVencimiento).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}

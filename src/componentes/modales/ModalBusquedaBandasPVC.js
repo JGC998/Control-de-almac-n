@@ -112,7 +112,7 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
                                     <td><span className="badge badge-sm badge-ghost">{getTipo(b.nombre)}</span></td>
                                     <td>{b.ancho != null ? `${b.ancho} mm` : '—'}</td>
                                     <td>{b.largo != null ? `${b.largo} mm` : '—'}</td>
-                                    <td className="text-right font-mono">{(b.precioUnitario ?? 0).toFixed(2)} €</td>
+                                    <td className="text-right font-mono">{(b.precioUnitario ?? 0).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
                                     <td><button className="btn btn-xs btn-ghost"><ArrowRight className="w-4 h-4" /></button></td>
                                 </tr>
                             ))}

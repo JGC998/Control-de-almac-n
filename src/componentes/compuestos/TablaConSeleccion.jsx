@@ -21,7 +21,7 @@ const variantMap = {
 function renderCelda(fila, columna) {
   const valor = obtenerValorAnidado(fila, columna.clave);
   switch (columna.formato) {
-    case 'moneda': return `${Number(valor || 0).toFixed(2)} €`;
+    case 'moneda': return `${Number(valor || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
     case 'fecha':  return valor ? new Date(valor).toLocaleDateString('es-ES') : '-';
     case 'insignia': {
       const v = (columna.insigniaConfig || {})[valor] || 'neutral';

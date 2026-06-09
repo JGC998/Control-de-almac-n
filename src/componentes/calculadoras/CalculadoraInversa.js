@@ -140,7 +140,7 @@ export default function CalculadoraInversa() {
                         <div className="text-center mb-6">
                             <div className="text-sm font-medium text-gray-500 mb-1">COSTE MÁXIMO UNITARIO PERMITIDO</div>
                             <div className="text-4xl font-black text-success tracking-tight">
-                                {resultado.maxCost.toFixed(2)} €
+                                {resultado.maxCost.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €
                             </div>
                         </div>
 
@@ -149,7 +149,7 @@ export default function CalculadoraInversa() {
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Precio Venta Objetivo:</span>
-                                <span className="font-semibold">{parseFloat(targetPrice).toFixed(2)} €</span>
+                                <span className="font-semibold">{parseFloat(targetPrice).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Margen ({resultado.breakdown.marginName}):</span>
@@ -160,7 +160,7 @@ export default function CalculadoraInversa() {
                                     <span className="flex items-center gap-1">
                                         Gastos Fijos Unitarios:
                                     </span>
-                                    <span className="font-semibold">- {resultado.breakdown.fixedCostPerUnit.toFixed(4)} €</span>
+                                    <span className="font-semibold">- {resultado.breakdown.fixedCostPerUnit.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} €</span>
                                 </div>
                             )}
 

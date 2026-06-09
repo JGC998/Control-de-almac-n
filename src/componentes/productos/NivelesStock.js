@@ -65,8 +65,8 @@ export default function NivelesStock({ data }) {
                     <span className="font-medium">{item.material}</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold">{item.metrosDisponibles.toFixed(2)}m</span>
-                    <p className="text-xs text-gray-500">Min: {item.stockMinimo.toFixed(2)}m</p>
+                    <span className="font-bold">{item.metrosDisponibles.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}m</span>
+                    <p className="text-xs text-gray-500">Min: {item.stockMinimo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}m</p>
                   </div>
                 </div>
                 <progress 

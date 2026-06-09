@@ -156,7 +156,7 @@ const DataManagerTable = ({ apiEndpoint, modelName, fields, idField = 'id' }) =>
                     {field.type === 'boolean' 
                       ? (record[field.key] ? '✅ Sí' : '❌ No') 
                       : (field.type === 'float' 
-                        ? (record[field.key] !== null && record[field.key] !== undefined ? parseFloat(record[field.key]).toFixed(2) : 'N/A')
+                        ? (record[field.key] !== null && record[field.key] !== undefined ? parseFloat(record[field.key]).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A')
                         : record[field.key])}
                   </td>
                 ))}

@@ -186,7 +186,7 @@ export default function ProductoDetallePage() {
 
   const formatValue = (value, fallback = 'N/A') => {
     if (value === null || value === undefined) return fallback;
-    if (typeof value === 'number') return value.toFixed(2);
+    if (typeof value === 'number') return value.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     return value;
   };
 

@@ -189,7 +189,7 @@ export default function ModalConfiguracionTacos({ isOpen, onClose, onConfirm, an
                                     </div>
                                     <div>
                                         <span className="text-gray-500">Metros lineales:</span>
-                                        <span className="font-bold ml-2">{calculo.metrosLineales.toFixed(2)}m</span>
+                                        <span className="font-bold ml-2">{calculo.metrosLineales.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}m</span>
                                     </div>
                                     <div>
                                         <span className="text-gray-500">Precio/metro:</span>

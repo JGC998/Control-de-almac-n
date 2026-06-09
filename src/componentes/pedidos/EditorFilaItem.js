@@ -10,7 +10,7 @@ export default function EditorFilaItem({
     removeItem,
     handleDuplicateItem
 }) {
-    const total = (parseFloat(item.quantity || 0) * parseFloat(item.unitPrice || 0)).toFixed(2);
+    const total = (parseFloat(item.quantity || 0) * parseFloat(item.unitPrice || 0)).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
     const isPVC     = !!item.detallesTecnicos;
     const isCatalog = !!item.productoId;

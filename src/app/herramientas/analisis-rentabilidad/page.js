@@ -4,7 +4,9 @@ import useSWR from 'swr';
 import { Scale, TrendingUp, TrendingDown, Minus, Info, ChevronDown } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
 
-const fmt = (v, d = 2) => (isFinite(v) && v != null ? Number(v).toFixed(d) : '—');
+const fmt = (v, d = 2) => (isFinite(v) && v != null
+  ? Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d })
+  : '—');
 const fmtE = (v) => v != null ? `${fmt(v, 4)} €/m` : '—';
 
 function Semaforo({ color }) {
@@ -120,7 +122,7 @@ export default function AnalisisRentabilidadPage() {
             <div className="stat bg-base-100 shadow rounded-xl py-3">
               <div className="stat-title text-xs">Margen medio</div>
               <div className={`stat-value text-xl ${resumen.margenMedio != null && resumen.margenMedio >= data.margenMinimoPct ? 'text-success' : 'text-error'}`}>
-                {resumen.margenMedio != null ? `${resumen.margenMedio.toFixed(1)}%` : '—'}
+                {resumen.margenMedio != null ? `${resumen.margenMedio.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%` : '—'}
               </div>
             </div>
           </div>

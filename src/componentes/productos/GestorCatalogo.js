@@ -130,7 +130,7 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
     }
 
     if (typeof displayValue === 'number' && key !== 'lonas' && !key.toLowerCase().includes('lonas')) {
-      displayValue = displayValue.toFixed(2);
+      displayValue = displayValue.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
     return displayValue || 'N/A';
   }

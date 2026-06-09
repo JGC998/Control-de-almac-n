@@ -79,8 +79,8 @@ function TabTarifas() {
                   <td className="font-semibold">{t.material}</td>
                   <td>{t.espesor} mm</td>
                   <td>{t.color || '—'}</td>
-                  <td className="text-right font-bold text-primary">{Number(t.precio).toFixed(2)} €</td>
-                  <td className="text-right">{Number(t.peso).toFixed(3)} kg</td>
+                  <td className="text-right font-bold text-primary">{Number(t.precio).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                  <td className="text-right">{Number(t.peso).toLocaleString('es-ES', {minimumFractionDigits: 3, maximumFractionDigits: 3})} kg</td>
                 </tr>
               ))}
               {filtrado.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-base-content/40">Sin resultados</td></tr>}
@@ -99,7 +99,7 @@ function TabTarifas() {
                   <td>{t.espesor} mm</td>
                   <td>{t.ancho ? `${t.ancho} mm` : '—'}</td>
                   <td>{t.color || '—'}</td>
-                  <td className="text-right font-bold text-primary">{Number(t.precioBase).toFixed(2)} €</td>
+                  <td className="text-right font-bold text-primary">{Number(t.precioBase).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
                   <td className="text-right">{t.metrajeMinimo} m</td>
                 </tr>
               ))}
@@ -286,7 +286,7 @@ function TabStock() {
                 <td>{s.espesor ? `${s.espesor} mm` : '—'}</td>
                 <td className="text-right">
                   <span className={`font-bold text-lg ${s.metrosDisponibles < 100 ? 'text-error' : s.metrosDisponibles < 300 ? 'text-warning' : 'text-success'}`}>
-                    {Number(s.metrosDisponibles).toFixed(0)} m
+                    {Number(s.metrosDisponibles).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})} m
                   </span>
                 </td>
                 <td className="text-sm text-base-content/60">{s.proveedorNombre || '—'}</td>
@@ -440,7 +440,7 @@ function TabCalculadora() {
       const precioNeto = m * Number(tarifa.precioBase);
       const iva = precioNeto * ivaRate;
       setResultado({
-        tipo: 'Rollo/Metro', tarifa: `${Number(tarifa.precioBase).toFixed(2)} €/m`,
+        tipo: 'Rollo/Metro', tarifa: `${Number(tarifa.precioBase).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €/m`,
         metros: m, peso: m * Number(tarifa.peso), precioNeto, iva, total: precioNeto + iva,
         minimo: tarifa.metrajeMinimo,
         aviso: m < tarifa.metrajeMinimo ? `Mínimo: ${tarifa.metrajeMinimo} m` : null,
@@ -452,7 +452,7 @@ function TabCalculadora() {
       const precioNeto = q * Number(tarifa.precio);
       const iva = precioNeto * ivaRate;
       setResultado({
-        tipo: 'Lámina/Unidad', tarifa: `${Number(tarifa.precio).toFixed(2)} €/u`,
+        tipo: 'Lámina/Unidad', tarifa: `${Number(tarifa.precio).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €/u`,
         cantidad: q, peso: q * Number(tarifa.peso), precioNeto, iva, total: precioNeto + iva, aviso: null,
       });
     }
@@ -539,17 +539,17 @@ function TabCalculadora() {
               {resultado.aviso && <div className="alert alert-warning py-2 text-sm">{resultado.aviso}</div>}
               <div className="flex justify-between">
                 <span>{modo === 'rollo' ? `${resultado.metros} m` : `${resultado.cantidad} ud`}</span>
-                <span className="font-semibold">{resultado.precioNeto.toFixed(2)} €</span>
+                <span className="font-semibold">{resultado.precioNeto.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
               </div>
               <div className="flex justify-between text-sm text-base-content/60">
-                <span>IVA (21%)</span><span>{resultado.iva.toFixed(2)} €</span>
+                <span>IVA (21%)</span><span>{resultado.iva.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
               </div>
               <div className="flex justify-between text-sm text-base-content/60">
-                <span>Peso estimado</span><span>{resultado.peso.toFixed(2)} kg</span>
+                <span>Peso estimado</span><span>{resultado.peso.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg</span>
               </div>
               <div className="divider my-1" />
               <div className="flex justify-between font-bold text-2xl text-primary">
-                <span>TOTAL</span><span>{resultado.total.toFixed(2)} €</span>
+                <span>TOTAL</span><span>{resultado.total.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
               </div>
             </div>
           )}

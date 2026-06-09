@@ -123,7 +123,7 @@ function ConfigPaletizadoForm({ config, onSave }) {
 
                     <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
                         <span className="font-bold">Coste Total Paletizado:</span>
-                        <span className="text-xl font-black text-primary">{total.toFixed(2)} €</span>
+                        <span className="text-xl font-black text-primary">{total.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                     </div>
                 </div>
 
@@ -259,7 +259,7 @@ function TablaTarifas({ tarifas }) {
                                     ) : (
                                         <>
                                             {tipologias.map(tip => (
-                                                <td key={tip}>{tarifa[tip]?.toFixed(0) || '-'}</td>
+                                                <td key={tip}>{tarifa[tip]?.toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0}) || '-'}</td>
                                             ))}
                                             <td>
                                                 <button className="btn btn-xs btn-ghost" onClick={() => handleEdit(tarifa)}>

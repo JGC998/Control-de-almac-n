@@ -8,7 +8,9 @@ import { fetcher } from '@/lib/fetcher';
 // Utilidades numéricas
 // ─────────────────────────────────────────────────────────────
 const n  = (v) => parseFloat(v) || 0;
-const fmt = (v, dec = 2) => (isFinite(v) && !isNaN(v) ? v.toFixed(dec) : '0.00');
+const fmt = (v, dec = 2) => (isFinite(v) && !isNaN(v)
+  ? v.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+  : (0).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec }));
 const fmtE = (v) => `${fmt(v)} €`;
 const fmtPct = (v) => `${v > 0 ? '+' : ''}${fmt(v, 1)} %`;
 

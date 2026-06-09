@@ -2,6 +2,19 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { logApiError } from '@/lib/logger';
 
+/**
+ * Formatea un número con separadores de miles y decimales en español.
+ * 34080.64 → "34.080,64"
+ * @param {number} v - Valor a formatear
+ * @param {number} dec - Decimales (por defecto 2)
+ */
+export function fmtNum(v, dec = 2) {
+  const num = typeof v === 'number' ? v : parseFloat(v) || 0;
+  return isFinite(num)
+    ? num.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+    : (0).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
 // Formatea un número como moneda (Euros en este caso)
 export function formatCurrency(amount) {
   if (typeof amount !== 'number') return '';

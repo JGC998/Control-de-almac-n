@@ -7,7 +7,9 @@ import {
 import { TrendingDown, TrendingUp, Factory, Calendar } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
 
-const fmt  = (v, d = 4) => (v != null ? Number(v).toFixed(d) : '—');
+const fmt  = (v, d = 4) => (v != null
+  ? Number(v).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d })
+  : '—');
 const fmtE = (v) => v != null ? `${fmt(v, 4)} €/m` : '—';
 
 // Colores para las líneas de cada proveedor
@@ -107,7 +109,7 @@ export default function ComparativaProveedoresPage() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${v} €`} />
-                      <Tooltip formatter={(v) => [`${Number(v).toFixed(4)} €/m`]} />
+                      <Tooltip formatter={(v) => [`${Number(v).toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} €/m`]} />
                       <Legend />
                       {data.proveedores.map((p, i) => (
                         <Line
@@ -188,7 +190,7 @@ export default function ComparativaProveedoresPage() {
                   <p className="text-sm text-base-content/70">
                     <TrendingDown className="w-4 h-4 inline text-success mr-1" />
                     Comprando a <strong>{data.proveedores[0].nombre}</strong> en vez de <strong>{data.proveedores[data.proveedores.length - 1].nombre}</strong> ahorras{' '}
-                    <strong className="text-success">{fmt(diff, 4)} €/m ({pct.toFixed(1)}%)</strong> al precio actual.
+                    <strong className="text-success">{fmt(diff, 4)} €/m ({pct.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%)</strong> al precio actual.
                   </p>
                 </div>
               );

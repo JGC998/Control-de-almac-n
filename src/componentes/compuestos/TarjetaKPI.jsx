@@ -42,7 +42,7 @@ export default function TarjetaKPI({
             case 'moneda':
                 return `${Number(valor).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €`;
             case 'porcentaje':
-                return `${Number(valor).toFixed(1)}%`;
+                return `${Number(valor).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%`;
             case 'numero':
             default:
                 return Number(valor).toLocaleString('es-ES');
@@ -54,9 +54,9 @@ export default function TarjetaKPI({
         if (cambio === null || cambio === undefined) return null;
 
         if (cambio > 0) {
-            return { icono: TrendingUp, clase: 'text-success', texto: `+${cambio.toFixed(1)}%` };
+            return { icono: TrendingUp, clase: 'text-success', texto: `+${cambio.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%` };
         } else if (cambio < 0) {
-            return { icono: TrendingDown, clase: 'text-error', texto: `${cambio.toFixed(1)}%` };
+            return { icono: TrendingDown, clase: 'text-error', texto: `${cambio.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%` };
         } else {
             return { icono: Minus, clase: 'text-base-content/50', texto: '0%' };
         }

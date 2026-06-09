@@ -234,16 +234,16 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
                                             <Package className="w-4 h-4" />
                                             Paletizado ({tipoPale}):
                                         </span>
-                                        <span className="text-primary">{resultado.costePaletizado.toFixed(2)} €</span>
+                                        <span className="text-primary">{resultado.costePaletizado.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                                     </div>
 
                                     <div className="flex justify-between text-xs opacity-70 pl-6">
                                         <span>• Palé base:</span>
-                                        <span>{resultado.desglose.pale.toFixed(2)} €</span>
+                                        <span>{resultado.desglose.pale.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                                     </div>
                                     <div className="flex justify-between text-xs opacity-70 pl-6">
                                         <span>• Materiales (film, fleje, precinto):</span>
-                                        <span>{resultado.desglose.materiales.toFixed(2)} €</span>
+                                        <span>{resultado.desglose.materiales.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                                     </div>
 
                                     <div className="divider my-2"></div>
@@ -254,7 +254,7 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
                                             <Truck className="w-4 h-4" />
                                             Transporte:
                                         </span>
-                                        <span className="text-accent">{resultado.costeTransporte.toFixed(2)} €</span>
+                                        <span className="text-accent">{resultado.costeTransporte.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                                     </div>
 
                                     <div className="flex justify-between text-xs opacity-70 pl-6">
@@ -278,7 +278,7 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
                                     {/* Total */}
                                     <div className="flex justify-between text-lg font-bold text-success">
                                         <span>COSTE TOTAL:</span>
-                                        <span>{resultado.costeTotal.toFixed(2)} €</span>
+                                        <span>{resultado.costeTotal.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                                     </div>
 
                                     {/* Info adicional */}

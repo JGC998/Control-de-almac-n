@@ -455,7 +455,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                     <Layers className="w-3 h-3" />
                                     <span>
                                         {configuracionTacos.cantidadTacos} tacos {configuracionTacos.tipo.toLowerCase()} {configuracionTacos.altura}mm
-                                        ({configuracionTacos.metrosLineales.toFixed(2)}m lineales)
+                                        ({configuracionTacos.metrosLineales.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}m lineales)
                                     </span>
                                 </div>
                             )}
@@ -485,16 +485,16 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                         <tbody>
                                             <tr>
                                                 <td className="text-base-content/60 py-0.5">Ancho</td>
-                                                <td className="text-right font-mono">{ancho} mm = {(parseFloat(ancho)/1000).toFixed(4)} m</td>
+                                                <td className="text-right font-mono">{ancho} mm = {(parseFloat(ancho)/1000).toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} m</td>
                                             </tr>
                                             <tr>
                                                 <td className="text-base-content/60 py-0.5">Largo</td>
-                                                <td className="text-right font-mono">{largo} mm = {(parseFloat(largo)/1000).toFixed(4)} m</td>
+                                                <td className="text-right font-mono">{largo} mm = {(parseFloat(largo)/1000).toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} m</td>
                                             </tr>
                                             <tr className="font-semibold border-t border-base-300">
                                                 <td className="text-base-content/60 py-0.5">Área</td>
                                                 <td className="text-right font-mono">
-                                                    ({parseFloat(ancho)/1000}) × ({parseFloat(largo)/1000}) = <span className="text-primary">{currentCalculation.area?.toFixed(6)} m²</span>
+                                                    ({parseFloat(ancho)/1000}) × ({parseFloat(largo)/1000}) = <span className="text-primary">{currentCalculation.area?.toLocaleString('es-ES', {minimumFractionDigits: 6, maximumFractionDigits: 6})} m²</span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -514,7 +514,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                             </tr>
                                             <tr className="font-semibold border-t border-base-300">
                                                 <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
-                                                    {formatCurrency(currentCalculation.tarifaPrecio)} × {currentCalculation.area?.toFixed(6)} m²
+                                                    {formatCurrency(currentCalculation.tarifaPrecio)} × {currentCalculation.area?.toLocaleString('es-ES', {minimumFractionDigits: 6, maximumFractionDigits: 6})} m²
                                                 </td>
                                                 <td className="text-right font-mono text-primary">{formatCurrency(currentCalculation.precioMaterial)}</td>
                                             </tr>

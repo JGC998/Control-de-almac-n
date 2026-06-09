@@ -79,7 +79,7 @@ function ModalAnadirPedido({ item, onClose, onSuccess }) {
                 <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"><X className="w-4 h-4" /></button>
                 <h3 className="font-bold text-lg mb-1">Añadir a un pedido</h3>
                 <p className="text-sm text-base-content/50 mb-4">
-                    Se añadirá <strong>{item.descripcion}</strong> ({item.unitPrice.toFixed(2)} €) como línea nueva.
+                    Se añadirá <strong>{item.descripcion}</strong> ({item.unitPrice.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €) como línea nueva.
                 </p>
 
                 {addError && <div className="alert alert-error text-sm mb-3">{addError}</div>}

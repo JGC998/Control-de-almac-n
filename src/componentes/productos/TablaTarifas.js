@@ -59,11 +59,11 @@ export default function TablaTarifas() {
       const finalPrice = row.precio * (selectedMargin?.multiplicador || 1);
       return [
         row.material,
-        row.espesor.toFixed(2),
+        row.espesor.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
         row.color || '—',
-        row.precio.toFixed(2) + ' €',
-        finalPrice.toFixed(2) + ' €',
-        row.peso.toFixed(2) + ' kg',
+        row.precio.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €',
+        finalPrice.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €',
+        row.peso.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' kg',
       ];
     });
 
@@ -186,7 +186,7 @@ export default function TablaTarifas() {
                     <td className="text-center font-bold text-primary">
                       {formatCurrency(finalPrice)}
                     </td>
-                    <td className="text-center">{row.peso.toFixed(2)} kg</td>
+                    <td className="text-center">{row.peso.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg</td>
                   </tr>
                 );
               })}

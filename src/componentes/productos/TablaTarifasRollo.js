@@ -61,9 +61,9 @@ export default function TablaTarifasRollo() {
         t.ancho ? `${t.ancho} mm` : '—',
         t.color || '—',
         `${t.metrajeMinimo} m`,
-        `${t.precioBase.toFixed(2)} € (${t.metrajeMinimo}m)`,
-        `${pf.toFixed(2)} € (${t.metrajeMinimo}m)`,
-        `${t.peso.toFixed(3)} kg`,
+        `${t.precioBase.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} € (${t.metrajeMinimo}m)`,
+        `${pf.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} € (${t.metrajeMinimo}m)`,
+        `${t.peso.toLocaleString('es-ES', {minimumFractionDigits: 3, maximumFractionDigits: 3})} kg`,
       ];
     });
 
@@ -182,7 +182,7 @@ export default function TablaTarifasRollo() {
                       {formatCurrency(pf)}
                       <span className="text-xs text-base-content/50 ml-1">({t.metrajeMinimo}m)</span>
                     </td>
-                    <td>{t.peso.toFixed(3)} kg</td>
+                    <td>{t.peso.toLocaleString('es-ES', {minimumFractionDigits: 3, maximumFractionDigits: 3})} kg</td>
                   </tr>
                 );
               })}

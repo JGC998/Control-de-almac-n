@@ -74,7 +74,7 @@ export default function TablaDatos({
         // Formatos especiales
         switch (columna.formato) {
             case 'moneda':
-                return `${Number(valor || 0).toFixed(2)} €`;
+                return `${Number(valor || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
             case 'fecha':
                 return valor ? new Date(valor).toLocaleDateString() : '-';

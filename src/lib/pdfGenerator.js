@@ -5,6 +5,14 @@ import path from 'path';
 import QRCode from 'qrcode';
 import { logApiError } from '@/lib/logger';
 
+// Formato español: 34.080,64
+const fmtN = (v, dec = 2) => {
+  const n = typeof v === 'number' ? v : parseFloat(v) || 0;
+  return isFinite(n)
+    ? n.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+    : (0).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+};
+
 // Fallbacks para cuando ConfiguracionEmisor / Config no estén configurados
 const COMPANY_ADDRESS_FALLBACK = '';
 const COMPANY_PHONE_FALLBACK   = '';
@@ -133,8 +141,8 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
             tableRows.push([
                 descripcion,
                 item.quantity,
-                `${precio.toFixed(2)} €`,
-                `${total.toFixed(2)} €`
+                `${fmtN(precio)} €`,
+                `${fmtN(total)} €`
             ]);
         });
 
@@ -150,15 +158,15 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         // --- Totales ---
         doc.setFontSize(10);
         doc.text(`Subtotal:`, 145, finalY + 10);
-        doc.text(`${(quote.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
+        doc.text(`${fmtN(quote.subtotal || 0)} €`, 198, finalY + 10, { align: 'right' });
 
-        doc.text(`IVA (${(ivaRate * 100).toFixed(0)}%):`, 145, finalY + 16);
-        doc.text(`${(quote.tax || 0).toFixed(2)} €`, 198, finalY + 16, { align: 'right' });
+        doc.text(`IVA (${fmtN(ivaRate * 100, 0)}%):`, 145, finalY + 16);
+        doc.text(`${fmtN(quote.tax || 0)} €`, 198, finalY + 16, { align: 'right' });
 
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.text(`TOTAL:`, 145, finalY + 24);
-        doc.text(`${(quote.total || 0).toFixed(2)} €`, 198, finalY + 24, { align: 'right' });
+        doc.text(`${fmtN(quote.total || 0)} €`, 198, finalY + 24, { align: 'right' });
 
         // --- Footer / Notas ---
         let notesY = finalY + 35;
@@ -232,18 +240,18 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
                     ['Espesor', dim.espesor ? `${dim.espesor} mm` : '—'],
                     ['Tipo de vulcanizado', confLabel],
                     ['Unidades', `${item.quantity} ud.`],
-                    ['Material', `${precioMaterial.toFixed(2)} €`],
+                    ['Material', `${fmtN(precioMaterial)} €`],
                 ];
 
                 if (costeVulcanizado > 0) {
                     const vulcLabel = dt.tipoConfeccion === 'GRAPA' ? 'Confección (Grapa)' : 'Vulcanizado';
-                    bandaRows.push([vulcLabel, `${costeVulcanizado.toFixed(2)} €`]);
+                    bandaRows.push([vulcLabel, `${fmtN(costeVulcanizado)} €`]);
                 }
                 if (costeTacos > 0) {
-                    bandaRows.push(['Tacos', `${costeTacos.toFixed(2)} €`]);
+                    bandaRows.push(['Tacos', `${fmtN(costeTacos)} €`]);
                 }
-                bandaRows.push(['Precio Unitario', `${precioUnitario.toFixed(2)} €`]);
-                bandaRows.push([`Total (×${item.quantity} ud.)`, `${precioTotal.toFixed(2)} €`]);
+                bandaRows.push(['Precio Unitario', `${fmtN(precioUnitario)} €`]);
+                bandaRows.push([`Total (×${item.quantity} ud.)`, `${fmtN(precioTotal)} €`]);
 
                 autoTable(doc, {
                     startY: y,
@@ -493,7 +501,7 @@ export async function generateOrderPDF(order, config = {}) {
                             ['Paso entre tacos', formatMm(tacos.paso)],
                             ['Longitud del taco', formatMm(tacos.longitudTaco)],
                             ['Cantidad de tacos', `${tacos.cantidadTacos} uds`],
-                            ['Metros lineales totales', `${tacos.metrosLineales.toFixed(2)} m`],
+                            ['Metros lineales totales', `${fmtN(tacos.metrosLineales)} m`],
                             ['Barras necesarias', `${numBarras} barra${numBarras !== 1 ? 's' : ''} de ${longitudBarra} m`],
                         ],
                         theme: 'grid',
@@ -609,8 +617,8 @@ export async function generateFacturaPDF(factura) {
         const tableRows = (factura.items || []).map(item => [
             item.descripcion,
             item.quantity,
-            `${item.unitPrice.toFixed(2)} €`,
-            `${(item.quantity * item.unitPrice).toFixed(2)} €`,
+            `${fmtN(item.unitPrice)} €`,
+            `${fmtN(item.quantity * item.unitPrice)} €`,
         ]);
 
         autoTable(doc, {
@@ -639,10 +647,10 @@ export async function generateFacturaPDF(factura) {
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         doc.text('Base imponible:', ivaBoxX + 4, ivaBoxY + 8);
-        doc.text(`${(factura.subtotal || 0).toFixed(2)} €`, ivaBoxX + 72, ivaBoxY + 8, { align: 'right' });
+        doc.text(`${fmtN(factura.subtotal || 0)} €`, ivaBoxX + 72, ivaBoxY + 8, { align: 'right' });
 
         doc.text('IVA (21%):', ivaBoxX + 4, ivaBoxY + 15);
-        doc.text(`${(factura.tax || 0).toFixed(2)} €`, ivaBoxX + 72, ivaBoxY + 15, { align: 'right' });
+        doc.text(`${fmtN(factura.tax || 0)} €`, ivaBoxX + 72, ivaBoxY + 15, { align: 'right' });
 
         doc.setDrawColor(100, 100, 100);
         doc.line(ivaBoxX + 4, ivaBoxY + 19, ivaBoxX + 72, ivaBoxY + 19);
@@ -650,7 +658,7 @@ export async function generateFacturaPDF(factura) {
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.text('TOTAL:', ivaBoxX + 4, ivaBoxY + 26);
-        doc.text(`${(factura.total || 0).toFixed(2)} €`, ivaBoxX + 72, ivaBoxY + 26, { align: 'right' });
+        doc.text(`${fmtN(factura.total || 0)} €`, ivaBoxX + 72, ivaBoxY + 26, { align: 'right' });
 
         // --- Notas ---
         if (factura.notas) {
@@ -737,7 +745,7 @@ export async function generateAlbaranPDF(albaran) {
         const valorado = albaran.valorado !== false;
         const tableRows = (albaran.items || []).map(item =>
             valorado
-                ? [item.descripcion, item.quantity, `${(item.unitPrice).toFixed(2)} €`, `${(item.quantity * item.unitPrice).toFixed(2)} €`]
+                ? [item.descripcion, item.quantity, `${fmtN(item.unitPrice)} €`, `${fmtN(item.quantity * item.unitPrice)} €`]
                 : [item.descripcion, item.quantity]
         );
 
@@ -760,13 +768,13 @@ export async function generateAlbaranPDF(albaran) {
             doc.setFontSize(10);
             doc.setFont("helvetica", "normal");
             doc.text(`Subtotal:`, 145, finalY + 10);
-            doc.text(`${(albaran.subtotal || 0).toFixed(2)} €`, 198, finalY + 10, { align: 'right' });
+            doc.text(`${fmtN(albaran.subtotal || 0)} €`, 198, finalY + 10, { align: 'right' });
             doc.text(`IVA (21%):`, 145, finalY + 16);
-            doc.text(`${(albaran.tax || 0).toFixed(2)} €`, 198, finalY + 16, { align: 'right' });
+            doc.text(`${fmtN(albaran.tax || 0)} €`, 198, finalY + 16, { align: 'right' });
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
             doc.text(`TOTAL:`, 145, finalY + 24);
-            doc.text(`${(albaran.total || 0).toFixed(2)} €`, 198, finalY + 24, { align: 'right' });
+            doc.text(`${fmtN(albaran.total || 0)} €`, 198, finalY + 24, { align: 'right' });
         }
 
         // --- Notas ---
@@ -953,7 +961,7 @@ export async function generarCartaPortePDF(datos) {
                         it.metros != null ? String(it.metros) : '',
                         it.peso != null ? String(it.peso) : '',
                     ]),
-                    foot: [['', 'TOTALES', String(rollosTotal), metrosTotal.toFixed(1), `${pesoTotal.toFixed(1)} kg`]],
+                    foot: [['', 'TOTALES', String(rollosTotal), fmtN(metrosTotal, 1), `${fmtN(pesoTotal, 1)} kg`]],
                     startY: paleY,
                     theme: 'striped',
                     headStyles: { fillColor: [70, 70, 70], fontSize: 8, textColor: 255 },

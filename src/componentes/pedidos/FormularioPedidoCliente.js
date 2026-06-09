@@ -489,23 +489,23 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
               )}
 
               <div className="space-y-2">
-                <div className="flex justify-between"><span>Subtotal (Costo Base)</span><span>{subtotalBase.toFixed(2)} €</span></div>
+                <div className="flex justify-between"><span>Subtotal (Costo Base)</span><span>{subtotalBase.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span></div>
 
                 {isMarginRequired && margenAplicado.multiplicador !== 1 && (
-                  <div className="flex justify-between text-accent"><span>Margen (x{margenAplicado.multiplicador.toFixed(2)})</span><span>+ {(subtotalBase * (margenAplicado.multiplicador - 1)).toFixed(2)} €</span></div>
+                  <div className="flex justify-between text-accent"><span>Margen (x{margenAplicado.multiplicador.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</span><span>+ {(subtotalBase * (margenAplicado.multiplicador - 1)).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span></div>
                 )}
                 {isMarginRequired && margenAplicado.gastoFijo > 0 && (
-                  <div className="flex justify-between text-accent"><span>Gasto Fijo</span><span>+ {margenAplicado.gastoFijo.toFixed(2)} €</span></div>
+                  <div className="flex justify-between text-accent"><span>Gasto Fijo</span><span>+ {margenAplicado.gastoFijo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span></div>
                 )}
 
                 <div className="divider my-1"></div>
 
-                <div className="flex justify-between font-semibold"><span>Subtotal (con Margen)</span><span>{subtotalConMargen.toFixed(2)} €</span></div>
-                <div className="flex justify-between"><span>IVA ({((ivaRate || 0) * 100).toFixed(0)}%)</span><span>{tax.toFixed(2)} €</span></div>
+                <div className="flex justify-between font-semibold"><span>Subtotal (con Margen)</span><span>{subtotalConMargen.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span></div>
+                <div className="flex justify-between"><span>IVA ({((ivaRate || 0) * 100).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}%)</span><span>{tax.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span></div>
 
                 <div className="divider my-1"></div>
 
-                <div className="flex justify-between font-bold text-lg text-primary"><span>Total</span><span>{total.toFixed(2)} €</span></div>
+                <div className="flex justify-between font-bold text-lg text-primary"><span>Total</span><span>{total.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span></div>
 
                 {/* N-02: Indicador de rentabilidad estimada */}
                 {margenEstimadoPct !== null && (
@@ -516,11 +516,11 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                   }`}>
                     <div className="flex justify-between font-semibold">
                       <span>Margen estimado</span>
-                      <span>{margenEstimadoPct >= 0 ? '+' : ''}{margenEstimadoPct.toFixed(1)} %</span>
+                      <span>{margenEstimadoPct >= 0 ? '+' : ''}{margenEstimadoPct.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})} %</span>
                     </div>
                     <div className="flex justify-between text-xs opacity-75 mt-0.5">
                       <span>Ganancia bruta</span>
-                      <span>{(subtotalConMargen - totalCosteBase).toFixed(2)} €</span>
+                      <span>{(subtotalConMargen - totalCosteBase).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                     </div>
                   </div>
                 )}
@@ -586,7 +586,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
               {prod.referenciaFabricante && <span>{prod.referenciaFabricante}</span>}
               {prod.precioUnitario != null && (
                 <span className="ml-auto font-medium text-primary">
-                  {parseFloat(prod.precioUnitario).toFixed(2)} €
+                  {parseFloat(prod.precioUnitario).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €
                 </span>
               )}
             </div>

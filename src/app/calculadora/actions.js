@@ -36,7 +36,7 @@ export async function calculateCustomProductPrice(productoId, ancho, alto) {
 
         return {
             precio: parseFloat(precioTotal.toFixed(2)),
-            detalle: `${producto.nombre} (${ancho}m x ${alto}m = ${area.toFixed(2)}m²) a ${precioBase.toFixed(2)} €/m²`
+            detalle: `${producto.nombre} (${ancho}m x ${alto}m = ${area.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}m²) a ${precioBase.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €/m²`
         };
 
     } catch (error) {

@@ -127,8 +127,8 @@ export default function CalculadoraMetrajesPage() {
       body: lineas.map(l => [
         l.descripcion,
         l.anchoMm,
-        l.metros.toFixed(2),
-        l.area.toFixed(4),
+        l.metros.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+        l.area.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4}),
         formatWeight(l.peso),
         formatCurrency(l.precio),
       ]),
@@ -277,7 +277,7 @@ export default function CalculadoraMetrajesPage() {
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs text-base-content/60">
                       <span>Área</span>
-                      <span className="font-mono">{calculo.area.toFixed(4)} m²</span>
+                      <span className="font-mono">{calculo.area.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} m²</span>
                     </div>
                     <div className="flex justify-between text-xs text-base-content/60">
                       <span>Peso estimado</span>
@@ -314,7 +314,7 @@ export default function CalculadoraMetrajesPage() {
                             </tr>
                             <tr>
                               <td className="text-base-content/60 py-0.5">Ancho tira</td>
-                              <td className="text-right font-mono">{ancho} mm = {calculo.anchoM.toFixed(4)} m</td>
+                              <td className="text-right font-mono">{ancho} mm = {calculo.anchoM.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} m</td>
                             </tr>
                             <tr>
                               <td className="text-base-content/60 py-0.5">Metros pedidos</td>
@@ -322,13 +322,13 @@ export default function CalculadoraMetrajesPage() {
                             </tr>
                             <tr className="border-t border-base-300">
                               <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
-                                Área = {calculo.anchoM.toFixed(4)} × {metros}
+                                Área = {calculo.anchoM.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} × {metros}
                               </td>
-                              <td className="text-right font-mono">{calculo.area.toFixed(6)} m²</td>
+                              <td className="text-right font-mono">{calculo.area.toLocaleString('es-ES', {minimumFractionDigits: 6, maximumFractionDigits: 6})} m²</td>
                             </tr>
                             <tr>
                               <td className="text-base-content/60 py-0.5 font-mono text-[10px]">
-                                {formatCurrency(calculo.precioM2)} × {calculo.area.toFixed(6)} m²
+                                {formatCurrency(calculo.precioM2)} × {calculo.area.toLocaleString('es-ES', {minimumFractionDigits: 6, maximumFractionDigits: 6})} m²
                               </td>
                               <td className="text-right font-mono">{formatCurrency(calculo.precioBase)}</td>
                             </tr>
@@ -384,7 +384,7 @@ export default function CalculadoraMetrajesPage() {
           <div className="stats shadow w-full border border-base-200">
             <div className="stat">
               <div className="stat-title">Total metros</div>
-              <div className="stat-value text-xl">{totales.metros.toFixed(1)} m</div>
+              <div className="stat-value text-xl">{totales.metros.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})} m</div>
             </div>
             <div className="stat">
               <div className="stat-title">Peso total</div>
@@ -420,7 +420,7 @@ export default function CalculadoraMetrajesPage() {
                     <tr key={l.id} className="hover">
                       <td className="font-semibold text-sm">{l.descripcion}</td>
                       <td className="text-right font-mono text-sm">{l.anchoMm} mm</td>
-                      <td className="text-right font-mono text-sm">{l.metros.toFixed(2)} m</td>
+                      <td className="text-right font-mono text-sm">{l.metros.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m</td>
                       <td className="text-right text-sm">{formatWeight(l.peso)} kg</td>
                       <td className="text-right font-bold text-secondary">{formatCurrency(l.precio)}</td>
                       <td>

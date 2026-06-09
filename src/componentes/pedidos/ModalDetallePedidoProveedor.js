@@ -90,13 +90,13 @@ export default function PedidoProveedorDetalleModal({ pedido, onClose }) {
                   <td className="text-center font-bold text-blue-600 text-lg">{item.cantidad}</td>
                   <td className="text-right">{formatCurrency(item.precioMetro, pedido.tipo === 'IMPORTACION' ? 'USD' : 'EUR', 'de-DE')}</td>
                   <td className="text-right border-l border-base-300 font-mono">
-                    {item.totalMetrosLinea.toFixed(1)} m
+                    {item.totalMetrosLinea.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})} m
                     {item.cantidad > 1 && <div className="text-[10px] opacity-50 italic">({item.largo}m x {item.cantidad})</div>}
                   </td>
                   <td className="text-right font-semibold border-l border-base-300">{formatCurrency(item.costeTotalBaseLinea)}</td>
                   <td className="text-right text-warning border-l border-base-300">
                     <div>+{formatCurrency(item.gastosAsignados)}</div>
-                    <div className="text-[10px] opacity-70 font-bold">{item.porcentajeGastos.toFixed(1)}%</div>
+                    <div className="text-[10px] opacity-70 font-bold">{item.porcentajeGastos.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</div>
                   </td>
                   <td className="text-right font-bold text-success text-lg border-l border-base-300">{formatCurrency(item.costoUnitarioFinal)}</td>
                   <td className="text-right font-bold">{formatCurrency(item.costoUnitarioFinal * item.totalMetrosLinea)}</td>

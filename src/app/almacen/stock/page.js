@@ -94,7 +94,7 @@ export default function AlmacenPage() {
       return;
     }
     if (cantidadMetros > withdrawalData.disponibleMetros + 0.01) {
-      setError(`No puedes retirar más de ${withdrawalData.disponibleMetros.toFixed(2)} metros.`);
+      setError(`No puedes retirar más de ${withdrawalData.disponibleMetros.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} metros.`);
       return;
     }
 
@@ -160,7 +160,7 @@ export default function AlmacenPage() {
                       <td className="font-bold">{item.material}</td>
                       <td>{item.espesor}</td>
                       <td className={bajoMinimo ? 'text-error font-bold' : ''}>
-                        {item.metrosDisponibles.toFixed(2)} m
+                        {item.metrosDisponibles.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m
                         {bajoMinimo && <span className="ml-1 badge badge-error badge-xs">bajo mín.</span>}
                       </td>
                       <td className="text-sm text-base-content/60">{item.stockMinimo ? `${item.stockMinimo} m` : '—'}</td>
@@ -245,7 +245,7 @@ export default function AlmacenPage() {
             <h3 className="font-bold text-lg">Dar de Baja Stock</h3>
             <p className="text-sm text-gray-500 mb-4">
               Retirando {withdrawalData.material} ({withdrawalData.espesor}mm).
-              <span className="font-semibold text-warning"> Disponibles: {withdrawalData.disponibleMetros?.toFixed(2) || 0} metros</span>
+              <span className="font-semibold text-warning"> Disponibles: {withdrawalData.disponibleMetros?.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) || 0} metros</span>
             </p>
             <form onSubmit={handleWithdrawalSubmit} className="py-4 space-y-4">
               <div className="flex gap-2">
@@ -260,7 +260,7 @@ export default function AlmacenPage() {
                   required
                 />
                 <button type="button" onClick={() => setWithdrawalData(prev => ({ ...prev, cantidad: prev.disponibleMetros }))} className="btn btn-outline btn-sm whitespace-nowrap">
-                  Baja Total ({withdrawalData.disponibleMetros?.toFixed(2)}m)
+                  Baja Total ({withdrawalData.disponibleMetros?.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}m)
                 </button>
               </div>
 

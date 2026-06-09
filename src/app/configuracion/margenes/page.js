@@ -835,7 +835,7 @@ function GestionTarifasRollo({ margenes }) {
                   </td>
                   {selectedMargin && (
                     <td className="font-bold text-primary">
-                      {pf !== null ? `${pf.toFixed(2)} €` : '—'}
+                      {pf !== null ? `${pf.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €` : '—'}
                       <span className="text-xs text-base-content/50 ml-1">({mm}m)</span>
                     </td>
                   )}
