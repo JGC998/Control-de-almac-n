@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { enviarWhatsApp } from '@/lib/tracking';
 
 // Schema para borradores — usado tanto desde la recepción tablet como desde el nuevo rastreador
 const borradorSchema = z.object({
@@ -59,6 +60,26 @@ export async function POST(request) {
       },
       include: { proveedor: { select: { id: true, nombre: true } } },
     });
+
+    // WhatsApp de confirmación cuando el tracking está activo (fire-and-forget)
+    if (registro.trackingActivo) {
+      const ESTADO_LABEL = { PEDIDO: 'Pedido', TRANSITO: 'En tránsito', ADUANA: 'En aduana', BORRADOR: 'Borrador' };
+      const trackingNum = registro.numContenedor || registro.blNumber;
+      const tipoTracking = registro.numContenedor ? 'Contenedor' : 'BL';
+      const fecha = new Date(registro.creadaEn).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      const lineas = [
+        `✅ *Rastreador dado de alta*`,
+        registro.descripcion || registro.numFactura || 'Sin descripción',
+        trackingNum ? `🔢 ${tipoTracking}: ${trackingNum}` : null,
+        registro.proveedor?.nombre ? `🏭 ${registro.proveedor.nombre}` : null,
+        `📊 Estado: ${ESTADO_LABEL[registro.estado] ?? registro.estado}`,
+        `📅 ${fecha}`,
+        `\nRecibirás avisos automáticos cuando haya cambios.`,
+      ].filter(Boolean).join('\n');
+
+      enviarWhatsApp(lineas).catch(e => logApiError(e, 'WhatsApp alta rastreador'));
+    }
 
     return NextResponse.json(registro, { status: 201 });
   } catch (error) {
