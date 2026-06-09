@@ -120,7 +120,10 @@ function TarjetaContenedor({ imp, onDelete, onMarcarRecibido }) {
 
 export default function ContenedoresPage() {
   const { data: importaciones, isLoading } = useSWR('/api/importaciones', fetcher);
+  const { data: usoShip24, mutate: refrescarUso } = useSWR('/api/tracking/uso', fetcher);
   const [sincronizando, setSincronizando] = useState(false);
+  const [editandoUso, setEditandoUso] = useState(false);
+  const [usoManual, setUsoManual] = useState('');
 
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar este contenedor del listado?')) return;
@@ -136,6 +139,19 @@ export default function ContenedoresPage() {
       body: JSON.stringify({ estado: 'RECIBIDO', trackingActivo: false }),
     });
     mutate('/api/importaciones');
+  };
+
+  const handleCorregirUso = async () => {
+    const n = parseInt(usoManual, 10);
+    if (isNaN(n) || n < 0) return;
+    await fetch('/api/tracking/uso', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uso: n }),
+    });
+    await refrescarUso();
+    setEditandoUso(false);
+    setUsoManual('');
   };
 
   const handleSyncNow = async () => {
@@ -156,18 +172,13 @@ export default function ContenedoresPage() {
   const recibidos = ordenados.filter(i => i.estado === 'RECIBIDO');
   const conTracking = activos.filter(i => i.trackingActivo).length;
 
-  // Contador de trackers Ship24 consumidos este mes (cuota: 10/mes)
-  const CUOTA_MENSUAL = 10;
-  const ahora = new Date();
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-  const proximoMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1);
-  const trackersEsteMes = (importaciones || []).filter(i =>
-    (i.numContenedor || i.blNumber) && new Date(i.creadaEn) >= inicioMes
-  ).length;
+  // Contador de trackers Ship24 — leído desde la API (persistente aunque se borren registros)
+  const CUOTA_MENSUAL = usoShip24?.cuota ?? 10;
+  const trackersEsteMes = usoShip24?.uso ?? 0;
   const cuotaColor = trackersEsteMes >= CUOTA_MENSUAL ? 'badge-error'
     : trackersEsteMes >= CUOTA_MENSUAL - 2 ? 'badge-warning'
     : 'badge-success';
-  const resetLabel = proximoMes.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  const resetLabel = usoShip24?.reset ?? '';
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -183,14 +194,36 @@ export default function ContenedoresPage() {
                 ? `${conTracking} contenedor${conTracking !== 1 ? 'es' : ''} con seguimiento activo`
                 : 'Seguimiento de importaciones y cálculo de costes'}
             </p>
-            {importaciones && (
-              <div className="flex items-center gap-1.5 mt-1">
+            {usoShip24 && (
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 <span className={`badge badge-sm ${cuotaColor}`}>
                   {trackersEsteMes} / {CUOTA_MENSUAL} trackers Ship24
                 </span>
                 <span className="text-xs text-base-content/40">
                   · se reinicia el {resetLabel}
                 </span>
+                {editandoUso ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number" min="0" max="10"
+                      value={usoManual}
+                      onChange={e => setUsoManual(e.target.value)}
+                      className="input input-xs input-bordered w-12 font-mono"
+                      autoFocus
+                      onKeyDown={e => { if (e.key === 'Enter') handleCorregirUso(); if (e.key === 'Escape') setEditandoUso(false); }}
+                    />
+                    <button onClick={handleCorregirUso} className="btn btn-xs btn-primary">✓</button>
+                    <button onClick={() => setEditandoUso(false)} className="btn btn-xs btn-ghost">✕</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setUsoManual(String(trackersEsteMes)); setEditandoUso(true); }}
+                    className="text-xs text-base-content/30 hover:text-base-content/60 underline"
+                    title="Corregir contador manualmente"
+                  >
+                    corregir
+                  </button>
+                )}
               </div>
             )}
           </div>

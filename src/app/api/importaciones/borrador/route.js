@@ -63,6 +63,20 @@ export async function POST(request) {
       include: { proveedor: { select: { id: true, nombre: true } } },
     });
 
+    // Incrementar contador mensual de uso de Ship24 (fire-and-forget)
+    if (registro.trackingActivo && (registro.numContenedor || registro.blNumber)) {
+      const mesKey = `ship24_trackers_${new Date().toISOString().slice(0, 7)}`;
+      db.$transaction(async tx => {
+        const cur = await tx.config.findUnique({ where: { key: mesKey } });
+        const n = parseInt(cur?.value || '0', 10) + 1;
+        await tx.config.upsert({
+          where: { key: mesKey },
+          update: { value: String(n) },
+          create: { key: mesKey, value: String(n) },
+        });
+      }).catch(e => logApiError(e, 'ship24 uso increment'));
+    }
+
     // WhatsApp de confirmación cuando el tracking está activo (fire-and-forget)
     if (registro.trackingActivo) {
       const ESTADO_LABEL = { PEDIDO: 'Pedido', TRANSITO: 'En tránsito', ADUANA: 'En aduana', BORRADOR: 'Borrador' };
