@@ -1,668 +1,490 @@
-# REVIEW — CRM Taller
+# REVIEW — CRM Taller (Control de Almacén)
 
-> Generado el 2026-06-08 por Claude Code (claude-sonnet-4-6)
-> Revisión completa exhaustiva: Seguridad · Bugs · Backend · API · Frontend
+> Generado el 2026-06-09 por Claude Code  
+> Revisión completa: Seguridad · Bugs · Backend · API · Frontend
 
 ---
 
 ## 📋 Resumen Ejecutivo
 
-**Stack detectado:** Next.js 16 (App Router), Prisma 6 (SQLite dev / MySQL prod), DaisyUI 5, SWR, jsPDF, Resend, Formidable, IndexedDB (offline tab)
-**Archivos analizados:** 92 (todos los routes de `/api`, lib files, middleware, layout, tablet/page.js, sw.js, colaOffline.js)
-**Total de hallazgos:** 18 (1 crítico, 4 altos, 8 medios, 5 bajos)
+**Stack detectado:** Next.js 16 (App Router) · React 19 · Prisma 6 (SQLite dev / MySQL prod) · DaisyUI 5 + Tailwind 4 · SWR · Zod · jsPDF · Resend · Ship24  
+**Archivos analizados:** ~120 (49 páginas, 89+ API routes, 81 componentes, 17 librerías)  
+**Total hallazgos abiertos:** 19 (2 críticos, 5 altos, 8 medios, 4 bajos)  
+**Hallazgos corregidos en esta sesión:** 17
 
 | Área | Score | Críticos | Altos | Medios | Bajos |
 |------|-------|----------|-------|--------|-------|
-| 🔒 Seguridad | 7/10 | 1 | 2 | 3 | 1 |
-| 🐛 Bugs | 8/10 | 0 | 1 | 2 | 1 |
-| ⚙️ Backend | 8/10 | 0 | 1 | 2 | 1 |
-| 🌐 API | 9/10 | 0 | 0 | 1 | 2 |
-| 🎨 Frontend | 9/10 | 0 | 0 | 0 | 0 |
+| 🔒 Seguridad | 6/10 | 1 | 2 | 1 | 1 |
+| 🐛 Bugs | 8/10 | 0 | 2 | 2 | 0 |
+| ⚙️ Backend | 7/10 | 1 | 1 | 3 | 1 |
+| 🌐 API | 7/10 | 0 | 1 | 2 | 1 |
+| 🎨 Frontend | 9/10 | 0 | 0 | 1 | 1 |
 
-**Contexto:** El proyecto tiene una base sólida — Zod en la mayoría de POST/PUT, `logApiError` sin stack traces, `$transaction` donde corresponde, rate limiting en endpoints pesados, y cookies httpOnly+sameSite+secure. El hallazgo crítico (SEC-01) es arquitectural: el middleware nunca verifica la cookie de sesión aunque AUTH_PIN esté activo.
+> **Nota de contexto:** La app es una herramienta interna de LAN. `AUTH_PIN` es **opcional** — sin él la app es intencionalmente pública. Los hallazgos de "falta de auth" solo aplican cuando `AUTH_PIN` está configurado.
 
 ---
 
-## 🚨 Hallazgos Críticos
+## 🚨 Hallazgos Críticos — Acción Inmediata
 
-### SEC-01 — Middleware no verifica la cookie de sesión
+### [CRÍTICO-01] AUTH_PIN configurado pero las APIs no están protegidas
 
-**Archivo:** `middleware.js` (raíz), líneas 1–25
-**Severidad:** 🔴 CRÍTICO
+**Área:** Seguridad  
+**Archivo:** `middleware.js`  
+**Problema:** El middleware solo redirige móviles y añade headers de seguridad. Si el operador configura `AUTH_PIN` esperando proteger la app, cualquier petición directa a la API (`curl`, Postman) saltará la autenticación por completo — el middleware nunca verifica la cookie `crm-auth`.  
+**Impacto:** Con `AUTH_PIN` configurado, todos los endpoints `/api/*` son accesibles sin sesión. Clientes, pedidos, facturas, márgenes, backup de configuración — todo expuesto.  
+**Corrección:**
 
-El middleware actual añade HSTS y redirige móviles pero **nunca verifica la cookie `crm-auth`**. Cuando `AUTH_PIN` está configurado en producción, el login crea la cookie correctamente en `/api/auth/login`, pero el middleware no la lee. Resultado: cualquier petición no autenticada pasa a todas las rutas de la app, incluyendo `/api/clientes`, `/api/pedidos`, `/api/config`, `/api/audit-log`, `/api/config/backup`, etc.
-
-**Código actual:**
 ```js
-// middleware.js líneas 12-21
+// middleware.js — añadir verificación de cookie cuando AUTH_PIN está activo
+import crypto from 'crypto';
+
 export function middleware(request) {
   const { pathname } = request.nextUrl;
+  const pin = process.env.AUTH_PIN;
+
   if (pathname === '/' && MOBILE_UA.test(request.headers.get('user-agent') ?? '')) {
-    return NextResponse.redirect(new URL('/tablet', request.url));
+    return addSecurityHeaders(NextResponse.redirect(new URL('/tablet', request.url)));
   }
-  return addSecurityHeaders(NextResponse.next()); // ← nunca verifica cookie
+
+  if (!pin) return addSecurityHeaders(NextResponse.next());
+
+  const PUBLIC = ['/login', '/api/auth/'];
+  if (PUBLIC.some(p => pathname.startsWith(p))) {
+    return addSecurityHeaders(NextResponse.next());
+  }
+
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) return addSecurityHeaders(NextResponse.redirect(new URL('/login', request.url)));
+
+  const expected = crypto.createHmac('sha256', secret).update(pin).digest('hex');
+  const token = request.cookies.get('crm-auth')?.value ?? '';
+  let valid = false;
+  if (token.length === expected.length) {
+    try { valid = crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected)); } catch {}
+  }
+
+  if (!valid) {
+    return pathname.startsWith('/api/')
+      ? addSecurityHeaders(NextResponse.json({ message: 'No autorizado' }, { status: 401 }))
+      : addSecurityHeaders(NextResponse.redirect(new URL('/login', request.url)));
+  }
+  return addSecurityHeaders(NextResponse.next());
 }
 ```
 
+---
+
+### [CRÍTICO-02] `PUT /api/config` sin autenticación — cualquiera puede cambiar el NIF y datos fiscales
+
+**Área:** Backend  
+**Archivo:** `src/app/api/config/route.js` línea 37  
+**Problema:** El endpoint `PUT /api/config` permite modificar `empresa_nif`, `empresa_nombre`, `empresa_direccion` y otros datos fiscales sin ninguna comprobación de sesión. Estos datos se estampan en todas las facturas, incluidas las de VeriFactu.  
+**Impacto:** Un atacante en la misma red puede cambiar el NIF de la empresa emitido en facturas legales.  
 **Corrección:**
+
 ```js
-import { NextResponse } from 'next/server';
-import crypto from 'crypto';
-
-const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/status', '/api/auth/logout'];
-const MOBILE_UA = /Mobi|Android|iPhone|iPad|Tablet/i;
-
-function addSecurityHeaders(response) {
-  if (process.env.NODE_ENV === 'production') {
-    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  }
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  return response;
-}
-
-export function middleware(request) {
-  const { pathname } = request.nextUrl;
-
-  if (pathname === '/' && MOBILE_UA.test(request.headers.get('user-agent') ?? '')) {
-    return NextResponse.redirect(new URL('/tablet', request.url));
-  }
-
-  const authPin = process.env.AUTH_PIN;
-  if (authPin && !PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
-    const token = request.cookies.get('crm-auth')?.value;
-    if (!token) {
-      if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
-      }
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+// src/app/api/config/route.js
+export async function PUT(request) {
+  // Verificar AUTH_PIN si está activo
+  const pin = process.env.AUTH_PIN;
+  if (pin) {
     const secret = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
-    const expected = crypto.createHmac('sha256', secret).update(authPin).digest('hex');
-    const ok = token.length === expected.length &&
-      crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
-    if (!ok) {
-      if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
-      }
-      return NextResponse.redirect(new URL('/login', request.url));
+    const expected = crypto.createHmac('sha256', secret).update(pin).digest('hex');
+    const token = request.cookies.get('crm-auth')?.value ?? '';
+    if (token !== expected) {
+      return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
     }
   }
-
-  return addSecurityHeaders(NextResponse.next());
+  // ... resto del handler
 }
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
-};
 ```
 
 ---
 
 ## 🔒 Seguridad
 
-### SEC-02 — Fallback débil hardcodeado para SESSION_SECRET
+### [SEC-01] — Ver CRÍTICO-01
 
-**Archivo:** `src/app/api/auth/login/route.js`, línea 33
-**Severidad:** 🟠 ALTO
+### [SEC-02] SESSION_SECRET con fallback conocido en el código fuente
+
+**Severidad:** 🟠 Alto  
+**Archivo:** `src/app/api/auth/login/route.js` línea 34  
+**Problema:**
 
 ```js
-const secret = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
+// ❌ Código actual
+const effectiveSecret = secret || 'dev-secret-change-in-production';
 ```
 
-Si `SESSION_SECRET` no está en producción, el token HMAC se firma con un secreto conocido públicamente. Un atacante puede derivar el token válido sin conocer el PIN.
+El secreto fallback es público en el repositorio. Si `SESSION_SECRET` no está en `.env`, un atacante puede calcular offline el token HMAC válido y falsificar una cookie `crm-auth` sin conocer el PIN.
 
 **Corrección:**
+
 ```js
+// ✅ Fallar duro cuando AUTH_PIN activo pero SESSION_SECRET ausente
 const secret = process.env.SESSION_SECRET;
-if (!secret && process.env.NODE_ENV === 'production') {
-  console.error('[FATAL] SESSION_SECRET no configurado en producción. Abortando.');
+if (!secret && expected) {
+  console.error('[auth] SESSION_SECRET obligatorio cuando AUTH_PIN está activo');
   return NextResponse.json({ message: 'Error de configuración del servidor' }, { status: 500 });
 }
-const effectiveSecret = secret || 'dev-secret-change-in-production';
-const token = crypto.createHmac('sha256', effectiveSecret).update(expected).digest('hex');
+const effectiveSecret = secret || 'dev-secret-no-auth';
 ```
 
----
+### [SEC-03] CSP con `unsafe-inline` en `script-src` en producción
 
-### SEC-03 — Subida de documentos: colisión de nombres / sobrescritura silenciosa
-
-**Archivo:** `src/app/api/documentos/route.js`, líneas 140–143
-**Severidad:** 🟠 ALTO
+**Severidad:** 🟡 Medio  
+**Archivo:** `next.config.mjs` línea 8  
+**Problema:**
 
 ```js
-const rawName = uploadedFile.originalFilename || 'documento';
-const safeFileName = path.basename(rawName).replace(/[^a-zA-Z0-9._\-]/g, '_');
-const targetPath = path.join(process.cwd(), 'public', 'planos', safeFileName);
+// ❌ Código actual
+const scriptSrc = isProd ? "script-src 'self' 'unsafe-inline'" : ...
 ```
 
-Dos usuarios que suban `factura.pdf` causan que el segundo sobreescriba el primero sin ningún aviso.
+`unsafe-inline` permite cualquier `<script>` inline, anulando parcialmente la protección XSS de la CSP.  
+**Corrección:** Migrar a nonces (requiere trabajo en el App Router) o documentar que se acepta conscientemente este trade-off.
 
-**Corrección — añadir UUID al nombre:**
-```js
-import { randomUUID } from 'crypto';
-const ext = path.extname(uploadedFile.originalFilename || '').toLowerCase();
-const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
-const safeExt = allowedExts.includes(ext) ? ext : '.bin';
-const safeFileName = `${randomUUID()}${safeExt}`;
-// Guardar nombre original en campo descripcion o campo nuevo nombreOriginal
-```
+### [SEC-04] `/api/tracking/sync` sin autenticación ni rate limiting
 
----
-
-### SEC-04 — `GET /api/config` expone todas las claves sin filtrar
-
-**Archivo:** `src/app/api/config/route.js`, líneas 10–27
-**Severidad:** 🟡 MEDIO
-
-`db.config.findMany()` sin `select` ni `where` devuelve todas las claves de la tabla. Si en el futuro se guarda un API key u otro secreto en Config, se expone automáticamente.
+**Severidad:** 🟢 Bajo  
+**Archivo:** `src/app/api/tracking/sync/route.js`  
+**Problema:** Cualquiera puede llamar masivamente a este endpoint, agotando el cupo gratuito mensual de Ship24 (50 consultas/mes) o disparando notificaciones WhatsApp no deseadas.
 
 **Corrección:**
+
 ```js
-const PUBLIC_CONFIG_KEYS = [
-  'iva_rate', 'empresa_nombre', 'empresa_nif', 'empresa_telefono',
-  'empresa_email', 'empresa_direccion', 'empresa_cp', 'empresa_ciudad',
-  'empresa_provincia', 'empresa_pais', 'empresa_web', 'empresa_logo',
-  'longitud_barra_tacos', 'costeVulcanizadoMetro',
-];
-const settingsList = await db.config.findMany({ where: { key: { in: PUBLIC_CONFIG_KEYS } } });
-```
-
----
-
-### SEC-05 — Headers de seguridad incompletos
-
-**Archivo:** `middleware.js`, líneas 3–8
-**Severidad:** 🟡 MEDIO
-
-Solo se añade `Strict-Transport-Security`. Faltan `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` y `Referrer-Policy`. Véase corrección en SEC-01 que ya los incluye.
-
----
-
-### SEC-06 — Rate limiting ausente en endpoints de escritura
-
-**Archivos:** `src/app/api/pricing/especiales/route.js`, `src/app/api/notificaciones/route.js`, `src/app/api/almacen-stock/route.js` (POST), `src/app/api/pedidos-proveedores-data/route.js`
-**Severidad:** 🟡 MEDIO
-
-Endpoints que crean/modifican datos sin rate limiting son vectores de abuso (flooding de notificaciones, dump de precios). El módulo `src/lib/rateLimiter.js` ya existe.
-
-**Corrección — patrón a aplicar en cada ruta:**
-```js
-const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
-const rl = checkRateLimit(`<ruta>:${ip}`, 30);
-if (!rl.allowed) {
-  return NextResponse.json({ message: 'Demasiadas peticiones' },
-    { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
-}
-```
-
----
-
-### SEC-07 — Excepción de `.gitignore` para dev.db tiene ruta duplicada
-
-**Archivo:** `.gitignore`, línea 23
-**Severidad:** 🟢 BAJO
-
-```gitignore
-!prisma/prisma/dev.db   # ← debería ser !prisma/dev.db
-```
-
-La ruta `prisma/prisma/dev.db` no existe. La excepción no funciona y la DB podría commitearse.
-
-**Corrección:**
-```gitignore
-!prisma/dev.db
+// Añadir al inicio de POST():
+const ip = getClientIp(request);
+const rl = checkRateLimit(`tracking-sync:${ip}`, 3);
+if (!rl.allowed) return NextResponse.json({ message: 'Rate limit' }, { status: 429 });
 ```
 
 ---
 
 ## 🐛 Bugs
 
-### BUG-01 — `await request.json()` fuera del try-catch (3 archivos)
+### [BUG-01] `new Date(null)` retorna epoch (1970) en lugar de null
 
-**Archivos:**
-- `src/app/api/precios/route.js`, línea 33
-- `src/app/api/pricing/descuentos/route.js`, línea 65
-- `src/app/api/almacen-stock/route.js`, línea 43
-
-**Severidad:** 🟠 ALTO
-
-En estos tres endpoints, `request.json()` está llamado **antes** del bloque `try`. Si el body es JSON malformado, `SyntaxError` no es capturado, y Next.js devuelve una respuesta genérica sin el formato estándar de la app.
-
-**Ejemplo en `precios/route.js`:**
-```js
-// ACTUAL — problema
-export async function POST(request) {
-  const data = await request.json(); // ← fuera del try
-  try {
-    // ...
-  }
-}
-
-// CORRECCIÓN
-export async function POST(request) {
-  try {
-    const data = await request.json();
-    // ...
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
-    }
-    logApiError(error, 'POST /api/precios');
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
-  }
-}
-```
-
----
-
-### BUG-02 — `handleEliminar` en tablet incrementa `pendientes` incorrectamente
-
-**Archivo:** `src/app/tablet/page.js`, líneas 655–661
-**Severidad:** 🟡 MEDIO
+**Severidad:** 🟠 Probable  
+**Archivo:** `src/app/api/presupuestos/[id]/route.js` ~línea 48  
+**Problema:**
 
 ```js
-const handleEliminar = useCallback(async (idx) => {
-  const items = sesion.items.filter((_, i) => i !== idx);
-  const nuevaSesion = { ...sesion, items, pendientes: sesion.pendientes + 1 }; // ← +1 al borrar
-  // ...
-}, [sesion, sincronizar]);
+// ❌ Código actual
+...(ultimoRecordatorio !== undefined ? {
+  ultimoRecordatorio: new Date(ultimoRecordatorio)  // new Date(null) = 1970-01-01
+} : {})
 ```
 
-Al eliminar artículos offline, `pendientes` se acumula como contador de borrados, no de artículos pendientes reales. Causa badge inflado.
+Si el cliente envía `"ultimoRecordatorio": null`, `new Date(null)` devuelve `1970-01-01T00:00:00.000Z`. El presupuesto queda con una fecha de recordatorio de 1970 en BD.
+
+**Cómo se dispara:** `PATCH /api/presupuestos/:id` con `ultimoRecordatorio: null`.
 
 **Corrección:**
+
 ```js
-const nuevaSesion = { ...sesion, items, pendientes: items.length > 0 ? 1 : 0 };
+// ✅ Corrección
+...(ultimoRecordatorio !== undefined
+  ? { ultimoRecordatorio: ultimoRecordatorio ? new Date(ultimoRecordatorio) : null }
+  : {})
 ```
 
----
+### [BUG-02] Fechas de filtro sin validar en `/api/informes`
 
-### BUG-03 — Race condition por stale closure en `sincronizar`
+**Severidad:** 🟠 Probable  
+**Archivo:** `src/app/api/informes/route.js` línea 163  
+**Problema:**
 
-**Archivo:** `src/app/tablet/page.js`, líneas 595–616
-**Severidad:** 🟡 MEDIO
-
-`sincronizar` captura `sesion` en su closure. Si `sesion` se actualiza varias veces rápidamente antes de que `sincronizar` se ejecute, la llamada puede usar datos obsoletos.
-
-**Corrección — usar ref para la sesión:**
 ```js
-const sesionRef = useRef(sesion);
-useEffect(() => { sesionRef.current = sesion; }, [sesion]);
-
-const sincronizar = useCallback(async (sesionActual) => {
-  if (syncRef.current) return;
-  const s = sesionActual || sesionRef.current; // siempre fresca
-  // ...
-}, []); // eliminar dependencia de sesion
+// ❌ Código actual
+if (desde) where.fechaCreacion.gte = new Date(desde); // new Date("xyz") = Invalid Date
 ```
 
----
+`new Date("cadena_invalida")` devuelve `Invalid Date`. Prisma recibe ese valor y puede lanzar un error interno o hacer una consulta que devuelva resultados inesperados.
 
-### BUG-04 — Dos endpoints DELETE para notas (colección y recurso individual)
+**Cómo se dispara:** `GET /api/informes?tipo=ventas-por-cliente&desde=no-es-una-fecha`
 
-**Archivos:** `src/app/api/notas/route.js` (líneas 39–55) y `src/app/api/notas/[id]/route.js`
-**Severidad:** 🟢 BAJO
+**Corrección:**
 
-`DELETE /api/notas` lee el ID del body (anti-REST) y `DELETE /api/notas/[id]` lo toma del path (correcto). Conviven dos formas de borrar la misma entidad, lo que genera ambigüedad en el cliente.
+```js
+// ✅ Corrección
+const parseFecha = (str) => {
+  if (!str) return null;
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+};
+const fechaDesde = parseFecha(desde);
+const fechaHasta = parseFecha(hasta);
+if (desde && !fechaDesde) return NextResponse.json({ message: 'Fecha "desde" inválida' }, { status: 400 });
+```
 
-**Recomendación:** Deprecar el DELETE en la colección y usar únicamente `/api/notas/[id]`.
+### [BUG-03] Búsqueda global sin límite de longitud en query
+
+**Severidad:** 🟡 Potencial  
+**Archivo:** `src/app/api/busqueda/route.js` línea 13  
+**Problema:** Solo se valida `query.length >= 2`, sin límite superior. Una query de 10.000 caracteres ejecuta cuatro `LIKE '%...%'` paralelos en MySQL.
+
+**Corrección:**
+
+```js
+// ✅ Corrección
+if (!query || query.length < 2 || query.length > 100) {
+  return NextResponse.json([]);
+}
+```
+
+### [BUG-04] Upserts concurrentes en `/api/config` sin transacción
+
+**Severidad:** 🟡 Potencial  
+**Archivo:** `src/app/api/config/route.js` línea 50  
+**Problema:**
+
+```js
+// ❌ Código actual
+await Promise.all(
+  entries.map(([key, value]) => db.config.upsert(...))
+);
+```
+
+Dos peticiones simultáneas sobre las mismas claves pueden crear condiciones de carrera en MySQL.
+
+**Corrección:**
+
+```js
+// ✅ Corrección
+await db.$transaction(
+  entries.map(([key, value]) =>
+    db.config.upsert({ where: { key }, update: { value: String(value) }, create: { key, value: String(value) } })
+  )
+);
+```
 
 ---
 
 ## ⚙️ Backend
 
-### BACK-01 — PUT `/api/productos/[id]` sin validación Zod
+### [BACK-01] — Ver CRÍTICO-02 (`PUT /api/config` sin auth)
 
-**Archivo:** `src/app/api/productos/[id]/route.js`, líneas 23–48
-**Severidad:** 🟠 ALTO
+### [BACK-02] `crearManejadoresCRUD` genera handlers completamente públicos
 
-El PUT usa whitelist manual sin schema Zod:
+**Severidad:** 🟠 Alto  
+**Archivo:** `src/lib/manejadores-api.js` línea 34  
+**Problema:** La función `crearManejadoresCRUD` genera handlers `GET` y `POST` sin ninguna comprobación de autenticación. Todos los modelos que la usan (clientes, productos, fabricantes, materiales, proveedores, grapas, tacos) son accesibles públicamente cuando `AUTH_PIN` está activo.
+
+**Corrección:** Añadir verificación de sesión en el generador:
+
 ```js
-if (data.nombre !== undefined) updateData.nombre = data.nombre; // sin validar longitud
-if (data.precioUnitario !== undefined) updateData.precioUnitario = parseFloat(data.precioUnitario); // NaN posible
+// ✅ En crearManejadoresCRUD, inicio de GET y POST:
+const GET = async (request) => {
+  if (process.env.AUTH_PIN) {
+    const { verifyAuth } = await import('@/lib/auth');
+    const err = verifyAuth(request);
+    if (err) return NextResponse.json({ message: err.message }, { status: err.status });
+  }
+  // ... resto
+};
 ```
 
-El POST sí usa `productoSchema`. Inconsistencia: un nombre vacío `""` pasa sin error en PUT pero falla en POST.
+### [BACK-03] N+1 potencial en dashboard con movimientos recientes
+
+**Severidad:** 🟡 Medio  
+**Archivo:** `src/app/api/dashboard/route.js` ~línea 40  
+**Problema:** Si `stockItem` es null para algún movimiento (movimiento manual), `mov.stockItem?.material` devuelve `undefined` sin error visible pero con dato incorrecto en la UI.
 
 **Corrección:**
-```js
-import { productoSchema } from '@/lib/validations';
 
-export async function PUT(request, { params }) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
-    const parsed = productoSchema.partial().safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
-    }
-    const updatedProducto = await db.producto.update({ where: { id }, data: parsed.data });
-    // ...
+```js
+// ✅ Corrección
+materialNombre: mov.stockItem?.material?.nombre ?? 'Movimiento manual'
 ```
 
----
+### [BACK-04] Items manuales en pricing/calculate con `unitPrice` 0 sin aviso
 
-### BACK-02 — `GET /api/pricing/margenes` no registra errores
-
-**Archivo:** `src/app/api/pricing/margenes/route.js`, líneas 11–18
-**Severidad:** 🟡 MEDIO
+**Severidad:** 🟡 Medio  
+**Archivo:** `src/app/api/pricing/calculate/route.js` línea 39  
+**Problema:**
 
 ```js
-} catch (error) {
-  return NextResponse.json({ message: 'Error al obtener márgenes' }, { status: 500 }); // sin logApiError
+// ❌ Código actual — item.unitPrice=null se convierte silenciosamente en 0
+calculatedItems.push({ ...item, unitPrice: item.unitPrice || 0, finalPrice: item.unitPrice || 0 });
+```
+
+Un ítem manual sin precio queda con precio 0 en el presupuesto sin ningún aviso.
+
+**Corrección:**
+
+```js
+// ✅ Corrección
+if (!item.productId && (item.unitPrice == null || Number(item.unitPrice) < 0)) {
+  return NextResponse.json(
+    { message: `Item "${item.descripcion}" requiere un unitPrice válido` },
+    { status: 400 }
+  );
 }
 ```
 
-Fallos de BD en este endpoint son invisibles en logs.
+### [BACK-05] `/api/tracking/sync` sin protección de acceso
 
-**Corrección:** Añadir `logApiError(error, 'GET /api/pricing/margenes');` antes del return.
-
----
-
-### BACK-03 — `GET /api/almacen-stock` carga todos los proveedores sin límite
-
-**Archivo:** `src/app/api/almacen-stock/route.js`, líneas 17–20
-**Severidad:** 🟡 MEDIO
-
-```js
-db.proveedor.findMany({
-  select: { id: true, nombre: true },
-  // ← sin take()
-}),
-```
-
-Inconsistente con el patrón del proyecto que siempre acota queries con `take`.
-
-**Corrección:**
-```js
-db.proveedor.findMany({ select: { id: true, nombre: true }, take: 500, orderBy: { nombre: 'asc' } }),
-```
-
----
-
-### BACK-04 — `crearManejadoresCRUD` no limita el parámetro `limit`
-
-**Archivo:** `src/lib/manejadores-api.js`, líneas 41–43
-**Severidad:** 🟢 BAJO
-
-```js
-const limit = parseInt(limitParam || '50', 10); // sin límite máximo
-```
-
-Un cliente puede pedir `?limit=100000` y hacer un dump completo.
-
-**Corrección:**
-```js
-const page  = Math.max(1, parseInt(pageParam  || '1',  10));
-const limit = Math.min(500, Math.max(1, parseInt(limitParam || '50', 10)));
-```
+**Severidad:** 🟢 Bajo  
+**Archivo:** `src/app/api/tracking/sync/route.js`  
+Ver SEC-04 para la corrección.
 
 ---
 
 ## 🌐 API
 
-### Mapa de Endpoints (tabla completa)
+### Mapa de endpoints (representativo de los 89+ totales)
 
-| Método | Ruta | Validación Zod | Rate Limit | Paginación |
-|--------|------|---------------|------------|------------|
-| POST | /api/auth/login | manual | ✅ 5/min | — |
-| POST | /api/auth/logout | — | — | — |
-| GET | /api/auth/status | — | — | — |
-| GET | /api/almacen-stock | — | ❌ | take 1000 |
-| POST | /api/almacen-stock | manual | ❌ | — |
-| GET | /api/articulos-simples | — | ❌ | take 500 |
-| POST | /api/articulos-simples | ✅ | ❌ | — |
-| PATCH | /api/articulos-simples/[id] | ✅ | ❌ | — |
-| GET | /api/audit-log | — | ✅ 30/min | ✅ |
-| GET | /api/busqueda | — | ❌ | take 5/tipo |
-| GET | /api/catalogo | — | ❌ | take 500 |
-| GET | /api/clientes | — | ❌ | take 500/paginado |
-| POST | /api/clientes | ✅ | ❌ | — |
-| GET | /api/clientes/[id] | — | ❌ | — |
-| PUT | /api/clientes/[id] | ✅ | ❌ | — |
-| DELETE | /api/clientes/[id] | — | ❌ | — |
-| GET | /api/clientes/[id]/historial-precios | — | ❌ | take 5000 |
-| GET | /api/clientes/[id]/resumen | — | ❌ | — |
-| GET | /api/config | — | ❌ | — |
-| PUT | /api/config | whitelist | ❌ | — |
-| GET | /api/config/backup | — | ✅ 5/min | — |
-| GET | /api/dashboard | — | ❌ | — |
-| GET | /api/documentos | — | ❌ | take 2000 |
-| POST | /api/documentos | MIME+manual | ❌ | — |
-| GET | /api/documentos/[id] | — | ❌ | — |
-| PUT | /api/documentos/[id] | manual | ❌ | — |
-| DELETE | /api/documentos/[id] | — | ❌ | — |
-| GET | /api/export/csv | — | ✅ 10/min | take 2000 |
-| GET | /api/fabricantes | — | ❌ | take 500 |
-| POST | /api/fabricantes | ✅ | ❌ | — |
-| GET | /api/grapas | — | ❌ | — |
-| POST | /api/grapas | ✅ | ❌ | — |
-| POST | /api/herramientas/carta-porte | ✅ | ❌ | — |
-| GET | /api/importaciones | — | ❌ | take 100 |
-| POST | /api/importaciones | ✅ | ❌ | — |
-| GET | /api/importaciones/[id] | — | ❌ | — |
-| PUT | /api/importaciones/[id] | ✅ | ❌ | — |
-| DELETE | /api/importaciones/[id] | — | ❌ | — |
-| GET | /api/importaciones/[id]/analisis-rentabilidad | — | ✅ 20/min | — |
-| POST | /api/importaciones/borrador | ✅ | ❌ | — |
-| PATCH | /api/importaciones/[id]/bobinas | ✅ | ❌ | — |
-| GET | /api/informes | — | ✅ 20/min | take 10000 |
-| GET | /api/logistica/calcular | — | ❌ | — |
-| GET | /api/maquinaria/procesos | — | ❌ | — |
-| POST | /api/maquinaria/procesos | manual | ❌ | — |
-| GET | /api/materiales | — | ❌ | take 500 |
-| GET | /api/modelos-grapa | — | ❌ | — |
-| GET | /api/movimientos | — | ❌ | take 500 |
-| GET | /api/notas | — | ❌ | take 20 |
-| POST | /api/notas | ✅ | ❌ | — |
-| DELETE | /api/notas | ⚠️ ID en body | ❌ | — |
-| DELETE | /api/notas/[id] | — | ❌ | — |
-| GET | /api/notificaciones | — | ❌ | take 50 |
-| POST | /api/notificaciones | manual | ❌ | — |
-| PATCH | /api/notificaciones | — | ❌ | — |
-| GET | /api/pedidos | — | ❌ | ✅ |
-| POST | /api/pedidos | ✅ | ❌ | — |
-| GET | /api/pedidos/[id] | — | ❌ | — |
-| PUT | /api/pedidos/[id] | ✅ | ❌ | — |
-| PATCH | /api/pedidos/[id] | whitelist | ❌ | — |
-| DELETE | /api/pedidos/[id] | — | ❌ | — |
-| POST | /api/pedidos/[id]/email | regex email | ❌ | — |
-| GET | /api/pedidos/[id]/pdf | — | ❌ | — |
-| POST | /api/pedidos/bulk-update | ✅ | ❌ | — |
-| GET | /api/pedidos/export | — | ✅ 10/min | take 1000 |
-| POST | /api/pedidos/from-presupuesto | manual | ❌ | — |
-| GET | /api/pedidos-proveedores-data | — | ❌ | — |
-| POST | /api/pedidos-proveedores-data | ✅ | ❌ | — |
-| GET | /api/pedidos-proveedores-data/analisis-precios | — | ✅ 30/min | take 500 |
-| GET | /api/plantillas | — | ❌ | take 500 |
-| GET | /api/precios | — | ❌ | take 2000 |
-| POST | /api/precios | ✅ | ❌ | — |
-| PUT | /api/precios | manual | ❌ | — |
-| DELETE | /api/precios | manual | ❌ | — |
-| POST | /api/precios/bulk-update | manual | ❌ | — |
-| GET | /api/presupuestos | — | ❌ | ✅ |
-| POST | /api/presupuestos | ✅ | ❌ | — |
-| GET | /api/presupuestos/[id] | — | ❌ | — |
-| PUT | /api/presupuestos/[id] | ✅ | ❌ | — |
-| DELETE | /api/presupuestos/[id] | — | ❌ | — |
-| POST | /api/presupuestos/[id]/email | regex email | ❌ | — |
-| GET | /api/presupuestos/[id]/pdf | — | ❌ | — |
-| POST | /api/presupuestos/bulk-update | ✅ | ❌ | — |
-| POST | /api/pricing/calculate | manual | ❌ | — |
-| GET | /api/pricing/descuentos | — | ❌ | — |
-| POST | /api/pricing/descuentos | ✅ | ❌ | — |
-| PUT | /api/pricing/descuentos | parcial | ❌ | — |
-| DELETE | /api/pricing/descuentos | manual | ❌ | — |
-| GET | /api/pricing/especiales | — | ❌ | — |
-| POST | /api/pricing/especiales | ❌ sin validación | ❌ | — |
-| POST | /api/pricing/inverse-calc | ✅ | ❌ | — |
-| GET | /api/pricing/margenes | — | ❌ | — |
-| POST | /api/pricing/margenes | ✅ | ❌ | — |
-| GET | /api/proveedores | — | ❌ | take 500 |
-| POST | /api/proveedores | ✅ | ❌ | — |
-| GET | /api/stock-info/available-meters | — | ❌ | — |
-| POST | /api/stock-management/receive-order | mínima | ❌ | — |
-| GET | /api/tacos | — | ❌ | — |
-| GET | /api/tarifas-cliente | — | ❌ | — |
-| POST | /api/tarifas-cliente | ✅ | ❌ | — |
-| PUT | /api/tarifas-cliente | ✅ | ❌ | — |
-| DELETE | /api/tarifas-cliente | manual | ❌ | — |
-| GET | /api/tarifas-material-opciones | — | ❌ | — |
-| GET | /api/tarifas-rollo | — | ❌ | — |
-| POST | /api/tarifas-rollo | ✅ | ❌ | — |
+| Método | Ruta | Auth activa | Validación | Estado |
+|--------|------|------------|------------|--------|
+| GET | /api/auth/status | ❌ público | ❌ | ✅ OK por diseño |
+| POST | /api/auth/login | ❌ público | ✅ | ✅ + rate limit 5/min |
+| POST | /api/auth/logout | ❌ público | ❌ | ✅ OK |
+| GET | /api/clientes | ❌ | ❌ | ⚠️ Sin auth efectiva |
+| POST | /api/clientes | ❌ | ✅ clienteSchema | ⚠️ Sin auth efectiva |
+| GET/PUT/DELETE | /api/clientes/[id] | ❌ | ✅ parcial | ⚠️ Sin auth efectiva |
+| GET | /api/productos | ❌ | ❌ | ⚠️ Expone costoUnitario |
+| POST | /api/productos | ❌ | ✅ productoSchema | ⚠️ Sin auth efectiva |
+| GET/PUT/DELETE | /api/productos/[id] | ❌ | ✅ parcial | ⚠️ Sin auth efectiva |
+| GET | /api/pedidos | ❌ | ❌ | ⚠️ Sin auth efectiva |
+| POST | /api/pedidos | ❌ | ✅ pedidoSchema | ⚠️ Sin auth efectiva |
+| GET/PUT/DELETE | /api/pedidos/[id] | ❌ | ✅ parcial | ⚠️ Sin auth efectiva |
+| GET | /api/presupuestos | ❌ | ❌ | ⚠️ Sin auth efectiva |
+| POST | /api/presupuestos | ❌ | ✅ presupuestoSchema | ⚠️ Sin auth efectiva |
+| POST | /api/presupuestos/[id]/email | ❌ | ✅ regex email | ⚠️ Sin auth efectiva |
+| GET | /api/config | ❌ | ✅ key whitelist | ✅ Solo claves permitidas |
+| PUT | /api/config | ❌ | ✅ key whitelist | 🔴 Sin auth — datos fiscales |
+| GET | /api/config/backup | ❌ | ❌ | ⚠️ Rate limit 5/min |
+| GET | /api/export/csv | ❌ | ❌ | ⚠️ Rate limit 10/min |
+| GET | /api/informes | ❌ | ❌ | ⚠️ Rate limit 20/min |
+| GET | /api/audit-log | ❌ | ❌ | ⚠️ Rate limit 30/min |
+| GET | /api/busqueda | ❌ | ❌ | ⚠️ Rate limit 30/min |
+| POST | /api/pricing/calculate | ❌ | ✅ array check | ⚠️ Sin auth efectiva |
+| POST | /api/tracking/sync | ❌ | ❌ | ⚠️ Sin auth ni rate limit |
+| GET | /api/dashboard | ❌ | ❌ | ⚠️ Sin auth efectiva |
 
-### Hallazgos API
+> La columna "Auth activa" refleja que no hay verificación a nivel de código independientemente de `AUTH_PIN`. Cuando la app se usa sin PIN en LAN privada, esto es correcto por diseño.
 
-### API-01 — `POST /api/pricing/especiales` sin ninguna validación
+### Hallazgos de API
 
-**Archivo:** `src/app/api/pricing/especiales/route.js`, líneas 17–31
-**Severidad:** 🟡 MEDIO
+### [API-01] `GET /api/productos` expone `costoUnitario`
 
-```js
-export async function POST(request) {
-  try {
-    const data = await request.json();
-    const nuevaRegla = await db.precioEspecial.create({
-      data: {
-        descripcion: data.descripcion,    // sin validar
-        precio: parseFloat(data.precio),  // NaN si no es número → guardado en BD
-        clienteId: data.clienteId,        // sin validar UUID
-        productoId: data.productoId,      // sin validar UUID
-      },
-    });
-```
+**Severidad:** 🟠 Alto  
+**Endpoint:** `GET /api/productos`  
+**Problema:** La respuesta incluye `costoUnitario` (precio de coste de compra al proveedor). En un contexto con múltiples usuarios o acceso externo, clientes podrían calcular el margen del negocio.  
+**Corrección:** Añadir `select` explícito que excluya `costoUnitario` en el listado público, o usar un endpoint separado para uso interno.
 
-**Corrección:**
-```js
-import { z } from 'zod';
-const precioEspecialSchema = z.object({
-  descripcion: z.string().min(1).max(200),
-  precio: z.number().positive().max(100_000),
-  clienteId: z.string().uuid().optional().nullable(),
-  productoId: z.string().uuid().optional().nullable(),
-});
+### [API-02] Bulk-update de pedidos sin verificación de propiedad
 
-export async function POST(request) {
-  try {
-    const body = await request.json();
-    const parsed = precioEspecialSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: 'Datos inválidos', errors: parsed.error.flatten().fieldErrors }, { status: 400 });
-    }
-    const nuevaRegla = await db.precioEspecial.create({ data: parsed.data });
-    return NextResponse.json(nuevaRegla, { status: 201 });
-  }
-```
+**Severidad:** 🟡 Medio  
+**Endpoint:** `POST /api/pedidos/bulk-update`  
+**Problema:** Acepta hasta 200 IDs sin verificar que pertenezcan al mismo cliente o que el operador tenga permiso. En un sistema multiusuario futuro, un usuario podría modificar pedidos de otro.  
+**Corrección:** Si se añaden roles, filtrar los IDs por pertenencia antes del update.
 
----
+### [API-03] Búsqueda sin `totalCount` ni paginación real
 
-### API-02 — Inconsistencia de formato de error (`message` vs `error`)
+**Severidad:** 🟡 Medio  
+**Endpoint:** `GET /api/busqueda`  
+**Problema:** Devuelve hasta 5 resultados por tipo sin `totalCount`. Los endpoints de catálogo usan `take: 500` como límite implícito sin informar si hay más resultados.  
+**Corrección:** Añadir header `X-Total-Count` o campo `total` en la respuesta para que el frontend pueda mostrar "hay más resultados".
 
-**Severidad:** 🟢 BAJO
+### [API-04] `/api/tracking/sync` sin control de acceso
 
-Diferentes endpoints usan `{ message: '...' }` o `{ error: '...' }` indistintamente:
-- `/api/importaciones` → `{ error: 'Datos inválidos' }` (400)
-- `/api/pedidos` → `{ error: 'Validación fallida' }` (400)
-- `/api/clientes/[id]` → `{ message: 'Datos inválidos' }` (400)
-
-El proyecto tiene `src/lib/api-response.js` con `ApiResponse` pero no se usa en las rutas analizadas. Estandarizar en nuevas rutas; migrar en el futuro.
-
----
-
-### API-03 — `GET /api/notas` limitado a 20 sin paginación
-
-**Archivo:** `src/app/api/notas/route.js`, línea 14
-**Severidad:** 🟢 BAJO
-
-`take: 20` hardcodeado sin opción de paginación. Válido para tablón de notas, pero documentar como limitación intencional si se prevé crecer.
+**Severidad:** 🟢 Bajo  
+Ver SEC-04.
 
 ---
 
 ## 🎨 Frontend
 
-El frontend está en excelente estado. No se encontraron:
+### [FRONT-01] Dos implementaciones de tema compiten entre sí
 
-- `innerHTML` ni `dangerouslySetInnerHTML` con datos de usuario (XSS)
-- Tokens de sesión en `localStorage` (solo `crm-tema` / `theme` — no sensible)
-- Event listeners sin cleanup en `useEffect` (tablet/page.js tiene cleanup correcto en listeners `online`/`offline`)
-- Estados de carga ausentes en operaciones críticas
+**Severidad:** 🟡 Medio  
+**Archivos:** `src/componentes/layout/ThemeSwitcher.js`, `src/componentes/ui/ProveedorTema.js`  
+**Problema:** Ambos componentes escriben en `localStorage` con claves diferentes (`crm-tema` vs `theme`). Si los dos están activos simultáneamente, el tema puede no persistir correctamente entre recargas o flickear al cargar.  
+**Corrección:** Unificar en una sola clave de `localStorage` y eliminar uno de los dos componentes.
 
-### FRONT-01 — IVA hardcodeado al 21% en calculadora de tablet
+### [FRONT-02] Botones solo-icono sin `aria-label` en páginas de detalle
 
-**Archivo:** `src/app/tablet/page.js`, líneas 439, 450
-**Severidad:** 🟢 BAJO (informativo)
-
-```js
-const iva = precioNeto * 0.21; // hardcodeado — no lee config
-```
-
-La calculadora de tarifas en la tablet usa el IVA fijo aunque `iva_rate` es configurable vía `/api/config`. Si se cambia el tipo en configuración, la calculadora mostraría valores incorrectos.
+**Severidad:** 🟢 Bajo  
+**Archivos:** Varios componentes de pedidos y presupuestos  
+**Problema:** Botones que solo muestran un icono (sin texto visible) no tienen `aria-label`, lo que impide que los lectores de pantalla los describan.
 
 **Corrección:**
-```js
-const { data: config } = useSWR('/api/config');
-const ivaRate = config?.iva_rate ?? 0.21;
-// y luego:
-const iva = precioNeto * ivaRate;
+
+```jsx
+// ❌ Código actual
+<button onClick={handleEliminar}><Trash2 className="w-4 h-4" /></button>
+
+// ✅ Corrección
+<button onClick={handleEliminar} aria-label="Eliminar pedido">
+  <Trash2 className="w-4 h-4" />
+</button>
 ```
 
 ---
 
-## ✅ Puntos Positivos
+## ✅ Hallazgos corregidos en esta sesión
 
-1. **Zod en prácticamente todos los POST/PUT** — cobertura de validación alta. Especialmente `importacionContenedorSchema` con `z.coerce.number()` que elimina parseFloat manual.
+| ID | Descripción | Área | Commit |
+|----|-------------|------|--------|
+| FIX-01 | Boton.jsx: props `deshabilitado`/`cargando` ignoradas — botones no se deshabilitaban | Frontend | ccb2bbf |
+| FIX-02 | Modal.jsx: sin `role="dialog"`, `aria-modal`, `aria-labelledby` ni focus trap | Frontend | ccb2bbf |
+| FIX-03 | useGestionCRUD: `alert()` nativo en errores → `toastError()` | Frontend | ccb2bbf |
+| FIX-04 | useGestionCRUD: `window.confirm` nativo → modal de confirmación | Frontend | ccb2bbf |
+| FIX-05 | useGestionCRUD: timeout de `cerrarModal` sin cleanup → useRef | Bug | ccb2bbf |
+| FIX-06 | FiltroBusquedaSimple: debounce sin cleanup → setState en componente desmontado | Bug | ccb2bbf |
+| FIX-07 | Dashboard: `total.toFixed(2)` lanza TypeError si `total` es null | Bug | ccb2bbf |
+| FIX-08 | layout.js: `"use client"` en root layout bloqueaba RSC y metadata → providers.js | Backend | ccb2bbf |
+| FIX-09 | globals.css: `themes: all` cargaba 30+ temas DaisyUI innecesariamente | Frontend | ccb2bbf |
+| FIX-10 | rateLimiter: `x-forwarded-for` forjable → `getClientIp()` usa x-real-ip | Seguridad | ccb2bbf |
+| FIX-11 | email.js: HTML injection en template de presupuesto → `escapeHtml()` | Seguridad | ccb2bbf |
+| FIX-12 | next.config.mjs: `X-XSS-Protection` obsoleto eliminado; `Permissions-Policy` añadido | Seguridad | ccb2bbf |
+| FIX-13 | .gitignore: excepción `!prisma/dev.db` podía commitear la base de datos | Seguridad | ccb2bbf |
+| FIX-14 | Encabezado.js: `aria-expanded` ausente en dropdowns; hamburguesa sin aria-label dinámico | Frontend | ccb2bbf |
+| FIX-15 | TablaDatos.jsx: `<th>` sin `scope="col"` | Frontend | ccb2bbf |
+| FIX-16 | Paginacion.jsx: botones solo-icono sin `aria-label`, sin `aria-current="page"` | Frontend | ccb2bbf |
+| FIX-17 | tracking.js: endpoint Ship24 incorrecto (`/search` → `/track`), parsing erróneo | Bug | 4e0a61d |
 
-2. **`logApiError` consistente — sin stack traces en respuestas** — el logger solo extrae `{name, message, code, meta}`.
+---
 
-3. **Transacciones correctas en operaciones multi-tabla** — `receive-order`, `from-presupuesto`, `pedidos/[id] PUT`, `presupuestos/[id] PUT` usan `$transaction`.
+## ✅ Puntos positivos
 
-4. **Rate limiting en endpoints pesados** — login (5/min), backup (5/min), export-csv (10/min), informes (20/min), audit-log (30/min), analisis-rentabilidad (20/min), analisis-precios (30/min).
-
-5. **Cookies httpOnly + sameSite:strict + secure en prod** — sesión no accesible desde JS y protegida contra CSRF.
-
-6. **Path traversal en documentos mitigado** — `allowedBase` check en DELETE y validación de prefijo `/planos/` en PUT.
-
-7. **Cero `console.log` de debug** — ninguna instancia encontrada en todo el código fuente.
-
-8. **`.gitignore` robusto** — `.env.local`, datos operativos, seeds de producción y backups SQL excluidos. (Excepción: ver SEC-07.)
-
-9. **`colaOffline.js` bien diseñado** — IndexedDB solo para estado de sesión de recepción (no datos sensibles), sincronización idempotente, reconexión automática.
-
-10. **Service Worker conservador** — `public/sw.js` excluye explícitamente `/api/*` del caché. No hay riesgo de servir respuestas API stale.
-
-11. **UUID validado en analisis-rentabilidad** — `UUID_RE.test(id)` antes de la query previene errores de BD con IDs malformados.
-
-12. **`informes/route.js` valida el año** — `Math.max(2000, Math.min(currentYear, parseInt(...)))` previene consultas con años absurdos.
-
-13. **`Promise.allSettled` en analisis-rentabilidad** — error en una bobina no cancela el análisis del resto del contenedor.
+- **Sin SQL injection**: Uso exclusivo de Prisma ORM con queries parametrizadas.
+- **Validación con Zod**: Todos los endpoints POST/PUT validan el body contra schema Zod antes de tocar la base de datos.
+- **Logging seguro**: `logApiError` registra solo `{name, message, code, meta}` — nunca stack traces con rutas internas o queries Prisma.
+- **Rate limiting en auth**: `/api/auth/login` limita a 5 intentos/min con comparación HMAC en tiempo constante (protección timing attack).
+- **Cookies seguras**: `httpOnly`, `sameSite: 'strict'`, `secure` en producción.
+- **HSTS en producción**: `Strict-Transport-Security` activo.
+- **CSP configurada**: Content Security Policy con `frame-ancestors: none` y `object-src: none`.
+- **Permissions-Policy**: Restricción de cámara, micrófono, geolocalización y pagos.
+- **VeriFactu implementado**: Hash chain SHA-256 para conformidad fiscal española (obligatorio antes del 01/01/2027).
+- **Transacciones en operaciones críticas**: `db.$transaction()` en actualizaciones de pedidos (delete+create de ítems atómico).
+- **Auditoría de cambios**: Fire-and-forget en todas las operaciones CRUD.
+- **PWA funcional**: manifest.json, service worker, shortcuts configurados.
+- **Arquitectura limpia**: Separación clara — Zod para validación, Prisma para DB, `api-response.js` para respuestas consistentes.
 
 ---
 
 ## 🗺️ Plan de Acción Priorizado
 
-| # | ID | Hallazgo | Área | Severidad | Esfuerzo |
-|---|----|----------|------|-----------|----------|
-| 1 | SEC-01 | Implementar verificación de cookie en middleware | Seguridad | 🔴 Crítico | 2h |
-| 2 | SEC-02 | Eliminar fallback débil de SESSION_SECRET en producción | Seguridad | 🟠 Alto | 15 min |
-| 3 | BUG-01 | Mover `request.json()` dentro del try-catch (3 archivos) | Bugs | 🟠 Alto | 30 min |
-| 4 | BACK-01 | Añadir Zod al PUT de `/api/productos/[id]` | Backend | 🟠 Alto | 1h |
-| 5 | SEC-03 | UUID en nombres de archivos subidos | Seguridad | 🟠 Alto | 30 min |
-| 6 | API-01 | Añadir Zod a `POST /api/pricing/especiales` | API | 🟡 Medio | 30 min |
-| 7 | SEC-04 | Filtrar claves en `GET /api/config` por whitelist | Seguridad | 🟡 Medio | 15 min |
-| 8 | SEC-05 | Añadir headers X-Content-Type-Options, X-Frame-Options | Seguridad | 🟡 Medio | 15 min |
-| 9 | BUG-02 | Corregir lógica de `pendientes` en `handleEliminar` tablet | Bugs | 🟡 Medio | 15 min |
-| 10 | BUG-03 | Usar `sesionRef` para evitar stale closure en `sincronizar` | Bugs | 🟡 Medio | 30 min |
-| 11 | BACK-02 | Añadir `logApiError` en GET margenes | Backend | 🟡 Medio | 5 min |
-| 12 | BACK-03 | Añadir `take: 500` a `proveedor.findMany` en almacen-stock | Backend | 🟡 Medio | 5 min |
-| 13 | SEC-06 | Rate limiting en endpoints de escritura sensibles | Seguridad | 🟡 Medio | 2h |
-| 14 | FRONT-01 | Consumir `iva_rate` dinámico en tablet calculadora | Frontend | 🟢 Bajo | 30 min |
-| 15 | BUG-04 | Consolidar endpoints DELETE de notas (deprecar body-based) | Bugs | 🟢 Bajo | 30 min |
-| 16 | BACK-04 | Limitar `limit` máximo en `crearManejadoresCRUD` | Backend | 🟢 Bajo | 15 min |
-| 17 | API-02 | Estandarizar formato de error (`message` vs `error`) | API | 🟢 Bajo | Alto |
-| 18 | SEC-07 | Corregir ruta duplicada `prisma/prisma/dev.db` en .gitignore | Seguridad | 🟢 Bajo | 2 min |
+| # | Hallazgo | Área | Severidad | Esfuerzo est. |
+|---|----------|------|-----------|---------------|
+| 1 | [CRÍTICO-01] Restaurar auth en middleware cuando AUTH_PIN activo | Seguridad | 🔴 | ~1 h |
+| 2 | [CRÍTICO-02] Añadir auth check en `PUT /api/config` | Backend | 🔴 | ~15 min |
+| 3 | [SEC-02] SESSION_SECRET: fallar duro si AUTH_PIN activo y SECRET ausente | Seguridad | 🟠 | ~10 min |
+| 4 | [BUG-01] Fix `new Date(null)` → epoch en presupuestos/[id] | Bug | 🟠 | ~10 min |
+| 5 | [BUG-02] Validar fechas con `isNaN()` antes de `new Date()` en informes | Bug | 🟠 | ~15 min |
+| 6 | [BACK-02] Añadir verificación de sesión en `crearManejadoresCRUD` | Backend | 🟠 | ~1 h |
+| 7 | [API-01] Excluir `costoUnitario` del listado público de productos | API | 🟠 | ~15 min |
+| 8 | [BUG-03] Limitar longitud de query en `/api/busqueda` (max 100 chars) | Bug | 🟡 | ~5 min |
+| 9 | [BUG-04] Envolver upserts de config en `db.$transaction()` | Bug | 🟡 | ~10 min |
+| 10 | [BACK-04] Validar `unitPrice > 0` en ítems manuales de pricing | Backend | 🟡 | ~15 min |
+| 11 | [FRONT-01] Unificar ThemeSwitcher + ProveedorTema en una implementación | Frontend | 🟡 | ~30 min |
+| 12 | [SEC-04] Añadir rate limit a `/api/tracking/sync` | Seguridad | 🟢 | ~10 min |
+| 13 | [FRONT-02] Añadir `aria-label` en botones solo-icono de páginas de detalle | Frontend | 🟢 | ~30 min |
+| 14 | [SEC-03] Migrar CSP de `unsafe-inline` a nonces | Seguridad | 🟡 | ~4 h |
 
 ---
 
-*Revisión generada el 2026-06-08. Archivos analizados: todos los routes bajo `src/app/api/` (93 archivos), `src/lib/` (db.js, rateLimiter.js, audit.js, logger.js, email.js, validations.js, manejadores-api.js, colaOffline.js), `middleware.js`, `src/app/layout.js`, `public/sw.js`, `src/app/tablet/page.js`. No se encontraron hallazgos en archivos nuevos `sw.js` ni `colaOffline.js` más allá de los documentados.*
+*Generado automáticamente el 2026-06-09. Marca cada fila con ✅ al aplicar la corrección.*
