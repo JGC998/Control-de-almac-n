@@ -1,14 +1,14 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-// Importamos 'X' para el botón de eliminar
 import { MessageSquare, Send, X } from 'lucide-react';
 
-
 export default function TablonNotas() {
-  const [newNote, setNewNote] = useState('');
-  const [error, setError] = useState(null);
+  const [newNote, setNewNote]     = useState('');
+  const [error, setError]         = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // FE-01: sustituir confirm() nativo por confirmación inline
+  const [confirmDelete, setConfirmDelete] = useState(null); // id de la nota pendiente
 
   const { data: notas, error: notasError, isLoading } = useSWR('/api/notas');
 
@@ -16,55 +16,47 @@ export default function TablonNotas() {
     e.preventDefault();
     if (!newNote.trim()) return;
     setError(null);
-
     const noteContent = newNote.trim();
-    setNewNote(''); // Clear input immediately
-
+    setNewNote('');
     try {
       const res = await fetch('/api/notas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: noteContent }),
       });
-
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || 'Error al guardar la nota');
       }
-
       const newNoteFromServer = await res.json();
-
-      // Update SWR cache with the new note prepended
       mutate('/api/notas', [newNoteFromServer, ...(notas || [])], false);
     } catch (err) {
       setError(err.message);
-      setNewNote(noteContent); // Restore on error
+      setNewNote(noteContent);
     }
   };
 
-  // NUEVA FUNCIÓN DE ELIMINACIÓN
-  const handleDelete = async (noteId) => {
-    if (!confirm('¿Estás seguro de que quieres borrar esta nota?')) return;
-
+  const handleDeleteConfirm = async () => {
+    if (!confirmDelete) return;
     setIsDeleting(true);
     try {
       const res = await fetch('/api/notas', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: noteId }),
+        body: JSON.stringify({ id: confirmDelete }),
       });
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || 'Error al eliminar la nota');
       }
-      mutate('/api/notas'); // Revalida para refrescar la lista
+      mutate('/api/notas');
     } catch (err) {
       setError(err.message);
     } finally {
       setIsDeleting(false);
+      setConfirmDelete(null);
     }
   };
-
 
   return (
     <div className="card bg-base-100 shadow-xl">
@@ -78,25 +70,38 @@ export default function TablonNotas() {
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
           />
-          {/* Deshabilitar mientras se borra o carga para evitar doble envío */}
-          <button type="submit" className="btn btn-primary" disabled={isLoading || isDeleting}>
+          <button type="submit" className="btn btn-primary" disabled={isLoading || isDeleting} aria-label="Añadir nota">
             <Send className="w-4 h-4" />
           </button>
         </form>
-        {error && <p className="text-red-500 text-xs">{error}</p>}
+
+        {/* FE-12: text-error en lugar de text-red-500 */}
+        {error && <p className="text-error text-xs">{error}</p>}
+
+        {/* Confirmación inline de borrado */}
+        {confirmDelete && (
+          <div className="alert alert-warning text-sm py-2 gap-2">
+            <span>¿Eliminar esta nota?</span>
+            <div className="flex gap-1 ml-auto">
+              <button className="btn btn-xs btn-error" onClick={handleDeleteConfirm} disabled={isDeleting}>Eliminar</button>
+              <button className="btn btn-xs btn-ghost" onClick={() => setConfirmDelete(null)}>Cancelar</button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-y-auto max-h-60 space-y-2">
-          {isLoading && <span className="loading loading-spinner"></span>}
-          {notasError && <p className="text-red-500">Error al cargar notas.</p>}
+          {isLoading && <span className="loading loading-spinner" />}
+          {/* FE-12: text-error */}
+          {notasError && <p className="text-error text-sm">Error al cargar notas.</p>}
           {notas?.map(nota => (
             <div key={nota.id} className="chat chat-start relative">
               <div className="chat-bubble pr-8">
                 <p>{nota.content}</p>
                 <time className="text-xs opacity-50">{new Date(nota.fecha).toLocaleString()}</time>
               </div>
-              {/* Botón de Eliminar */}
               <button
                 className="absolute right-0 top-0 btn btn-xs btn-circle btn-ghost"
-                onClick={() => handleDelete(nota.id)}
+                onClick={() => setConfirmDelete(nota.id)}
                 disabled={isDeleting}
                 aria-label="Eliminar nota"
               >

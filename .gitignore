@@ -15,12 +15,12 @@ node_modules/
 # Prisma
 /src/generated/prisma
 
-# Bases de datos y backups (excepción: dev.db de pruebas)
+# Bases de datos y backups — NINGÚN archivo .db se commitea al repo.
+# Usa `npm run seed:mock` para regenerar datos de desarrollo ficticios.
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
-!prisma/dev.db
 /backups/
 
 # ── Datos sensibles ─────────────────────────────────────────────────────────

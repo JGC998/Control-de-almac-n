@@ -1,6 +1,22 @@
 // S9 — Rate limiting en memoria (Node.js, persiste dentro del proceso).
 // Ventana deslizante de 1 minuto por IP.
 
+/**
+ * Extrae la IP del cliente de forma segura desde un NextRequest.
+ * Usa x-real-ip (añadido por el proxy) en lugar del primer valor de
+ * x-forwarded-for, que puede ser falsificado por el cliente.
+ *
+ * @param {import('next/server').NextRequest} request
+ * @returns {string}
+ */
+export function getClientIp(request) {
+  return (
+    request.headers.get('x-real-ip') ||
+    request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ||
+    '127.0.0.1'
+  );
+}
+
 const store = new Map(); // ip -> { count, resetAt }
 const WINDOW_MS = 60_000;
 

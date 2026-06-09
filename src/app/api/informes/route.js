@@ -1,17 +1,15 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
-import { checkRateLimit } from '@/lib/rateLimiter';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 const EXCLUIDOS = ['Cancelado', 'Borrador'];
 
 export async function GET(request) {
-  // S9 — Rate limit: 20 peticiones/min por IP
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || request.headers.get('x-real-ip')
-    || '127.0.0.1';
+  // Rate limit: 20 peticiones/min por IP
+  const ip = getClientIp(request);
   const rl = checkRateLimit(ip, 20);
   if (!rl.allowed) {
     return NextResponse.json(

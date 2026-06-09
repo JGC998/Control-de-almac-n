@@ -4,7 +4,8 @@
 import { useEffect, useState } from "react";
 import { themeChange } from "theme-change";
 
-const DEFAULT_THEME = "forest";
+// FE-07: debe coincidir con data-theme="corporate" en layout.js para evitar FOUC
+const DEFAULT_THEME = "corporate";
 
 export default function ProveedorTema({ children }) {
     const [theme, setTheme] = useState(() => {

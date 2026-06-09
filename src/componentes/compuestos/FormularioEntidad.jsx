@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import { X } from 'lucide-react';
 import { Entrada, Selector, AreaTexto, CampoFormulario, Boton } from '../primitivos';
 import { Alerta } from '../primitivos';
 
@@ -224,11 +225,12 @@ export default function FormularioEntidad({
         );
     };
 
-    // Calcular clases de layout
+    // FE-18: clases estáticas — Tailwind elimina en build las clases construidas con template literals
+    const GRID_COLS = { 1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-4' };
     const getLayoutClasses = () => {
         switch (layout) {
             case 'grid':
-                return `grid gap-4 grid-cols-1 md:grid-cols-${columnas}`;
+                return `grid gap-4 grid-cols-1 ${GRID_COLS[columnas] || 'md:grid-cols-2'}`;
             case 'horizontal':
                 return 'space-y-2';
             default:
@@ -331,8 +333,9 @@ export function FormularioModal({
                     onClick={alCerrar}
                     className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
                     disabled={cargando}
+                    aria-label="Cerrar"
                 >
-                    ✕
+                    <X className="w-4 h-4" />
                 </button>
 
                 <FormularioEntidad

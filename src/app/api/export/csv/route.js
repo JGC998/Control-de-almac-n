@@ -2,16 +2,14 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generarCSV, CSV_DEFINITIONS } from '@/lib/export';
-import { checkRateLimit } from '@/lib/rateLimiter';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
     try {
-        // SEC — Rate limit: 10 exportaciones/min por IP
-        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-          || request.headers.get('x-real-ip')
-          || '127.0.0.1';
+        // Rate limit: 10 exportaciones/min por IP
+        const ip = getClientIp(request);
         const rl = checkRateLimit(ip, 10);
         if (!rl.allowed) {
           return NextResponse.json(

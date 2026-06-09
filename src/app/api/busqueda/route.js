@@ -1,10 +1,21 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
+  // Rate limit: 30 búsquedas/min por IP
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`busqueda:${ip}`, 30);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { message: 'Demasiadas peticiones. Espera un momento.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');

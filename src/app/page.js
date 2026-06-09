@@ -40,7 +40,7 @@ function PanelFacturasPendientes({ datos }) {
 
         <div className="flex justify-between items-center mb-3 pb-2 border-b border-base-200">
           <span className="text-sm text-base-content/60">Total pendiente</span>
-          <span className="font-bold text-lg">{total.toFixed(2)} €</span>
+          <span className="font-bold text-lg">{Number(total ?? 0).toFixed(2)} €</span>
         </div>
 
         {/* Lista de facturas */}

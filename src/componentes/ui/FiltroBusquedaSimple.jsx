@@ -10,6 +10,11 @@ export default function FiltroBusquedaSimple({ valorInicial = '', alBuscar, plac
         setValor(valorInicial);
     }, [valorInicial]);
 
+    // Limpiar timeout al desmontar para evitar setState en componente desmontado
+    useEffect(() => {
+        return () => clearTimeout(timeoutRef.current);
+    }, []);
+
     const handleChange = (e) => {
         const v = e.target.value;
         setValor(v);

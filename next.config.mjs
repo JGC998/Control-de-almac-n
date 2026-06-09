@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
-    // SEC-05: En producción se elimina 'unsafe-eval' (no necesario en builds de producción con App Router).
-    // En desarrollo se mantiene para el HMR de Turbopack.
+    // En producción se elimina 'unsafe-eval' (no necesario en builds de producción con App Router).
     const isProd = process.env.NODE_ENV === 'production';
     const scriptSrc = isProd
       ? "script-src 'self' 'unsafe-inline'"
@@ -26,8 +25,10 @@ const nextConfig = {
           { key: 'Content-Security-Policy', value: csp },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          // X-XSS-Protection eliminado: obsoleto y puede crear vulnerabilidades en navegadores antiguos.
+          // La CSP cumple esta función correctamente.
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
         ],
       },
     ];

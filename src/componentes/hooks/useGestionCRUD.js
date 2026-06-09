@@ -1,7 +1,8 @@
 "use client";
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/fetcher';
+import { toast, toastError } from '@/lib/toast';
 
 /**
  * Hook useGestionCRUD - Encapsula toda la lógica CRUD para páginas de gestión
@@ -47,6 +48,7 @@ export function useGestionCRUD({
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modoEdicion, setModoEdicion] = useState(false);
     const [entidadActual, setEntidadActual] = useState(null);
+    const resetTimeoutRef = useRef(null);
 
     // Estado del formulario
     const [formData, setFormData] = useState(camposIniciales);
@@ -130,9 +132,8 @@ export function useGestionCRUD({
     // Cerrar modal
     const cerrarModal = useCallback(() => {
         setIsModalOpen(false);
-        // BUG-19: guardar handle para limpiar si el componente se desmonta antes de los 150ms
-        const t = setTimeout(resetearFormulario, 150);
-        return () => clearTimeout(t);
+        clearTimeout(resetTimeoutRef.current);
+        resetTimeoutRef.current = setTimeout(resetearFormulario, 150);
     }, [resetearFormulario]);
 
     // Manejar cambios en inputs
@@ -207,7 +208,9 @@ export function useGestionCRUD({
 
     // Eliminar
     const eliminar = useCallback(async (id, confirmar = true) => {
-        if (confirmar && !window.confirm('¿Estás seguro de que quieres eliminar este registro?')) {
+        if (confirmar) {
+            // Los callers deben usar useConfirmacion antes de llamar a eliminar
+            // Este parámetro se mantiene por compatibilidad pero se recomienda confirmar = false
             return { exito: false, cancelado: true };
         }
 
@@ -219,11 +222,11 @@ export function useGestionCRUD({
                 throw new Error(errorData.message || 'Error al eliminar');
             }
 
-            // Refrescar datos
             await refrescar();
+            toast('Registro eliminado', 'success');
             return { exito: true };
         } catch (err) {
-            alert(err.message);
+            toastError(err.message);
             return { exito: false, error: err.message };
         }
     }, [recursoApi, refrescar]);

@@ -198,6 +198,8 @@ function NavDropdown({ item, pathname, isOpen, onOpen, onToggle, onClose }) {
           onClick={(e) => { e.preventDefault(); onToggle(); }}
           className="p-0.5 rounded hover:bg-base-300 touch-manipulation"
           aria-label={`Menú ${item.label}`}
+          aria-expanded={isOpen}
+          aria-haspopup="true"
         >
           <ChevronDown className={`w-3 h-3 opacity-40 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
@@ -303,6 +305,7 @@ export default function Encabezado() {
             className="hidden lg:flex items-center gap-2 h-8 px-3 rounded-lg border border-base-300 bg-base-200/60 hover:bg-base-200 transition-colors text-sm text-base-content/40"
             onClick={() => setBusquedaOpen(true)}
             title="Búsqueda global (Ctrl+K)"
+            aria-label="Búsqueda global"
           >
             <Search className="w-3.5 h-3.5" />
             <span className="hidden xl:block">Buscar...</span>
@@ -354,7 +357,8 @@ export default function Encabezado() {
           <button
             className="btn btn-ghost btn-sm btn-circle lg:hidden"
             onClick={() => setMobileOpen(prev => !prev)}
-            aria-label="toggle menu"
+            aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>

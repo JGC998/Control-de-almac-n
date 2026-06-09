@@ -99,9 +99,9 @@ export default function TablaDatos({
                 <thead>
                     <tr className="text-xs uppercase tracking-wider text-base-content/50">
                         {columnas.map((col, i) => (
-                            <th key={col.clave || i}>{col.etiqueta}</th>
+                            <th key={col.clave || i} scope="col">{col.etiqueta}</th>
                         ))}
-                        {mostrarAccionVer && rutaBase && <th />}
+                        {mostrarAccionVer && rutaBase && <th scope="col" />}
                     </tr>
                 </thead>
                 <tbody>

@@ -1,11 +1,11 @@
 ﻿import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
-import { checkRateLimit } from '@/lib/rateLimiter';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export async function GET(request) {
-    // API-04: Rate limiting — 30 req/min (datos sensibles de auditoría)
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    // Rate limiting — 30 req/min (datos sensibles de auditoría)
+    const ip = getClientIp(request);
     const rl = checkRateLimit(`audit-log:${ip}`, 30);
     if (!rl.allowed) {
         return NextResponse.json(

@@ -41,6 +41,7 @@ export default function Paginacion({
                     disabled={paginaActual === 1}
                     onClick={() => alCambiarPagina(1)}
                     title="Primera página"
+                    aria-label="Primera página"
                 >
                     <ChevronsLeft className="w-4 h-4" />
                 </button>
@@ -48,7 +49,8 @@ export default function Paginacion({
                     className="join-item btn btn-sm"
                     disabled={paginaActual === 1}
                     onClick={() => alCambiarPagina(paginaActual - 1)}
-                    title="Anterior"
+                    title="Página anterior"
+                    aria-label="Página anterior"
                 >
                     <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -58,6 +60,8 @@ export default function Paginacion({
                         key={p}
                         className={`join-item btn btn-sm ${paginaActual === p ? 'btn-active btn-primary' : ''}`}
                         onClick={() => alCambiarPagina(p)}
+                        aria-label={`Página ${p}`}
+                        aria-current={paginaActual === p ? 'page' : undefined}
                     >
                         {p}
                     </button>
@@ -67,7 +71,8 @@ export default function Paginacion({
                     className="join-item btn btn-sm"
                     disabled={paginaActual === totalPaginas}
                     onClick={() => alCambiarPagina(paginaActual + 1)}
-                    title="Siguiente"
+                    title="Página siguiente"
+                    aria-label="Página siguiente"
                 >
                     <ChevronRight className="w-4 h-4" />
                 </button>
@@ -76,6 +81,7 @@ export default function Paginacion({
                     disabled={paginaActual === totalPaginas}
                     onClick={() => alCambiarPagina(totalPaginas)}
                     title="Última página"
+                    aria-label="Última página"
                 >
                     <ChevronsRight className="w-4 h-4" />
                 </button>

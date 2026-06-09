@@ -3,9 +3,7 @@
 /* @plugin "daisyui"; */
 
 @plugin "daisyui" {
-  /* themes: light --default, dark --prefersdark, cupcake, retro; */
-  /* exclude: rootscrollgutter; */
-  themes: all;
+  themes: corporate, light, dark;
 }
 
 /* Scrollbar sutil */

@@ -3,6 +3,15 @@ import { logApiError } from '@/lib/logger';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * Enviar un email genérico
  * @param {string} to - Destinatario
@@ -34,14 +43,14 @@ export async function sendEmail({ to, subject, html, attachments = [] }) {
 /**
  * Plantilla HTML básica para presupuestos
  */
-export const getPresupuestoTemplate = ({ clienteNombre, numero, linkPdf, total }) => `
+export const getPresupuestoTemplate = ({ clienteNombre, numero, total }) => `
   <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-    <h1>Hola ${clienteNombre},</h1>
-    <p>Adjuntamos el presupuesto <strong>${numero}</strong> que nos has solicitado.</p>
-    
+    <h1>Hola ${escapeHtml(clienteNombre)},</h1>
+    <p>Adjuntamos el presupuesto <strong>${escapeHtml(numero)}</strong> que nos has solicitado.</p>
+
     <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <p style="margin: 0; font-size: 18px;">Total Presupuesto:</p>
-      <p style="margin: 5px 0 0; font-size: 24px; font-weight: bold; color: #2563eb;">${total} €</p>
+      <p style="margin: 5px 0 0; font-size: 24px; font-weight: bold; color: #2563eb;">${escapeHtml(String(total))} €</p>
     </div>
 
     <p>Si tienes alguna duda, por favor contáctanos.</p>

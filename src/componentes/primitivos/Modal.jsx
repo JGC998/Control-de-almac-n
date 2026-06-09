@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 
 /**
  * Componente Modal - Diálogo modal reutilizable
- * 
+ *
  * @param {Object} props
  * @param {boolean} abierto - Estado de visibilidad
  * @param {function} alCerrar - Callback al cerrar
@@ -23,6 +23,8 @@ const sizeMap = {
     full: 'modal-box max-w-full w-11/12',
 };
 
+const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 export default function Modal({
     children,
     abierto = false,
@@ -36,54 +38,72 @@ export default function Modal({
     ...props
 }) {
     const modalRef = useRef(null);
+    const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
 
-    // Manejar cierre con Escape
+    // Focus trap + mover foco al abrir
+    useEffect(() => {
+        if (!abierto || !modalRef.current) return;
+
+        const focusable = Array.from(modalRef.current.querySelectorAll(FOCUSABLE));
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        // Mover foco al primer elemento interactivo
+        first?.focus();
+
+        function trap(e) {
+            if (e.key !== 'Tab') return;
+            if (focusable.length === 0) { e.preventDefault(); return; }
+            if (e.shiftKey) {
+                if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+            } else {
+                if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+            }
+        }
+        document.addEventListener('keydown', trap);
+        return () => document.removeEventListener('keydown', trap);
+    }, [abierto]);
+
+    // Cerrar con Escape
     useEffect(() => {
         if (!cerrarConEscape || !abierto) return;
-
-        const handleEscape = (e) => {
-            if (e.key === 'Escape') {
-                alCerrar?.();
-            }
-        };
-
+        const handleEscape = (e) => { if (e.key === 'Escape') alCerrar?.(); };
         document.addEventListener('keydown', handleEscape);
         return () => document.removeEventListener('keydown', handleEscape);
     }, [abierto, cerrarConEscape, alCerrar]);
 
-    // Bloquear scroll del body cuando está abierto
+    // Bloquear scroll del body
     useEffect(() => {
         if (abierto) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'unset';
         }
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
+        return () => { document.body.style.overflow = 'unset'; };
     }, [abierto]);
 
     if (!abierto) return null;
 
     const handleBackdropClick = (e) => {
-        if (cerrarConFondo && e.target === e.currentTarget) {
-            alCerrar?.();
-        }
+        if (cerrarConFondo && e.target === e.currentTarget) alCerrar?.();
     };
 
     return (
         <div
             className="modal modal-open"
             onClick={handleBackdropClick}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titulo ? titleId : undefined}
             {...props}
         >
             <div ref={modalRef} className={`${sizeMap[size] || sizeMap.md} ${className}`}>
                 {/* Header */}
                 <div className="flex justify-between items-center mb-4">
-                    {titulo && <h3 className="font-bold text-lg">{titulo}</h3>}
+                    {titulo && <h3 id={titleId} className="font-bold text-lg">{titulo}</h3>}
                     <button
                         onClick={alCerrar}
-                        className="btn btn-sm btn-circle btn-ghost"
+                        className="btn btn-sm btn-circle btn-ghost ml-auto"
                         aria-label="Cerrar"
                     >
                         <X className="w-5 h-5" />

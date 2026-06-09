@@ -1,68 +1,64 @@
 "use client";
 import React, { useState } from 'react';
-import { AlertTriangle, TrendingUp, Save, X } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Save, X, CheckCircle } from 'lucide-react';
 
 export default function BulkPriceUpdateModal({ isOpen, onClose, materiales = [], onSuccess }) {
     const [percentage, setPercentage] = useState('');
     const [selectedMaterial, setSelectedMaterial] = useState('TODOS');
     const [isLoading, setIsLoading] = useState(false);
+    // FE-01: sustituir confirm/alert nativos por confirmación inline en el propio modal
+    const [confirmando, setConfirmando] = useState(false);
+    const [resultado, setResultado] = useState(null); // { ok, mensaje }
 
     if (!isOpen) return null;
 
-    const handleSubmit = async (e) => {
+    const handleSolicitarConfirmacion = (e) => {
         e.preventDefault();
-
         if (!percentage) return;
+        setConfirmando(true);
+        setResultado(null);
+    };
 
-        // 1. Advertencia de Seguridad (Alert del navegador)
-        const mensajeAdvertencia = selectedMaterial === 'TODOS'
-            ? `⚠️ ¡ATENCIÓN!\n\nVas a modificar el precio de TODAS las tarifas un ${percentage}%.\n\nEsta acción afectará a todos los presupuestos nuevos.\n¿Estás absolutamente seguro?`
-            : `⚠️ Confirmación\n\nVas a modificar el precio de todas las referencias de "${selectedMaterial}" un ${percentage}%.\n\n¿Confirmar cambio?`;
-
-        if (!confirm(mensajeAdvertencia)) {
-            return;
-        }
-
+    const handleConfirmar = async () => {
+        setConfirmando(false);
         setIsLoading(true);
-
+        setResultado(null);
         try {
             const res = await fetch('/api/precios/bulk-update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    percentage: parseFloat(percentage), 
-                    material: selectedMaterial 
+                body: JSON.stringify({
+                    percentage: parseFloat(percentage),
+                    material: selectedMaterial,
                 }),
             });
-
             if (!res.ok) throw new Error('Error al actualizar');
-
             const data = await res.json();
-            alert(`✅ Operación exitosa: Se actualizaron ${data.count} tarifas.`);
-            
+            setResultado({ ok: true, mensaje: `Se actualizaron ${data.count} tarifas correctamente.` });
             if (onSuccess) onSuccess();
-            onClose();
             setPercentage('');
             setSelectedMaterial('TODOS');
-
         } catch (error) {
-            alert('Error: ' + error.message);
+            setResultado({ ok: false, mensaje: error.message });
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Lista única de nombres de materiales para el desplegable
+    const handleCancelar = () => {
+        setConfirmando(false);
+    };
+
     const uniqueMaterialNames = [...new Set(materiales?.map(m => m.nombre) || [])].sort();
 
     return (
         <div className="modal modal-open z-[9999]">
             <div className="modal-box border-t-4 border-warning">
-                <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Cerrar">
                     <X className="w-4 h-4" />
                 </button>
-                
-                <h3 className="font-bold text-lg flex items-center gap-2 text-warning-content">
+
+                <h3 className="font-bold text-lg flex items-center gap-2">
                     <TrendingUp className="w-6 h-6 text-warning" />
                     Actualización Masiva de Precios
                 </h3>
@@ -70,17 +66,47 @@ export default function BulkPriceUpdateModal({ isOpen, onClose, materiales = [],
                 <div className="alert alert-warning bg-warning/10 text-xs mt-4">
                     <AlertTriangle className="w-4 h-4" />
                     <span>
-                        Esta herramienta modifica directamente la base de datos de tarifas. 
+                        Esta herramienta modifica directamente la base de datos de tarifas.
                         Usa valores negativos (ej: -10) para bajar precios.
                     </span>
                 </div>
 
-                <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                    
-                    {/* Selector de Material */}
+                {/* Resultado tras guardar */}
+                {resultado && (
+                    <div className={`alert mt-3 text-sm ${resultado.ok ? 'alert-success' : 'alert-error'}`}>
+                        {resultado.ok
+                            ? <CheckCircle className="w-4 h-4 shrink-0" />
+                            : <AlertTriangle className="w-4 h-4 shrink-0" />}
+                        {resultado.mensaje}
+                    </div>
+                )}
+
+                {/* Confirmación previa */}
+                {confirmando && (
+                    <div className="alert alert-error mt-4">
+                        <AlertTriangle className="w-5 h-5 shrink-0" />
+                        <div className="flex-1">
+                            <p className="font-bold">¿Confirmar cambio?</p>
+                            <p className="text-sm mt-0.5">
+                                {selectedMaterial === 'TODOS'
+                                    ? `Se modificará TODA la tarifa un ${percentage}%. Esta acción es irreversible.`
+                                    : `Se modificarán todos los precios de "${selectedMaterial}" un ${percentage}%.`}
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <button className="btn btn-sm btn-ghost" onClick={handleCancelar}>Cancelar</button>
+                            <button className="btn btn-sm btn-error" onClick={handleConfirmar}>Confirmar</button>
+                        </div>
+                    </div>
+                )}
+
+                <form onSubmit={handleSolicitarConfirmacion} className="mt-6 space-y-4">
                     <div className="form-control w-full">
-                        <label className="label"><span className="label-text font-bold">¿A qué productos aplicar?</span></label>
-                        <select 
+                        <label className="label" htmlFor="bulk-material">
+                            <span className="label-text font-bold">¿A qué productos aplicar?</span>
+                        </label>
+                        <select
+                            id="bulk-material"
                             className="select select-bordered w-full"
                             value={selectedMaterial}
                             onChange={(e) => setSelectedMaterial(e.target.value)}
@@ -93,15 +119,17 @@ export default function BulkPriceUpdateModal({ isOpen, onClose, materiales = [],
                         </select>
                     </div>
 
-                    {/* Input de Porcentaje */}
                     <div className="form-control w-full">
-                        <label className="label"><span className="label-text font-bold">Porcentaje de Variación (%)</span></label>
+                        <label className="label" htmlFor="bulk-pct">
+                            <span className="label-text font-bold">Porcentaje de Variación (%)</span>
+                        </label>
                         <label className="input-group">
-                            <input 
-                                type="number" 
-                                step="0.01" 
-                                placeholder="Ej: 10 para subir, -5 para bajar" 
-                                className="input input-bordered w-full font-mono text-lg" 
+                            <input
+                                id="bulk-pct"
+                                type="number"
+                                step="0.01"
+                                placeholder="Ej: 10 para subir, -5 para bajar"
+                                className="input input-bordered w-full font-mono text-lg"
                                 value={percentage}
                                 onChange={(e) => setPercentage(e.target.value)}
                                 autoFocus
@@ -111,20 +139,24 @@ export default function BulkPriceUpdateModal({ isOpen, onClose, materiales = [],
                         </label>
                     </div>
 
-                    {/* Resumen Visual */}
                     {percentage && (
                         <div className="text-center py-2 text-sm opacity-70">
-                            {parseFloat(percentage) > 0 
-                                ? `📈 Subir un ${percentage}% a: ${selectedMaterial}` 
-                                : `📉 Bajar un ${Math.abs(parseFloat(percentage))}% a: ${selectedMaterial}`
-                            }
+                            {parseFloat(percentage) > 0
+                                ? `📈 Subir un ${percentage}% a: ${selectedMaterial}`
+                                : `📉 Bajar un ${Math.abs(parseFloat(percentage))}% a: ${selectedMaterial}`}
                         </div>
                     )}
 
                     <div className="modal-action">
                         <button type="button" onClick={onClose} className="btn btn-ghost" disabled={isLoading}>Cancelar</button>
-                        <button type="submit" className="btn btn-warning" disabled={isLoading || !percentage}>
-                            {isLoading ? <span className="loading loading-spinner"></span> : <Save className="w-4 h-4" />}
+                        <button
+                            type="submit"
+                            className="btn btn-warning"
+                            disabled={isLoading || !percentage || confirmando}
+                        >
+                            {isLoading
+                                ? <span className="loading loading-spinner loading-sm" />
+                                : <Save className="w-4 h-4" />}
                             Aplicar Cambio
                         </button>
                     </div>

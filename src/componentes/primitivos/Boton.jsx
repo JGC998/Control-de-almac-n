@@ -40,23 +40,27 @@ export default function Boton({
     variant = 'primario',
     size = 'md',
     loading = false,
+    cargando = false,        // alias español
     outline = false,
     block = false,
     icono: Icono = null,
     iconoPosicion = 'izquierda',
     disabled = false,
+    deshabilitado = false,   // alias español
     className = '',
     type = 'button',
     onClick,
     ...props
 }) {
+    const isLoading = loading || cargando;
+    const isDisabled = disabled || deshabilitado;
+
     const clases = [
         'btn',
         variantMap[variant] || 'btn-primary',
         sizeMap[size] || '',
         outline && 'btn-outline',
         block && 'btn-block',
-        loading && 'loading',
         className,
     ]
         .filter(Boolean)
@@ -66,15 +70,18 @@ export default function Boton({
         <button
             type={type}
             className={clases}
-            disabled={disabled || loading}
+            disabled={isDisabled || isLoading}
             onClick={onClick}
             {...props}
         >
-            {Icono && iconoPosicion === 'izquierda' && (
+            {isLoading && (
+                <span className="loading loading-spinner loading-sm" />
+            )}
+            {!isLoading && Icono && iconoPosicion === 'izquierda' && (
                 <Icono className={`w-4 h-4 ${children ? 'mr-1' : ''}`} />
             )}
             {children}
-            {Icono && iconoPosicion === 'derecha' && (
+            {!isLoading && Icono && iconoPosicion === 'derecha' && (
                 <Icono className={`w-4 h-4 ${children ? 'ml-1' : ''}`} />
             )}
         </button>
