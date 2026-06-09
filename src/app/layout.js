@@ -12,6 +12,9 @@ export const metadata = {
     statusBarStyle: 'default',
     title: 'CRM Taller',
   },
+};
+
+export const viewport = {
   themeColor: '#1d1d1d',
 };
 
