@@ -862,34 +862,46 @@ function CalculadoraContenedorPage() {
     // ── TABLA ARTÍCULOS ──
     autoTable(doc, {
       startY: y,
-      head: [['Referencia', 'Tipo', 'Ancho\n(mm)', 'Long. / Ud.', '$/m²', '€/m²']],
+      head: [['Referencia', 'Tipo', 'Ancho\n(mm)', 'Long. / Ud.', 'Precio compra', 'Coste real']],
       body: bobinasFinal.map((b, idx) => {
         const tipo = b.tipo || 'BOBINA';
         const anchoMm = n(b.ancho);
         const anchoM  = anchoMm / 1000;
-        const tieneMedidas = tipo === 'BOBINA' || tipo === 'TACO';
+        const esPorMetro = tipo === 'BOBINA' || tipo === 'TACO';
+        const esPorUnidad = tipo === 'GRAPA' || tipo === 'MAQUINA' || tipo === 'ESTRELLA' || tipo === 'OTRO';
 
         // Cantidad
-        const cantCol = tieneMedidas
+        const cantCol = esPorMetro
           ? `${fmt(b.totalMetrosBobina, 0)} m`
           : `${b.numRollos} ud`;
 
-        // $/m² — USD por metro lineal ÷ ancho en metros
-        let usdM2 = '—';
-        if (anchoM > 0 && b.usdPorMetro > 0) {
-          usdM2 = `${fmt(b.usdPorMetro / anchoM, 2)} $`;
+        // Columna "Precio compra" — precio original de la factura del proveedor
+        let precioCompra = '—';
+        if (esPorUnidad) {
+          // Por unidad: precio directo de la factura
+          const precioUd = n(b.precio);
+          if (precioUd > 0) precioCompra = `${fmt(precioUd, 4)} $/ud`;
+        } else if (anchoM > 0 && b.usdPorMetro > 0) {
+          // Bobina con ancho: $/m²
+          precioCompra = `${fmt(b.usdPorMetro / anchoM, 2)} $/m²`;
         } else if (b.usdPorMetro > 0) {
-          usdM2 = `${fmt(b.usdPorMetro, 4)} $/m`;
+          // Bobina sin ancho o taco: $/m
+          precioCompra = `${fmt(b.usdPorMetro, 4)} $/m`;
         }
 
-        // €/m² — coste final por metro lineal ÷ ancho en metros
-        let eurM2 = '—';
-        if (b.costePorMetro > 0 && anchoM > 0) {
-          eurM2 = `${fmt(b.costePorMetro / anchoM, 2)} €`;
+        // Columna "Coste real" — precio de compra + gastos de importación prorrateados
+        let costeReal = '—';
+        if (esPorUnidad) {
+          // Por unidad: coste final total ÷ número de unidades
+          if (b.costeFinalEUR > 0 && n(b.numRollos) > 0) {
+            costeReal = `${fmt(b.costeFinalEUR / n(b.numRollos), 4)} €/ud`;
+          }
+        } else if (b.costePorMetro > 0 && anchoM > 0) {
+          // Bobina con ancho: €/m²
+          costeReal = `${fmt(b.costePorMetro / anchoM, 2)} €/m²`;
         } else if (b.costePorMetro > 0) {
-          eurM2 = `${fmt(b.costePorMetro, 4)} €/m`;
-        } else if (b.costeFinalEUR > 0 && n(b.numRollos) > 0) {
-          eurM2 = `${fmt(b.costeFinalEUR / n(b.numRollos), 2)} €/ud`;
+          // Bobina sin ancho o taco: €/m
+          costeReal = `${fmt(b.costePorMetro, 4)} €/m`;
         }
 
         return [
@@ -897,8 +909,8 @@ function CalculadoraContenedorPage() {
           tipo,
           anchoMm > 0 ? String(anchoMm) : '—',
           cantCol,
-          usdM2,
-          eurM2,
+          precioCompra,
+          costeReal,
         ];
       }),
       theme: 'grid',
