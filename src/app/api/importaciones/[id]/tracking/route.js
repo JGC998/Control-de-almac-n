@@ -34,6 +34,8 @@ export async function GET(request, { params }) {
         where: { id },
         data: {
           ultimoTrackingCheck: new Date(),
+          // Guardar UUID de Terminal49 para no gastar créditos en syncs posteriores
+          ...(tracking.shipmentId && { courierCode: tracking.shipmentId }),
           ...(tracking.ultimoEvento && {
             ultimoEvento:         claveEvento(tracking.ultimoEvento),
             ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,

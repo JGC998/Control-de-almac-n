@@ -194,7 +194,7 @@ export default function NuevoRastreadorPage() {
           <div className="form-control">
             <label className="label pt-0">
               <span className="label-text font-medium">Código de seguimiento</span>
-              <span className="label-text-alt text-base-content/40">Para Ship24</span>
+              <span className="label-text-alt text-base-content/40">Para Terminal49</span>
             </label>
             <div className="flex gap-2 mb-2">
               <label className={`flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-lg border text-sm transition-colors ${tipoTracking === 'contenedor' ? 'border-primary bg-primary/10' : 'border-base-300'}`}>

@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
 
-const CUOTA = 10;
+const CUOTA = 50; // Plan gratuito Terminal49: 50 contenedores/mes
 
 function mesActual() {
   return new Date().toISOString().slice(0, 7); // "2026-06"
 }
 
 function configKey(mes) {
-  return `ship24_trackers_${mes}`;
+  return `t49_trackers_${mes}`;
 }
 
 function resetDate(mes) {

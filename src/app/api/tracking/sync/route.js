@@ -62,6 +62,8 @@ export async function POST() {
           where: { id: imp.id },
           data: {
             ultimoTrackingCheck: ahora,
+            // Guardar UUID de Terminal49 en courierCode para syncs posteriores sin coste
+            ...(tracking?.shipmentId && { courierCode: tracking.shipmentId }),
             ...(tracking?.ultimoEvento && {
               ultimoEvento:         claveEvento(tracking.ultimoEvento),
               ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,
