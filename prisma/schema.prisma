@@ -426,6 +426,7 @@ model ImportacionContenedor {
   ultimoEstadoTracking  String?
   ultimoTrackingCheck   DateTime?
   etaEstimada           DateTime?
+  courierCode           String?
 
   @@index([creadaEn])
   @@index([proveedorId])

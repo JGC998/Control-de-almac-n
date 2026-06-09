@@ -33,6 +33,7 @@ export async function POST() {
         ultimoTrackingCheck: true,
         descripcion: true,
         estado: true,
+        courierCode: true,
       },
     });
 
@@ -55,7 +56,7 @@ export async function POST() {
           }
         }
 
-        const tracking = await buscarTracking(trackingNum);
+        const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
         await db.importacionContenedor.update({
           where: { id: imp.id },

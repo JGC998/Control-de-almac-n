@@ -29,12 +29,15 @@ const SHIP24_URL = 'https://api.ship24.com/public/v1/trackers/track';
  * Consulta el estado de un contenedor o BL en Ship24.
  * Devuelve { eventos, ultimoEvento, eta } o null si no hay datos.
  */
-export async function buscarTracking(trackingNumber) {
+export async function buscarTracking(trackingNumber, courierCode = null) {
   const apiKey = process.env.SHIP24_API_KEY;
   if (!apiKey) {
     console.warn('[tracking] SHIP24_API_KEY no configurado — tracking desactivado');
     return null;
   }
+
+  const payload = { trackingNumber };
+  if (courierCode) payload.courierCode = [courierCode];
 
   const res = await fetch(SHIP24_URL, {
     method: 'POST',
@@ -42,7 +45,7 @@ export async function buscarTracking(trackingNumber) {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ trackingNumber }),
+    body: JSON.stringify(payload),
     // Primera llamada puede tardar hasta 60 s según la documentación de Ship24
     signal: AbortSignal.timeout(65_000),
   });

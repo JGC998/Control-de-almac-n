@@ -22,8 +22,25 @@ export default function NuevoRastreadorPage() {
   const [estado,         setEstado]          = useState('PEDIDO');
   const [tipoTracking,   setTipoTracking]    = useState('contenedor'); // 'contenedor' | 'bl'
   const [codigoTracking, setCodigoTracking]  = useState('');
+  const [courierCode,    setCourierCode]     = useState('');
   const [saving,         setSaving]          = useState(false);
   const [error,          setError]           = useState(null);
+
+  const NAVIERAS = [
+    { value: '',              label: '— No especificada —' },
+    { value: 'yang-ming',     label: 'Yang Ming' },
+    { value: 'cosco',         label: 'COSCO' },
+    { value: 'msc',           label: 'MSC' },
+    { value: 'evergreen',     label: 'Evergreen' },
+    { value: 'maersk',        label: 'Maersk' },
+    { value: 'cma-cgm',       label: 'CMA CGM' },
+    { value: 'hapag-lloyd',   label: 'Hapag-Lloyd' },
+    { value: 'one-line',      label: 'ONE (Ocean Network Express)' },
+    { value: 'oocl',          label: 'OOCL' },
+    { value: 'hmm',           label: 'HMM (Hyundai)' },
+    { value: 'zim',           label: 'ZIM' },
+    { value: 'pil',           label: 'PIL (Pacific Int. Lines)' },
+  ];
 
   const hayCodigoTracking = codigoTracking.trim().length > 0;
 
@@ -45,6 +62,7 @@ export default function NuevoRastreadorPage() {
           numContenedor:  tipoTracking === 'contenedor' ? codigoTracking.trim() || null : null,
           blNumber:       tipoTracking === 'bl'          ? codigoTracking.trim() || null : null,
           trackingActivo: hayCodigoTracking,
+          courierCode:    courierCode || null,
           estado,
           bobinas: '[]',
         }),
@@ -153,6 +171,23 @@ export default function NuevoRastreadorPage() {
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Naviera */}
+          <div className="form-control">
+            <label className="label pt-0">
+              <span className="label-text font-medium">Naviera</span>
+              <span className="label-text-alt text-base-content/40">Mejora la precisión del tracking</span>
+            </label>
+            <select
+              className="select select-bordered"
+              value={courierCode}
+              onChange={e => setCourierCode(e.target.value)}
+            >
+              {NAVIERAS.map(n => (
+                <option key={n.value} value={n.value}>{n.label}</option>
+              ))}
+            </select>
           </div>
 
           {/* Código de tracking */}

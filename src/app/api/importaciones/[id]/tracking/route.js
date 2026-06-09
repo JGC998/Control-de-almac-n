@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
         id: true, numContenedor: true, blNumber: true,
         ultimoEvento: true, ultimoEstadoTracking: true,
         ultimoTrackingCheck: true, etaEstimada: true,
-        descripcion: true, estado: true,
+        descripcion: true, estado: true, courierCode: true,
       },
     });
     if (!imp) return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
@@ -27,7 +27,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Sin número de contenedor o BL' }, { status: 400 });
     }
 
-    const tracking = await buscarTracking(trackingNum);
+    const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
     if (tracking) {
       await db.importacionContenedor.update({

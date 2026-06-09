@@ -14,6 +14,7 @@ const borradorSchema = z.object({
   // Tracking
   blNumber:       z.string().max(200).optional().nullable(),
   trackingActivo: z.boolean().optional().default(false),
+  courierCode:    z.string().max(50).optional().nullable(),
   // Estado: BORRADOR para recepciones tablet, PEDIDO/TRANSITO/ADUANA para rastreadores
   estado:         z.enum(['BORRADOR', 'PEDIDO', 'TRANSITO', 'ADUANA']).default('BORRADOR'),
 });
@@ -33,7 +34,7 @@ export async function POST(request) {
     }
     const {
       numContenedor, numFactura, descripcion, proveedorId,
-      bobinas, blNumber, trackingActivo, estado,
+      bobinas, blNumber, trackingActivo, courierCode, estado,
     } = parsed.data;
 
     const registro = await db.importacionContenedor.create({
@@ -46,6 +47,7 @@ export async function POST(request) {
         proveedorId:    proveedorId             || null,
         blNumber:       blNumber?.trim()        || null,
         trackingActivo: trackingActivo ?? false,
+        courierCode:    courierCode             || null,
         // Campos financieros en cero — se completarán desde la calculadora
         tasaCambio:          0,
         totalBobinasUSD:     0,
