@@ -18,7 +18,7 @@ export async function GET() {
       db.pedidoProveedor.count({ where: { estado: { not: 'Recibido' } } }),
       db.stock.findMany({
         where: { metrosDisponibles: { lt: 100 } },
-        select: { id: true, material: true, metrosDisponibles: true, espesor: true },
+        select: { id: true, material: true, metrosDisponibles: true, espesor: true, stockMinimo: true },
         orderBy: { metrosDisponibles: 'asc' },
         take: 10,
       }),
@@ -41,7 +41,7 @@ export async function GET() {
         id: item.id,
         material: item.material,
         metrosDisponibles: item.metrosDisponibles,
-        stockMinimo: 100,
+        stockMinimo: item.stockMinimo ?? 100, // BUG-21: usar el mínimo configurado por material
         espesor: item.espesor,
       })),
       movimientosRecientes: movimientosRecientes.map(mov => ({

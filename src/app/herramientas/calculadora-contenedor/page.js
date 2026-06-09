@@ -604,20 +604,23 @@ function CalculadoraContenedorPage() {
         notas: b.notas || '',
       })));
       setNextId(bobs.length + 1);
-      setTasaCambio(String(imp.tasaCambio));
+      // BUG-05: los borradores tienen tasaCambio=0 — usar el default en lugar de cero
+      setTasaCambio(imp.tasaCambio > 0 ? String(imp.tasaCambio) : '0.9300');
       setSuplidos(String(imp.suplidos));
       setExentos(String(imp.exentos));
       setSujetos(String(imp.sujetos));
       setEditandoId(imp.id);
       setDatosTrazabilidad({
         ...TRAZABILIDAD_VACIA,
-        descripcion: imp.descripcion || '',
-        proveedorId: imp.proveedorId || '',
-        numFactura: imp.numFactura || '',
-        numContenedor: imp.numContenedor || '',
-        estado: imp.estado || 'RECIBIDO',
-        fechaPedido: imp.fechaPedido ? String(imp.fechaPedido).slice(0, 10) : '',
-        fechaLlegada: imp.fechaLlegada ? String(imp.fechaLlegada).slice(0, 10) : '',
+        descripcion:    imp.descripcion    || '',
+        proveedorId:    imp.proveedorId    || '',
+        numFactura:     imp.numFactura     || '',
+        numContenedor:  imp.numContenedor  || '',
+        estado:         imp.estado         || 'RECIBIDO',
+        fechaPedido:    imp.fechaPedido  ? String(imp.fechaPedido).slice(0, 10)  : '',
+        fechaLlegada:   imp.fechaLlegada ? String(imp.fechaLlegada).slice(0, 10) : '',
+        blNumber:       imp.blNumber       || '',        // BUG-12
+        trackingActivo: imp.trackingActivo ?? false,     // BUG-12
       });
     } catch {
       alert('No se pudieron cargar los datos de esta importación.');

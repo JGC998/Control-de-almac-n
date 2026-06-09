@@ -607,18 +607,19 @@ function TabRecepcion() {
     setSinc(true);
     setErrorSync(null);
 
-    const resultado = await sincronizarSesion(s);
-
-    if (resultado.ok) {
-      setSesion(resultado.sesion); sesionRef.current = resultado.sesion;
-      setUltimaSync(Date.now());
-    } else if (resultado.razon !== 'offline') {
-      setErrorSync(resultado.razon);
+    try {
+      const resultado = await sincronizarSesion(s);
+      if (resultado.ok) {
+        setSesion(resultado.sesion); sesionRef.current = resultado.sesion;
+        setUltimaSync(Date.now());
+      } else if (resultado.razon !== 'offline') {
+        setErrorSync(resultado.razon);
+      }
+    } finally {
+      setSinc(false);
+      syncRef.current = false;
     }
-
-    setSinc(false);
-    syncRef.current = false;
-  }, [sesion]);
+  }, []);
 
   useEffect(() => {
     if (online && sesion?.pendientes > 0) {
@@ -644,17 +645,20 @@ function TabRecepcion() {
   };
 
   // Añadir artículo escaneado
-  const handleArticuloEscaneado = useCallback(async (campos) => {
-    const nuevaSesion = {
-      ...sesion,
-      items: [...sesion.items, campos],
-      pendientes: sesion.pendientes + 1,
-    };
-    await guardarSesion(nuevaSesion);
-    setSesion(nuevaSesion); sesionRef.current = nuevaSesion;
-    // Intentar sync inmediata si hay wifi
-    if (navigator.onLine) sincronizar(nuevaSesion);
-  }, [sesion, sincronizar]);
+  // BUG-11: setter funcional para evitar stale closure si el usuario escanea dos artículos seguidos
+  const handleArticuloEscaneado = useCallback((campos) => {
+    setSesion(prev => {
+      const nueva = {
+        ...prev,
+        items: [...prev.items, campos],
+        pendientes: prev.pendientes + 1,
+      };
+      sesionRef.current = nueva;
+      guardarSesion(nueva).catch(() => {});
+      if (navigator.onLine) sincronizar(nueva);
+      return nueva;
+    });
+  }, [sincronizar]);
 
   // Eliminar artículo de la lista
   const handleEliminar = useCallback(async (idx) => {

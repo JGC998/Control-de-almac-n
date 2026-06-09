@@ -26,7 +26,12 @@ export async function POST(request) {
         throw new Error('Presupuesto no encontrado');
       }
 
-      if (quote.estado === 'Aceptado') {
+      // BUG-10: actualización atómica para evitar TOCTOU (doble click / dos pestañas)
+      const marcado = await tx.presupuesto.updateMany({
+        where: { id: presupuestoId, estado: { notIn: ['Aceptado'] } },
+        data: { estado: 'Aceptado' },
+      });
+      if (marcado.count === 0) {
         throw new Error('Este presupuesto ya ha sido aceptado y convertido en pedido');
       }
 
@@ -66,11 +71,7 @@ export async function POST(request) {
         },
       });
 
-      // 4. Actualizar el estado del presupuesto
-      await tx.presupuesto.update({
-        where: { id: presupuestoId },
-        data: { estado: 'Aceptado' },
-      });
+      // 4. Estado ya actualizado atómicamente arriba (BUG-10)
 
       return createdPedido;
     });

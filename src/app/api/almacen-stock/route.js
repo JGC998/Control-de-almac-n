@@ -68,7 +68,7 @@ export async function POST(request) {
           throw new Error('Item de stock no encontrado.');
         }
 
-        if (metrosADescontar > stockItem.metrosDisponibles + 0.01) {
+        if (metrosADescontar > stockItem.metrosDisponibles + 0.001) {
           logApiError(
             new Error(`Stock insuficiente: disponibles ${stockItem.metrosDisponibles.toFixed(2)}m, solicitados ${metrosADescontar}m`),
             'SALIDA_STOCK'

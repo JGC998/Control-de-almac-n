@@ -4,13 +4,15 @@
 const store = new Map(); // ip -> { count, resetAt }
 const WINDOW_MS = 60_000;
 
-// Limpia entradas caducadas periódicamente para no acumular memoria
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    if (now >= entry.resetAt) store.delete(key);
-  }
-}, WINDOW_MS);
+// BUG-16: usar globalThis para que el interval no se duplique en hot-reload de Next.js dev
+if (!globalThis.__rateLimiterInterval) {
+  globalThis.__rateLimiterInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of store) {
+      if (now >= entry.resetAt) store.delete(key);
+    }
+  }, WINDOW_MS);
+}
 
 /**
  * @param {string} ip

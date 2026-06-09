@@ -53,13 +53,17 @@ export async function obtenerSesion() {
 }
 
 export async function guardarSesion(sesion) {
-  const db = await abrirDB();
-  return new Promise((res, rej) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put({ ...sesion, clave: 'activa' });
-    tx.oncomplete = res;
-    tx.onerror    = () => rej(tx.error);
-  });
+  try {
+    const db = await abrirDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put({ ...sesion, clave: 'activa' });
+      tx.oncomplete = res;
+      tx.onerror    = () => rej(tx.error);
+    });
+  } catch (e) {
+    console.warn('[colaOffline] No se pudo guardar sesión:', e);
+  }
 }
 
 export async function borrarSesion() {
@@ -86,9 +90,8 @@ export async function sincronizarSesion(sesion) {
     return { ok: false, razon: 'offline' };
   }
 
-  const bobs = JSON.stringify(
-    sesion.items.map((item, i) => ({ ...item, id: i + 1 }))
-  );
+  // BUG-02: preservar IDs originales — renumerarlos sobreescribía referencias
+  const bobs = JSON.stringify(sesion.items);
 
   try {
     let res;

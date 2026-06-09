@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Camera, ScanLine, CheckCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 
 // Extrae campos de una etiqueta a partir del texto bruto del OCR.
@@ -87,6 +87,16 @@ export default function ModalEscanearEtiqueta({ onConfirmar, onClose }) {
   const [error, setError] = useState(null);
   const inputRef = useRef(null);
   const workerRef = useRef(null);
+
+  // BUG-13: liberar el worker de Tesseract si el modal se cierra durante el procesamiento
+  useEffect(() => {
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate().catch(() => {});
+        workerRef.current = null;
+      }
+    };
+  }, []);
 
   const procesar = useCallback(async (file) => {
     setPaso('procesando');

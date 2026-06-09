@@ -30,7 +30,8 @@ export async function POST(request) {
       tarifas.map(t =>
         db.tarifaMaterial.update({
           where: { id: t.id },
-          data: { precio: Number((t.precio * factor).toFixed(4)) },
+          // BUG-18: t.precio es Prisma.Decimal — convertir a number antes de multiplicar
+          data: { precio: Number((Number(t.precio) * factor).toFixed(4)) },
         })
       )
     );

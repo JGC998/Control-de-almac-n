@@ -29,8 +29,8 @@ export async function GET(request) {
 
     // Comportamiento paginado si se solicitan parámetros
     if (pageParam || limitParam) {
-      const page = parseInt(pageParam || '1');
-      const limit = parseInt(limitParam || '50');
+      const page = parseInt(pageParam || '1', 10);
+      const limit = parseInt(limitParam || '50', 10);
       const skip = (page - 1) * limit;
 
       const [productos, total] = await Promise.all([

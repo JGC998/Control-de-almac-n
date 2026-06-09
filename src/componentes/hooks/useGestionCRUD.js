@@ -130,8 +130,9 @@ export function useGestionCRUD({
     // Cerrar modal
     const cerrarModal = useCallback(() => {
         setIsModalOpen(false);
-        // Pequeño delay para animación
-        setTimeout(resetearFormulario, 150);
+        // BUG-19: guardar handle para limpiar si el componente se desmonta antes de los 150ms
+        const t = setTimeout(resetearFormulario, 150);
+        return () => clearTimeout(t);
     }, [resetearFormulario]);
 
     // Manejar cambios en inputs

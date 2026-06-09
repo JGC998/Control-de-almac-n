@@ -31,12 +31,13 @@ export async function GET(request, { params }) {
     // --- PRE-CÁLCULO DE VALORES DE VENTA ---
     const multiplicador = marginRule?.multiplicador || 1;
     const gastoFijoTotal = marginRule?.gastoFijo || 0;
-    const totalQuantity = (quote.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
-    const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
 
     const itemsCalculados = quote.items.map(item => {
       const costoUnitario = item.unitPrice || 0;
-      const precioUnitarioVenta = (costoUnitario * multiplicador) + gastoFijoUnitarioProrrateado;
+      // BUG-09: el gasto fijo se divide entre la cantidad de ESTE ítem, no la total
+      // (igual que hace /api/pricing/calculate línea 75)
+      const gastoFijoUnitario = gastoFijoTotal / (item.quantity || 1);
+      const precioUnitarioVenta = (costoUnitario * multiplicador) + gastoFijoUnitario;
       return {
         ...item,
         unitPriceVenta: precioUnitarioVenta,

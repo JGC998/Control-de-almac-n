@@ -18,8 +18,8 @@ export async function GET(request) {
       whereClause.clienteId = clientId;
     }
 
-    const page = parseInt(pageParam || '1');
-    const limit = Math.min(parseInt(limitParam || '50'), 500);
+    const page = parseInt(pageParam || '1', 10);
+    const limit = Math.min(parseInt(limitParam || '50', 10), 500);
     const skip = (page - 1) * limit;
 
     const [quotes, total] = await Promise.all([

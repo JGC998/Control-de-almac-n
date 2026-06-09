@@ -36,7 +36,8 @@ export async function GET() {
 
         const longitud = parseFloat(b.longitud) || 0;
         const numRollos = parseFloat(b.numRollos) || 1;
-        const usdPorMetro = parseFloat(b.usdPorMetro) || 0;
+        // BUG-08: la calculadora guarda el precio en b.precio, no b.usdPorMetro
+        const usdPorMetro = parseFloat(b.precio ?? b.usdPorMetro) || 0;
         const totalMetrosBobina = longitud * numRollos;
         const subtotalEUR = usdPorMetro * totalMetrosBobina * imp.tasaCambio;
         const proporcion = totalBobinasEUR > 0 ? subtotalEUR / totalBobinasEUR : 0;

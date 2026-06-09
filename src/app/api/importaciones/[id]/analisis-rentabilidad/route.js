@@ -40,9 +40,14 @@ export async function GET(request, { params }) {
       return NextResponse.json({ message: 'Importación no encontrada' }, { status: 404 });
     }
 
-    const bobs = typeof importacion.bobinas === 'string'
-      ? JSON.parse(importacion.bobinas)
-      : importacion.bobinas ?? [];
+    // BUG-14: JSON.parse('null') devuelve null, no [] — proteger con Array.isArray
+    let bobs;
+    try {
+      bobs = typeof importacion.bobinas === 'string'
+        ? JSON.parse(importacion.bobinas)
+        : importacion.bobinas;
+    } catch { bobs = []; }
+    if (!Array.isArray(bobs)) bobs = [];
 
     const tc = importacion.tasaCambio || 1;
     const gastosRepercutibles = (importacion.suplidos || 0) + (importacion.exentos || 0);

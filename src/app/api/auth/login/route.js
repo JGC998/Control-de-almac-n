@@ -35,7 +35,8 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Error de configuración del servidor' }, { status: 500 });
     }
     const effectiveSecret = secret || 'dev-secret-change-in-production';
-    const token = crypto.createHmac('sha256', effectiveSecret).update(expected).digest('hex');
+    // BUG-20: si AUTH_PIN no está definido, expected=undefined → update(undefined) lanza TypeError
+    const token = crypto.createHmac('sha256', effectiveSecret).update(expected ?? 'no-pin').digest('hex');
 
     const res = NextResponse.json({ ok: true });
     res.cookies.set('crm-auth', token, {

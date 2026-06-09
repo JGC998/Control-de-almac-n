@@ -26,9 +26,10 @@ export async function POST(request) {
     }, 0);
 
     await db.$transaction(async (tx) => {
-      await Promise.all(pedido.bobinas.map(bobina => {
+      // BUG-03: secuencial para evitar deadlocks en MySQL y SQLITE_BUSY en SQLite
+      for (const bobina of pedido.bobinas) {
         const metrosPorBobina = parseFloat(bobina.largo) || 0;
-        const cantidadBobinas = parseInt(bobina.cantidad) || 1;
+        const cantidadBobinas = parseInt(bobina.cantidad, 10) || 1;
         const metrosTotales = metrosPorBobina * cantidadBobinas;
 
         const precioBaseOriginal = parseFloat(bobina.precioMetro) || 0;
@@ -39,7 +40,7 @@ export async function POST(request) {
         const gastosAsignados = gastos * factorParticipacion;
         const costoMetroFinal = metrosTotales > 0 ? (precioBaseEUR + (gastosAsignados / metrosTotales)) : 0;
 
-        return tx.stock.create({
+        await tx.stock.create({
           data: {
             material: pedido.material || 'Material',
             espesor: bobina.espesor,
@@ -52,7 +53,7 @@ export async function POST(request) {
             },
           },
         });
-      }));
+      }
 
       await tx.pedidoProveedor.update({
         where: { id: pedidoId },
