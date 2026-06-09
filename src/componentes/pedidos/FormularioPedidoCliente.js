@@ -572,7 +572,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         alCerrar={() => setProductSearchState(prev => ({ ...prev, isOpen: false }))}
         alSeleccionar={handleProductSelect}
         alCrearNuevo={handleOpenCreateProduct}
-        items={todosProductos || []}
+        items={todosProductos?.data || todosProductos || []}
         camposBusqueda={['nombre', 'referenciaFabricante', 'color']}
         titulo="Buscar Producto"
         placeholder="Nombre, color, referencia fabricante..."
