@@ -5,9 +5,14 @@
  *   SHIP24_API_KEY   — API key de ship24.com (plan gratuito)
  *   CALLMEBOT_PHONE  — Número de teléfono sin + (ej: 34612345678)
  *   CALLMEBOT_APIKEY — API key de CallMeBot (se obtiene al activar el servicio)
+ *
+ * Endpoint usado: POST /public/v1/trackers/track
+ *   — Idempotente: crea el tracker la primera vez y devuelve resultados.
+ *     Las llamadas posteriores con el mismo payload devuelven el estado actual.
+ *   — Timeout hasta 60 s en la primera llamada (consulta sync a la naviera).
  */
 
-const SHIP24_URL = 'https://api.ship24.com/public/v1/trackers/search';
+const SHIP24_URL = 'https://api.ship24.com/public/v1/trackers/track';
 
 /**
  * Consulta el estado de un contenedor o BL en Ship24.
@@ -27,8 +32,8 @@ export async function buscarTracking(trackingNumber) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ trackingNumber }),
-    // 10 segundos de timeout
-    signal: AbortSignal.timeout(10_000),
+    // La primera llamada puede tardar hasta 60 s (consulta sincrónica a la naviera)
+    signal: AbortSignal.timeout(65_000),
   });
 
   if (!res.ok) {
@@ -37,13 +42,15 @@ export async function buscarTracking(trackingNumber) {
   }
 
   const json = await res.json();
-  const tracking = json?.data?.trackings?.[0];
-  if (!tracking) return null;
 
-  // Ship24 devuelve los eventos del más reciente al más antiguo
-  const eventos = tracking.events || [];
+  // POST /trackers/track → { data: { tracker, events, statistics } }
+  const data = json?.data;
+  if (!data) return null;
+
+  // Los eventos vienen del más reciente al más antiguo
+  const eventos = data.events || [];
   const ultimoEvento = eventos[0] ?? null;
-  const eta = tracking.statistics?.timestamps?.estimatedDelivery ?? null;
+  const eta = data.statistics?.timestamps?.estimatedDelivery ?? null;
 
   return { eventos, ultimoEvento, eta };
 }
@@ -73,13 +80,26 @@ export async function enviarWhatsApp(mensaje) {
 
 /**
  * Genera el texto del mensaje de WhatsApp para un nuevo evento de tracking.
+ * Ship24 /trackers/track devuelve:
+ *   event.description      — descripción legible
+ *   event.eventTime        — ISO datetime
+ *   event.location         — objeto { country, state, city, zip }
  */
 export function formatearMensajeTracking(imp, evento) {
-  const num   = imp.numContenedor || imp.blNumber || 'Sin número';
-  const desc  = evento.description || 'Nuevo estado';
-  const lugar = evento.location ? `\n📍 ${evento.location}` : '';
-  const fecha = evento.occurrenceDatetime
-    ? new Date(evento.occurrenceDatetime).toLocaleString('es-ES', {
+  const num  = imp.numContenedor || imp.blNumber || 'Sin número';
+  const desc = evento.description || evento.event || 'Nuevo estado';
+
+  // location es un objeto en la API actual de Ship24
+  const loc = evento.location;
+  const lugarStr = typeof loc === 'string'
+    ? loc
+    : loc ? [loc.city, loc.state, loc.country].filter(Boolean).join(', ') : null;
+  const lugar = lugarStr ? `\n📍 ${lugarStr}` : '';
+
+  // eventTime es el campo actual; occurrenceDatetime era el campo anterior
+  const fechaStr = evento.eventTime || evento.occurrenceDatetime;
+  const fecha = fechaStr
+    ? new Date(fechaStr).toLocaleString('es-ES', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
       })
@@ -95,9 +115,10 @@ export function formatearMensajeTracking(imp, evento) {
 
 /**
  * Genera una clave de deduplicación para detectar si un evento ya fue notificado.
- * Combina descripción + fecha para identificar unívocamente un evento.
+ * Compatible con el campo eventTime (nuevo) y occurrenceDatetime (antiguo).
  */
 export function claveEvento(evento) {
   if (!evento) return null;
-  return `${evento.description ?? ''}|${evento.occurrenceDatetime ?? ''}`;
+  const fecha = evento.eventTime || evento.occurrenceDatetime || '';
+  return `${evento.description ?? evento.event ?? ''}|${fecha}`;
 }
