@@ -24,7 +24,9 @@ const nuevaBobina = (id) => ({
 });
 
 const n = (v) => parseFloat(v) || 0;
-const fmt = (v, dec = 2) => isFinite(v) ? v.toFixed(dec) : '0.00';
+const fmt = (v, dec = 2) => isFinite(v)
+  ? v.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+  : (0).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 const fmtEur = (v) => `${fmt(v)} €`;
 const fmtUsd = (v) => `${fmt(v)} $`;
 
