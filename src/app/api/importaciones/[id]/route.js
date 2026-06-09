@@ -3,6 +3,28 @@ import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { importacionContenedorSchema } from '@/lib/validations';
 
+// PATCH /api/importaciones/[id] — actualización parcial (estado, trackingActivo)
+export async function PATCH(request, { params }) {
+  try {
+    const { id } = await params;
+    const { estado, trackingActivo } = await request.json();
+    const data = {};
+    if (estado !== undefined)         data.estado         = estado;
+    if (trackingActivo !== undefined)  data.trackingActivo = trackingActivo;
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
+    }
+    const registro = await db.importacionContenedor.update({ where: { id }, data });
+    return NextResponse.json(registro);
+  } catch (error) {
+    logApiError(error, 'PATCH /api/importaciones/[id]');
+    if (error.code === 'P2025') {
+      return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 });
+  }
+}
+
 // DELETE /api/importaciones/[id]
 export async function DELETE(request, { params }) {
   try {

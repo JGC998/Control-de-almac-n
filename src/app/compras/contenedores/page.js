@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { fetcher } from '@/lib/fetcher';
 import {
   Ship, Plus, Calculator, MapPin, Trash2, ExternalLink,
-  ChevronRight, AlertTriangle, RefreshCw,
+  ChevronRight, AlertTriangle, RefreshCw, PackageCheck,
 } from 'lucide-react';
 
 const ESTADOS = {
@@ -32,7 +32,7 @@ function fmtFecha(d) {
   return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function TarjetaContenedor({ imp, onDelete }) {
+function TarjetaContenedor({ imp, onDelete, onMarcarRecibido }) {
   const estado    = ESTADOS[imp.estado] ?? { label: imp.estado, color: 'badge-neutral' };
   const esBorrador = imp.estado === 'BORRADOR';
   const evento    = parseEvento(imp.ultimoEvento);
@@ -89,14 +89,20 @@ function TarjetaContenedor({ imp, onDelete }) {
           </div>
 
           {/* Acciones */}
-          <div className="flex gap-1 shrink-0 items-start">
+          <div className="flex gap-1 shrink-0 items-start flex-wrap justify-end">
+            <button
+              className="btn btn-xs btn-success gap-1"
+              onClick={() => onMarcarRecibido(imp.id)}
+              title="El contenedor ha llegado — detiene el tracking y los avisos WhatsApp"
+            >
+              <PackageCheck className="w-3 h-3" /> Llegó
+            </button>
             <Link
               href={`/herramientas/calculadora-contenedor?cargar=${imp.id}`}
               className="btn btn-xs btn-outline gap-1"
               title="Cargar en la calculadora para completar los gastos"
             >
-              <Calculator className="w-3 h-3" />
-              {imp.estado === 'RECIBIDO' ? 'Ver costes' : 'Calcular gastos'}
+              <Calculator className="w-3 h-3" /> Calcular gastos
             </Link>
             <button
               className="btn btn-xs btn-ghost text-error"
@@ -119,6 +125,16 @@ export default function ContenedoresPage() {
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar este contenedor del listado?')) return;
     await fetch(`/api/importaciones/${id}`, { method: 'DELETE' });
+    mutate('/api/importaciones');
+  };
+
+  const handleMarcarRecibido = async (id) => {
+    if (!confirm('¿Marcar como recibido? Se desactivará el tracking automático y dejarás de recibir avisos WhatsApp para este contenedor.')) return;
+    await fetch(`/api/importaciones/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: 'RECIBIDO', trackingActivo: false }),
+    });
     mutate('/api/importaciones');
   };
 
@@ -203,7 +219,7 @@ export default function ContenedoresPage() {
             En curso — {activos.length}
           </h2>
           {activos.map(imp => (
-            <TarjetaContenedor key={imp.id} imp={imp} onDelete={handleDelete} />
+            <TarjetaContenedor key={imp.id} imp={imp} onDelete={handleDelete} onMarcarRecibido={handleMarcarRecibido} />
           ))}
         </div>
       )}
