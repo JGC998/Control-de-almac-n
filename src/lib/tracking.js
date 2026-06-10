@@ -88,21 +88,26 @@ function esT49Id(val) {
  */
 async function buscarContainerDesdeTrackingRequest(trackingNumber, headers) {
   // 1. Buscar tracking_request por número de contenedor
-  const trRes = await fetch(
-    `${T49_BASE}/tracking_requests?filter[request_number]=${encodeURIComponent(trackingNumber.trim().toUpperCase())}&include=tracked_object`,
-    { headers, signal: AbortSignal.timeout(20_000) }
-  );
+  const url = `${T49_BASE}/tracking_requests?filter[request_number]=${encodeURIComponent(trackingNumber.trim().toUpperCase())}&include=tracked_object`;
+  const trRes = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
+  console.info(`[tracking] tracking_requests HTTP ${trRes.status} para ${trackingNumber}`);
   if (!trRes.ok) return null;
   const trJson = await trRes.json();
+  console.info(`[tracking] tracking_requests respuesta:`, JSON.stringify(trJson, null, 2));
 
   const trackingReq = trJson?.data?.[0];
-  if (!trackingReq) return null;
+  if (!trackingReq) {
+    console.info(`[tracking] No se encontró tracking_request para ${trackingNumber}`);
+    return null;
+  }
+  console.info(`[tracking] tracking_request encontrado: id=${trackingReq.id} status=${trackingReq.attributes?.status}`);
 
   // 2. Obtener shipment UUID desde tracked_object
   const shipmentId =
     trackingReq.relationships?.tracked_object?.data?.id ??
     (trJson?.included ?? []).find(i => i.type === 'shipment')?.id ??
     null;
+  console.info(`[tracking] shipmentId extraído: ${shipmentId}`);
   if (!shipmentId) return null;
 
   // 3. Obtener containers del shipment
@@ -110,15 +115,21 @@ async function buscarContainerDesdeTrackingRequest(trackingNumber, headers) {
     `${T49_BASE}/shipments/${shipmentId}?include=containers`,
     { headers, signal: AbortSignal.timeout(20_000) }
   );
+  console.info(`[tracking] shipments HTTP ${shRes.status}`);
   if (!shRes.ok) return null;
   const shJson = await shRes.json();
+  console.info(`[tracking] shipment included:`, JSON.stringify(shJson?.included, null, 2));
 
   const containers = (shJson?.included ?? []).filter(i => i.type === 'container');
   const container = containers.find(
     c => c.attributes?.number?.toUpperCase() === trackingNumber.trim().toUpperCase()
   ) ?? containers[0];
 
-  if (!container) return null;
+  if (!container) {
+    console.info(`[tracking] No se encontró container en shipment ${shipmentId}`);
+    return null;
+  }
+  console.info(`[tracking] Container encontrado: id=${container.id} number=${container.attributes?.number}`);
   return { containerUuid: container.id, shipmentUuid: shipmentId };
 }
 
