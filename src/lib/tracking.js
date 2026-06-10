@@ -1,282 +1,118 @@
 /**
- * Tracking de contenedores via Terminal49 + notificaciones WhatsApp via CallMeBot.
+ * Tracking de contenedores Yang Ming + notificaciones WhatsApp via CallMeBot.
  *
  * Variables de entorno requeridas:
- *   T49_API_KEY      — API key de terminal49.com (Settings → API Keys)
  *   CALLMEBOT_PHONE  — Número sin + (ej: 34612345678)
  *   CALLMEBOT_APIKEY — API key de CallMeBot
  *
- * Plan gratuito Terminal49 (junio 2025):
- *   - 50 contenedores/mes sin tarjeta de crédito
- *   - Datos de Yang Ming, MSC, Maersk, Evergreen y 100+ navieras
- *   - Refresh automático cada ~4h desde la fuente de la naviera
- *   - Registro: terminal49.com/free-container-tracking
- *
- * Flujo de uso:
- *   1. POST /v2/tracking_requests → registra el contenedor (1 vez, consume cuota)
- *   2. Terminal49 lo procesa en ~minutos y asigna un container UUID
- *   3. GET /v2/containers?filter[number]=YMMU... → obtener el UUID
- *   4. GET /v2/containers/{uuid}/transport_events → eventos sin coste adicional
- *   El UUID se guarda en el campo `courierCode` de la DB para los siguientes syncs.
- *
- * SCAC codes usados (Standard Carrier Alpha Code):
- *   YMLU  → Yang Ming (prefijos YMLU / YMMU)
- *   MSCU  → MSC
- *   MAEU  → Maersk
- *   CMDU  → CMA CGM
- *   EGLV  → Evergreen
- *   HLCU  → Hapag-Lloyd
- *   OOLU  → OOCL
- *   COSU  → COSCO
+ * Fuente de datos: API pública de Yang Ming (sin autenticación).
+ * Soporta contenedores con prefijo YMMU / YMLU.
+ * Para otras navieras: añadir su endpoint correspondiente.
  */
 
-const T49_BASE = 'https://api.terminal49.com/v2';
+const YM_API = 'https://www.yangming.com/api/CargoTracking/GetTracking';
 
-// Mapa prefijo del contenedor → SCAC de la naviera
-const SCAC_MAP = {
-  YMLU: 'YMLU', YMMU: 'YMLU',  // Yang Ming
-  MSCU: 'MSCU', MEDU: 'MSCU',  // MSC
-  MAEU: 'MAEU', MSKU: 'MAEU',  // Maersk
-  CMAU: 'CMDU', CGMU: 'CMDU',  // CMA CGM
-  EVGU: 'EGLV', EISU: 'EGLV',  // Evergreen
-  HLCU: 'HLCU', HLXU: 'HLCU',  // Hapag-Lloyd
-  OOLU: 'OOLU', OOCU: 'OOLU',  // OOCL
-  COSU: 'COSU', CCLU: 'COSU',  // COSCO
-  ONEY: 'ONEY',                  // ONE
-  ZIMU: 'ZIMU',                  // ZIM
+const PREFIJOS_YM = new Set(['YMMU', 'YMLU']);
+
+// Traducción de eventos Yang Ming → español
+const YM_EVENT_ES = {
+  'Received at Origin':                                    'Recibido en origen',
+  'Empty to Shipper':                                      'Contenedor vacío entregado al cargador',
+  'Gate In':                                               'Entrada en terminal',
+  'Gate Out':                                              'Salida de terminal',
+  'Loaded on Vessel':                                      'Cargado en buque',
+  'Vessel Departure':                                      'Salida del buque',
+  'Vessel Arrival':                                        'Llegada al puerto de destino',
+  'Discharged from Vessel':                                'Descargado del buque',
+  'Gate out of Full Equipment by Truck at Port terminal':  'Contenedor lleno retirado de terminal',
+  'Gate in of Full Equipment by Truck at Port terminal':   'Contenedor lleno en terminal',
+  'Gate in of Laden Equipment by Truck at Port terminal':  'Contenedor lleno entregado en terminal',
+  'Gate out of Empty Equipment by Truck at Depot':         'Contenedor vacío recogido en depósito',
+  'Gate in of Empty Equipment by Truck at Depot':          'Devolución de contenedor vacío',
+  'Delivered':                                             'Entregado al receptor',
+  'Rail Departure':                                        'Salida por ferrocarril',
+  'Rail Arrival':                                          'Llegada por ferrocarril',
 };
 
-// Mapa de tipos de evento Terminal49 → descripción en español
-const EVENT_ES = {
-  'container.transport.vessel_loaded':    'Cargado en buque',
-  'container.transport.vessel_departed':  'Salida del buque del puerto',
-  'container.transport.vessel_arrived':   'Llegada al puerto de destino',
-  'container.transport.vessel_discharged':'Descargado del buque',
-  'container.transport.gate_in':          'Entrada en terminal',
-  'container.transport.gate_out':         'Salida de terminal',
-  'container.transport.full_out':         'Contenedor lleno retirado',
-  'container.transport.empty_in':         'Devolución de contenedor vacío',
-  'container.transport.empty_out':        'Salida de contenedor vacío',
-  'container.transport.loaded':           'Cargado',
-  'container.transport.discharged':       'Descargado',
-};
-
-function scacDesdeNumero(trackingNumber) {
-  const prefix = trackingNumber.trim().slice(0, 4).toUpperCase();
-  return SCAC_MAP[prefix] ?? null;
+function prefijo(num) {
+  return num?.trim().toUpperCase().slice(0, 4) ?? '';
 }
 
-function t49Headers(apiKey) {
-  return {
-    Authorization: `Token ${apiKey}`,
-    'Content-Type': 'application/vnd.api+json',
-    Accept: 'application/vnd.api+json',
-  };
+function esYangMing(num) {
+  return PREFIJOS_YM.has(prefijo(num));
 }
 
-/** Devuelve true si el valor parece un UUID de Terminal49 */
-function esT49Id(val) {
-  if (!val) return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val).trim());
+function parseFechaYM(str) {
+  if (!str) return null;
+  // "2026/06/09 22:22" → ISO 8601
+  const iso = str.replace(/\//g, '-').replace(' ', 'T') + ':00';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-/**
- * Busca el UUID de contenedor en Terminal49 a través del tracking_request.
- * Primero encuentra el tracking_request por número, luego sigue al shipment
- * y obtiene el primer contenedor asociado.
- * Devuelve { containerUuid, shipmentUuid } o null si aún no está procesado.
- */
-async function buscarContainerDesdeTrackingRequest(trackingNumber, headers) {
-  // 1. Buscar tracking_request por número de contenedor
-  const url = `${T49_BASE}/tracking_requests?filter[request_number]=${encodeURIComponent(trackingNumber.trim().toUpperCase())}&include=tracked_object`;
-  const trRes = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
-  console.info(`[tracking] tracking_requests HTTP ${trRes.status} para ${trackingNumber}`);
-  if (!trRes.ok) return null;
-  const trJson = await trRes.json();
-  console.info(`[tracking] tracking_requests respuesta:`, JSON.stringify(trJson, null, 2));
+async function buscarTrackingYangMing(trackingNumber) {
+  const url = `${YM_API}?paramTrackNo=${encodeURIComponent(trackingNumber)}&paramTrackPosition=SEARCH&paramRefNo=`;
 
-  const trackingReq = trJson?.data?.[0];
-  if (!trackingReq) {
-    console.info(`[tracking] No se encontró tracking_request para ${trackingNumber}`);
-    return null;
-  }
-  console.info(`[tracking] tracking_request encontrado: id=${trackingReq.id} status=${trackingReq.attributes?.status}`);
-
-  // 2. Obtener shipment UUID desde tracked_object
-  const shipmentId =
-    trackingReq.relationships?.tracked_object?.data?.id ??
-    (trJson?.included ?? []).find(i => i.type === 'shipment')?.id ??
-    null;
-  console.info(`[tracking] shipmentId extraído: ${shipmentId}`);
-  if (!shipmentId) return null;
-
-  // 3. Obtener containers del shipment
-  const shRes = await fetch(
-    `${T49_BASE}/shipments/${shipmentId}?include=containers`,
-    { headers, signal: AbortSignal.timeout(20_000) }
-  );
-  console.info(`[tracking] shipments HTTP ${shRes.status}`);
-  if (!shRes.ok) return null;
-  const shJson = await shRes.json();
-  console.info(`[tracking] shipment included:`, JSON.stringify(shJson?.included, null, 2));
-
-  const containers = (shJson?.included ?? []).filter(i => i.type === 'container');
-  const container = containers.find(
-    c => c.attributes?.number?.toUpperCase() === trackingNumber.trim().toUpperCase()
-  ) ?? containers[0];
-
-  if (!container) {
-    console.info(`[tracking] No se encontró container en shipment ${shipmentId}`);
-    return null;
-  }
-  console.info(`[tracking] Container encontrado: id=${container.id} number=${container.attributes?.number}`);
-  return { containerUuid: container.id, shipmentUuid: shipmentId };
-}
-
-/**
- * Registra un contenedor en Terminal49. Consume 1 unidad de la cuota mensual.
- * Terminal49 procesa la solicitud de forma asíncrona (~minutos).
- */
-async function registrarTracking(trackingNumber, headers) {
-  const scac = scacDesdeNumero(trackingNumber);
-  const body = {
-    data: {
-      type: 'tracking_request',
-      attributes: {
-        request_type: 'container',
-        request_number: trackingNumber.trim().toUpperCase(),
-        ...(scac && { scac }),
-      },
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept':     'application/json, text/plain, */*',
+      'Referer':    'https://www.yangming.com/en/esolution/cargo_tracking',
+      'Origin':     'https://www.yangming.com',
     },
-  };
-
-  const res = await fetch(`${T49_BASE}/tracking_requests`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
     signal: AbortSignal.timeout(30_000),
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    // 422 = ya existe (registrado previamente) — no es un error real
-    if (res.status !== 422) {
-      throw new Error(`T49 create ${res.status}: ${text.slice(0, 200)}`);
-    }
-  }
-}
-
-/**
- * Consulta el estado de un contenedor en Terminal49.
- *
- * - Si ya tenemos el UUID (guardado en courierCode) → GET directo a los eventos.
- * - Si no → busca por número de contenedor. Si no existe, lo registra.
- *
- * Devuelve { eventos, ultimoEvento, eta, shipmentId } o null si aún no hay datos.
- * El campo `shipmentId` contiene el UUID de Terminal49 para guardarlo en DB.
- */
-export async function buscarTracking(trackingNumber, t49Uuid = null) {
-  const apiKey = process.env.T49_API_KEY;
-  if (!apiKey) {
-    console.warn('[tracking] T49_API_KEY no configurado — tracking desactivado');
+    console.warn(`[tracking] Yang Ming API HTTP ${res.status} para ${trackingNumber}`);
     return null;
   }
 
-  const headers = t49Headers(apiKey);
+  const json = await res.json();
+  const container = json?.containerList?.[0];
+  if (!container || !json.successCnt) return null;
 
-  // Obtener UUID del contenedor en Terminal49
-  let containerId  = esT49Id(t49Uuid) ? t49Uuid : null;
-  let shipmentUuid = null;
-
-  if (!containerId) {
-    // Buscar si ya hay un tracking_request para este número
-    const found = await buscarContainerDesdeTrackingRequest(trackingNumber, headers);
-
-    if (found) {
-      containerId  = found.containerUuid;
-      shipmentUuid = found.shipmentUuid;
-    } else {
-      // Primera vez: registrar (consume 1 crédito del plan gratuito)
-      await registrarTracking(trackingNumber, headers);
-      console.info(`[tracking] ${trackingNumber} registrado en Terminal49 — esperando procesamiento`);
-
-      // Intentar encontrar el contenedor inmediatamente (Terminal49 suele ser rápido)
-      await new Promise(r => setTimeout(r, 3000));
-      const retry = await buscarContainerDesdeTrackingRequest(trackingNumber, headers);
-      if (retry) {
-        containerId  = retry.containerUuid;
-        shipmentUuid = retry.shipmentUuid;
-      } else {
-        return null; // Aún procesando — el siguiente sync tendrá datos
-      }
-    }
+  const rawEvents = container.ctStatusInfo ?? [];
+  if (rawEvents.length === 0) {
+    console.info(`[tracking] ${trackingNumber}: sin eventos aún en Yang Ming`);
+    return null;
   }
 
-  // Obtener eventos del contenedor
-  const evRes = await fetch(
-    `${T49_BASE}/containers/${containerId}/transport_events?include=location,vessel`,
-    { headers, signal: AbortSignal.timeout(30_000) }
-  );
-
-  if (!evRes.ok) {
-    if (evRes.status === 404) {
-      // UUID obsoleto — reintentar sin UUID
-      if (t49Uuid) return buscarTracking(trackingNumber, null);
-      return null;
-    }
-    const text = await evRes.text().catch(() => '');
-    throw new Error(`T49 events ${evRes.status}: ${text.slice(0, 200)}`);
-  }
-
-  const evJson = await evRes.json();
-  const rawEvents = evJson?.data ?? [];
-
-  // Índice de locations incluidas (para resolver nombres de puertos)
-  const locations = {};
-  (evJson?.included ?? []).forEach(inc => {
-    if (inc.type === 'location') locations[inc.id] = inc;
-  });
-
-  // Normalizar eventos al formato interno { status, occurrenceDatetime, location }
-  const eventos = rawEvents
-    .filter(e => e.attributes?.timestamp)
-    .sort((a, b) => new Date(b.attributes.timestamp) - new Date(a.attributes.timestamp))
-    .map(e => {
-      const attr = e.attributes;
-      const locId = e.relationships?.location?.data?.id;
-      const loc   = locId ? locations[locId] : null;
-      const locName = loc?.attributes?.name ?? attr.location_locode ?? null;
-
-      return {
-        status: EVENT_ES[attr.event] ?? attr.event ?? 'Evento desconocido',
-        occurrenceDatetime: attr.timestamp,
-        location: locName,
-      };
-    });
+  // seq 1 = evento más reciente (nowStatus "Y"), seq N = más antiguo
+  const eventos = rawEvents.map(e => ({
+    status:               YM_EVENT_ES[e.eventDesc] ?? e.eventDesc ?? 'Evento desconocido',
+    occurrenceDatetime:   parseFechaYM(e.moveDate),
+    location:             e.atFacility ?? null,
+    vesselVoyage:         e.vesselVoyage ?? null,
+  }));
 
   const ultimoEvento = eventos[0] ?? null;
 
-  // Obtener ETA desde el shipment (ya tenemos el UUID del proceso anterior)
-  let eta = null;
-  try {
-    const sid = shipmentUuid;
-    if (sid) {
-      const shRes = await fetch(
-        `${T49_BASE}/shipments/${sid}`,
-        { headers, signal: AbortSignal.timeout(15_000) }
-      );
-      if (shRes.ok) {
-        const shJson = await shRes.json();
-        eta = shJson?.data?.attributes?.pod_eta
-          ?? shJson?.data?.attributes?.destination_eta_at
-          ?? null;
-      }
-    }
-  } catch {
-    // ETA no crítica — continuar sin ella
+  // ETA: puede venir en dportETA de cualquier evento
+  const etaRaw = rawEvents.find(e => e.dportETA)?.dportETA ?? null;
+  const eta = parseFechaYM(etaRaw);
+
+  console.info(`[tracking] ${trackingNumber}: ${eventos.length} eventos — último: "${ultimoEvento?.status}" en ${ultimoEvento?.location}`);
+
+  return { eventos, ultimoEvento, eta, shipmentId: null };
+}
+
+/**
+ * Consulta el estado de un contenedor.
+ * Actualmente soporta Yang Ming (YMMU/YMLU).
+ * Para otras navieras, añadir su función correspondiente.
+ */
+export async function buscarTracking(trackingNumber, _uuid = null) {
+  if (!trackingNumber?.trim()) return null;
+
+  const num = trackingNumber.trim().toUpperCase();
+
+  if (esYangMing(num)) {
+    return buscarTrackingYangMing(num);
   }
 
-  return { eventos, ultimoEvento, eta, shipmentId: containerId };
+  console.warn(`[tracking] Naviera no soportada para ${num} (prefijo: ${prefijo(num)})`);
+  return null;
 }
 
 /**
