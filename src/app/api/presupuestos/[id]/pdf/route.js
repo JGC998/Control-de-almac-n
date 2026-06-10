@@ -28,15 +28,16 @@ export async function GET(request, { params }) {
     const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;
     const marginRule = margenes?.find(m => m.id === quote.marginId);
 
-    // --- PRE-CÁLCULO DE VALORES DE VENTA ---
+    // --- PRE-CÃƒÂLCULO DE VALORES DE VENTA ---
     const multiplicador = marginRule?.multiplicador || 1;
     const gastoFijoTotal = marginRule?.gastoFijo || 0;
 
+    const totalQuantity = quote.items.reduce((sum, i) => sum + (i.quantity || 0), 0);
     const itemsCalculados = quote.items.map(item => {
       const costoUnitario = item.unitPrice || 0;
-      // BUG-09: el gasto fijo se divide entre la cantidad de ESTE ítem, no la total
-      // (igual que hace /api/pricing/calculate línea 75)
-      const gastoFijoUnitario = gastoFijoTotal / (item.quantity || 1);
+      // BUG-09: el gasto fijo se divide entre la cantidad de ESTE ÃƒÂ­tem, no la total
+      // (igual que hace /api/pricing/calculate lÃƒÂ­nea 75)
+      const gastoFijoUnitario = totalQuantity > 0 ? gastoFijoTotal / totalQuantity : 0;
       const precioUnitarioVenta = (costoUnitario * multiplicador) + gastoFijoUnitario;
       return {
         ...item,

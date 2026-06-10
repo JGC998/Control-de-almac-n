@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
-import useSWR from 'swr';
+import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Plus, Ban, ReceiptText, ClipboardList } from 'lucide-react';
 import { toast } from '@/lib/toast';
