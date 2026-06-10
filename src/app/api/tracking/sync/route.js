@@ -7,19 +7,14 @@ export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/tracking/sync
- *
- * Endpoint llamado por el cron de Linux 3 veces al día.
- * Para cada importación con trackingActivo=true y estado != RECIBIDO:
- *   1. Consulta Ship24 (respeta caché de 4h para no agotar el plan gratuito)
- *   2. Si hay evento nuevo → actualiza DB + envía WhatsApp via CallMeBot
- *
- * No requiere cuerpo ni parámetros.
+ * Llamado por el cron cada hora (8h-22h).
+ * Para cada importacion con trackingActivo=true: consulta Yang Ming,
+ * si hay evento nuevo actualiza DB y envia WhatsApp via CallMeBot.
  */
 export async function POST() {
   try {
     const ahora = new Date();
 
-    // Solo importaciones activas que no hayan llegado todavía
     const importaciones = await db.importacionContenedor.findMany({
       where: {
         trackingActivo: true,
@@ -47,23 +42,12 @@ export async function POST() {
           continue;
         }
 
-        // Respetar caché: no consultar si ya se comprobó hace menos de 4 horas
-        if (imp.ultimoTrackingCheck) {
-          const horasDesde = (ahora - new Date(imp.ultimoTrackingCheck)) / 3_600_000;
-          if (horasDesde < 4) {
-            resultados.push({ id: imp.id, status: 'en_cache', trackingNum });
-            continue;
-          }
-        }
-
         const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
         await db.importacionContenedor.update({
           where: { id: imp.id },
           data: {
             ultimoTrackingCheck: ahora,
-            // Guardar UUID de Terminal49 en courierCode para syncs posteriores sin coste
-            ...(tracking?.shipmentId && { courierCode: tracking.shipmentId }),
             ...(tracking?.ultimoEvento && {
               ultimoEvento:         claveEvento(tracking.ultimoEvento),
               ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,
@@ -79,16 +63,13 @@ export async function POST() {
           continue;
         }
 
-        const claveNueva   = claveEvento(tracking.ultimoEvento);
-        const hayNuevidad  = claveNueva && claveNueva !== imp.ultimoEvento;
+        const claveNueva  = claveEvento(tracking.ultimoEvento);
+        const hayNuevidad = claveNueva && claveNueva !== imp.ultimoEvento;
 
         if (hayNuevidad) {
           const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento);
-          const enviado  = await enviarWhatsApp(mensaje);
-          resultados.push({
-            id: imp.id, status: 'notificado', trackingNum,
-            evento: tracking.ultimoEvento.description, whatsapp: enviado,
-          });
+          const enviado = await enviarWhatsApp(mensaje);
+          resultados.push({ id: imp.id, status: 'notificado', trackingNum, whatsapp: enviado });
         } else {
           resultados.push({ id: imp.id, status: 'sin_cambio', trackingNum });
         }
