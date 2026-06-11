@@ -101,7 +101,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     // Leer ancho y largo del estado actual para evitar clausuras viejas
     setForm(f => {
       const a = parseFloat(f.ancho) / 1000 || 0; // mm → m
-      const l = parseFloat(f.largo) || 0;         // m
+      const l = parseFloat(f.largo) / 1000 || 0; // mm → m
       if (a > 0 && l > 0) {
         return {
           ...f,
@@ -119,7 +119,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       const next = { ...f, [campo]: valor };
       if (opciones.tarifa && (campo === 'ancho' || campo === 'largo')) {
         const a = parseFloat(campo === 'ancho' ? valor : f.ancho) / 1000 || 0;
-        const l = parseFloat(campo === 'largo' ? valor : f.largo) || 0;
+        const l = parseFloat(campo === 'largo' ? valor : f.largo) / 1000 || 0;
         if (a > 0 && l > 0) {
           next.precioUnitario = (opciones.tarifa.precio * a * l).toFixed(2);
           next.pesoUnitario   = (opciones.tarifa.peso   * a * l).toFixed(3);
@@ -260,12 +260,12 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
           />
         </div>
         <div className="form-control">
-          <label className="label"><span className="label-text font-medium">Largo (m)</span></label>
+          <label className="label"><span className="label-text font-medium">Largo (mm)</span></label>
           <input
-            type="number" min="0" step="0.01"
+            type="number" min="0" step="1"
             value={form.largo}
             onChange={e => handleDimensionChange('largo', e.target.value)}
-            placeholder="Ej: 2.5"
+            placeholder="Ej: 1000"
             className="input input-bordered"
           />
         </div>
