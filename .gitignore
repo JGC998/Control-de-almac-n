@@ -51,6 +51,7 @@ documentacionVerifactu.md
 *.yaml
 *.yml
 !.github/**/*.yml
+apiterminal49.md
 
 # ── Seed files con datos de negocio privados ────────────────────────────────
 # seed-dev.js y seed-mock.js son OK (datos ficticios aleatorios)

@@ -8,6 +8,7 @@ import FormularioProductoInteligente from "@/componentes/productos/FormularioPro
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
 import ModalBusquedaBandasPVC from "@/componentes/modales/ModalBusquedaBandasPVC";
 import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
+import ModalBusquedaProductos from "@/componentes/modales/ModalBusquedaProductos";
 import EditorFilaItem from './EditorFilaItem';
 import TemplateManager from '@/componentes/presupuestos/TemplateManager';
 
@@ -197,16 +198,39 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   };
 
   const handleBandaCatalogoSelected = (product) => {
-    const newItem = {
-      id: Date.now() + Math.random(),
-      descripcion: product.nombre,
-      quantity: 1,
-      unitPrice: product.precioUnitario || 0,
-      productoId: product.id,
-      producto: product,
-      pesoUnitario: product.pesoUnitario || 0,
-    };
-    setItems(prev => [...prev, newItem]);
+    if (product._fromCalculadora) {
+      // Banda calculada on-the-fly desde la calculadora embebida en el modal
+      const bandaItem = product._bandaItem;
+      setItems(prev => [...prev, {
+        id: Date.now() + Math.random(),
+        descripcion: bandaItem.descripcion,
+        quantity: bandaItem.unidades,
+        unitPrice: bandaItem.precioUnitario,
+        productoId: null,
+        producto: null,
+        pesoUnitario: bandaItem.pesoUnitario,
+        detallesTecnicos: JSON.stringify({
+          dimensiones: bandaItem.dimensiones,
+          color: bandaItem.color || null,
+          tipoConfeccion: bandaItem.tipoConfeccion,
+          grapa: bandaItem.grapa || null,
+          tacos: bandaItem.tacos || null,
+          precioMaterial: bandaItem.precioMaterial ?? 0,
+          costeVulcanizado: bandaItem.costeVulcanizado ?? 0,
+          costeTacos: bandaItem.costeTacos ?? 0,
+        }),
+      }]);
+    } else {
+      setItems(prev => [...prev, {
+        id: Date.now() + Math.random(),
+        descripcion: product.nombre,
+        quantity: 1,
+        unitPrice: product.precioUnitario || 0,
+        productoId: product.id,
+        producto: product,
+        pesoUnitario: product.pesoUnitario || 0,
+      }]);
+    }
     setIsBandaCatalogoOpen(false);
   };
 
@@ -363,7 +387,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                   {clienteId && <button type="button" onClick={handleClearClient} className="btn btn-square btn-ghost text-error"><X className="w-4 h-4" /></button>}
                   <button type="button" className="btn btn-square btn-primary"><Search className="w-4 h-4" /></button>
                 </div>
-                {!clienteId && <span className="text-xs text-gray-500 mt-1 ml-1">Clic para buscar o crear</span>}
+                {/* {!clienteId && <span className="text-xs text-gray-500 mt-1 ml-1">Clic para buscar o crear</span>} */}
                 {clienteId && tarifasCliente?.length > 0 && (
                   <div className="mt-2 p-2 bg-primary/5 border border-primary/20 rounded-lg">
                     <p className="text-xs font-semibold text-primary mb-1">Tarifas pactadas con este cliente:</p>
@@ -391,6 +415,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                 )}
               </div>
 
+              {/* VeriFactu — deshabilitado temporalmente
               {formType === 'PEDIDO' && !isEditMode && (
                 <div className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${sinFacturacion ? 'bg-warning/10 border-warning/40' : 'bg-base-200 border-base-300'}`}
                   onClick={() => setSinFacturacion(v => !v)}>
@@ -401,6 +426,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                   </div>
                 </div>
               )}
+              */}
             </div>
           </div>
         </div>
@@ -423,10 +449,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                   <Plus className="w-3.5 h-3.5" /> Añadir producto
                 </button>
                 <button type="button" onClick={() => setIsBandaCatalogoOpen(true)} className="btn btn-sm btn-outline btn-secondary gap-1">
-                  <Ruler className="w-3.5 h-3.5" /> Añadir Banda PVC
-                </button>
-                <button type="button" onClick={() => setIsBandaModalOpen(true)} className="btn btn-sm btn-outline btn-accent gap-1">
-                  <Plus className="w-3.5 h-3.5" /> Crear Banda PVC nueva
+                  <Ruler className="w-3.5 h-3.5" /> Buscar Banda PVC
                 </button>
               </div>
             </div>
@@ -566,31 +589,13 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         )}
       />
 
-      <ModalBusqueda
+      <ModalBusquedaProductos
         abierto={productSearchState.isOpen}
         alCerrar={() => setProductSearchState(prev => ({ ...prev, isOpen: false }))}
         alSeleccionar={handleProductSelect}
         alCrearNuevo={handleOpenCreateProduct}
         items={todosProductos?.data || todosProductos || []}
-        camposBusqueda={['nombre', 'referenciaFabricante', 'color']}
-        titulo="Buscar Producto"
-        placeholder="Nombre, color, referencia fabricante..."
-        textoCrear="Nuevo Producto"
         busquedaInicial={productSearchState.initialSearch}
-        renderItem={(prod) => (
-          <div className="flex-1">
-            <div className="font-bold">{prod.nombre}</div>
-            <div className="flex flex-wrap gap-2 text-sm opacity-70">
-              {prod.color && <span>{prod.color}</span>}
-              {prod.referenciaFabricante && <span>{prod.referenciaFabricante}</span>}
-              {prod.precioUnitario != null && (
-                <span className="ml-auto font-medium text-primary">
-                  {parseFloat(prod.precioUnitario).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €
-                </span>
-              )}
-            </div>
-          </div>
-        )}
       />
 
       {modalState?.type === 'CLIENTE' && (
@@ -614,7 +619,6 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         </div>
       )}
 
-      <ModalCalculadoraBandas isOpen={isBandaModalOpen} onClose={() => setIsBandaModalOpen(false)} onAddItem={handleBandaAdded} />
       <ModalBusquedaBandasPVC isOpen={isBandaCatalogoOpen} onClose={() => setIsBandaCatalogoOpen(false)} onSelect={handleBandaCatalogoSelected} />
     </>
   );
