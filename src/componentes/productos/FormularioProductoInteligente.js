@@ -77,46 +77,52 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       const d = await r.json();
       setOpciones(prev => ({ ...prev, colores: d.colores ?? [], tarifas: d.tarifas ?? [], tarifa: d.tarifas?.[0] ?? null }));
       if (d.tarifas?.length === 1 && !d.colores?.length) {
-        aplicarTarifa(d.tarifas[0], form.ancho, form.largo);
+        aplicarTarifa(d.tarifas[0]);
       }
     } catch {
       setError('No se pudieron cargar las tarifas para ese espesor. Comprueba la conexión.');
     } finally {
       setCargando(false);
     }
-  }, [form.material, form.ancho, form.largo]);
+  }, [form.material]);
 
   // Cuando cambia el color → buscar la tarifa exacta en la lista completa
   const handleColorChange = useCallback((color) => {
     setForm(f => ({ ...f, color }));
     const tarifa = (opciones.tarifas ?? []).find(t => (t.color ?? '') === (color ?? ''))
       ?? opciones.tarifa ?? null;
-    if (tarifa) aplicarTarifa(tarifa, form.ancho, form.largo);
-  }, [opciones.tarifas, opciones.tarifa, form.ancho, form.largo]);
+    if (tarifa) aplicarTarifa(tarifa);
+  }, [opciones.tarifas, opciones.tarifa]);
 
-  function aplicarTarifa(tarifa, ancho, _largo) {
+  function aplicarTarifa(tarifa) {
     if (!tarifa) return;
-    const a = parseFloat(ancho) / 1000 || 0; // mm → m
-    if (a > 0) {
-      setForm(f => ({
-        ...f,
-        precioUnitario: (tarifa.precio * a).toFixed(2),
-        pesoUnitario:   (tarifa.peso   * a).toFixed(3),
-      }));
-    }
     setTarifaEncontrada(true);
     setOpciones(prev => ({ ...prev, tarifa }));
+    // Leer ancho y largo del estado actual para evitar clausuras viejas
+    setForm(f => {
+      const a = parseFloat(f.ancho) / 1000 || 0; // mm → m
+      const l = parseFloat(f.largo) || 0;         // m
+      if (a > 0 && l > 0) {
+        return {
+          ...f,
+          precioUnitario: (tarifa.precio * a * l).toFixed(2),
+          pesoUnitario:   (tarifa.peso   * a * l).toFixed(3),
+        };
+      }
+      return f;
+    });
   }
 
-  // Recalcular precio/peso cuando cambia el ancho (largo no afecta al precio por metro)
+  // Recalcular precio/peso cuando cambia ancho o largo
   function handleDimensionChange(campo, valor) {
     setForm(f => {
       const next = { ...f, [campo]: valor };
-      if (opciones.tarifa && campo === 'ancho') {
-        const a = parseFloat(valor) / 1000 || 0;
-        if (a > 0) {
-          next.precioUnitario = (opciones.tarifa.precio * a).toFixed(2);
-          next.pesoUnitario   = (opciones.tarifa.peso   * a).toFixed(3);
+      if (opciones.tarifa && (campo === 'ancho' || campo === 'largo')) {
+        const a = parseFloat(campo === 'ancho' ? valor : f.ancho) / 1000 || 0;
+        const l = parseFloat(campo === 'largo' ? valor : f.largo) || 0;
+        if (a > 0 && l > 0) {
+          next.precioUnitario = (opciones.tarifa.precio * a * l).toFixed(2);
+          next.pesoUnitario   = (opciones.tarifa.peso   * a * l).toFixed(3);
         }
       }
       return next;
