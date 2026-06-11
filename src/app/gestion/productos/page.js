@@ -1,10 +1,42 @@
 "use client";
 import { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Package, PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { Package, PlusCircle, Edit, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { ContenedorCargando } from '@/componentes/ui';
+
+const COLUMNAS = [
+  { key: 'nombre',        label: 'Nombre',   tipo: 'string' },
+  { key: 'espesor',       label: 'Espesor',  tipo: 'number' },
+  { key: 'ancho',         label: 'Ancho',    tipo: 'number' },
+  { key: 'largo',         label: 'Largo',    tipo: 'number' },
+  { key: 'color',         label: 'Color',    tipo: 'string' },
+  { key: 'precioUnitario',label: 'Precio',   tipo: 'number' },
+  { key: 'pesoUnitario',  label: 'Peso',     tipo: 'number' },
+];
+
+function comparar(a, b, key, tipo, dir) {
+  const va = a[key];
+  const vb = b[key];
+  // Nulls/vacíos siempre primero en ascendente, últimos en descendente
+  const aNulo = va == null || va === '';
+  const bNulo = vb == null || vb === '';
+  if (aNulo && bNulo) return 0;
+  if (aNulo) return dir === 'asc' ? -1 : 1;
+  if (bNulo) return dir === 'asc' ? 1 : -1;
+  let cmp = tipo === 'number'
+    ? Number(va) - Number(vb)
+    : String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' });
+  return dir === 'asc' ? cmp : -cmp;
+}
+
+function IconoOrden({ campo, sort }) {
+  if (sort.campo !== campo) return <ChevronsUpDown className="w-3 h-3 opacity-30" />;
+  return sort.dir === 'asc'
+    ? <ChevronUp className="w-3 h-3 text-primary" />
+    : <ChevronDown className="w-3 h-3 text-primary" />;
+}
 
 export default function GestionProductosPage() {
   const { data, isLoading, error } = useSWR('/api/productos?page=1&limit=200');
@@ -13,12 +45,27 @@ export default function GestionProductosPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState(null);
   const [busqueda, setBusqueda] = useState('');
+  const [sort, setSort] = useState({ campo: null, dir: 'asc' });
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
-  const filtrados = useMemo(
-    () => productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())),
-    [productos, busqueda]
-  );
+  function toggleSort(key, tipo) {
+    setSort(prev =>
+      prev.campo === key
+        ? { campo: key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { campo: key, dir: 'asc', tipo }
+    );
+  }
+
+  const filtrados = useMemo(() => {
+    let lista = productos.filter(p =>
+      p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+    );
+    if (sort.campo) {
+      const col = COLUMNAS.find(c => c.key === sort.campo);
+      lista = [...lista].sort((a, b) => comparar(a, b, sort.campo, col?.tipo, sort.dir));
+    }
+    return lista;
+  }, [productos, busqueda, sort]);
 
   function abrirNuevo() { setProductoEditando(null); setModalAbierto(true); }
   function abrirEditar(p) { setProductoEditando(p); setModalAbierto(true); }
@@ -67,13 +114,17 @@ export default function GestionProductosPage() {
           <table className="table table-sm table-zebra w-full">
             <thead>
               <tr className="text-xs uppercase tracking-wider text-base-content/50">
-                <th>Nombre</th>
-                <th>Espesor</th>
-                <th>Ancho</th>
-                <th>Largo</th>
-                <th>Color</th>
-                <th>Precio</th>
-                <th>Peso</th>
+                {COLUMNAS.map(col => (
+                  <th key={col.key}>
+                    <button
+                      onClick={() => toggleSort(col.key, col.tipo)}
+                      className="flex items-center gap-1 hover:text-base-content transition-colors cursor-pointer select-none"
+                    >
+                      {col.label}
+                      <IconoOrden campo={col.key} sort={sort} />
+                    </button>
+                  </th>
+                ))}
                 <th />
               </tr>
             </thead>
@@ -81,27 +132,33 @@ export default function GestionProductosPage() {
               {filtrados.length === 0 && (
                 <tr><td colSpan={8} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
               )}
-              {filtrados.map(p => (
-                <tr key={p.id} className="hover">
-                  <td className="font-medium">{p.nombre}</td>
-                  <td>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
-                  <td>{p.ancho != null ? `${p.ancho} mm` : '—'}</td>
-                  <td>{p.largo != null ? `${p.largo} m` : '—'}</td>
-                  <td>{p.color || '—'}</td>
-                  <td>{p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €` : '—'}</td>
-                  <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg` : '—'}</td>
-                  <td className="text-right">
-                    <div className="flex gap-1 justify-end">
-                      <button onClick={() => abrirEditar(p)} className="btn btn-ghost btn-xs text-info">
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => eliminar(p.id)} className="btn btn-ghost btn-xs text-error">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filtrados.map(p => {
+                const incompleto = p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario;
+                return (
+                  <tr key={p.id} className={`hover${incompleto ? ' opacity-60' : ''}`}>
+                    <td className="font-medium">
+                      {p.nombre}
+                      {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
+                    </td>
+                    <td className={p.espesor == null ? 'text-warning font-bold' : ''}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
+                    <td className={p.ancho == null ? 'text-warning font-bold' : ''}>{p.ancho != null ? `${p.ancho} mm` : '—'}</td>
+                    <td className={p.largo == null ? 'text-warning font-bold' : ''}>{p.largo != null ? `${p.largo} mm` : '—'}</td>
+                    <td>{p.color || '—'}</td>
+                    <td className={!p.precioUnitario ? 'text-warning font-bold' : ''}>{p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : '—'}</td>
+                    <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg` : '—'}</td>
+                    <td className="text-right">
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={() => abrirEditar(p)} className="btn btn-ghost btn-xs text-info">
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => eliminar(p.id)} className="btn btn-ghost btn-xs text-error">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
