@@ -1,13 +1,13 @@
 # ROADMAP — CRM Taller
 
-> Última actualización: 2026-06-08  
+> Última actualización: 2026-06-11  
 > Generado desde `ideas.txt` + sesión de planificación
 
 ---
 
 ## 🎯 Visión general
 
-El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones, facturación) y la agilidad de almacén (recepción OCR offline desde tablet). La siguiente iteración construye un **sistema de precios en dos capas** — tarifa de coste interno y tarifa de venta base — que se mantiene vivo automáticamente a medida que llegan nuevos contenedores, sin que el usuario tenga que actualizar precios a mano. A medio plazo: portal cliente, dashboard ejecutivo y análisis anual de márgenes.
+El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones, facturación, tracking de contenedores con WhatsApp) y la agilidad de almacén (recepción OCR offline desde tablet). La siguiente iteración construye un **sistema de precios en dos capas** — tarifa de coste interno y tarifa de venta base — que se mantiene vivo automáticamente a medida que llegan nuevos contenedores, sin que el usuario tenga que actualizar precios a mano. A medio plazo: soporte multi-naviera en tracking, portal cliente, dashboard ejecutivo y análisis anual de márgenes.
 
 ---
 
@@ -15,11 +15,13 @@ El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones,
 
 | ID | Tarea | Tipo | Complejidad | Estado |
 |----|-------|------|-------------|--------|
+| T-72 | Bug: cámara OCR falla con "NO SE PUDO PROCESAR LA IMAGEN" | Frontend | Pequeña | ⏳ |
+| T-73 | Soporte multi-naviera en tracking (MSC, CMA-CGM, Hapag-Lloyd…) | Backend | Media | ⏳ |
 | T-67 | Tarifa de coste interno por m² (material + espesor) | Full stack + DB | Media | ⏳ |
 | T-68 | Tarifa de venta base con margen mínimo configurable | Full stack + DB | Media | ⏳ |
 | T-69 | Propuesta de actualización de tarifa de coste post-importación | Full stack | Media | ⏳ |
 | T-70 | Informe anual de variación de costes + propuesta de ajuste de ventas | Full stack | Grande | ⏳ |
-| T-71 | PDF del informe de importación simplificado | Frontend | Pequeña | ⏳ |
+| T-71 | PDF del informe de importación simplificado | Frontend | Pequeña | ✅ |
 | T-61 | Plantillas de contenedor reutilizables | Full stack + DB | Media | ⏳ |
 | T-65 | Vincular referencias OCR con materiales del catálogo | Full stack | Grande | ⏳ |
 | N-06 | Dashboard ejecutivo con KPIs reales | Frontend | Media | ⏳ |
@@ -30,7 +32,51 @@ El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones,
 
 ## 🗺️ Fases propuestas
 
-### Fase 1 — Sistema de precios en dos capas *(prioridad alta)*
+### Fase 1 — Bugs y tracking multi-naviera *(prioridad inmediata)*
+> Corregir el fallo OCR de cámara y ampliar el sistema de tracking a otras navieras. Estimación: 1-2 días.
+
+---
+
+#### T-72 — Bug: cámara OCR no procesa la imagen
+**Tipo:** Frontend · **Complejidad:** Pequeña
+
+Al pulsar "Escanear etiqueta" en la calculadora de contenedor (o recepción tablet), la cámara abre pero devuelve el mensaje **"NO SE PUDO PROCESAR LA IMAGEN. Asegúrate de que sea nítida y vuelve a intentarlo"**.
+
+Posibles causas:
+- Imagen capturada con resolución demasiado baja para Tesseract
+- Timeout del worker de Tesseract en dispositivos lentos (tablet Android)
+- Canvas de captura con fondo negro / sin contenido si la cámara tarda en arrancar
+- Permisos de cámara concedidos pero stream vacío al hacer la captura
+
+**Investigación:**
+1. Añadir log del error real del worker Tesseract antes de mostrar el mensaje genérico
+2. Comprobar que el canvas tiene píxeles reales en el momento de la captura
+3. Probar añadir un delay mínimo tras `getUserMedia` antes de capturar el frame
+
+---
+
+#### T-73 — Soporte multi-naviera en tracking
+**Tipo:** Backend · **Complejidad:** Media
+
+El sistema actual soporta solo Yang Ming (prefijos YMMU/YMLU). Cuando llega un contenedor de otra naviera, `buscarTracking()` devuelve `null` sin tracking.
+
+**Estrategia para añadir una naviera nueva:**
+1. Abrir la web de la naviera en DevTools → pestaña Network
+2. Buscar en el contenedor hasta que aparezca la petición JSON del tracking
+3. Copiar URL + headers mínimos necesarios
+4. Añadir función `buscarTrackingXXX()` en `src/lib/tracking.js`
+5. Añadir prefijos de esa naviera a la función de routing `buscarTracking()`
+
+**Navieras habituales con APIs internas conocidas:**
+- MSC: `www.msc.com/api/feature/tools/TrackingInfo`
+- CMA-CGM: `www.cma-cgm.com` (requiere investigación con DevTools)
+- Hapag-Lloyd: `www.hapag-lloyd.com` (requiere investigación con DevTools)
+
+**Pendiente:** identificar qué navieras usa el usuario con frecuencia.
+
+---
+
+### Fase 2 — Sistema de precios en dos capas *(prioridad alta)*
 > Saber exactamente cuánto cuesta cada material y garantizar que la tarifa de venta siempre cubre ese coste más un margen mínimo. Estimación: 3-4 días.
 
 ---
@@ -72,7 +118,7 @@ Extensión de `TarifaCoste`: cada material tiene un `margenMinimo` (configurable
 
 Extensión del semáforo N-01: cuando el análisis de rentabilidad muestra que el coste de importación difiere de la `TarifaCoste` actual, aparece un botón **"Aplicar este coste"** junto a cada fila afectada. Al hacer clic → confirma → actualiza `TarifaCoste` con el nuevo precio y el ID de la importación como origen.
 
-El usuario siempre aprueba manualmente — sin automatismos.
+**El usuario siempre aprueba manualmente — sin automatismos.** Esto es intencionado para evitar actualizaciones de precio accidentales.
 
 **Flujo:**
 1. Guardar/ver importación → botón "Ver análisis de rentabilidad" (N-01)
@@ -86,23 +132,8 @@ El usuario siempre aprueba manualmente — sin automatismos.
 
 ---
 
-### Fase 2 — Calidad del PDF y plantillas de contenedor
+### Fase 3 — Calidad del PDF y plantillas de contenedor
 > Pequeñas mejoras de pulido operativo. Estimación: 1-2 días.
-
----
-
-#### T-71 — PDF del informe de importación simplificado
-**Tipo:** Frontend · **Complejidad:** Pequeña
-
-El PDF actual del informe de importación tiene demasiada información para compartir. Dos opciones de exportación:
-- **Informe completo** (como ahora) — para uso interno
-- **Resumen simplificado** — solo: lista de artículos con referencia + metros + coste total. Sin desglose de gastos ni metodología.
-
-> ⚠️ **Pendiente de clarificación**: falta saber exactamente qué secciones quitar. Ver nota al final del roadmap.
-
-**Implementación:**
-- Segundo botón "PDF Resumen" junto al PDF actual
-- Genera solo la tabla de artículos + resumen final (2 páginas máximo)
 
 ---
 
@@ -118,7 +149,7 @@ Botón "Guardar como plantilla" en la calculadora de contenedor. Guarda la lista
 
 ---
 
-### Fase 3 — Análisis anual y propuestas de ajuste *(medio plazo)*
+### Fase 4 — Análisis anual y propuestas de ajuste *(medio plazo)*
 > Herramienta de fin de año para revisar si los precios de venta siguen siendo rentables tras las subidas de coste. Estimación: 3-4 días.
 
 ---
@@ -154,7 +185,7 @@ Selector opcional por fila en la calculadora de contenedor (y en la recepción t
 
 ---
 
-### Fase 4 — Engagement y portal cliente *(futuro)*
+### Fase 5 — Engagement y portal cliente *(futuro)*
 > Reducir fricción con el cliente y mejorar visibilidad del negocio.
 
 ---
@@ -191,7 +222,8 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 ## ⚡ Quick wins
 
-- [ ] **T-71** — PDF simplificado del informe de importación (~2h, pendiente clarificación de qué secciones quitar)
+- [ ] **T-72** — Arreglar bug OCR cámara "NO SE PUDO PROCESAR LA IMAGEN" (~1-2h)
+- [ ] **T-73** — Añadir una naviera nueva al tracking una vez localizada su API con DevTools (~1h por naviera)
 - [ ] **T-61** — Plantillas de contenedor (~3h)
 - [ ] **T-67** — Tarifa de coste interna — solo la tabla y la pantalla CRUD (~4h)
 
@@ -202,6 +234,7 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 - **T-69** requiere **T-67** (la tarifa de coste tiene que existir para poder actualizarla)
 - **T-70** requiere **T-67** con campo de historial anual — diseñar snapshot de inicio de año (cron job o manual en enero)
 - **T-65** requiere **decisión de diseño**: vincular a `tarifas-rollo` (tiene `precioBase`) o a `materiales` (más genérico). Impacta en T-67 y T-69
+- **T-73** requiere identificar qué navieras usa el usuario y encontrar sus APIs internas con DevTools
 - **N-07** (portal cliente) requiere decisión sobre política de expiración del token
 - **N-08** (picking tablet) necesita campo `preparado Boolean` en `PedidoItem`
 
@@ -217,12 +250,19 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 ## ❓ Pendiente de clarificación
 
-- **T-71 — PDF simplificado**: se sabe que hay que poner "menos datos" pero no se ha especificado cuáles secciones quitar exactamente. ¿Se elimina el desglose de gastos? ¿La metodología? ¿Las columnas de €/m²? Definir antes de implementar.
+- **T-73 — Multi-naviera**: ¿qué navieras se usan además de Yang Ming? Identificar para priorizar cuáles añadir primero.
 
 ---
 
 ## ✅ Completado
 
+- ✅ **Tracking Yang Ming sin coste** — Migración de Terminal49 (plan gratuito inútil: 401 en GET) a la API interna de Yang Ming. Sin límites, sin autenticación. Prefijos YMMU/YMLU (2026-06-11)
+- ✅ **Página de detalle de contenedor** — `/compras/contenedores/[id]` con tabla de eventos de tracking, botón "Actualizar ahora", ETA, botón "Llegó" (2026-06-11)
+- ✅ **Eliminación contador Ship24** — Eliminado el badge "0/50 trackers Ship24" y toda la lógica de `usoShip24` de la página de contenedores (2026-06-11)
+- ✅ **Cron horario de tracking con WhatsApp** — Sync automático cada hora (8h-22h) con notificación WhatsApp vía CallMeBot cuando hay nuevo evento (2026-06-11)
+- ✅ **Fix: globalMutate no importado en pedido detalle** — Crash al eliminar pedido por `ReferenceError: globalMutate is not defined` (2026-06-11)
+- ✅ **Fix: PDF gastoFijo dividía por cantidad individual** — El PDF de presupuesto calculaba `gastoFijoUnitario` dividiendo por `item.quantity` en vez del total de unidades (2026-06-11)
+- ✅ **T-71** — PDF del informe de importación simplificado — dos botones "PDF Completo" y "PDF Resumen" en la calculadora de contenedor (fecha desconocida)
 - ✅ **Recepción offline en tablet** — Tab "Recepción" en `/tablet`: escaneo OCR + IndexedDB + sync automático al recuperar wifi (2026-06-08)
 - ✅ **Escaneo de etiquetas con OCR (Tesseract.js)** — Botón "Escanear etiqueta" en calculadora de contenedor (2026-06-08)
 - ✅ **T-64** Alerta variación precio ▲/▼ en calculadora contenedor (2026-06-04)

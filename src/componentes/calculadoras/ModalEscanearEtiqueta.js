@@ -119,7 +119,8 @@ export default function ModalEscanearEtiqueta({ onConfirmar, onClose }) {
       setTextoOCR(text);
       setCampos(parsearEtiqueta(text));
       setPaso('confirmar');
-    } catch {
+    } catch (err) {
+      console.error('[OCR] Error en Tesseract:', err);
       setError('No se pudo procesar la imagen. Asegúrate de que sea nítida y vuelve a intentarlo.');
       setPaso('captura');
     }

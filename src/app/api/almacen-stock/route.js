@@ -137,7 +137,7 @@ export async function POST(request) {
             espesor: parseFloat(data.espesor) || 0,
             metrosDisponibles: parseFloat(data.metrosDisponibles),
             proveedor: data.proveedor || null,
-            cantidadBobinas: parseInt(data.cantidadBobinas) || 1,
+            cantidadBobinas: parseInt(data.cantidadBobinas, 10) || 1,
           },
         });
         await tx.movimientoStock.create({

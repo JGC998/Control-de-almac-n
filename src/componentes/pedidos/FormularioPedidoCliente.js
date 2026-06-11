@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, X, Save, Search, Ruler } from 'lucide-react';
+import { Plus, X, Save, Search, Ruler, Package } from 'lucide-react';
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
-import QuickProductForm from "@/componentes/productos/FormularioProductoRapido";
+import FormularioProductoInteligente from "@/componentes/productos/FormularioProductoInteligente";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
 import ModalBusquedaBandasPVC from "@/componentes/modales/ModalBusquedaBandasPVC";
 import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
@@ -168,7 +168,6 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       newItems[index].producto = newProduct;
       setItems(newItems);
     }
-    setModalState(null);
     setModalState(null);
     mutate('/api/productos');
   };
@@ -599,7 +598,20 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       )}
 
       {modalState?.type === 'QUICK_PRODUCT' && (
-        <QuickProductForm isOpen={true} onClose={() => setModalState(null)} onCreated={handleCreatedProduct} initialReference={modalState.initialName} />
+        <div className="modal modal-open z-50">
+          <div className="modal-box w-11/12 max-w-lg">
+            <button onClick={() => setModalState(null)} className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5" /> Nuevo Producto
+            </h3>
+            <FormularioProductoInteligente
+              initialNombre={modalState.initialName}
+              onGuardado={handleCreatedProduct}
+              onCancelar={() => setModalState(null)}
+            />
+          </div>
+          <div className="modal-backdrop" onClick={() => setModalState(null)} />
+        </div>
       )}
 
       <ModalCalculadoraBandas isOpen={isBandaModalOpen} onClose={() => setIsBandaModalOpen(false)} onAddItem={handleBandaAdded} />

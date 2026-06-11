@@ -4,9 +4,9 @@ import { Package, Loader2 } from 'lucide-react';
 
 const VACIO = { materiales: [], espesores: [], colores: [], tarifa: null };
 
-export default function FormularioProductoInteligente({ productoAEditar, onGuardado, onCancelar }) {
+export default function FormularioProductoInteligente({ productoAEditar, onGuardado, onCancelar, initialNombre = '' }) {
   const [form, setForm] = useState({
-    nombre: '',
+    nombre: initialNombre,
     material: '',
     espesor: '',
     color: '',
@@ -94,33 +94,29 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     if (tarifa) aplicarTarifa(tarifa, form.ancho, form.largo);
   }, [opciones.tarifas, opciones.tarifa, form.ancho, form.largo]);
 
-  function aplicarTarifa(tarifa, ancho, largo) {
+  function aplicarTarifa(tarifa, ancho, _largo) {
     if (!tarifa) return;
     const a = parseFloat(ancho) / 1000 || 0; // mm → m
-    const l = parseFloat(largo) || 0;
-    const area = a * l;
-    if (area > 0) {
+    if (a > 0) {
       setForm(f => ({
         ...f,
-        precioUnitario: (tarifa.precio * area).toFixed(2),
-        pesoUnitario: (tarifa.peso * area).toFixed(3),
+        precioUnitario: (tarifa.precio * a).toFixed(2),
+        pesoUnitario:   (tarifa.peso   * a).toFixed(3),
       }));
     }
     setTarifaEncontrada(true);
     setOpciones(prev => ({ ...prev, tarifa }));
   }
 
-  // Recalcular cuando cambia ancho o largo
+  // Recalcular precio/peso cuando cambia el ancho (largo no afecta al precio por metro)
   function handleDimensionChange(campo, valor) {
     setForm(f => {
       const next = { ...f, [campo]: valor };
-      if (opciones.tarifa) {
-        const a = parseFloat(campo === 'ancho' ? valor : f.ancho) / 1000 || 0;
-        const l = parseFloat(campo === 'largo' ? valor : f.largo) || 0;
-        const area = a * l;
-        if (area > 0) {
-          next.precioUnitario = (opciones.tarifa.precio * area).toFixed(2);
-          next.pesoUnitario   = (opciones.tarifa.peso   * area).toFixed(3);
+      if (opciones.tarifa && campo === 'ancho') {
+        const a = parseFloat(valor) / 1000 || 0;
+        if (a > 0) {
+          next.precioUnitario = (opciones.tarifa.precio * a).toFixed(2);
+          next.pesoUnitario   = (opciones.tarifa.peso   * a).toFixed(3);
         }
       }
       return next;

@@ -33,6 +33,9 @@ export async function POST(request) {
 
     const calculatedItems = [];
 
+    // Total de unidades de todos los ítems para repartir gastoFijo proporcionalmente
+    const totalQty = items.reduce((s, i) => s + (Number(i.quantity) > 0 ? Number(i.quantity) : 1), 0);
+
     // 3. Procesar cada item
     for (const item of items) {
       if (!item.productId) {
@@ -71,8 +74,7 @@ export async function POST(request) {
         }
 
         if (margenAplicar !== null) {
-          const qty = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
-          precioFinal = (costoBase * margenAplicar) + (gastoFijoTotalAplicar / qty);
+          precioFinal = (costoBase * margenAplicar) + (gastoFijoTotalAplicar / totalQty);
         }
       }
 

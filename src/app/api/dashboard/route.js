@@ -37,13 +37,15 @@ export async function GET() {
 
     return NextResponse.json({
       kpiData,
-      nivelesStock: productosBajoStock.map(item => ({
-        id: item.id,
-        material: item.material,
-        metrosDisponibles: item.metrosDisponibles,
-        stockMinimo: item.stockMinimo ?? 100, // BUG-21: usar el mínimo configurado por material
-        espesor: item.espesor,
-      })),
+      nivelesStock: productosBajoStock
+        .filter(item => (item.stockMinimo ?? 0) > 0 && item.metrosDisponibles < item.stockMinimo)
+        .map(item => ({
+          id: item.id,
+          material: item.material,
+          metrosDisponibles: item.metrosDisponibles,
+          stockMinimo: item.stockMinimo,
+          espesor: item.espesor,
+        })),
       movimientosRecientes: movimientosRecientes.map(mov => ({
         ...mov,
         materialNombre: mov.stockItem?.material,
