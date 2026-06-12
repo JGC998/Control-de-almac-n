@@ -343,7 +343,7 @@ export const fabricanteSchema = z.object({
 
 export const proveedorSchema = z.object({
   nombre: z.string().min(1, 'Nombre requerido').max(200),
-  email: z.string().email('Email inválido').optional().nullable(),
+  email: z.string().max(200).optional().nullable(),
   telefono: z.string().max(50).optional().nullable(),
   direccion: z.string().max(500).optional().nullable(),
 });
