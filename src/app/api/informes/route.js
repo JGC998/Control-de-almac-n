@@ -155,12 +155,16 @@ export async function GET(request) {
       const desde     = searchParams.get('desde');
       const hasta     = searchParams.get('hasta');
 
+      const parseFecha = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
+
       const where = { estado: { notIn: EXCLUIDOS } };
       if (clienteId) where.clienteId = clienteId;
       if (desde || hasta) {
         where.fechaCreacion = {};
-        if (desde) where.fechaCreacion.gte = new Date(desde);
-        if (hasta) { const h = new Date(hasta); h.setHours(23,59,59,999); where.fechaCreacion.lte = h; }
+        const desdeDate = parseFecha(desde);
+        const hastaDate = parseFecha(hasta);
+        if (desdeDate) where.fechaCreacion.gte = desdeDate;
+        if (hastaDate) { hastaDate.setHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
       }
 
       const pedidos = await db.pedido.findMany({
@@ -218,11 +222,14 @@ export async function GET(request) {
       const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });
       const IVA_MARGEN = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
 
+      const parseFechaMargen = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
       const where = { estado: { notIn: EXCLUIDOS } };
       if (desde || hasta) {
         where.fechaCreacion = {};
-        if (desde) where.fechaCreacion.gte = new Date(desde);
-        if (hasta) { const h = new Date(hasta); h.setHours(23,59,59,999); where.fechaCreacion.lte = h; }
+        const desdeDate = parseFechaMargen(desde);
+        const hastaDate = parseFechaMargen(hasta);
+        if (desdeDate) where.fechaCreacion.gte = desdeDate;
+        if (hastaDate) { hastaDate.setHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
       }
 
       const pedidos = await db.pedido.findMany({
@@ -261,11 +268,14 @@ export async function GET(request) {
       const desdeRent = searchParams.get('desde');
       const hastaRent = searchParams.get('hasta');
 
+      const parseFechaRent = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
       const whereRent = { estado: { notIn: EXCLUIDOS }, clienteId: { not: null } };
       if (desdeRent || hastaRent) {
         whereRent.fechaCreacion = {};
-        if (desdeRent) whereRent.fechaCreacion.gte = new Date(desdeRent);
-        if (hastaRent) { const h = new Date(hastaRent); h.setHours(23,59,59,999); whereRent.fechaCreacion.lte = h; }
+        const desdeRentDate = parseFechaRent(desdeRent);
+        const hastaRentDate = parseFechaRent(hastaRent);
+        if (desdeRentDate) whereRent.fechaCreacion.gte = desdeRentDate;
+        if (hastaRentDate) { hastaRentDate.setHours(23,59,59,999); whereRent.fechaCreacion.lte = hastaRentDate; }
       }
 
       const ivaConfigRent = await db.config.findUnique({ where: { key: 'iva_rate' } });

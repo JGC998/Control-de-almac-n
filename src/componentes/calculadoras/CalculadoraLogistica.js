@@ -56,7 +56,7 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
             }
         } catch (err) {
             setError('Error de conexión');
-            console.error(err);
+            console.error('[CalculadoraLogistica]', err?.message ?? 'Error desconocido');
         } finally {
             setLoading(false);
         }

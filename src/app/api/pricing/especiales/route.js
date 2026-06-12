@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { checkRateLimit } from '@/lib/rateLimiter';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +28,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     // SEC-06: rate limit — 30 escrituras/min por IP
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    const ip = getClientIp(request);
     const rl = checkRateLimit(`pricing-especiales:${ip}`, 30);
     if (!rl.allowed) {
       return NextResponse.json(

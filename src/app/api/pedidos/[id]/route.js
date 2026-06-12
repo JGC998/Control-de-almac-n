@@ -157,14 +157,6 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
 
-    const albaranesVinculados = await db.albaran.count({ where: { pedidoId: id } });
-    if (albaranesVinculados > 0) {
-      return NextResponse.json(
-        { message: `No se puede eliminar: el pedido tiene ${albaranesVinculados} albarán(es) vinculado(s)` },
-        { status: 409 }
-      );
-    }
-
     await db.pedido.delete({ where: { id } });
     revalidatePath('/pedidos');
     return NextResponse.json({ message: 'Pedido eliminado correctamente' });

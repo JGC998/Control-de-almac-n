@@ -85,7 +85,7 @@ const DataManagerTable = ({ apiEndpoint, modelName, fields, idField = 'id' }) =>
       setIsModalOpen(false);
       
     } catch (error) {
-      console.error('Error saving record:', error);
+      console.error('[TablaGestionDatos]', error?.message ?? 'Error desconocido');
       setFetchError(error.message);
     } finally {
       setIsSubmitting(false);
@@ -111,7 +111,7 @@ const DataManagerTable = ({ apiEndpoint, modelName, fields, idField = 'id' }) =>
       mutate();
     } catch (error) {
       alert(`Error al eliminar: ${error.message}`);
-      console.error('Error deleting record:', error);
+      console.error('[TablaGestionDatos]', error?.message ?? 'Error desconocido');
     }
   }, [apiEndpoint, modelName, mutate, idField]);
 

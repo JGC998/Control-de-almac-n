@@ -55,7 +55,7 @@ export async function PUT(request, { params }) {
           subtotal,
           tax,
           total,
-          ...(ultimoRecordatorio !== undefined ? { ultimoRecordatorio: new Date(ultimoRecordatorio) } : {}),
+          ...(ultimoRecordatorio !== undefined ? { ultimoRecordatorio: ultimoRecordatorio ? new Date(ultimoRecordatorio) : null } : {}),
         },
       });
 

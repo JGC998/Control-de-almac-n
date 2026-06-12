@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
 import { buscarTracking, enviarWhatsApp, formatearMensajeTracking, claveEvento } from '@/lib/tracking';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,16 @@ export const dynamic = 'force-dynamic';
  * Para cada importacion con trackingActivo=true: consulta Yang Ming,
  * si hay evento nuevo actualiza DB y envia WhatsApp via CallMeBot.
  */
-export async function POST() {
+export async function POST(request) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`tracking-sync:${ip}`, 10);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { message: 'Demasiadas peticiones. Espera un momento.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } }
+    );
+  }
+
   try {
     const ahora = new Date();
 

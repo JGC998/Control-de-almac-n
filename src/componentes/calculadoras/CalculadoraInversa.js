@@ -39,7 +39,7 @@ export default function CalculadoraInversa() {
             }
         } catch (err) {
             setError('Error de conexión');
-            console.error(err);
+            console.error('[CalculadoraInversa]', err?.message ?? 'Error desconocido');
         } finally {
             setLoading(false);
         }

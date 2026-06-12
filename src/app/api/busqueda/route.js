@@ -21,7 +21,7 @@ export async function GET(request) {
     const query = searchParams.get('q');
 
     // Permitir consulta si está vacía o es muy corta para la búsqueda en tiempo real
-    if (!query || query.length < 2) {
+    if (!query || query.length < 2 || query.length > 100) {
       return NextResponse.json([]);
     }
 

@@ -47,12 +47,11 @@ export async function GET(request) {
         db.producto.count({ where: whereClause })
       ]);
 
-      // Serializar para JSON (convertir Decimals a números)
-      const productosSerializados = productos.map(p => ({
+      // Serializar para JSON (convertir Decimals a números); costoUnitario excluido (SEC-09)
+      const productosSerializados = productos.map(({ costoUnitario: _omit, ...p }) => ({
         ...p,
         precioUnitario: p.precioUnitario ? Number(p.precioUnitario) : 0,
         pesoUnitario: p.pesoUnitario ? Number(p.pesoUnitario) : 0,
-        costoUnitario: p.costoUnitario ? Number(p.costoUnitario) : 0,
         precioVentaFab: p.precioVentaFab ? Number(p.precioVentaFab) : 0,
         precioVentaInt: p.precioVentaInt ? Number(p.precioVentaInt) : 0,
         precioVentaFin: p.precioVentaFin ? Number(p.precioVentaFin) : 0,
@@ -78,12 +77,11 @@ export async function GET(request) {
       },
     });
 
-    // Serializar para JSON
-    const productosSerializados = productos.map(p => ({
+    // Serializar para JSON; costoUnitario excluido (SEC-09)
+    const productosSerializados = productos.map(({ costoUnitario: _omit, ...p }) => ({
       ...p,
       precioUnitario: p.precioUnitario ? Number(p.precioUnitario) : 0,
       pesoUnitario: p.pesoUnitario ? Number(p.pesoUnitario) : 0,
-      costoUnitario: p.costoUnitario ? Number(p.costoUnitario) : 0,
       precioVentaFab: p.precioVentaFab ? Number(p.precioVentaFab) : 0,
       precioVentaInt: p.precioVentaInt ? Number(p.precioVentaInt) : 0,
       precioVentaFin: p.precioVentaFin ? Number(p.precioVentaFin) : 0,

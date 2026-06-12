@@ -2,7 +2,7 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { pedidoProveedorSchema, validateData } from '@/lib/validations';
-import { checkRateLimit } from '@/lib/rateLimiter';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,7 +80,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     // SEC-06: rate limit en escritura
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    const ip = getClientIp(request);
     const rl = checkRateLimit(`pedidos-prov:${ip}`, 30);
     if (!rl.allowed) {
       return NextResponse.json(

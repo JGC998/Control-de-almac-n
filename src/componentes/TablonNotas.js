@@ -40,10 +40,8 @@ export default function TablonNotas() {
     if (!confirmDelete) return;
     setIsDeleting(true);
     try {
-      const res = await fetch('/api/notas', {
+      const res = await fetch(`/api/notas/${confirmDelete}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: confirmDelete }),
       });
       if (!res.ok) {
         const errData = await res.json();

@@ -12,6 +12,7 @@ const manejadores = crearManejadoresCRUD('cliente', {
     direccion: data.direccion,
     telefono: data.telefono,
     tier: data.categoria,
+    nif: data.nif ?? null,
   }),
   camposBusqueda: ['nombre', 'email', 'telefono'],
 }, '/gestion/clientes');

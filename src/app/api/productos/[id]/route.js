@@ -31,7 +31,9 @@ export async function GET(request, { params }) {
       },
     });
     if (!producto) return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
-    return NextResponse.json(producto);
+    // SEC-09: excluir costoUnitario de la respuesta
+    const { costoUnitario: _omit, ...productoPublico } = producto;
+    return NextResponse.json(productoPublico);
   } catch (error) {
     return handlePrismaError(error);
   }

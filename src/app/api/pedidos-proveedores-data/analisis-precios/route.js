@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
-import { checkRateLimit } from '@/lib/rateLimiter';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 // Devuelve el histórico de precios por proveedor para un material dado.
 export async function GET(request) {
   // SEC-01: rate limiting
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'local';
+  const ip = getClientIp(request);
   const rl = checkRateLimit(`analisis-precios:${ip}`, 30);
   if (!rl.allowed) {
     return NextResponse.json(

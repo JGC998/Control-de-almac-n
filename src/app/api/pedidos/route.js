@@ -66,7 +66,13 @@ export async function POST(request) {
       );
     }
 
-    const { clienteId, items, notas, subtotal, tax, total, estado, marginId, sinFacturacion } = validation.data;
+    const { clienteId, items, notas, estado, marginId, sinFacturacion } = validation.data;
+
+    // BACK-01: Recalcular totales en servidor para no confiar en valores del cliente
+    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.unitPrice) * parseFloat(item.quantity)), 0);
+    const taxRate = parseFloat(validation.data.taxRate ?? 21) / 100;
+    const tax = subtotal * taxRate;
+    const total = subtotal + tax;
 
     // Generar número de pedido con reset anual
     const newOrderNumber = await getNextNumber('pedido');
@@ -75,7 +81,7 @@ export async function POST(request) {
       data: {
         numero: newOrderNumber,
         estado: estado || 'Pendiente',
-        cliente: { connect: { id: clienteId } },
+        ...(clienteId ? { cliente: { connect: { id: clienteId } } } : {}),
         notas: notas,
         subtotal: subtotal,
         tax: tax,

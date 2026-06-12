@@ -67,7 +67,13 @@ export async function POST(request) {
     }
 
     // FIX: Aceptamos 'notas', 'observaciones' o 'notes' para máxima compatibilidad.
-    const { clienteId, items, estado, marginId, subtotal, tax, total, notas } = validation.data;
+    const { clienteId, items, estado, marginId, notas } = validation.data;
+
+    // BACK-01: Recalcular totales en servidor para no confiar en valores del cliente
+    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.unitPrice) * parseFloat(item.quantity)), 0);
+    const taxRate = parseFloat(validation.data.taxRate ?? 21) / 100;
+    const tax = subtotal * taxRate;
+    const total = subtotal + tax;
 
     // Generar número de presupuesto con reset anual
     const newQuoteNumber = await getNextNumber('presupuesto');

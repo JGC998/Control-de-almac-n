@@ -47,7 +47,7 @@ export async function PUT(request) {
       );
     }
 
-    await Promise.all(
+    await db.$transaction(
       entries.map(([key, value]) =>
         db.config.upsert({
           where: { key },

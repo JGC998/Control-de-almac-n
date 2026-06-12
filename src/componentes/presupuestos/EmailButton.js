@@ -26,7 +26,7 @@ export default function EmailButton({ id, emailCliente }) {
                 setSent(true);
             }
         } catch (error) {
-            console.error(error);
+            console.error('[EmailButton]', error?.message ?? 'Error desconocido');
             alert('Error de conexión');
         } finally {
             setLoading(false);

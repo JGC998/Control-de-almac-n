@@ -10,7 +10,7 @@ const DEFAULT_THEME = "corporate";
 export default function ProveedorTema({ children }) {
     const [theme, setTheme] = useState(() => {
         if (typeof window !== 'undefined') {
-            return localStorage.getItem("theme") || DEFAULT_THEME;
+            return localStorage.getItem("crm-tema") || DEFAULT_THEME;
         }
         return DEFAULT_THEME;
     });
@@ -18,7 +18,7 @@ export default function ProveedorTema({ children }) {
     // Sincronizar DOM cuando cambia el tema
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
-        localStorage.setItem("theme", theme);
+        localStorage.setItem("crm-tema", theme);
     }, [theme]);
 
     useEffect(() => {
@@ -26,7 +26,7 @@ export default function ProveedorTema({ children }) {
 
         // Sincronizar cambios de tema desde otras pestañas
         const handleStorage = (e) => {
-            if (e.key === "theme" && e.newValue) {
+            if (e.key === "crm-tema" && e.newValue) {
                 setTheme(e.newValue);
             }
         };
