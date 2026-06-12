@@ -56,6 +56,7 @@ export async function POST(request) {
         suplidos:            0,
         exentos:             0,
         sujetos:             0,
+        ivaAduana:           0,
         gastosRepercutibles: 0,
         costeProducto:       0,
         totalDesembolso:     0,

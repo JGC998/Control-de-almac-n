@@ -485,6 +485,7 @@ function CalculadoraContenedorPage() {
   const [suplidos, setSuplidos] = useState('');
   const [exentos, setExentos] = useState('');
   const [sujetos, setSujetos] = useState('');
+  const [ivaAduana, setIvaAduana] = useState('');
   const [nextId, setNextId] = useState(2);
   const [modalGuardar, setModalGuardar] = useState(false);
   const [modalEscaner, setModalEscaner] = useState(false);
@@ -547,13 +548,14 @@ function CalculadoraContenedorPage() {
   // --- Gastos ---
   const supl = n(suplidos);
   const exen = n(exentos);
-  const suj = n(sujetos);
-  const ivaGastos = suj * 0.21;
+  const suj = n(sujetos);         // Total General (base imponible, sin IVA)
+  const ivaDuana = n(ivaAduana);  // IVA Aduana dentro de suplidos (deducible)
+  const ivaGeneral = suj * 0.21;  // Solo para display y totalDesembolso — NO repercute
 
-  // REGLA: suplidos + exentos se repercuten. Sujetos NUNCA entra en el cálculo.
-  const gastosRepercutibles = supl + exen;
+  // REGLA: Total General (suj) + Exentos + (Suplidos − IVA Aduana). Sin IVA en ningún concepto.
+  const gastosRepercutibles = suj + exen + (supl - ivaDuana);
   const costeProducto = totalBobinasEUR + gastosRepercutibles;
-  const totalDesembolso = totalBobinasEUR + supl + exen + suj + ivaGastos;
+  const totalDesembolso = totalBobinasEUR + supl + exen + suj + ivaGeneral;
 
   // --- Prorrateo por valor ---
   const bobinasFinal = bobinasCals.map(b => {
@@ -611,6 +613,7 @@ function CalculadoraContenedorPage() {
       setSuplidos(String(imp.suplidos));
       setExentos(String(imp.exentos));
       setSujetos(String(imp.sujetos));
+      setIvaAduana(String(imp.ivaAduana ?? 0));
       setEditandoId(imp.id);
       setDatosTrazabilidad({
         ...TRAZABILIDAD_VACIA,
@@ -720,14 +723,17 @@ function CalculadoraContenedorPage() {
     doc.text('Gastos de importación', margin, y);
     y += 5;
     const gastosBody = [
-      ['Suplidos (repercute en coste)', fmtEur(supl)],
-      ['Exentos / Aranceles (repercute en coste)', fmtEur(exen)],
+      ['Total General — base imponible (repercute sin IVA)', fmtEur(suj)],
+      ['Total Exento / Aranceles (repercute)', fmtEur(exen)],
+      ['Total Suplidos — agente, handling, B/L (repercute)', fmtEur(supl)],
     ];
-    if (suj > 0) {
-      gastosBody.push(['Sujetos — transporte nacional (no repercute)', fmtEur(suj)]);
-      gastosBody.push(['IVA sujetos 21% (deducible)', fmtEur(ivaGastos)]);
+    if (ivaDuana > 0) {
+      gastosBody.push([`  − IVA Aduana (dentro de suplidos, deducible)`, `−${fmtEur(ivaDuana)}`]);
     }
-    gastosBody.push(['Gastos repercutibles totales', fmtEur(gastosRepercutibles)]);
+    if (suj > 0) {
+      gastosBody.push([`IVA General (21% s/ ${fmtEur(suj)}) — deducible, no repercute`, fmtEur(ivaGeneral)]);
+    }
+    gastosBody.push(['Gastos repercutidos en producto', fmtEur(gastosRepercutibles)]);
     autoTable(doc, {
       startY: y,
       body: gastosBody,
@@ -744,9 +750,9 @@ function CalculadoraContenedorPage() {
     y += 5;
     const resumenBody = [
       ['Coste total artículos (convertido a EUR)', fmtEur(totalBobinasEUR)],
-      ['+ Gastos repercutibles (suplidos + exentos)', fmtEur(gastosRepercutibles)],
+      ['+ Gastos repercutidos (general + exentos + suplidos netos)', fmtEur(gastosRepercutibles)],
       ['= COSTE PRODUCTO', fmtEur(costeProducto)],
-      ['Total desembolso real (incluyendo IVA sujetos)', fmtEur(totalDesembolso)],
+      ['Total desembolso real (todo incluido)', fmtEur(totalDesembolso)],
     ];
     autoTable(doc, {
       startY: y,
@@ -1034,14 +1040,16 @@ function CalculadoraContenedorPage() {
     s3.getColumn(1).width = 42; s3.getColumn(2).width = 18;
     addSection(`Informe de Importación — ${fecha}  |  TC: 1 USD = ${fmt(tc, 4)} EUR`, []);
     addSection('Gastos de importación', [
-      ['Suplidos (repercute en coste)', supl],
-      ['Exentos / Aranceles (repercute en coste)', exen],
-      ...(suj > 0 ? [['Sujetos — transporte nacional (no repercute)', suj], ['IVA sujetos 21% (deducible)', ivaGastos]] : []),
-      ['Gastos repercutibles totales', gastosRepercutibles],
+      ['Total General — base imponible (repercute sin IVA)', suj],
+      ['Total Exento / Aranceles (repercute)', exen],
+      ['Total Suplidos — agente, handling, B/L (repercute)', supl],
+      ...(ivaDuana > 0 ? [['  − IVA Aduana (dentro de suplidos, deducible)', -ivaDuana]] : []),
+      ...(suj > 0 ? [['IVA General 21% (deducible, no repercute)', ivaGeneral]] : []),
+      ['Gastos repercutidos en producto', gastosRepercutibles],
     ]);
     addSection('Resumen', [
       ['Coste total artículos (EUR)', totalBobinasEUR],
-      ['+ Gastos repercutibles', gastosRepercutibles],
+      ['+ Gastos repercutidos', gastosRepercutibles],
       ['= COSTE PRODUCTO', costeProducto],
       ['Total desembolso real', totalDesembolso],
       ...(totalMetros > 0 ? [['Total metros lineales', `${fmt(totalMetros, 0)} m`], ['€/metro medio', costeProducto / totalMetros]] : []),
@@ -1063,6 +1071,7 @@ function CalculadoraContenedorPage() {
     suplidos: supl,
     exentos: exen,
     sujetos: suj,
+    ivaAduana: ivaDuana,
     gastosRepercutibles,
     costeProducto,
     totalDesembolso,
@@ -1165,7 +1174,7 @@ function CalculadoraContenedorPage() {
               <div>
                 <p className="text-xs opacity-70">Gastos repercutidos</p>
                 <p className="font-mono font-bold">{fmtEur(gastosRepercutibles)}</p>
-                <p className="text-xs opacity-50">Supl. {fmtEur(supl)} + Exen. {fmtEur(exen)}</p>
+                <p className="text-xs opacity-50">Gral. {fmtEur(suj)} + Exen. {fmtEur(exen)} + Supl. {fmtEur(supl - ivaDuana)}</p>
               </div>
               <div className="border-l border-primary-content/20 pl-4">
                 <p className="text-xs opacity-70">Coste producto</p>
@@ -1396,30 +1405,35 @@ function CalculadoraContenedorPage() {
             <div className="card-body p-4">
               <h2 className="font-bold text-base mb-1">Gastos de importación (€)</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
 
-                {/* Suplidos */}
+                {/* Total General */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">Suplidos</span>
+                    <span className="font-medium text-sm">Total General</span>
                     <span className="badge badge-success badge-sm">✓ Repercute</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="number" step="0.01" min="0" placeholder="0.00"
-                      value={suplidos}
-                      onChange={e => setSuplidos(e.target.value)}
+                      value={sujetos}
+                      onChange={e => setSujetos(e.target.value)}
                       className="input input-bordered w-full font-mono"
                     />
                     <span className="text-sm opacity-50">€</span>
                   </div>
-                  <p className="text-xs text-base-content/50">Agente aduanero, handling, B/L, almacenaje en puerto</p>
+                  <p className="text-xs text-base-content/50">Base imponible (sin IVA) — transporte nacional, descarga</p>
+                  {suj > 0 && (
+                    <p className="text-xs font-mono text-base-content/40">
+                      IVA 21%: {fmtEur(ivaGeneral)} → factura: {fmtEur(suj + ivaGeneral)}
+                    </p>
+                  )}
                 </div>
 
-                {/* Exentos */}
+                {/* Total Exento */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">Exentos</span>
+                    <span className="font-medium text-sm">Total Exento</span>
                     <span className="badge badge-success badge-sm">✓ Repercute</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1431,61 +1445,77 @@ function CalculadoraContenedorPage() {
                     />
                     <span className="text-sm opacity-50">€</span>
                   </div>
-                  <p className="text-xs text-base-content/50">Aranceles de aduana — coste real para el negocio</p>
+                  <p className="text-xs text-base-content/50">Aranceles de aduana — sin IVA</p>
                 </div>
 
-                {/* Sujetos */}
+                {/* Total Suplidos */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">Sujetos (21% IVA)</span>
-                    <span className="badge badge-neutral badge-sm">Solo almacenado</span>
+                    <span className="font-medium text-sm">Total Suplidos</span>
+                    <span className="badge badge-success badge-sm">✓ Repercute (neto)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="number" step="0.01" min="0" placeholder="0.00"
-                      value={sujetos}
-                      onChange={e => setSujetos(e.target.value)}
+                      value={suplidos}
+                      onChange={e => setSuplidos(e.target.value)}
                       className="input input-bordered w-full font-mono"
                     />
                     <span className="text-sm opacity-50">€</span>
                   </div>
-                  <p className="text-xs text-base-content/50">Transporte nacional, descarga en taller</p>
-                  {suj > 0 && (
+                  <p className="text-xs text-base-content/50">Agente aduanero, handling, B/L, almacenaje en puerto</p>
+                  {ivaDuana > 0 && (
                     <p className="text-xs font-mono text-base-content/40">
-                      IVA: {fmtEur(ivaGastos)} → Total factura: {fmtEur(suj + ivaGastos)}
+                      Neto repercutido: {fmtEur(supl - ivaDuana)}
                     </p>
                   )}
                 </div>
+
+                {/* IVA Aduana */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">IVA Aduana</span>
+                    <span className="badge badge-warning badge-sm">Deducible</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number" step="0.01" min="0" placeholder="0.00"
+                      value={ivaAduana}
+                      onChange={e => setIvaAduana(e.target.value)}
+                      className="input input-bordered w-full font-mono"
+                    />
+                    <span className="text-sm opacity-50">€</span>
+                  </div>
+                  <p className="text-xs text-base-content/50">Dentro de suplidos — te lo desgrava, no repercute</p>
+                </div>
               </div>
 
-              {/* Aviso sujetos */}
+              {/* Aviso */}
               <div className="alert py-2 mt-3 text-xs bg-base-300 border-base-content/10">
                 <Info className="w-4 h-4 shrink-0" />
                 <span>
-                  <strong>Sujetos (21%)</strong> se guarda para control interno pero <strong>nunca entra en el cálculo del €/metro</strong>.
-                  El IVA de los sujetos es deducible y no es un coste neto.
-                  El coste de producto se calcula exclusivamente con <strong>Suplidos + Exentos</strong>.
+                  <strong>IVA Aduana</strong> está incluido en Total Suplidos pero se descuenta del repercutido (es deducible).
+                  El <strong>IVA General</strong> (21% s/ Total General) también es deducible y <strong>no entra en el €/metro</strong>.
+                  Repercutido = <strong>General + Exento + (Suplidos − IVA Aduana)</strong>.
                 </span>
               </div>
 
               {/* Subtotales */}
               <div className="mt-4 pt-3 border-t border-base-content/10 space-y-1.5">
                 <div className="flex justify-between text-sm font-medium text-success">
-                  <span>Gastos repercutidos en producto (suplidos + exentos)</span>
+                  <span>Gastos repercutidos en producto</span>
                   <span className="font-mono">{fmtEur(gastosRepercutibles)}</span>
                 </div>
-                {suj > 0 && (
-                  <div className="flex justify-between text-sm text-base-content/40">
-                    <span className="flex items-center gap-1">
-                      <Info className="w-3 h-3" /> Sujetos (solo almacenado, no repercutido)
-                    </span>
-                    <span className="font-mono">{fmtEur(suj)}</span>
+                {ivaDuana > 0 && (
+                  <div className="flex justify-between text-sm text-warning/70 text-xs">
+                    <span className="flex items-center gap-1"><Info className="w-3 h-3" /> IVA Aduana (deducible, descontado)</span>
+                    <span className="font-mono">−{fmtEur(ivaDuana)}</span>
                   </div>
                 )}
-                {ivaGastos > 0 && (
+                {ivaGeneral > 0 && (
                   <div className="flex justify-between text-sm text-base-content/30 text-xs">
-                    <span>IVA sujetos (21%) — deducible</span>
-                    <span className="font-mono">{fmtEur(ivaGastos)}</span>
+                    <span>IVA General 21% (deducible, no repercute)</span>
+                    <span className="font-mono">{fmtEur(ivaGeneral)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-bold border-t border-base-content/10 pt-1">
@@ -1501,8 +1531,8 @@ function CalculadoraContenedorPage() {
           <p className="font-bold">Metodología</p>
           <p>Prorrateo por <strong>valor económico</strong>: cada artículo (bobina, taco, grapa, máquina…) asume el porcentaje de gastos proporcional a su precio total en €.</p>
           <p className="pt-1 border-t border-base-content/10">
-            <strong>Se repercute:</strong> Suplidos + Exentos (aranceles)<br />
-            <strong>No se repercute:</strong> Sujetos (IVA deducible)
+            <strong>Se repercute:</strong> Total General (base) + Total Exento + (Suplidos − IVA Aduana)<br />
+            <strong>No se repercute:</strong> IVA General (21%) ni IVA Aduana — ambos son deducibles
           </p>
         </div>
       </div>

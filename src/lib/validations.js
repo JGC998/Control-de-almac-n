@@ -80,6 +80,7 @@ export const importacionContenedorSchema = z.object({
   suplidos: z.coerce.number().min(0),
   exentos: z.coerce.number().min(0),
   sujetos: z.coerce.number().min(0),
+  ivaAduana: z.coerce.number().min(0).default(0),
   gastosRepercutibles: z.coerce.number().min(0),
   costeProducto: z.coerce.number().min(0),
   totalDesembolso: z.coerce.number().min(0),
