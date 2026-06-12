@@ -1,0 +1,3 @@
+ALTER TABLE `ImportacionContenedor`
+  ADD COLUMN `pesoTotalKg` DOUBLE NOT NULL DEFAULT 0,
+  ADD COLUMN `volumenM3` DOUBLE NOT NULL DEFAULT 0;

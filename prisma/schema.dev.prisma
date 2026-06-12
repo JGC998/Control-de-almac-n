@@ -521,6 +521,8 @@ model ImportacionContenedor {
   exentos             Float     @default(0)
   sujetos             Float     @default(0)
   ivaAduana           Float     @default(0)
+  pesoTotalKg         Float     @default(0)
+  volumenM3           Float     @default(0)
   gastosRepercutibles Float     @default(0)
   costeProducto       Float     @default(0)
   totalDesembolso     Float     @default(0)

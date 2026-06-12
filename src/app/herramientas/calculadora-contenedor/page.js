@@ -486,6 +486,8 @@ function CalculadoraContenedorPage() {
   const [exentos, setExentos] = useState('');
   const [sujetos, setSujetos] = useState('');
   const [ivaAduana, setIvaAduana] = useState('');
+  const [pesoTotalKg, setPesoTotalKg] = useState('');
+  const [volumenM3, setVolumenM3] = useState('');
   const [nextId, setNextId] = useState(2);
   const [modalGuardar, setModalGuardar] = useState(false);
   const [modalEscaner, setModalEscaner] = useState(false);
@@ -557,16 +559,27 @@ function CalculadoraContenedorPage() {
   const costeProducto = totalBobinasEUR + gastosRepercutibles;
   const totalDesembolso = totalBobinasEUR + supl + exen + suj + ivaGeneral;
 
+  // --- Métricas logísticas ---
+  const pesoKg = n(pesoTotalKg);
+  const volM3 = n(volumenM3);
+  const kgPorMetro = totalMetros > 0 && pesoKg > 0 ? pesoKg / totalMetros : 0;
+  const densidad = volM3 > 0 && pesoKg > 0 ? pesoKg / volM3 : 0;
+  const costeFletePorKg = pesoKg > 0 ? gastosRepercutibles / pesoKg : 0;
+  const costePorKg = pesoKg > 0 ? costeProducto / pesoKg : 0;
+  const ocupacion20ft = volM3 > 0 ? Math.min(100, (volM3 / 33) * 100) : 0;
+  const ocupacion40ft = volM3 > 0 ? Math.min(100, (volM3 / 67) * 100) : 0;
+
   // --- Prorrateo por valor ---
   const bobinasFinal = bobinasCals.map(b => {
     if (totalBobinasEUR === 0 || b.subtotalEUR === 0) {
-      return { ...b, proporcion: 0, gastosProrrateados: 0, costeFinalEUR: b.subtotalEUR, costePorMetro: 0 };
+      return { ...b, proporcion: 0, gastosProrrateados: 0, costeFinalEUR: b.subtotalEUR, costePorMetro: 0, pesoEstimadoKg: kgPorMetro > 0 ? b.totalMetrosBobina * kgPorMetro : null };
     }
     const proporcion = b.subtotalEUR / totalBobinasEUR;
     const gastosProrrateados = gastosRepercutibles * proporcion;
     const costeFinalEUR = b.subtotalEUR + gastosProrrateados;
     const costePorMetro = b.totalMetrosBobina > 0 ? costeFinalEUR / b.totalMetrosBobina : 0;
-    return { ...b, proporcion, gastosProrrateados, costeFinalEUR, costePorMetro };
+    const pesoEstimadoKg = kgPorMetro > 0 ? b.totalMetrosBobina * kgPorMetro : null;
+    return { ...b, proporcion, gastosProrrateados, costeFinalEUR, costePorMetro, pesoEstimadoKg };
   });
 
   const handleBobinaChange = (id, field, value) => {
@@ -614,6 +627,8 @@ function CalculadoraContenedorPage() {
       setExentos(String(imp.exentos));
       setSujetos(String(imp.sujetos));
       setIvaAduana(String(imp.ivaAduana ?? 0));
+      setPesoTotalKg(imp.pesoTotalKg > 0 ? String(imp.pesoTotalKg) : '');
+      setVolumenM3(imp.volumenM3 > 0 ? String(imp.volumenM3) : '');
       setEditandoId(imp.id);
       setDatosTrazabilidad({
         ...TRAZABILIDAD_VACIA,
@@ -743,6 +758,31 @@ function CalculadoraContenedorPage() {
       margin: { left: margin, right: margin },
     });
     y = doc.lastAutoTable.finalY + 10;
+
+    // ── DATOS LOGÍSTICOS ──
+    if (pesoKg > 0 || volM3 > 0) {
+      doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+      doc.text('Datos logísticos', margin, y);
+      y += 5;
+      const logBody = [];
+      if (pesoKg > 0) logBody.push(['Peso total del lote', `${fmt(pesoKg, 0)} kg`]);
+      if (volM3 > 0) logBody.push(['Volumen total del lote', `${fmt(volM3, 2)} m³`]);
+      if (kgPorMetro > 0) logBody.push(['kg / metro lineal', `${fmt(kgPorMetro, 3)} kg/m`]);
+      if (densidad > 0) logBody.push(['Densidad del lote', `${fmt(densidad, 1)} kg/m³`]);
+      if (costeFletePorKg > 0) logBody.push(['Coste flete / kg', fmtEur(costeFletePorKg)]);
+      if (costePorKg > 0) logBody.push(['Coste producto / kg', fmtEur(costePorKg)]);
+      if (ocupacion20ft > 0) logBody.push([`Ocupación contenedor 20ft (~33 m³)`, `${fmt(ocupacion20ft, 1)}%`]);
+      if (ocupacion40ft > 0) logBody.push([`Ocupación contenedor 40ft (~67 m³)`, `${fmt(ocupacion40ft, 1)}%`]);
+      autoTable(doc, {
+        startY: y,
+        body: logBody,
+        theme: 'plain',
+        styles: { fontSize: 9 },
+        columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right', fontStyle: 'bold' } },
+        margin: { left: margin, right: margin },
+      });
+      y = doc.lastAutoTable.finalY + 10;
+    }
 
     // ── RESUMEN FINAL ──
     doc.setFontSize(11); doc.setFont('helvetica', 'bold');
@@ -1047,6 +1087,18 @@ function CalculadoraContenedorPage() {
       ...(suj > 0 ? [['IVA General 21% (deducible, no repercute)', ivaGeneral]] : []),
       ['Gastos repercutidos en producto', gastosRepercutibles],
     ]);
+    if (pesoKg > 0 || volM3 > 0) {
+      const logRows = [];
+      if (pesoKg > 0) logRows.push(['Peso total del lote', `${fmt(pesoKg, 0)} kg`]);
+      if (volM3 > 0) logRows.push(['Volumen total del lote', `${fmt(volM3, 2)} m³`]);
+      if (kgPorMetro > 0) logRows.push(['kg / metro lineal', `${fmt(kgPorMetro, 3)} kg/m`]);
+      if (densidad > 0) logRows.push(['Densidad del lote', `${fmt(densidad, 1)} kg/m³`]);
+      if (costeFletePorKg > 0) logRows.push(['Coste flete / kg (€/kg)', costeFletePorKg]);
+      if (costePorKg > 0) logRows.push(['Coste producto / kg (€/kg)', costePorKg]);
+      if (ocupacion20ft > 0) logRows.push(['Ocupación 20ft (~33 m³) %', `${fmt(ocupacion20ft, 1)}%`]);
+      if (ocupacion40ft > 0) logRows.push(['Ocupación 40ft (~67 m³) %', `${fmt(ocupacion40ft, 1)}%`]);
+      addSection('Datos logísticos', logRows);
+    }
     addSection('Resumen', [
       ['Coste total artículos (EUR)', totalBobinasEUR],
       ['+ Gastos repercutidos', gastosRepercutibles],
@@ -1072,6 +1124,8 @@ function CalculadoraContenedorPage() {
     exentos: exen,
     sujetos: suj,
     ivaAduana: ivaDuana,
+    pesoTotalKg: pesoKg,
+    volumenM3: volM3,
     gastosRepercutibles,
     costeProducto,
     totalDesembolso,
@@ -1526,6 +1580,90 @@ function CalculadoraContenedorPage() {
             </div>
           </div>
 
+      {/* Datos logísticos */}
+      <div className="card bg-base-200 shadow-sm">
+        <div className="card-body p-4">
+          <h2 className="font-bold text-base mb-1">Datos logísticos (del albarán/factura)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+            <div className="space-y-1">
+              <span className="font-medium text-sm">Peso total del lote</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" step="0.1" min="0" placeholder="0.0"
+                  value={pesoTotalKg}
+                  onChange={e => setPesoTotalKg(e.target.value)}
+                  className="input input-bordered w-full font-mono"
+                />
+                <span className="text-sm opacity-50">kg</span>
+              </div>
+              <p className="text-xs text-base-content/50">Peso bruto total indicado en la factura</p>
+            </div>
+            <div className="space-y-1">
+              <span className="font-medium text-sm">Volumen total del lote</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" step="0.01" min="0" placeholder="0.00"
+                  value={volumenM3}
+                  onChange={e => setVolumenM3(e.target.value)}
+                  className="input input-bordered w-full font-mono"
+                />
+                <span className="text-sm opacity-50">m³</span>
+              </div>
+              <p className="text-xs text-base-content/50">Volumen total indicado en la factura</p>
+            </div>
+          </div>
+
+          {(pesoKg > 0 || volM3 > 0) && (
+            <div className="mt-4 pt-3 border-t border-base-content/10 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {kgPorMetro > 0 && (
+                <div className="bg-base-100 rounded-lg p-3 text-center">
+                  <p className="text-xs text-base-content/50 mb-1">kg / metro lineal</p>
+                  <p className="font-mono font-bold text-primary text-lg">{fmt(kgPorMetro, 3)}</p>
+                  <p className="text-xs text-base-content/40">kg/m</p>
+                </div>
+              )}
+              {densidad > 0 && (
+                <div className="bg-base-100 rounded-lg p-3 text-center">
+                  <p className="text-xs text-base-content/50 mb-1">Densidad del lote</p>
+                  <p className="font-mono font-bold text-lg">{fmt(densidad, 1)}</p>
+                  <p className="text-xs text-base-content/40">kg/m³</p>
+                </div>
+              )}
+              {costeFletePorKg > 0 && (
+                <div className="bg-base-100 rounded-lg p-3 text-center">
+                  <p className="text-xs text-base-content/50 mb-1">Flete / kg</p>
+                  <p className="font-mono font-bold text-lg">{fmtEur(costeFletePorKg)}</p>
+                  <p className="text-xs text-base-content/40">€/kg</p>
+                </div>
+              )}
+              {costePorKg > 0 && (
+                <div className="bg-base-100 rounded-lg p-3 text-center">
+                  <p className="text-xs text-base-content/50 mb-1">Coste / kg</p>
+                  <p className="font-mono font-bold text-success text-lg">{fmtEur(costePorKg)}</p>
+                  <p className="text-xs text-base-content/40">€/kg</p>
+                </div>
+              )}
+              {ocupacion20ft > 0 && (
+                <div className="bg-base-100 rounded-lg p-3 text-center col-span-2">
+                  <p className="text-xs text-base-content/50 mb-1">Ocupación contenedor</p>
+                  <div className="flex gap-4 justify-center items-center">
+                    <div>
+                      <p className="font-mono font-bold text-lg">{fmt(ocupacion20ft, 1)}%</p>
+                      <p className="text-xs text-base-content/40">20ft (~33 m³)</p>
+                    </div>
+                    <div className="divider divider-horizontal m-0"></div>
+                    <div>
+                      <p className="font-mono font-bold text-lg">{fmt(ocupacion40ft, 1)}%</p>
+                      <p className="text-xs text-base-content/40">40ft (~67 m³)</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="alert text-xs p-3 mt-4">
         <div className="space-y-1.5">
           <p className="font-bold">Metodología</p>
@@ -1554,6 +1692,7 @@ function CalculadoraContenedorPage() {
                     <th className="text-right">% valor</th>
                     <th className="text-right">Gastos repercutidos</th>
                     <th className="text-right">Coste total €</th>
+                    {kgPorMetro > 0 && <th className="text-right text-info">Peso est.</th>}
                     <th className="text-right text-success">€/metro o ud.</th>
                   </tr>
                 </thead>
@@ -1591,6 +1730,11 @@ function CalculadoraContenedorPage() {
                         </td>
                         <td className="text-right font-mono">{fmtEur(b.gastosProrrateados)}</td>
                         <td className="text-right font-mono font-bold">{fmtEur(b.costeFinalEUR)}</td>
+                        {kgPorMetro > 0 && (
+                          <td className="text-right font-mono text-info text-sm">
+                            {b.pesoEstimadoKg != null ? `${fmt(b.pesoEstimadoKg, 1)} kg` : '—'}
+                          </td>
+                        )}
                         <td className="text-right font-mono font-bold text-success text-base">
                           {b.costePorMetro > 0
                             ? `${fmtEur(b.costePorMetro)}/m`
@@ -1613,6 +1757,11 @@ function CalculadoraContenedorPage() {
                       <td className="text-right font-mono">100 %</td>
                       <td className="text-right font-mono">{fmtEur(gastosRepercutibles)}</td>
                       <td className="text-right font-mono">{fmtEur(costeProducto)}</td>
+                      {kgPorMetro > 0 && (
+                        <td className="text-right font-mono text-info">
+                          {pesoKg > 0 ? `${fmt(pesoKg, 0)} kg` : '—'}
+                        </td>
+                      )}
                       <td className="text-right font-mono text-success">
                         {totalMetros > 0 ? `${fmtEur(costeProducto / totalMetros)}/m` : '—'}
                       </td>
