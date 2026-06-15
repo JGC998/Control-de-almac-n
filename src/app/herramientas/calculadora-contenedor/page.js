@@ -22,6 +22,7 @@ const nuevaBobina = (id) => ({
   precio: '',
   unidadPrecio: 'M', // 'M' = USD/metro lineal | 'SQM' = USD/m² (solo BOBINA)
   notas: '',
+  tarifaMaterialId: '', // ID de TarifaMaterial a actualizar al guardar, o '__nuevo__' para crear
 });
 
 const n = (v) => parseFloat(v) || 0;
@@ -449,6 +450,8 @@ function HistorialImportaciones({ onCargar, onVerTracking }) {
 function CalculadoraContenedorPage() {
   // Historial para T-58 (autocompletar) y T-64 (alerta precio)
   const { data: importacionesHistorial } = useSWR('/api/importaciones', fetcher);
+  // Tarifas de material para vincular y auto-actualizar precio €/m²
+  const { data: tarifasMaterial } = useSWR('/api/precios', fetcher);
 
   // T-58 — referencias únicas usadas en importaciones anteriores
   const referenciasHistoricas = useMemo(() => {
@@ -1277,6 +1280,7 @@ function CalculadoraContenedorPage() {
                   <th>Long. / Pares/caja<br/><span className="font-normal opacity-60">(m / uds)</span></th>
                   <th>Rollos/<br/><span className="font-normal opacity-60">Cajas/Ud.</span></th>
                   <th>Precio<br/><span className="font-normal opacity-60">USD/unidad</span></th>
+                  <th>Tarifa €/m²<br/><span className="font-normal opacity-60">vincular</span></th>
                   <th className="text-right">Total m</th>
                   <th className="text-right">Total $</th>
                   <th className="text-right">Total €</th>
@@ -1431,6 +1435,41 @@ function CalculadoraContenedorPage() {
                           })()}
                         </div>
                       </td>
+                      {/* Tarifa €/m² — solo BOBINA */}
+                      <td>
+                        {esBobina ? (
+                          <div>
+                            <select
+                              className="select select-xs select-bordered w-40 font-mono"
+                              value={b.tarifaMaterialId || ''}
+                              onChange={e => handleBobinaChange(b.id, 'tarifaMaterialId', e.target.value)}
+                            >
+                              <option value="">— no vincular —</option>
+                              {(tarifasMaterial || [])
+                                .filter(t => !n(b.espesor) || Math.abs(t.espesor - n(b.espesor)) < 0.01)
+                                .map(t => (
+                                  <option key={t.id} value={t.id}>
+                                    {t.material} {t.espesor}mm{t.color ? ` (${t.color})` : ''}
+                                  </option>
+                                ))}
+                              {n(b.espesor) > 0 && b.referencia?.trim() && (
+                                <option value="__nuevo__">➕ Crear: {b.referencia.trim()} {b.espesor}mm</option>
+                              )}
+                            </select>
+                            {b.tarifaMaterialId && fin?.costeFinalEUR > 0 && n(b.ancho) > 0 && fin.totalMetrosBobina > 0 && (() => {
+                              const m2 = fin.totalMetrosBobina * (n(b.ancho) / 1000);
+                              const p = m2 > 0 ? fin.costeFinalEUR / m2 : 0;
+                              return p > 0 ? (
+                                <p className="text-[10px] font-mono mt-0.5 text-info">
+                                  → {fmt(p, 4)} €/m²
+                                </p>
+                              ) : null;
+                            })()}
+                          </div>
+                        ) : (
+                          <span className="text-base-content/20 text-xs px-2">—</span>
+                        )}
+                      </td>
                       {/* Total m */}
                       <td className="text-right font-mono text-sm">
                         {cal.totalMetrosBobina > 0
@@ -1457,7 +1496,7 @@ function CalculadoraContenedorPage() {
               </tbody>
               <tfoot>
                 <tr className="font-bold">
-                  <td colSpan={7} className="text-sm">Total</td>
+                  <td colSpan={8} className="text-sm">Total</td>
                   <td className="text-right font-mono text-sm">{totalMetros > 0 ? `${fmt(totalMetros, 0)} m` : '—'}</td>
                   <td className="text-right font-mono text-sm">{fmtUsd(totalBobinasUSD)}</td>
                   <td className="text-right font-mono text-sm">{fmtEur(totalBobinasEUR)}</td>
@@ -1465,6 +1504,44 @@ function CalculadoraContenedorPage() {
                 </tr>
               </tfoot>
             </table>
+            {/* Aviso de actualizaciones de tarifa al guardar */}
+            {(() => {
+              const actualizaciones = bobinas.map((b, idx) => {
+                if (b.tipo !== 'BOBINA' || !b.tarifaMaterialId) return null;
+                const fin = bobinasFinal[idx];
+                const anchoM = n(b.ancho) / 1000;
+                if (!fin || anchoM <= 0 || fin.totalMetrosBobina <= 0 || fin.costeFinalEUR <= 0) return null;
+                const totalM2 = fin.totalMetrosBobina * anchoM;
+                const nuevoPrecio = totalM2 > 0 ? fin.costeFinalEUR / totalM2 : 0;
+                if (nuevoPrecio <= 0) return null;
+                const tarifaActual = b.tarifaMaterialId === '__nuevo__'
+                  ? null
+                  : (tarifasMaterial || []).find(t => t.id === b.tarifaMaterialId);
+                const label = tarifaActual
+                  ? `${tarifaActual.material} ${tarifaActual.espesor}mm${tarifaActual.color ? ` (${tarifaActual.color})` : ''}`
+                  : `${b.referencia?.trim() || '?'} ${b.espesor || '?'}mm`;
+                return { label, precioActual: tarifaActual?.precio ?? null, nuevoPrecio, isNew: b.tarifaMaterialId === '__nuevo__' };
+              }).filter(Boolean);
+              if (actualizaciones.length === 0) return null;
+              return (
+                <div className="mt-3 mx-1 rounded-lg border border-info/40 bg-info/5 px-3 py-2.5">
+                  <p className="text-xs font-semibold text-info mb-1.5">Al guardar se actualizará automáticamente en Tarifa de materiales:</p>
+                  <ul className="space-y-0.5">
+                    {actualizaciones.map((a, i) => (
+                      <li key={i} className="text-xs font-mono text-base-content/70 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-info shrink-0">→</span>
+                        <span className="font-semibold">{a.label}</span>
+                        {a.isNew
+                          ? <span className="text-success">nueva entrada → {fmt(a.nuevoPrecio, 4)} €/m²</span>
+                          : a.precioActual != null
+                            ? <span>{fmt(a.precioActual, 4)} → <span className="font-semibold text-success">{fmt(a.nuevoPrecio, 4)} €/m²</span></span>
+                            : <span className="text-success">→ {fmt(a.nuevoPrecio, 4)} €/m²</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
             {/* T-58 — datalist global de referencias históricas */}
             <datalist id="refs-historicas">
               {referenciasHistoricas.map(ref => <option key={ref} value={ref} />)}
