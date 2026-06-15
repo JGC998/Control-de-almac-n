@@ -336,6 +336,7 @@ function SeccionModelosGenericos() {
             No hay modelos configurados. Añade los modelos de grapa que usas.
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="table table-sm w-full">
               <thead>
@@ -383,6 +384,7 @@ function SeccionModelosGenericos() {
             </table>
           </div>
           {historialAbierto && <HistorialGrapa modeloId={historialAbierto} />}
+          </>
         )}
       </div>
     </div>
