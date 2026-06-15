@@ -35,7 +35,7 @@ export async function POST() {
       return NextResponse.json({ error: 'No se encontró información de tracking para este contenedor', contenedor: trackingNum }, { status: 404 });
     }
 
-    const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento);
+    const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta);
     const enviado = await enviarWhatsApp(mensaje);
 
     return NextResponse.json({ ok: enviado, contenedor: trackingNum, mensaje });

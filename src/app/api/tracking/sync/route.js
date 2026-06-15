@@ -77,7 +77,7 @@ export async function POST(request) {
         const hayNuevidad = claveNueva && claveNueva !== imp.ultimoEvento;
 
         if (hayNuevidad) {
-          const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento);
+          const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta);
           const enviado = await enviarWhatsApp(mensaje);
           resultados.push({ id: imp.id, status: 'notificado', trackingNum, whatsapp: enviado });
         } else {

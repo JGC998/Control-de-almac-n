@@ -18,22 +18,38 @@ const PREFIJOS_YM = new Set(['YMMU', 'YMLU']);
 
 // Traducción de eventos Yang Ming → español
 const YM_EVENT_ES = {
+  // Carga y origen
   'Received at Origin':                                    'Recibido en origen',
   'Empty to Shipper':                                      'Contenedor vacío entregado al cargador',
+  'Empty Container Released':                              'Contenedor vacío liberado',
+  'Full Container Received':                               'Contenedor lleno recibido',
+  // Terminal y aduana
   'Gate In':                                               'Entrada en terminal',
   'Gate Out':                                              'Salida de terminal',
+  'Customs Clearance':                                     'Despacho de aduana',
+  'Customs Released':                                      'Liberado por aduana',
+  // Carga en buque
   'Loaded on Vessel':                                      'Cargado en buque',
-  'Vessel Departure':                                      'Salida del buque',
-  'Vessel Arrival':                                        'Llegada al puerto de destino',
+  'On Board':                                              'A bordo del buque',
+  'Transhipment Load':                                     'Cargado en trasbordo',
+  'Transhipment Discharge':                                'Descargado en trasbordo',
+  // Tránsito
+  'Vessel Departure':                                      'Buque en ruta — salida',
+  'Departure':                                             'Buque en ruta — salida',
+  'Vessel Arrival':                                        'Buque llegado al puerto de destino',
+  'Arrival':                                               'Llegada al puerto de destino',
+  'Rail Departure':                                        'Salida por ferrocarril',
+  'Rail Arrival':                                          'Llegada por ferrocarril',
+  // Descarga y destino
   'Discharged from Vessel':                                'Descargado del buque',
+  'Discharge':                                             'Descargado del buque',
   'Gate out of Full Equipment by Truck at Port terminal':  'Contenedor lleno retirado de terminal',
   'Gate in of Full Equipment by Truck at Port terminal':   'Contenedor lleno en terminal',
   'Gate in of Laden Equipment by Truck at Port terminal':  'Contenedor lleno entregado en terminal',
-  'Gate out of Empty Equipment by Truck at Depot':         'Contenedor vacío recogido en depósito',
+  'Gate out of Empty Equipment by Truck at Depot':         'Contenedor vacío devuelto al depósito',
   'Gate in of Empty Equipment by Truck at Depot':          'Devolución de contenedor vacío',
+  'Out for Delivery':                                      'En camino — entrega en curso',
   'Delivered':                                             'Entregado al receptor',
-  'Rail Departure':                                        'Salida por ferrocarril',
-  'Rail Arrival':                                          'Llegada por ferrocarril',
 };
 
 function prefijo(num) {
@@ -140,26 +156,54 @@ export async function enviarWhatsApp(mensaje) {
   return resultados.some(Boolean);
 }
 
+// Emoji según el tipo de evento
+const EMOJI_EVENTO = {
+  'Recibido en origen':                   '🏭',
+  'Contenedor vacío entregado al cargador':'📦',
+  'Entrada en terminal':                  '🏗️',
+  'Salida de terminal':                   '🚛',
+  'Cargado en buque':                     '⚓',
+  'A bordo del buque':                    '🚢',
+  'Buque en ruta — salida':               '🌊',
+  'Buque llegado al puerto de destino':   '🏁',
+  'Llegada al puerto de destino':         '🏁',
+  'Descargado del buque':                 '🏗️',
+  'Despacho de aduana':                   '🛃',
+  'Liberado por aduana':                  '✅',
+  'Contenedor lleno retirado de terminal':'🚛',
+  'En camino — entrega en curso':         '🚚',
+  'Entregado al receptor':                '✅',
+};
+
 /**
  * Genera el texto del mensaje de WhatsApp para un nuevo evento.
  */
-export function formatearMensajeTracking(imp, evento) {
+export function formatearMensajeTracking(imp, evento, eta = null) {
   const num   = imp.numContenedor || imp.blNumber || 'Sin número';
   const desc  = evento.status || 'Nuevo estado';
-  const lugar = evento.location ? `\n📍 ${evento.location}` : '';
+  const emoji = EMOJI_EVENTO[desc] || '📋';
+
   const fecha = evento.occurrenceDatetime
     ? new Date(evento.occurrenceDatetime).toLocaleString('es-ES', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
       })
-    : '';
+    : null;
+
+  const etaFmt = eta
+    ? new Date(eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null;
 
   return [
-    `📦 *Contenedor ${num}*`,
-    desc,
-    lugar,
-    fecha ? `📅 ${fecha}` : '',
-  ].filter(Boolean).join('\n');
+    imp.descripcion ? `📦 *${imp.descripcion}*` : `📦 *Contenedor ${num}*`,
+    imp.descripcion ? `🔢 ${num}` : null,
+    ``,
+    `${emoji} ${desc}`,
+    evento.location  ? `📍 ${evento.location}` : null,
+    evento.vesselVoyage ? `🛳 ${evento.vesselVoyage}` : null,
+    fecha            ? `📅 ${fecha}` : null,
+    etaFmt           ? `🕐 ETA prevista: ${etaFmt}` : null,
+  ].filter(s => s !== null).join('\n');
 }
 
 /**
