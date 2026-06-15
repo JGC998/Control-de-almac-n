@@ -101,7 +101,7 @@ async function buscarTrackingYangMing(trackingNumber) {
     status:               YM_EVENT_ES[e.eventDesc] ?? e.eventDesc ?? 'Evento desconocido',
     occurrenceDatetime:   parseFechaYM(e.moveDate),
     location:             e.atFacility ?? null,
-    vesselVoyage:         e.vesselVoyage ?? null,
+    vesselVoyage:         e.vesselVoyage ? e.vesselVoyage.replace(/<br\s*\/?>/gi, ' ').trim() : null,
   }));
 
   const ultimoEvento = eventos[0] ?? null;
@@ -147,9 +147,16 @@ export async function enviarWhatsApp(mensaje) {
     return false;
   }
 
-  const enviar = ({ phone, apikey }) => {
+  const enviar = async ({ phone, apikey }) => {
     const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(mensaje)}&apikey=${encodeURIComponent(apikey)}`;
-    return fetch(url, { signal: AbortSignal.timeout(10_000) }).then(r => r.ok).catch(() => false);
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (!r.ok) console.warn(`[tracking] CallMeBot HTTP ${r.status} para ${phone}`);
+      return r.ok;
+    } catch (e) {
+      console.warn(`[tracking] CallMeBot error para ${phone}: ${e.message}`);
+      return false;
+    }
   };
 
   const resultados = await Promise.all(destinatarios.map(enviar));
