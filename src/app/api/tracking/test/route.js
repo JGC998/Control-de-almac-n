@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { enviarWhatsApp } from '@/lib/tracking';
+import { buscarTracking, enviarWhatsApp, formatearMensajeTracking } from '@/lib/tracking';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/tracking/test
- * Envía un WhatsApp de prueba con el estado del último contenedor activo.
+ * Consulta el estado actual del último contenedor activo y lo envía por WhatsApp.
  */
 export async function POST() {
   try {
@@ -20,9 +20,7 @@ export async function POST() {
         blNumber: true,
         descripcion: true,
         estado: true,
-        ultimoEstadoTracking: true,
-        ultimoTrackingCheck: true,
-        etaEstimada: true,
+        courierCode: true,
       },
     });
 
@@ -30,35 +28,20 @@ export async function POST() {
       return NextResponse.json({ error: 'No hay contenedores con tracking activo' }, { status: 404 });
     }
 
-    const num = imp.numContenedor || imp.blNumber || 'Sin número';
-    const ultimoCheck = imp.ultimoTrackingCheck
-      ? new Date(imp.ultimoTrackingCheck).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-      : 'Nunca';
-    const eta = imp.etaEstimada
-      ? new Date(imp.etaEstimada).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
-      : null;
+    const trackingNum = imp.numContenedor?.trim() || imp.blNumber?.trim();
+    const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
-    const lineas = [
-      `🧪 PRUEBA DE WHATSAPP`,
-      `📦 Contenedor: ${num}`,
-      imp.descripcion ? `📋 ${imp.descripcion}` : null,
-      `🔄 Estado: ${imp.estado}`,
-      imp.ultimoEstadoTracking ? `📍 Último evento: ${imp.ultimoEstadoTracking}` : null,
-      eta ? `🕐 ETA estimada: ${eta}` : null,
-      `⏱ Último check: ${ultimoCheck}`,
-      `✅ Si recibes este mensaje, la configuración es correcta`,
-    ].filter(Boolean).join('\n');
+    if (!tracking?.ultimoEvento) {
+      return NextResponse.json({ error: 'No se encontró información de tracking para este contenedor', contenedor: trackingNum }, { status: 404 });
+    }
 
-    const enviado = await enviarWhatsApp(lineas);
+    const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento);
+    const enviado = await enviarWhatsApp(mensaje);
 
-    return NextResponse.json({
-      ok: enviado,
-      contenedor: num,
-      mensaje: lineas,
-    });
+    return NextResponse.json({ ok: enviado, contenedor: trackingNum, mensaje });
 
   } catch (error) {
     logApiError(error, 'POST /api/tracking/test');
-    return NextResponse.json({ error: 'Error al enviar prueba' }, { status: 500 });
+    return NextResponse.json({ error: 'Error al enviar estado' }, { status: 500 });
   }
 }
