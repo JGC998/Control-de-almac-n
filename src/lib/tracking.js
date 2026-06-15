@@ -2,8 +2,10 @@
  * Tracking de contenedores Yang Ming + notificaciones WhatsApp via CallMeBot.
  *
  * Variables de entorno requeridas:
- *   CALLMEBOT_PHONE  — Número sin + (ej: 34612345678)
- *   CALLMEBOT_APIKEY — API key de CallMeBot
+ *   CALLMEBOT_PHONE   — Número sin + (ej: 34612345678)
+ *   CALLMEBOT_APIKEY  — API key de CallMeBot
+ *   CALLMEBOT_PHONE_2  — (Opcional) Segundo número
+ *   CALLMEBOT_APIKEY_2 — (Opcional) API key del segundo número
  *
  * Fuente de datos: API pública de Yang Ming (sin autenticación).
  * Soporta contenedores con prefijo YMMU / YMLU.
@@ -119,21 +121,23 @@ export async function buscarTracking(trackingNumber, _uuid = null) {
  * Envía un mensaje de WhatsApp via CallMeBot.
  */
 export async function enviarWhatsApp(mensaje) {
-  const phone  = process.env.CALLMEBOT_PHONE;
-  const apikey = process.env.CALLMEBOT_APIKEY;
+  const destinatarios = [
+    { phone: process.env.CALLMEBOT_PHONE,   apikey: process.env.CALLMEBOT_APIKEY },
+    { phone: process.env.CALLMEBOT_PHONE_2, apikey: process.env.CALLMEBOT_APIKEY_2 },
+  ].filter(d => d.phone && d.apikey);
 
-  if (!phone || !apikey) {
-    console.warn('[tracking] CALLMEBOT_PHONE o CALLMEBOT_APIKEY no configurados — WhatsApp desactivado');
+  if (destinatarios.length === 0) {
+    console.warn('[tracking] Ningún CALLMEBOT_PHONE/APIKEY configurado — WhatsApp desactivado');
     return false;
   }
 
-  const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(mensaje)}&apikey=${encodeURIComponent(apikey)}`;
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
+  const enviar = ({ phone, apikey }) => {
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(mensaje)}&apikey=${encodeURIComponent(apikey)}`;
+    return fetch(url, { signal: AbortSignal.timeout(10_000) }).then(r => r.ok).catch(() => false);
+  };
+
+  const resultados = await Promise.all(destinatarios.map(enviar));
+  return resultados.some(Boolean);
 }
 
 /**
