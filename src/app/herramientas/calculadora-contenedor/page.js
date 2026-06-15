@@ -17,6 +17,7 @@ const nuevaBobina = (id) => ({
   espesor: '',
   ancho: '',
   longitud: '',
+  paresPorCaja: '',
   numRollos: '1',
   precio: '',
   unidadPrecio: 'M', // 'M' = USD/metro lineal | 'SQM' = USD/m² (solo BOBINA)
@@ -1273,7 +1274,7 @@ function CalculadoraContenedorPage() {
                   <th>Referencia</th>
                   <th>Esp.<br/><span className="font-normal opacity-60">(mm)</span></th>
                   <th>Ancho<br/><span className="font-normal opacity-60">(mm)</span></th>
-                  <th>Long./Metros<br/><span className="font-normal opacity-60">(m)</span></th>
+                  <th>Long. / Pares/caja<br/><span className="font-normal opacity-60">(m / uds)</span></th>
                   <th>Rollos/<br/><span className="font-normal opacity-60">Cajas/Ud.</span></th>
                   <th>Precio<br/><span className="font-normal opacity-60">USD/unidad</span></th>
                   <th className="text-right">Total m</th>
@@ -1285,6 +1286,7 @@ function CalculadoraContenedorPage() {
               <tbody>
                 {bobinas.map((b, idx) => {
                   const cal = bobinasCals[idx];
+                  const fin = bobinasFinal[idx];
                   const tipo = b.tipo || 'BOBINA';
                   const esBobina = tipo === 'BOBINA';
                   const esTaco   = tipo === 'TACO';
@@ -1344,7 +1346,7 @@ function CalculadoraContenedorPage() {
                             />
                           : <span className="text-base-content/20 text-xs px-2">—</span>}
                       </td>
-                      {/* Longitud/Metros — BOBINA y TACO */}
+                      {/* Longitud (BOBINA/TACO) o Pares/caja (GRAPA) */}
                       <td>
                         {(esBobina || esTaco)
                           ? <input type="number" step="1" min="0" placeholder="0"
@@ -1352,7 +1354,14 @@ function CalculadoraContenedorPage() {
                               onChange={e => handleBobinaChange(b.id, 'longitud', e.target.value)}
                               className="input input-xs input-bordered w-24 font-mono"
                             />
-                          : <span className="text-base-content/20 text-xs px-2">—</span>}
+                          : esGrapa
+                            ? <input type="number" step="1" min="1" placeholder="8"
+                                value={b.paresPorCaja || ''}
+                                onChange={e => handleBobinaChange(b.id, 'paresPorCaja', e.target.value)}
+                                className="input input-xs input-bordered w-20 font-mono"
+                                title="Pares de grapa por caja"
+                              />
+                            : <span className="text-base-content/20 text-xs px-2">—</span>}
                       </td>
                       {/* Rollos / Cajas / Cantidad — todo excepto TACO */}
                       <td>
@@ -1395,6 +1404,16 @@ function CalculadoraContenedorPage() {
                           {esBobina && b.unidadPrecio === 'SQM' && !n(b.ancho) && (
                             <p className="text-[10px] text-warning mt-0.5">↑ falta ancho</p>
                           )}
+                          {esGrapa && n(b.paresPorCaja) > 0 && n(b.ancho) > 0 && fin?.costeFinalEUR > 0 && (() => {
+                            const costePorCaja = fin.costeFinalEUR / n(b.numRollos || 1);
+                            const unidades100mm = n(b.paresPorCaja) * n(b.ancho) / 100;
+                            const p100mm = unidades100mm > 0 ? costePorCaja / unidades100mm : 0;
+                            return p100mm > 0 ? (
+                              <p className="text-[10px] font-mono mt-0.5 text-info">
+                                ≈{p100mm.toLocaleString('es-ES', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} €/100mm
+                              </p>
+                            ) : null;
+                          })()}
                           {/* T-64: Alerta variación de precio vs última importación */}
                           {n(b.precio) > 0 && b.referencia?.trim() && (() => {
                             const prev = preciosAnteriores[b.referencia.trim()];

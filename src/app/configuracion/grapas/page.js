@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Link2, Plus, Pencil, Trash2, Save, X, Settings } from 'lucide-react';
+import { Link2, Plus, Pencil, Trash2, Save, X, Settings, History } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -15,6 +15,50 @@ function espesorLabel(modelo) {
 }
 
 const FORM_VACIO = { tipo: 'NORMAL', nombre: '', espesorDesde: '', espesorHasta: '', anchosDisponibles: '', precioPor100mm: '' };
+
+// ── Historial de precios de un modelo de grapa ───────────────────────────────
+
+function HistorialGrapa({ modeloId }) {
+  const { data: historial, isLoading } = useSWR(`/api/modelos-grapa/${modeloId}/historial`);
+  const fmt4 = (v) => v?.toLocaleString('es-ES', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  return (
+    <div className="border-t border-base-200 bg-base-50 px-4 py-3">
+      <h4 className="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">Historial de precios</h4>
+      {isLoading ? (
+        <span className="loading loading-spinner loading-xs" />
+      ) : !historial || historial.length === 0 ? (
+        <p className="text-xs text-base-content/40">Sin cambios registrados aún. Los cambios se registran al guardar una importación con este modelo de grapa.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="table table-xs w-full">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Precio anterior</th>
+                <th>Precio nuevo</th>
+                <th>Ancho (mm)</th>
+                <th>Pares/caja</th>
+                <th>Coste/caja (€)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historial.map(h => (
+                <tr key={h.id}>
+                  <td className="text-xs">{new Date(h.creadoEn).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                  <td className="font-mono text-xs text-base-content/50">{fmt4(h.precioPor100mmAnterior)} €</td>
+                  <td className="font-mono text-xs font-semibold">{fmt4(h.precioPor100mmNuevo)} €</td>
+                  <td className="font-mono text-xs">{h.anchoPar}</td>
+                  <td className="font-mono text-xs">{h.paresPorCaja}</td>
+                  <td className="font-mono text-xs">{h.costePorCaja?.toLocaleString('es-ES', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} €</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Sección: Modelos genéricos de grapa ──────────────────────────────────────
 
@@ -33,6 +77,7 @@ function SeccionModelosGenericos() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [errMsg, setErrMsg] = useState('');
+  const [historialAbierto, setHistorialAbierto] = useState(null); // id del modelo
 
   const handleGuardarMerma = async () => {
     setGuardandoMerma(true);
@@ -321,6 +366,9 @@ function SeccionModelosGenericos() {
                     <td className="text-right font-mono">{formatCurrency(m.precioPor100mm)}</td>
                     <td className="text-right">
                       <div className="flex gap-1 justify-end">
+                        <button className="btn btn-xs btn-ghost" onClick={() => setHistorialAbierto(prev => prev === m.id ? null : m.id)} title="Historial de precios">
+                          <History className="w-3.5 h-3.5" />
+                        </button>
                         <button className="btn btn-xs btn-ghost" onClick={() => abrirEditar(m)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -334,6 +382,7 @@ function SeccionModelosGenericos() {
               </tbody>
             </table>
           </div>
+          {historialAbierto && <HistorialGrapa modeloId={historialAbierto} />}
         )}
       </div>
     </div>

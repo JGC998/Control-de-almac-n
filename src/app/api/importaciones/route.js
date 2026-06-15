@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { importacionContenedorSchema } from '@/lib/validations';
+import { actualizarPrecioGrapas } from '@/lib/importacion-grapas';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,7 @@ export async function POST(request) {
       include: { proveedor: { select: { id: true, nombre: true } } },
     });
 
+    actualizarPrecioGrapas(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio, registro.id).catch(() => {});
     return NextResponse.json(registro, { status: 201 });
   } catch (error) {
     logApiError(error, 'POST /api/importaciones');

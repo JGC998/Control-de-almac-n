@@ -434,6 +434,20 @@ model Grapa {
   updatedAt   DateTime @updatedAt
 }
 
+model ModeloGrapa {
+  id                Int      @id @default(autoincrement())
+  tipo              String
+  nombre            String
+  espesorDesde      Float
+  espesorHasta      Float?
+  anchosDisponibles Json?
+  precioPor100mm    Float    @default(0)
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  historialPrecios  HistorialPrecioGrapa[]
+}
+
 model TarifaTransporte {
   id           String @id @default(uuid())
   provincia    String
@@ -508,6 +522,21 @@ model TarifaCliente {
   activa         Boolean   @default(true)
   creadaEn       DateTime  @default(now())
 
+}
+
+model HistorialPrecioGrapa {
+  id                     Int         @id @default(autoincrement())
+  modeloGrapaId          Int
+  modeloGrapa            ModeloGrapa @relation(fields: [modeloGrapaId], references: [id], onDelete: Cascade)
+  precioPor100mmAnterior Float
+  precioPor100mmNuevo    Float
+  costePorCaja           Float
+  anchoPar               Int
+  paresPorCaja           Int
+  importacionId          String?
+  creadoEn               DateTime    @default(now())
+
+  @@index([modeloGrapaId])
 }
 
 model ImportacionContenedor {
