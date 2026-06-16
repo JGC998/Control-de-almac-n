@@ -44,18 +44,20 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
       if (nuevoPrecioM2 <= 0) continue;
 
       if (b.tarifaMaterialId === '__nuevo__') {
-        const refTrimmed = b.referencia?.trim();
+        // T-74: usar b.material (tipo seleccionado por el usuario) si existe,
+        // si no, caer en b.referencia como antes para retrocompatibilidad
+        const materialNombre = b.material?.trim() || b.referencia?.trim();
         const espesorVal = n(b.espesor);
-        if (!refTrimmed || espesorVal <= 0) continue;
+        if (!materialNombre || espesorVal <= 0) continue;
 
         const existente = await db.tarifaMaterial.findFirst({
-          where: { material: refTrimmed, espesor: espesorVal },
+          where: { material: materialNombre, espesor: espesorVal },
         });
         if (existente) {
           await db.tarifaMaterial.update({ where: { id: existente.id }, data: { precio: nuevoPrecioM2 } });
         } else {
           await db.tarifaMaterial.create({
-            data: { material: refTrimmed, espesor: espesorVal, precio: nuevoPrecioM2, peso: 0 },
+            data: { material: materialNombre, espesor: espesorVal, precio: nuevoPrecioM2, peso: 0 },
           });
         }
       } else {

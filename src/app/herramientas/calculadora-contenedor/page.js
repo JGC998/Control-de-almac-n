@@ -14,6 +14,7 @@ const nuevaBobina = (id) => ({
   id,
   tipo: 'BOBINA', // 'BOBINA' | 'TACO' | 'GRAPA' | 'MAQUINA' | 'OTRO'
   referencia: '',
+  material: '',    // Tipo de material (PVC, LONA…) — filtra el dropdown de tarifa
   espesor: '',
   ancho: '',
   longitud: '',
@@ -465,6 +466,12 @@ function CalculadoraContenedorPage() {
     });
     return [...refs].sort();
   }, [importacionesHistorial]);
+
+  // T-74 — lista única de materiales para el selector de tipo
+  const materialesUnicos = useMemo(() => {
+    if (!tarifasMaterial) return [];
+    return [...new Set(tarifasMaterial.map(t => t.material))].sort();
+  }, [tarifasMaterial]);
 
   // T-64 — último precio conocido por referencia { ref → { precio, unidad } }
   const preciosAnteriores = useMemo(() => {
@@ -1274,6 +1281,7 @@ function CalculadoraContenedorPage() {
               <thead>
                 <tr>
                   <th>Tipo</th>
+                  <th>Material<br/><span className="font-normal opacity-60">tipo</span></th>
                   <th>Referencia</th>
                   <th>Esp.<br/><span className="font-normal opacity-60">(mm)</span></th>
                   <th>Ancho<br/><span className="font-normal opacity-60">(mm)</span></th>
@@ -1313,6 +1321,25 @@ function CalculadoraContenedorPage() {
                           <option value="ESTRELLA">Estrella</option>
                           <option value="OTRO">Otro</option>
                         </select>
+                      </td>
+                      {/* Material (T-74) — selector de tipo para filtrar tarifa */}
+                      <td>
+                        {esBobina ? (
+                          <select
+                            className="select select-xs select-bordered w-28"
+                            value={b.material || ''}
+                            onChange={e => {
+                              handleBobinaChange(b.id, 'material', e.target.value);
+                              // Al cambiar material, limpiar vínculo de tarifa para evitar referencias cruzadas
+                              handleBobinaChange(b.id, 'tarifaMaterialId', '');
+                            }}
+                          >
+                            <option value="">— tipo —</option>
+                            {materialesUnicos.map(m => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        ) : <span className="text-base-content/20 text-xs px-2">—</span>}
                       </td>
                       {/* Referencia + Notas (T-58: datalist autocompletar) */}
                       <td>
@@ -1435,7 +1462,7 @@ function CalculadoraContenedorPage() {
                           })()}
                         </div>
                       </td>
-                      {/* Tarifa €/m² — solo BOBINA */}
+                      {/* Tarifa €/m² — solo BOBINA (T-74: filtra por material seleccionado) */}
                       <td>
                         {esBobina ? (
                           <div>
@@ -1446,14 +1473,14 @@ function CalculadoraContenedorPage() {
                             >
                               <option value="">— no vincular —</option>
                               {(tarifasMaterial || [])
-                                .filter(t => !n(b.espesor) || Math.abs(t.espesor - n(b.espesor)) < 0.01)
+                                .filter(t => !b.material || t.material === b.material)
                                 .map(t => (
                                   <option key={t.id} value={t.id}>
-                                    {t.material} {t.espesor}mm{t.color ? ` (${t.color})` : ''}
+                                    {t.material} {t.espesor}mm{t.color ? ` (${t.color})` : ''}{t.lonas ? ` ${t.lonas}L` : ''}
                                   </option>
                                 ))}
-                              {n(b.espesor) > 0 && b.referencia?.trim() && (
-                                <option value="__nuevo__">➕ Crear: {b.referencia.trim()} {b.espesor}mm</option>
+                              {b.material && n(b.espesor) > 0 && (
+                                <option value="__nuevo__">➕ Crear: {b.material} {b.espesor}mm</option>
                               )}
                             </select>
                             {b.tarifaMaterialId && fin?.costeFinalEUR > 0 && n(b.ancho) > 0 && fin.totalMetrosBobina > 0 && (() => {
@@ -1496,7 +1523,7 @@ function CalculadoraContenedorPage() {
               </tbody>
               <tfoot>
                 <tr className="font-bold">
-                  <td colSpan={8} className="text-sm">Total</td>
+                  <td colSpan={9} className="text-sm">Total</td>
                   <td className="text-right font-mono text-sm">{totalMetros > 0 ? `${fmt(totalMetros, 0)} m` : '—'}</td>
                   <td className="text-right font-mono text-sm">{fmtUsd(totalBobinasUSD)}</td>
                   <td className="text-right font-mono text-sm">{fmtEur(totalBobinasEUR)}</td>
@@ -1519,7 +1546,7 @@ function CalculadoraContenedorPage() {
                   : (tarifasMaterial || []).find(t => t.id === b.tarifaMaterialId);
                 const label = tarifaActual
                   ? `${tarifaActual.material} ${tarifaActual.espesor}mm${tarifaActual.color ? ` (${tarifaActual.color})` : ''}`
-                  : `${b.referencia?.trim() || '?'} ${b.espesor || '?'}mm`;
+                  : `${b.material || b.referencia?.trim() || '?'} ${b.espesor || '?'}mm`;
                 return { label, precioActual: tarifaActual?.precio ?? null, nuevoPrecio, isNew: b.tarifaMaterialId === '__nuevo__' };
               }).filter(Boolean);
               if (actualizaciones.length === 0) return null;
