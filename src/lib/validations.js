@@ -208,6 +208,7 @@ export const tarifaMaterialSchema = z.object({
     peso: z.number().nonnegative('Peso no puede ser negativo'),
     color: z.string().optional().nullable(),
     lonas: z.number().int().positive().optional().nullable(),
+    acabado: z.string().max(100).optional().nullable(),
 });
 
 export const reglaMargenSchema = z.object({

@@ -57,6 +57,7 @@ export async function POST(request) {
         peso: getSafeFloat(data.peso),
         color: data.color || null,
         lonas: data.lonas != null && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
+        acabado: data.acabado?.trim() || null,
       },
     });
     await logCreate('TarifaMaterial', newTarifa.id, newTarifa, 'Admin');
@@ -89,6 +90,7 @@ export async function PUT(request) {
         peso: getSafeFloat(data.peso),
         color: data.color || null,
         lonas: data.lonas != null && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
+        acabado: data.acabado?.trim() || null,
       },
     });
     await logUpdate('TarifaMaterial', id, tarifaAnterior, updatedTarifa, 'Admin');

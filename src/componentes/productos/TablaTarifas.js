@@ -13,6 +13,8 @@ export default function TablaTarifas() {
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
   const [editandoLonas, setEditandoLonas] = useState(null); // { id, value }
   const [guardandoLonas, setGuardandoLonas] = useState(false);
+  const [editandoAcabado, setEditandoAcabado] = useState(null); // { id, value }
+  const [guardandoAcabado, setGuardandoAcabado] = useState(false);
 
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
@@ -26,19 +28,37 @@ export default function TablaTarifas() {
 
   const handleGuardarLonas = async (row) => {
     if (guardandoLonas) return;
-    const nuevoValor = editandoLonas.value === '' ? null : parseInt(editandoLonas.value);
+    const nuevoValor = editandoLonas.value === '' ? null : parseInt(editandoLonas.value, 10);
     if (nuevoValor === (row.lonas ?? null)) { setEditandoLonas(null); return; }
     setGuardandoLonas(true);
     try {
       await fetch('/api/precios', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: row.id, material: row.material, espesor: row.espesor, precio: row.precio, peso: row.peso, color: row.color, lonas: nuevoValor }),
+        body: JSON.stringify({ id: row.id, material: row.material, espesor: row.espesor, precio: row.precio, peso: row.peso, color: row.color, lonas: nuevoValor, acabado: row.acabado }),
       });
       mutate('/api/precios');
     } finally {
       setGuardandoLonas(false);
       setEditandoLonas(null);
+    }
+  };
+
+  const handleGuardarAcabado = async (row) => {
+    if (guardandoAcabado) return;
+    const nuevoValor = editandoAcabado.value.trim() || null;
+    if (nuevoValor === (row.acabado ?? null)) { setEditandoAcabado(null); return; }
+    setGuardandoAcabado(true);
+    try {
+      await fetch('/api/precios', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, material: row.material, espesor: row.espesor, precio: row.precio, peso: row.peso, color: row.color, lonas: row.lonas, acabado: nuevoValor }),
+      });
+      mutate('/api/precios');
+    } finally {
+      setGuardandoAcabado(false);
+      setEditandoAcabado(null);
     }
   };
 
@@ -74,12 +94,13 @@ export default function TablaTarifas() {
       : 'Sin margen (precio base)';
     doc.text(`Filtro: ${selectedMaterial}   ·   ${margenText}   ·   Impreso el ${fecha}`, 14, 23);
 
-    const tableColumn = ["Material", "Lonas", "Espesor (mm)", "Color", "Precio Base (€/m²)", "Precio Final (€/m²)", "Peso (kg/m²)"];
+    const tableColumn = ["Material", "Lonas", "Acabado", "Espesor (mm)", "Color", "Precio Base (€/m²)", "Precio Final (€/m²)", "Peso (kg/m²)"];
     const tableRows = filteredTarifas.map(row => {
       const finalPrice = row.precio * (selectedMargin?.multiplicador || 1);
       return [
         row.material,
         row.lonas != null ? String(row.lonas) : '—',
+        row.acabado || '—',
         row.espesor.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
         row.color || '—',
         row.precio.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €',
@@ -185,6 +206,7 @@ export default function TablaTarifas() {
               <tr>
                 <th className="text-center">Material</th>
                 <th className="text-center">Lonas</th>
+                <th className="text-center">Acabado</th>
                 <th className="text-center">Espesor (mm)</th>
                 <th className="text-center">Precio Base (€/m²)</th>
                 <th className="text-center font-bold">Precio Final (€/m²)</th>
@@ -216,6 +238,28 @@ export default function TablaTarifas() {
                           onClick={() => setEditandoLonas({ id: row.id, value: row.lonas != null ? String(row.lonas) : '' })}
                         >
                           {row.lonas != null ? row.lonas : <span className="opacity-30 text-xs">—</span>}
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-center">
+                      {editandoAcabado?.id === row.id ? (
+                        <input
+                          type="text"
+                          placeholder="PVC/Tejido…"
+                          className="input input-xs input-bordered w-28 text-center"
+                          value={editandoAcabado.value}
+                          onChange={e => setEditandoAcabado(prev => ({ ...prev, value: e.target.value }))}
+                          onBlur={() => handleGuardarAcabado(row)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleGuardarAcabado(row); if (e.key === 'Escape') setEditandoAcabado(null); }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:text-primary text-sm"
+                          title="Clic para editar acabado"
+                          onClick={() => setEditandoAcabado({ id: row.id, value: row.acabado ?? '' })}
+                        >
+                          {row.acabado || <span className="opacity-30 text-xs">—</span>}
                         </span>
                       )}
                     </td>
