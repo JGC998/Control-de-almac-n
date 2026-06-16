@@ -56,6 +56,7 @@ export async function POST(request) {
         precio: getSafeFloat(data.precio),
         peso: getSafeFloat(data.peso),
         color: data.color || null,
+        lonas: data.lonas != null ? parseInt(data.lonas) : null,
       },
     });
     await logCreate('TarifaMaterial', newTarifa.id, newTarifa, 'Admin');
@@ -87,6 +88,7 @@ export async function PUT(request) {
         precio: getSafeFloat(data.precio),
         peso: getSafeFloat(data.peso),
         color: data.color || null,
+        lonas: data.lonas != null ? parseInt(data.lonas) : null,
       },
     });
     await logUpdate('TarifaMaterial', id, tarifaAnterior, updatedTarifa, 'Admin');

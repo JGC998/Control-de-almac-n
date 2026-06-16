@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-import useSWR from 'swr';
-import Link from 'next/link'; // Importar Link
+import useSWR, { mutate } from 'swr';
+import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
-import { Download, Settings } from 'lucide-react'; // Importar Settings
+import { Download, Settings } from 'lucide-react';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -11,6 +11,8 @@ import autoTable from "jspdf-autotable";
 export default function TablaTarifas() {
   const [selectedMarginId, setSelectedMarginId] = useState('');
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
+  const [editandoLonas, setEditandoLonas] = useState(null); // { id, value }
+  const [guardandoLonas, setGuardandoLonas] = useState(false);
 
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
@@ -21,6 +23,24 @@ export default function TablaTarifas() {
     if (!margenes || !selectedMarginId) return null;
     return margenes.find(m => m.id === selectedMarginId);
   }, [margenes, selectedMarginId]);
+
+  const handleGuardarLonas = async (row) => {
+    if (guardandoLonas) return;
+    const nuevoValor = editandoLonas.value === '' ? null : parseInt(editandoLonas.value);
+    if (nuevoValor === (row.lonas ?? null)) { setEditandoLonas(null); return; }
+    setGuardandoLonas(true);
+    try {
+      await fetch('/api/precios', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, material: row.material, espesor: row.espesor, precio: row.precio, peso: row.peso, color: row.color, lonas: nuevoValor }),
+      });
+      mutate('/api/precios');
+    } finally {
+      setGuardandoLonas(false);
+      setEditandoLonas(null);
+    }
+  };
 
   const uniqueMaterials = useMemo(() => {
     if (!Array.isArray(tarifas)) return [];
@@ -54,11 +74,12 @@ export default function TablaTarifas() {
       : 'Sin margen (precio base)';
     doc.text(`Filtro: ${selectedMaterial}   ·   ${margenText}   ·   Impreso el ${fecha}`, 14, 23);
 
-    const tableColumn = ["Material", "Espesor (mm)", "Color", "Precio Base (€/m²)", "Precio Final (€/m²)", "Peso (kg/m²)"];
+    const tableColumn = ["Material", "Lonas", "Espesor (mm)", "Color", "Precio Base (€/m²)", "Precio Final (€/m²)", "Peso (kg/m²)"];
     const tableRows = filteredTarifas.map(row => {
       const finalPrice = row.precio * (selectedMargin?.multiplicador || 1);
       return [
         row.material,
+        row.lonas != null ? String(row.lonas) : '—',
         row.espesor.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
         row.color || '—',
         row.precio.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €',
@@ -163,8 +184,8 @@ export default function TablaTarifas() {
             <thead>
               <tr>
                 <th className="text-center">Material</th>
+                <th className="text-center">Lonas</th>
                 <th className="text-center">Espesor (mm)</th>
-                {/* Modificado para claridad */}
                 <th className="text-center">Precio Base (€/m²)</th>
                 <th className="text-center font-bold">Precio Final (€/m²)</th>
                 <th className="text-center">Peso (kg/m²)</th>
@@ -173,19 +194,34 @@ export default function TablaTarifas() {
             <tbody>
               {filteredTarifas?.map(row => {
                 const finalPrice = row.precio * (selectedMargin?.multiplicador || 1);
-
+                const isEditing = editandoLonas?.id === row.id;
                 return (
                   <tr key={row.id} className="hover">
                     <td className="font-bold text-center">{row.material}</td>
+                    <td className="text-center">
+                      {isEditing ? (
+                        <input
+                          type="number" min="1" step="1"
+                          className="input input-xs input-bordered w-16 font-mono text-center"
+                          value={editandoLonas.value}
+                          onChange={e => setEditandoLonas(prev => ({ ...prev, value: e.target.value }))}
+                          onBlur={() => handleGuardarLonas(row)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleGuardarLonas(row); if (e.key === 'Escape') setEditandoLonas(null); }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:text-primary font-mono text-sm"
+                          title="Clic para editar lonas"
+                          onClick={() => setEditandoLonas({ id: row.id, value: row.lonas != null ? String(row.lonas) : '' })}
+                        >
+                          {row.lonas != null ? row.lonas : <span className="opacity-30 text-xs">—</span>}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-center">{row.espesor}</td>
-                    {/* Precio Base */}
-                    <td className="text-center opacity-70">
-                      {formatCurrency(row.precio)}
-                    </td>
-                    {/* Precio Final (destacado) */}
-                    <td className="text-center font-bold text-primary">
-                      {formatCurrency(finalPrice)}
-                    </td>
+                    <td className="text-center opacity-70">{formatCurrency(row.precio)}</td>
+                    <td className="text-center font-bold text-primary">{formatCurrency(finalPrice)}</td>
                     <td className="text-center">{row.peso.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg</td>
                   </tr>
                 );

@@ -306,8 +306,9 @@ model TarifaMaterial {
   precio   Float
   peso     Float
   color    String?
+  lonas    Int?
 
-  @@unique([material, espesor, color])
+  @@unique([material, espesor, color, lonas])
 }
 
 model TarifaRollo {
