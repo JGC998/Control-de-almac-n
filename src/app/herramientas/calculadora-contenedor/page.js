@@ -53,8 +53,7 @@ function EstadoBadge({ estado }) {
   return <span className={`badge badge-sm ${e.color}`}>{e.label}</span>;
 }
 
-function ModalGuardar({ datos, editandoId, onClose }) {
-  const { data: proveedores } = useSWR('/api/proveedores', fetcher);
+function ModalGuardar({ datos, editandoId, onClose, proveedores }) {
   const [descripcion, setDescripcion] = useState(datos.descripcion || '');
   const [proveedorId, setProveedorId] = useState(datos.proveedorId || '');
   const [numFactura, setNumFactura] = useState(datos.numFactura || '');
@@ -453,6 +452,8 @@ function CalculadoraContenedorPage() {
   const { data: importacionesHistorial } = useSWR('/api/importaciones', fetcher);
   // Tarifas de material para vincular y auto-actualizar precio €/m²
   const { data: tarifasMaterial } = useSWR('/api/precios', fetcher);
+  // Proveedores — pre-cargados aquí para que el modal los tenga listos al abrirse
+  const { data: proveedoresLista } = useSWR('/api/proveedores', fetcher);
 
   // T-58 — referencias únicas usadas en importaciones anteriores
   const referenciasHistoricas = useMemo(() => {
@@ -1911,6 +1912,7 @@ function CalculadoraContenedorPage() {
           datos={{ ...datosParaGuardar, ...datosTrazabilidad }}
           editandoId={editandoId}
           onClose={() => setModalGuardar(false)}
+          proveedores={proveedoresLista}
         />
       )}
 
