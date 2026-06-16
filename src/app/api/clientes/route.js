@@ -11,7 +11,7 @@ const manejadores = crearManejadoresCRUD('cliente', {
     email: data.email,
     direccion: data.direccion,
     telefono: data.telefono,
-    tier: data.categoria,
+    tier: ['FABRICANTE', 'INTERMEDIARIO', 'FINAL'].includes(data.categoria) ? data.categoria : null,
     nif: data.nif ?? null,
   }),
   camposBusqueda: ['nombre', 'email', 'telefono'],

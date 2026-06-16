@@ -42,7 +42,7 @@ export async function GET(request) {
           const d = new Date(p.fechaCreacion);
           const key = String(d.getMonth() + 1).padStart(2, '0');
           if (!byMonth[key]) byMonth[key] = { mes: key, totalVentas: 0, numPedidos: 0 };
-          byMonth[key].totalVentas += p.total ?? 0;
+          byMonth[key].totalVentas += Number(p.total ?? 0);
           byMonth[key].numPedidos += 1;
         }
         return Object.values(byMonth).map(d => ({ ...d, totalVentas: parseFloat(d.totalVentas.toFixed(2)) }));
@@ -86,9 +86,9 @@ export async function GET(request) {
         db.presupuesto.count({ where: { estado: 'Aceptado' } }),
       ]);
 
-      const totalMes = aggMes._sum.total ?? 0;
-      const totalMesAnterior = aggMesAnterior._sum.total ?? 0;
-      const ticketMedio = aggTotal._avg.total ?? 0;
+      const totalMes = Number(aggMes._sum.total ?? 0);
+      const totalMesAnterior = Number(aggMesAnterior._sum.total ?? 0);
+      const ticketMedio = Number(aggTotal._avg.total ?? 0);
       const tasaConversion = presupuestosTotal > 0 ? (presupuestosAceptados / presupuestosTotal) * 100 : 0;
 
       return NextResponse.json({
@@ -120,7 +120,7 @@ export async function GET(request) {
       const sorted = agrupado.map(g => ({
         clienteId: g.clienteId,
         nombre: nombreMap[g.clienteId] ?? '(sin cliente)',
-        totalFacturado: parseFloat((g._sum.total ?? 0).toFixed(2)),
+        totalFacturado: parseFloat(Number(g._sum.total ?? 0).toFixed(2)),
         numPedidos: g._count.id,
       }));
       return NextResponse.json(sorted);
@@ -141,8 +141,8 @@ export async function GET(request) {
       for (const item of items) {
         const key = item.productoId ?? item.descripcion;
         if (!byProducto[key]) byProducto[key] = { descripcion: item.descripcion, productoId: item.productoId, cantidadTotal: 0, totalCosteBase: 0 };
-        byProducto[key].cantidadTotal += item.quantity;
-        byProducto[key].totalCosteBase += item.quantity * item.unitPrice;
+        byProducto[key].cantidadTotal += Number(item.quantity);
+        byProducto[key].totalCosteBase += Number(item.quantity) * Number(item.unitPrice);
       }
 
       const sorted = Object.values(byProducto).sort((a, b) => b.totalCosteBase - a.totalCosteBase);
@@ -177,7 +177,7 @@ export async function GET(request) {
         take: 500,
       });
 
-      const totalFacturado = pedidos.reduce((s, p) => s + (p.total ?? 0), 0);
+      const totalFacturado = pedidos.reduce((s, p) => s + Number(p.total ?? 0), 0);
 
       return NextResponse.json({
         pedidos: pedidos.map(p => ({
@@ -185,7 +185,7 @@ export async function GET(request) {
           fecha: p.fechaCreacion,
           cliente: p.cliente?.nombre ?? '—',
           clienteId: p.cliente?.id ?? null,
-          total: parseFloat((p.total ?? 0).toFixed(2)),
+          total: parseFloat(Number(p.total ?? 0).toFixed(2)),
         })),
         totalFacturado: parseFloat(totalFacturado.toFixed(2)),
         count: pedidos.length,
@@ -244,8 +244,8 @@ export async function GET(request) {
       });
 
       const result = pedidos.map(p => {
-        const totalSinIVA = (p.total ?? 0) / (1 + IVA_MARGEN);
-        const totalCoste = (p.items ?? []).reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
+        const totalSinIVA = Number(p.total ?? 0) / (1 + IVA_MARGEN);
+        const totalCoste = (p.items ?? []).reduce((s, i) => s + (Number(i.quantity) * Number(i.unitPrice)), 0);
         const margen = totalSinIVA - totalCoste;
         const pctMargen = totalSinIVA > 0 ? (margen / totalSinIVA * 100) : 0;
         return {
@@ -305,8 +305,8 @@ export async function GET(request) {
             totalCoste: 0,
           };
         }
-        const totalSinIVA = (p.total ?? 0) / (1 + IVA_RENT);
-        const totalCoste = (p.items ?? []).reduce((s, i) => s + (i.quantity * i.unitPrice), 0);
+        const totalSinIVA = Number(p.total ?? 0) / (1 + IVA_RENT);
+        const totalCoste = (p.items ?? []).reduce((s, i) => s + (Number(i.quantity) * Number(i.unitPrice)), 0);
         byCliente[cid].numPedidos += 1;
         byCliente[cid].totalFacturado += totalSinIVA;
         byCliente[cid].totalCoste += totalCoste;

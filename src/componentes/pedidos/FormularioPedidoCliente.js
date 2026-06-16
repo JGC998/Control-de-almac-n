@@ -48,12 +48,14 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   // Solo re-sincroniza cuando initialData cambia DESPUÉS del montaje inicial
   // (evita el render extra en modo creación/edición al abrir el formulario)
   const isMountedRef = useRef(false);
+  const isSubmittingRef = useRef(false);
   useEffect(() => {
+    let cancelled = false;
     if (!isMountedRef.current) {
       isMountedRef.current = true;
       return;
     }
-    if (initialData?.items) {
+    if (initialData?.items && !cancelled) {
       setItems(initialData.items.map(item => ({
         ...item,
         id: item.id || Date.now() + Math.random(),
@@ -61,6 +63,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         producto: item.producto,
       })));
     }
+    return () => { cancelled = true; };
   }, [initialData]);
 
   const { data: clientes, error: clientesError } = useSWR('/api/clientes');
@@ -299,6 +302,8 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   // --- SUBMIT ---
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsLoading(true);
     setError(null);
     if (!clienteId) { setError('Debe seleccionar un cliente.'); setIsLoading(false); return; }
@@ -352,6 +357,8 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     } catch (err) {
       setError(err.message);
       setIsLoading(false);
+    } finally {
+      isSubmittingRef.current = false;
     }
   }
 

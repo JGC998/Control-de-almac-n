@@ -63,8 +63,15 @@ export async function PUT(request, { params: paramsPromise }) {
     if (!parsed.success) {
       return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
-    const { clienteId, items, notas, subtotal, tax, total, estado, marginId } = parsed.data;
+    const { clienteId, items, notas, estado, marginId } = parsed.data;
     const { presupuestoId } = body; // no está en el schema pero se permite en edición
+
+    // Recalcular totales en servidor con IVA desde Config
+    const configIva = await db.config.findUnique({ where: { key: 'iva_rate' } });
+    const taxRate = configIva ? parseFloat(configIva.value) / 100 : 0.21;
+    const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0).toFixed(2));
+    const tax = parseFloat((subtotal * taxRate).toFixed(2));
+    const total = parseFloat((subtotal + tax).toFixed(2));
 
     const updatedOrder = await db.$transaction(async (tx) => {
 

@@ -70,10 +70,11 @@ export async function POST(request) {
     const { clienteId, items, estado, marginId, notas } = validation.data;
 
     // BACK-01: Recalcular totales en servidor para no confiar en valores del cliente
-    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.unitPrice) * parseFloat(item.quantity)), 0);
-    const taxRate = parseFloat(validation.data.taxRate ?? 21) / 100;
-    const tax = subtotal * taxRate;
-    const total = subtotal + tax;
+    const configIva = await db.config.findUnique({ where: { key: 'iva_rate' } });
+    const taxRate = configIva ? parseFloat(configIva.value) / 100 : 0.21;
+    const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0).toFixed(2));
+    const tax = parseFloat((subtotal * taxRate).toFixed(2));
+    const total = parseFloat((subtotal + tax).toFixed(2));
 
     // Generar número de presupuesto con reset anual
     const newQuoteNumber = await getNextNumber('presupuesto');
@@ -83,7 +84,7 @@ export async function POST(request) {
         numero: newQuoteNumber,
         estado: estado || 'Borrador',
 
-        cliente: { connect: { id: clienteId } },
+        ...(clienteId ? { cliente: { connect: { id: clienteId } } } : {}),
         marginId: marginId,
 
         notas: notas,
@@ -108,6 +109,9 @@ export async function POST(request) {
     return NextResponse.json(newQuote, { status: 201 });
   } catch (error) {
     logApiError(error, 'Error al crear el presupuesto:');
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
+    }
     return NextResponse.json({ message: 'Error interno al guardar el nuevo presupuesto.' }, { status: 500 });
   }
 }

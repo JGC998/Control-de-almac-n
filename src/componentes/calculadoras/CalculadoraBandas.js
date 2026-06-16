@@ -103,7 +103,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     }, [modeloGrapaSeleccionado, ancho]);
 
     const currentCalculation = useMemo(() => {
-        const unas = parseInt(unidades) || 0;
+        const unas = parseInt(unidades, 10) || 0;
         const ancMm = parseFloat(ancho) || 0;
         const larMm = parseFloat(largo) || 0;
 
@@ -119,7 +119,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
         const tarifa = tarifas.find(t =>
             t.material === selectedMaterial &&
-            Number(t.espesor) === Number(selectedEspesor)
+            Math.abs(Number(t.espesor) - Number(selectedEspesor)) < 0.001
         );
         if (!tarifa) return { isValid: false, errorMessage: 'Tarifa no encontrada para esa combinación' };
 
@@ -166,7 +166,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
         descripcion += ` - ${tipoLabel}`;
         if (configuracionTacos) descripcion += ` + Tacos ${configuracionTacos.tipo} ${configuracionTacos.altura}mm`;
 
-        const uds = parseInt(unidades);
+        const uds = parseInt(unidades, 10);
         const item = {
             descripcion,
             dimensiones: { ancho, largo, espesor: selectedEspesor },
@@ -200,7 +200,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
         nombre += ` - ${tipoLabel} - ${ancho}×${largo}mm`;
         if (configuracionTacos) nombre += ` + Tacos ${configuracionTacos.tipo} ${configuracionTacos.altura}mm`;
 
-        const uds = parseInt(unidades) || 1;
+        const uds = parseInt(unidades, 10) || 1;
         try {
             const res = await fetch('/api/productos', {
                 method: 'POST',
@@ -221,7 +221,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.message || err.error || 'Error al guardar');
             }
-            await mutate('/api/productos');
+            await mutate(key => typeof key === 'string' && key.startsWith('/api/productos'));
             setCatalogoGuardado(true);
             setTimeout(() => setCatalogoGuardado(false), 3000);
         } catch (err) {
@@ -595,7 +595,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                                 <td className="py-1">Total unitario</td>
                                                 <td className="text-right font-mono text-primary">{formatCurrency(currentCalculation.precioUnitario)}</td>
                                             </tr>
-                                            {parseInt(unidades) > 1 && (
+                                            {parseInt(unidades, 10) > 1 && (
                                                 <tr>
                                                     <td className="text-base-content/60 py-0.5">× {unidades} unidades</td>
                                                     <td className="text-right font-mono font-semibold">{formatCurrency(currentCalculation.precioTotal)}</td>

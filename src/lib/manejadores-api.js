@@ -25,7 +25,7 @@ export function handlePrismaError(error, { notFound, conflict, hasRelated } = {}
  * @param {string[]} fields - Nombres de los campos Decimal a convertir
  */
 export function serializeDecimals(obj, fields) {
-  return { ...obj, ...Object.fromEntries(fields.map(f => [f, obj[f] != null ? Number(obj[f]) : 0])) };
+  return { ...obj, ...Object.fromEntries(fields.map(f => [f, obj[f] != null ? Number(obj[f]) : null])) };
 }
 
 export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) {

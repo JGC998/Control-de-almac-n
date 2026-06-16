@@ -30,7 +30,7 @@ export async function GET(request) {
         if (model === 'tarifaLogistica') {
             data = await db.tarifaTransporte.findMany({ take: MAX_ROWS });
         } else if (model === 'producto') {
-            data = await db.producto.findMany({ take: MAX_ROWS });
+            data = await db.producto.findMany({ take: MAX_ROWS, select: { id: true, nombre: true, referenciaFabricante: true, precioUnitario: true, pesoUnitario: true, material: true, fabricanteId: true } });
         } else if (model === 'cliente') {
             data = await db.cliente.findMany({ take: MAX_ROWS });
         }

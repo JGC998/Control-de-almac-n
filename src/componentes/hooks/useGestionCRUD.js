@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import { toast, toastError } from '@/lib/toast';
@@ -49,6 +49,11 @@ export function useGestionCRUD({
     const [modoEdicion, setModoEdicion] = useState(false);
     const [entidadActual, setEntidadActual] = useState(null);
     const resetTimeoutRef = useRef(null);
+
+    // Cleanup timeout on unmount to avoid memory leaks
+    useEffect(() => {
+        return () => clearTimeout(resetTimeoutRef.current);
+    }, []);
 
     // Estado del formulario
     const [formData, setFormData] = useState(camposIniciales);
