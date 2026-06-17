@@ -105,6 +105,8 @@ async function buscarTrackingYangMing(trackingNumber) {
     occurrenceDatetime:   parseFechaYM(e.moveDate),
     location:             e.atFacility ?? null,
     vesselVoyage:         e.vesselVoyage ? e.vesselVoyage.replace(/<br\s*\/?>/gi, ' ').trim() : null,
+    // Campo de código de barco — Yang Ming puede llamarlo de distintas formas
+    vesselCode:           e.vesselCode ?? e.vslCode ?? e.vslCd ?? e.carrierVslCode ?? null,
   }));
 
   const ultimoEvento = eventos[0] ?? null;
@@ -118,14 +120,23 @@ async function buscarTrackingYangMing(trackingNumber) {
 }
 
 /**
- * Extrae el nombre del barco a partir de los eventos de tracking ya parseados.
- * vesselVoyage tiene formato "OSOL / 134E" → devuelve "OSOL".
+ * Extrae el código/nombre del barco para buscar su schedule.
+ * Maneja dos formatos de vesselVoyage de Yang Ming:
+ *   "OSOL / 134E"               → devuelve "OSOL"   (código corto, funciona directo con la API)
+ *   "ONE SOLIDARITY (001W)"     → devuelve "ONE SOLIDARITY"  (nombre completo, sin el voyage)
+ * Prioriza e.vesselCode si el evento raw lo trae explícitamente.
  */
 export function extraerNombreBarco(eventos) {
   for (const e of eventos) {
+    if (e.vesselCode) return e.vesselCode.trim().toUpperCase();
     if (e.vesselVoyage) {
-      const nombre = e.vesselVoyage.split('/')[0].trim().toUpperCase();
-      if (nombre) return nombre;
+      const vv = e.vesselVoyage;
+      if (vv.includes('/')) {
+        // Formato "CODE / VOYAGE" → tomar la parte izquierda
+        return vv.split('/')[0].trim().toUpperCase();
+      }
+      // Formato "NAME (VOYAGE)" → eliminar el voyage entre paréntesis
+      return vv.replace(/\s*\(.*?\)\s*$/, '').trim().toUpperCase();
     }
   }
   return null;
@@ -135,33 +146,48 @@ export function extraerNombreBarco(eventos) {
  * Consulta el schedule de escala del barco en Yang Ming.
  * Devuelve array de puertos con ETA/ETD, o null si el endpoint no está disponible.
  */
+async function fetchVesselStatus(vesselParam) {
+  const url = `${YM_VESSEL_API}?vesselCode=${encodeURIComponent(vesselParam)}`;
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept':  'application/json, text/plain, */*',
+      'Referer': `https://www.yangming.com/en/esolution/schedule/vessel_schedule?vessel=${encodeURIComponent(vesselParam)}`,
+      'Origin':  'https://www.yangming.com',
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  // La API devuelve un objeto vacío o sin berthDetail si el código no existe
+  const portCalls = json?.detailedVesselPosition?.berthDetail;
+  if (!Array.isArray(portCalls) || portCalls.length === 0) return null;
+  return json;
+}
+
 export async function buscarScheduleBarco(vesselCode) {
   if (!vesselCode) return null;
   try {
-    const url = `${YM_VESSEL_API}?vesselCode=${encodeURIComponent(vesselCode)}`;
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept':  'application/json, text/plain, */*',
-        'Referer': `https://www.yangming.com/en/esolution/schedule/vessel_schedule?vessel=${encodeURIComponent(vesselCode)}`,
-        'Origin':  'https://www.yangming.com',
-      },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
+    // Primer intento con el valor recibido (puede ser código "OSOL" o nombre "ONE SOLIDARITY")
+    let json = await fetchVesselStatus(vesselCode);
 
-    // Estructura real: detailedVesselPosition.berthDetail
-    const vesselName = json?.vesselName ?? null;
-    const portCalls  = json?.detailedVesselPosition?.berthDetail ?? [];
-    if (!Array.isArray(portCalls) || portCalls.length === 0) return null;
+    // Si falla con nombre completo, intentar solo con la primera palabra
+    // ("ONE SOLIDARITY" → "ONE") — poco probable que funcione pero es gratis intentarlo
+    if (!json && vesselCode.includes(' ')) {
+      json = await fetchVesselStatus(vesselCode.split(' ')[0]);
+    }
+
+    if (!json) return null;
+
+    const vesselName = json.vesselName ?? null;
+    const portCalls  = json.detailedVesselPosition?.berthDetail ?? [];
 
     return {
       vesselCode,
       vesselName,
       puertos: portCalls.map(p => {
         const isActual = p.arrivalStatus === 'Actual';
-        const arrDate  = p.arrivalDate  !== 'SKIP' ? p.arrivalDate  : null;
+        const arrDate  = p.arrivalDate   !== 'SKIP' ? p.arrivalDate   : null;
         const depDate  = p.departureDate !== 'SKIP' ? p.departureDate : null;
         return {
           puerto:           p.portName ?? '?',
