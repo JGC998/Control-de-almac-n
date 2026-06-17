@@ -151,18 +151,27 @@ export async function buscarScheduleBarco(vesselCode) {
     if (!res.ok) return null;
     const json = await res.json();
 
-    // Yang Ming puede devolver la lista bajo distintas claves — probamos las más comunes
-    const portCalls = json?.portCallList ?? json?.scheduleList ?? json?.vesselScheduleList ?? json?.data ?? [];
+    // Estructura real: detailedVesselPosition.berthDetail
+    const vesselName = json?.vesselName ?? null;
+    const portCalls  = json?.detailedVesselPosition?.berthDetail ?? [];
     if (!Array.isArray(portCalls) || portCalls.length === 0) return null;
 
     return {
       vesselCode,
-      puertos: portCalls.map(p => ({
-        puerto:  p.portName  ?? p.port  ?? p.portCode  ?? p.portNameEn ?? '?',
-        eta:     parseFechaYM(p.eta  ?? p.ETA  ?? p.arrivalDate   ?? p.estimatedArrivalDate ?? null),
-        ata:     parseFechaYM(p.ata  ?? p.ATA  ?? p.actualArrival ?? null),
-        etd:     parseFechaYM(p.etd  ?? p.ETD  ?? p.departureDate ?? p.estimatedDepartureDate ?? null),
-      })).filter(p => p.eta || p.ata || p.etd),
+      vesselName,
+      puertos: portCalls.map(p => {
+        const isActual = p.arrivalStatus === 'Actual';
+        const arrDate  = p.arrivalDate  !== 'SKIP' ? p.arrivalDate  : null;
+        const depDate  = p.departureDate !== 'SKIP' ? p.departureDate : null;
+        return {
+          puerto:           p.portName ?? '?',
+          portCode:         p.portCode ?? null,
+          eta:              !isActual ? parseFechaYM(arrDate) : null,
+          ata:              isActual  ? parseFechaYM(arrDate) : null,
+          etd:              parseFechaYM(depDate),
+          esPosicionActual: p.lastPosition === true,
+        };
+      }).filter(p => p.eta || p.ata || p.etd),
     };
   } catch (e) {
     logApiError(e, `tracking:vessel:${vesselCode}`);

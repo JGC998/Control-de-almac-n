@@ -286,7 +286,11 @@ function ModalTracking({ importacionId, numContenedor, blNumber, onClose }) {
             {datos.nombreBarco && (
               <div className="border border-base-300 rounded-lg p-3">
                 <p className="text-xs font-semibold text-base-content/60 mb-2 flex items-center gap-1.5">
-                  🛳 Barco: <span className="font-mono text-base-content">{datos.nombreBarco}</span>
+                  🛳{' '}
+                  {datos.scheduleBarco?.vesselName
+                    ? <><span className="text-base-content font-bold">{datos.scheduleBarco.vesselName}</span><span className="opacity-40 ml-1 font-mono font-normal">({datos.nombreBarco})</span></>
+                    : <span className="font-mono text-base-content">{datos.nombreBarco}</span>
+                  }
                 </p>
                 {datos.scheduleBarco?.puertos?.length > 0 ? (
                   <div className="overflow-x-auto">
@@ -294,15 +298,28 @@ function ModalTracking({ importacionId, numContenedor, blNumber, onClose }) {
                       <thead>
                         <tr>
                           <th>Puerto</th>
-                          <th>ETA</th>
-                          <th>ETD</th>
+                          <th>Llegada</th>
+                          <th>Salida</th>
                         </tr>
                       </thead>
                       <tbody>
                         {datos.scheduleBarco.puertos.map((p, i) => (
-                          <tr key={i} className={p.ata ? 'opacity-40' : ''}>
-                            <td className="font-medium">{p.puerto}</td>
-                            <td className="font-mono text-xs">{p.eta ? fmtFecha(p.eta) : (p.ata ? `ATA ${fmtFecha(p.ata)}` : '—')}</td>
+                          <tr key={i} className={
+                            p.esPosicionActual
+                              ? 'bg-primary/10'
+                              : (p.ata ? 'opacity-35' : '')
+                          }>
+                            <td className="font-medium">
+                              {p.esPosicionActual && <span className="mr-1 text-primary">📍</span>}
+                              {p.puerto}
+                            </td>
+                            <td className="font-mono text-xs">
+                              {p.eta
+                                ? fmtFecha(p.eta)
+                                : p.ata
+                                  ? <span className="text-base-content/50">ATA {fmtFecha(p.ata)}</span>
+                                  : '—'}
+                            </td>
                             <td className="font-mono text-xs text-base-content/50">{p.etd ? fmtFecha(p.etd) : '—'}</td>
                           </tr>
                         ))}
@@ -310,7 +327,7 @@ function ModalTracking({ importacionId, numContenedor, blNumber, onClose }) {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-xs text-base-content/40">Schedule del barco no disponible todavía (verificar URL API en DevTools).</p>
+                  <p className="text-xs text-base-content/40">Schedule del barco no disponible todavía.</p>
                 )}
               </div>
             )}
