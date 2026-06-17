@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarTracking, enviarWhatsApp, formatearMensajeTracking } from '@/lib/tracking';
+import { buscarTracking, enviarWhatsApp, formatearMensajeTracking, extraerNombreBarco, buscarScheduleBarco } from '@/lib/tracking';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,10 +35,13 @@ export async function POST() {
       return NextResponse.json({ error: 'No se encontró información de tracking para este contenedor', contenedor: trackingNum }, { status: 404 });
     }
 
-    const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta);
+    const nombreBarco   = extraerNombreBarco(tracking.eventos);
+    const scheduleBarco = nombreBarco ? await buscarScheduleBarco(nombreBarco).catch(() => null) : null;
+
+    const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta, scheduleBarco);
     const enviado = await enviarWhatsApp(mensaje);
 
-    return NextResponse.json({ ok: enviado, contenedor: trackingNum, mensaje });
+    return NextResponse.json({ ok: enviado, contenedor: trackingNum, nombreBarco, mensaje });
 
   } catch (error) {
     logApiError(error, 'POST /api/tracking/test');
