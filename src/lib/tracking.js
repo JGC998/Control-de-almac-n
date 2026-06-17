@@ -256,17 +256,18 @@ export async function enviarWhatsApp(mensaje) {
   const enviar = async ({ phone, apikey }) => {
     const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(mensaje)}&apikey=${encodeURIComponent(apikey)}`;
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      if (!r.ok) logApiError(new Error(`CallMeBot HTTP ${r.status}`), `tracking:whatsapp:${phone}`);
-      return r.ok;
+      const r    = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      const body = await r.text().catch(() => '');
+      if (!r.ok) logApiError(new Error(`CallMeBot HTTP ${r.status}: ${body.slice(0, 200)}`), `tracking:whatsapp:${phone}`);
+      return { phone, ok: r.ok, status: r.status, body: body.slice(0, 200) };
     } catch (e) {
       logApiError(e, `tracking:whatsapp:${phone}`);
-      return false;
+      return { phone, ok: false, error: e.message };
     }
   };
 
   const resultados = await Promise.all(destinatarios.map(enviar));
-  return resultados.some(Boolean);
+  return resultados;
 }
 
 // Emoji según el tipo de evento
@@ -305,12 +306,13 @@ export function formatearMensajeTracking(imp, evento, eta = null, scheduleBarco 
     : null;
 
   const etaFmt = eta
-    ? new Date(eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
+    ? new Date(eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
     : null;
 
   // Sección de barco: posición actual + próximas escalas (máx 2)
+  const haySchedule = scheduleBarco?.puertos?.length > 0;
   const lineasBarco = [];
-  if (scheduleBarco?.puertos?.length) {
+  if (haySchedule) {
     const nombre = scheduleBarco.vesselName ?? scheduleBarco.vesselCode ?? '';
     if (nombre) lineasBarco.push(``, `🚢 *${nombre}*`);
 
@@ -320,25 +322,31 @@ export function formatearMensajeTracking(imp, evento, eta = null, scheduleBarco 
       lineasBarco.push(`📍 Últ. posición: ${posActual.puerto}${pais}`);
     }
 
-    const proximas = scheduleBarco.puertos
+    scheduleBarco.puertos
       .filter(p => p.eta)
-      .slice(0, 2);
-    proximas.forEach(p => {
-      const d    = new Date(p.eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-      const pais = p.pais ? ` (${p.pais})` : '';
-      lineasBarco.push(`⏭ ${p.puerto}${pais} — ${d}`);
-    });
+      .slice(0, 2)
+      .forEach(p => {
+        const d    = new Date(p.eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+        const pais = p.pais ? ` (${p.pais})` : '';
+        lineasBarco.push(`⏭ ${p.puerto}${pais} — ${d}`);
+      });
   }
+
+  // Ubicación: recortar al nombre del puerto (quitar nombre del terminal)
+  const ubicacion = evento.location
+    ? evento.location.split(' - ')[0].split(',')[0].trim()
+    : null;
 
   return [
     imp.descripcion ? `📦 *${imp.descripcion}*` : `📦 *Contenedor ${num}*`,
     imp.descripcion ? `🔢 ${num}` : null,
     ``,
     `${emoji} ${desc}`,
-    evento.location     ? `📍 ${evento.location}` : null,
-    evento.vesselVoyage ? `🛳 ${evento.vesselVoyage}` : null,
-    fecha               ? `📅 ${fecha}` : null,
-    etaFmt              ? `🕐 ETA prevista: ${etaFmt}` : null,
+    ubicacion                       ? `📍 ${ubicacion}` : null,
+    // Mostrar línea de barco solo si no hay sección de schedule (evita duplicar)
+    !haySchedule && evento.vesselVoyage ? `🛳 ${evento.vesselVoyage.replace(/\s+/g, ' ').trim()}` : null,
+    fecha                           ? `📅 ${fecha}` : null,
+    etaFmt                          ? `🕐 ETA prevista: ${etaFmt}` : null,
     ...lineasBarco,
   ].filter(s => s !== null).join('\n');
 }

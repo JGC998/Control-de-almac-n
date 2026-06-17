@@ -38,10 +38,17 @@ export async function POST() {
     const nombreBarco   = extraerNombreBarco(tracking.eventos);
     const scheduleBarco = nombreBarco ? await buscarScheduleBarco(nombreBarco).catch(() => null) : null;
 
-    const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta, scheduleBarco);
-    const enviado = await enviarWhatsApp(mensaje);
+    const mensaje     = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta, scheduleBarco);
+    const resultados  = await enviarWhatsApp(mensaje);
+    const ok          = resultados.some(r => r.ok);
 
-    return NextResponse.json({ ok: enviado, contenedor: trackingNum, nombreBarco, mensaje });
+    return NextResponse.json({
+      ok,
+      contenedor: trackingNum,
+      nombreBarco,
+      mensaje,
+      whatsapp: resultados.map(r => ({ phone: r.phone?.replace(/\d(?=\d{4})/g, '*'), ok: r.ok, status: r.status, detalle: r.body ?? r.error })),
+    });
 
   } catch (error) {
     logApiError(error, 'POST /api/tracking/test');

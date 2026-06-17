@@ -82,8 +82,8 @@ export async function POST(request) {
 
         if (hayNuevidad) {
           const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta, scheduleBarco);
-          const enviado = await enviarWhatsApp(mensaje);
-          return { id: imp.id, status: 'notificado', trackingNum, whatsapp: enviado };
+          const resultados = await enviarWhatsApp(mensaje);
+          return { id: imp.id, status: 'notificado', trackingNum, whatsapp: resultados.some(r => r.ok) };
         }
         return { id: imp.id, status: 'sin_cambio', trackingNum };
 
