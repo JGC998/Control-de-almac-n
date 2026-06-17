@@ -12,9 +12,9 @@ export async function PUT(request, { params }) {
       where: { id },
       data: {
         referencia: data.nombre,
-        ancho: parseFloat(data.ancho) || 0,
-        lonas: parseInt(data.lonas) || 0,
-        pesoPorMetroLineal: parseFloat(data.pesoPorMetroLineal) || 0,
+        ancho: data.ancho != null && data.ancho !== '' && !isNaN(parseFloat(data.ancho)) ? parseFloat(data.ancho) : null,
+        lonas: data.lonas != null && data.lonas !== '' && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
+        pesoPorMetroLineal: data.pesoPorMetroLineal != null && data.pesoPorMetroLineal !== '' && !isNaN(parseFloat(data.pesoPorMetroLineal)) ? parseFloat(data.pesoPorMetroLineal) : null,
       },
     });
     return NextResponse.json(updatedItem);

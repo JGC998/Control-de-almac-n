@@ -23,16 +23,18 @@ export async function PUT(request, { params }) {
         // Extraer solo los campos de tipología
         const { parcel, miniQuarter, quarter, miniLight, half, light, megaLight, full, megaFull } = data;
 
+        const toDecimal = v => (v != null && v !== '' && !isNaN(parseFloat(v)) ? parseFloat(v) : null);
+
         const updatedData = {
-            parcel: parcel ? parseFloat(parcel) : null,
-            miniQuarter: miniQuarter ? parseFloat(miniQuarter) : null,
-            quarter: quarter ? parseFloat(quarter) : null,
-            miniLight: miniLight ? parseFloat(miniLight) : null,
-            half: half ? parseFloat(half) : null,
-            light: light ? parseFloat(light) : null,
-            megaLight: megaLight ? parseFloat(megaLight) : null,
-            full: full ? parseFloat(full) : null,
-            megaFull: megaFull ? parseFloat(megaFull) : null
+            parcel: toDecimal(parcel),
+            miniQuarter: toDecimal(miniQuarter),
+            quarter: toDecimal(quarter),
+            miniLight: toDecimal(miniLight),
+            half: toDecimal(half),
+            light: toDecimal(light),
+            megaLight: toDecimal(megaLight),
+            full: toDecimal(full),
+            megaFull: toDecimal(megaFull),
         };
 
         const updated = await db.tarifaTransporte.update({

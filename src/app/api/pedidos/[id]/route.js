@@ -55,8 +55,8 @@ export async function GET(request, { params: paramsPromise }) {
 
 // PUT: Actualizar un pedido existente (Incluye actualización de estado y sincronización de caché)
 export async function PUT(request, { params: paramsPromise }) {
-  const { id } = await paramsPromise;
   try {
+    const { id } = await paramsPromise;
     const body = await request.json();
     // API-01: Validar con el mismo schema Zod que el POST
     const parsed = pedidoSchema.safeParse(body);
@@ -139,8 +139,8 @@ export async function PUT(request, { params: paramsPromise }) {
 
 // PATCH: Actualizaciones parciales (sinFacturacion, estado)
 export async function PATCH(request, { params: paramsPromise }) {
-  const { id } = await paramsPromise;
   try {
+    const { id } = await paramsPromise;
     const updates = await request.json();
     const allowed = {};
     if (typeof updates.sinFacturacion === 'boolean') allowed.sinFacturacion = updates.sinFacturacion;

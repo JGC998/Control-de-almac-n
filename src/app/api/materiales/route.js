@@ -49,17 +49,12 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'ID del Material es requerido para eliminar.' }, { status: 400 });
     }
     
-    // 1. ELIMINACIÓN CASCADA LÓGICA (Tarifas): Eliminamos todas las tarifas asociadas
-    const materialToDelete = await db.material.findUnique({ where: { id: id } });
-    if (materialToDelete) {
-        await db.tarifaMaterial.deleteMany({
-            where: { material: materialToDelete.nombre }
-        });
-    }
-
-    // 2. ELIMINACIÓN DEL REGISTRO PRINCIPAL
-    await db.material.delete({
-      where: { id: id },
+    await db.$transaction(async (tx) => {
+      const materialToDelete = await tx.material.findUnique({ where: { id } });
+      if (materialToDelete) {
+        await tx.tarifaMaterial.deleteMany({ where: { material: materialToDelete.nombre } });
+      }
+      await tx.material.delete({ where: { id } });
     });
     revalidatePath('/configuracion'); // Invalidate cache after delete
     return NextResponse.json({ message: 'Material eliminado.' });

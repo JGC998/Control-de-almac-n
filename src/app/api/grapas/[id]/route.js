@@ -12,7 +12,7 @@ export async function PATCH(request, { params }) {
         ...(nombre !== undefined && { nombre: nombre.trim() }),
         ...(fabricante !== undefined && { fabricante: fabricante?.trim() || null }),
         ...(descripcion !== undefined && { descripcion: descripcion?.trim() || null }),
-        ...(precioMetro !== undefined && { precioMetro: parseFloat(precioMetro) }),
+        ...(precioMetro !== undefined && !isNaN(parseFloat(precioMetro)) && { precioMetro: parseFloat(precioMetro) }),
       },
     });
     return NextResponse.json(updated);

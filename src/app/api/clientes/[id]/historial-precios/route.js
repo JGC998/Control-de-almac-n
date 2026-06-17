@@ -46,9 +46,9 @@ export async function GET(request, { params }) {
 
     const historial = Object.values(byDesc).map(g => {
       const sorted = g.precios;
-      const min = sorted.reduce((m, v) => (v < m ? v : m), sorted[0]);
-      const max = sorted.reduce((m, v) => (v > m ? v : m), sorted[0]);
-      const avg = sorted.reduce((s, p) => s + p, 0) / sorted.length;
+      const min = sorted.reduce((m, v) => (Number(v) < Number(m) ? v : m), sorted[0]);
+      const max = sorted.reduce((m, v) => (Number(v) > Number(m) ? v : m), sorted[0]);
+      const avg = sorted.reduce((s, p) => s + Number(p), 0) / sorted.length;
       return {
         descripcion: g.descripcion,
         productoId: g.productoId,

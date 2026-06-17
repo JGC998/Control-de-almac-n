@@ -18,6 +18,11 @@ export async function GET(request, { params }) {
       }),
       db.presupuesto.findMany({
         where: { clienteId: id },
+        select: {
+          id: true, numero: true, estado: true,
+          total: true, subtotal: true, tax: true,
+          fechaCreacion: true, notas: true, marginId: true,
+        },
         orderBy: { fechaCreacion: 'desc' },
         take: 50,
       }),

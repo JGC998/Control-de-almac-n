@@ -53,7 +53,8 @@ export async function PUT(request, { params }) {
     const updatedProducto = await db.producto.update({ where: { id }, data: parsed.data });
     revalidatePath('/gestion/productos');
     revalidatePath(`/gestion/productos/${id}`);
-    return NextResponse.json(updatedProducto);
+    const { costoUnitario: _omit, ...productoPublico } = updatedProducto;
+    return NextResponse.json(productoPublico);
   } catch (error) {
     logApiError(error, 'PUT /api/productos/[id]');
     return handlePrismaError(error, { notFound: 'Producto no encontrado' });

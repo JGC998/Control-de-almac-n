@@ -9,6 +9,7 @@ export async function GET() {
   try {
     const productos = await db.producto.findMany({
       orderBy: { nombre: 'asc' },
+      take: 500,
     });
     return NextResponse.json(productos);
   } catch (error) {

@@ -21,7 +21,13 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    await db.material.delete({ where: { id } });
+    await db.$transaction(async (tx) => {
+      const mat = await tx.material.findUnique({ where: { id } });
+      if (mat) {
+        await tx.tarifaMaterial.deleteMany({ where: { material: mat.nombre } });
+      }
+      await tx.material.delete({ where: { id } });
+    });
     return NextResponse.json({ message: 'Material eliminado' });
   } catch (error) {
     return handlePrismaError(error, {

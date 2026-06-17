@@ -1,6 +1,14 @@
 ﻿import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+
+const templateSchema = z.object({
+  nombre: z.string().min(1, 'Nombre requerido').max(200),
+  descripcion: z.string().max(500).optional().nullable(),
+  items: z.array(z.any()).optional().default([]),
+  marginId: z.string().uuid().optional().nullable(),
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -20,19 +28,19 @@ export async function GET() {
 // POST: Crear nueva plantilla
 export async function POST(request) {
     try {
-        const data = await request.json();
-        const { nombre, descripcion, items, marginId } = data;
-
-        if (!nombre) {
-            return NextResponse.json({ message: 'Nombre es requerido' }, { status: 400 });
+        const body = await request.json();
+        const parsed = templateSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
         }
+        const { nombre, descripcion, items, marginId } = parsed.data;
 
         const newTemplate = await db.presupuestoTemplate.create({
             data: {
                 nombre,
-                descripcion,
-                items: items || [],
-                marginId
+                descripcion: descripcion ?? null,
+                items: items ?? [],
+                marginId: marginId ?? null,
             }
         });
 

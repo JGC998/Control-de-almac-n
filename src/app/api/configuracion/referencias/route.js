@@ -27,8 +27,8 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const data = await request.json();
   try {
+    const data = await request.json();
     // CORRECCIÓN: Usar data.nombre (lo que envía el formulario)
     if (!data.nombre) {
       return NextResponse.json({ error: 'El nombre de la Referencia de Bobina es requerido.' }, { status: 400 });
@@ -57,8 +57,8 @@ export async function POST(request) {
 }
 
 export async function PUT(request) {
-  const { id, ...data } = await request.json();
   try {
+    const { id, ...data } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'ID de Referencia de Bobina requerido para actualizar.' }, { status: 400 });
     }
@@ -89,8 +89,8 @@ export async function PUT(request) {
 }
 
 export async function DELETE(request) {
-  const { id } = await request.json();
   try {
+    const { id } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'ID de Referencia de Bobina requerido para eliminar.' }, { status: 400 });
     }
