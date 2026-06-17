@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import QRCode from 'qrcode';
 import { logApiError } from '@/lib/logger';
+import { db } from '@/lib/db';
 
 // Formato español: 34.080,64
 const fmtN = (v, dec = 2) => {
@@ -24,7 +25,6 @@ export function clearEmisorCache() { _emisorCache = null; }
 async function getEmisorInfo() {
     if (_emisorCache) return _emisorCache;
     try {
-        const { db } = await import('@/lib/db');
         const [emisor, phoneConfig] = await Promise.all([
             db.configuracionEmisor.findUnique({ where: { id: 1 } }),
             db.config.findUnique({ where: { key: 'empresa_telefono' } }),

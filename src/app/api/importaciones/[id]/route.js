@@ -11,7 +11,13 @@ export async function PATCH(request, { params }) {
     const { id } = await params;
     const { estado, trackingActivo } = await request.json();
     const data = {};
-    if (estado !== undefined)         data.estado         = estado;
+    if (estado !== undefined) {
+      const ESTADOS_VALIDOS = ['PEDIDO', 'TRANSITO', 'ADUANA', 'RECIBIDO', 'BORRADOR'];
+      if (!ESTADOS_VALIDOS.includes(estado)) {
+        return NextResponse.json({ error: 'Estado inválido' }, { status: 400 });
+      }
+      data.estado = estado;
+    }
     if (trackingActivo !== undefined)  data.trackingActivo = trackingActivo;
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });

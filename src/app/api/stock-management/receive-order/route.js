@@ -7,6 +7,10 @@ export async function POST(request) {
   try {
     const { pedidoId } = await request.json();
 
+    if (!pedidoId || typeof pedidoId !== 'string') {
+      return NextResponse.json({ message: 'pedidoId requerido' }, { status: 400 });
+    }
+
     const pedido = await db.pedidoProveedor.findUnique({
       where: { id: pedidoId },
       include: { bobinas: { include: { referencia: true } } },

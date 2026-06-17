@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Plus, Info, Layers, Link2, BookmarkPlus, Check, Calculator } from 'lucide-react';
+import { toastError } from '@/lib/toast';
 import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
 
@@ -225,7 +226,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             setCatalogoGuardado(true);
             setTimeout(() => setCatalogoGuardado(false), 3000);
         } catch (err) {
-            alert(`No se pudo guardar en el catálogo: ${err.message}`);
+            toastError(`No se pudo guardar en el catálogo: ${err.message}`);
         } finally {
             setGuardandoCatalogo(false);
         }

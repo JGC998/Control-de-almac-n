@@ -19,6 +19,10 @@ export async function getMargenes() {
     _margenesCacheTs = Date.now();
     _margenesPromise = null;
     return data;
+  }).catch(e => {
+    // Limpiar la promesa para que el próximo intento reintente la query
+    _margenesPromise = null;
+    throw e;
   });
   return _margenesPromise;
 }

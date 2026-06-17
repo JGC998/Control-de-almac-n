@@ -45,7 +45,7 @@ export async function PUT(request) {
       return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
     const { updates } = validation.data;
-    const results = await Promise.all(
+    const results = await db.$transaction(
       updates.map(({ id, precioMetro }) =>
         db.grapa.update({ where: { id }, data: { precioMetro } })
       )

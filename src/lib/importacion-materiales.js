@@ -21,53 +21,57 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
   const gastos  = n(gastosRepercutibles);
   const totalEUR = n(totalBobinasEUR);
 
-  for (const b of candidatas) {
-    try {
-      const precio     = n(b.precio);
-      const numRollos  = Math.max(n(b.numRollos), 1);
-      const longitud   = n(b.longitud);
-      const anchoM     = n(b.ancho) / 1000;
+  const resultados = await Promise.allSettled(candidatas.map(async (b) => {
+    const precio     = n(b.precio);
+    const numRollos  = Math.max(n(b.numRollos), 1);
+    const longitud   = n(b.longitud);
+    const anchoM     = n(b.ancho) / 1000;
 
-      if (anchoM <= 0 || longitud <= 0) continue;
+    if (anchoM <= 0 || longitud <= 0) return;
 
-      const totalMetros   = longitud * numRollos;
-      const usdPorMetro   = b.unidadPrecio === 'SQM' ? precio * anchoM : precio;
-      const subtotalEUR   = usdPorMetro * totalMetros * tc;
-      const proporcion    = totalEUR > 0 ? subtotalEUR / totalEUR : 0;
-      const costeFinalEUR = subtotalEUR + gastos * proporcion;
+    const totalMetros   = longitud * numRollos;
+    const usdPorMetro   = b.unidadPrecio === 'SQM' ? precio * anchoM : precio;
+    const subtotalEUR   = usdPorMetro * totalMetros * tc;
+    const proporcion    = totalEUR > 0 ? subtotalEUR / totalEUR : 0;
+    const costeFinalEUR = subtotalEUR + gastos * proporcion;
 
-      const totalM2        = totalMetros * anchoM;
-      const nuevoPrecioM2  = totalM2 > 0
-        ? Math.round((costeFinalEUR / totalM2) * 10000) / 10000
-        : 0;
+    const totalM2        = totalMetros * anchoM;
+    const nuevoPrecioM2  = totalM2 > 0
+      ? Math.round((costeFinalEUR / totalM2) * 10000) / 10000
+      : 0;
 
-      if (nuevoPrecioM2 <= 0) continue;
+    if (nuevoPrecioM2 <= 0) return;
 
-      if (b.tarifaMaterialId === '__nuevo__') {
-        // T-74: usar b.material (tipo seleccionado por el usuario) si existe,
-        // si no, caer en b.referencia como antes para retrocompatibilidad
-        const materialNombre = b.material?.trim() || b.referencia?.trim();
-        const espesorVal = n(b.espesor);
-        if (!materialNombre || espesorVal <= 0) continue;
+    if (b.tarifaMaterialId === '__nuevo__') {
+      // T-74: usar b.material (tipo seleccionado por el usuario) si existe,
+      // si no, caer en b.referencia como antes para retrocompatibilidad
+      const materialNombre = b.material?.trim() || b.referencia?.trim();
+      const espesorVal = n(b.espesor);
+      if (!materialNombre || espesorVal <= 0) return;
 
-        const existente = await db.tarifaMaterial.findFirst({
-          where: { material: materialNombre, espesor: espesorVal },
-        });
-        if (existente) {
-          await db.tarifaMaterial.update({ where: { id: existente.id }, data: { precio: nuevoPrecioM2 } });
-        } else {
-          await db.tarifaMaterial.create({
-            data: { material: materialNombre, espesor: espesorVal, precio: nuevoPrecioM2, peso: 0 },
-          });
-        }
+      const existente = await db.tarifaMaterial.findFirst({
+        where: { material: materialNombre, espesor: espesorVal },
+      });
+      if (existente) {
+        await db.tarifaMaterial.update({ where: { id: existente.id }, data: { precio: nuevoPrecioM2 } });
       } else {
-        await db.tarifaMaterial.update({
-          where: { id: b.tarifaMaterialId },
-          data: { precio: nuevoPrecioM2 },
+        await db.tarifaMaterial.create({
+          data: { material: materialNombre, espesor: espesorVal, precio: nuevoPrecioM2, peso: 0 },
         });
       }
-    } catch (e) {
-      logApiError(e, `actualizarPrecioMateriales:${b.referencia}`);
+    } else {
+      await db.tarifaMaterial.update({
+        where: { id: b.tarifaMaterialId },
+        data: { precio: nuevoPrecioM2 },
+      });
     }
+  }));
+
+  const fallidos = resultados.filter(r => r.status === 'rejected');
+  if (fallidos.length > 0) {
+    logApiError(
+      new Error(`${fallidos.length}/${candidatas.length} tarifas no actualizadas`),
+      'actualizarPrecioMateriales'
+    );
   }
 }

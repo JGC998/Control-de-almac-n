@@ -17,6 +17,7 @@ export async function GET(request) {
       where: { clienteId },
       include: { producto: { select: { id: true, nombre: true } } },
       orderBy: { creadaEn: 'desc' },
+      take: 500,
     });
 
     return NextResponse.json(tarifas);

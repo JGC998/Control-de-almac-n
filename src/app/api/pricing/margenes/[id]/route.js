@@ -25,7 +25,6 @@ export async function PUT(request, { params }) {
       base: validation.data.base || descripcion,
       multiplicador,
       gastoFijo: gastoFijo ?? 0,
-      categoria: data.categoria ?? null,
       tierCliente: tierCliente ?? null,
     };
 

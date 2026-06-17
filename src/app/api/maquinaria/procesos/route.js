@@ -42,6 +42,9 @@ export async function POST(request) {
     if (!getSafeString(titulo) || !getSafeString(descripcion) || !getSafeString(maquina)) {
       return NextResponse.json({ message: 'Título, Descripción y Máquina son requeridos.' }, { status: 400 });
     }
+    if (titulo.length > 200 || maquina.length > 200 || descripcion.length > 2000) {
+      return NextResponse.json({ message: 'Longitud de campos excedida (título/máquina: 200, descripción: 2000)' }, { status: 400 });
+    }
 
     const nuevoProceso = await db.documento.create({
       data: {

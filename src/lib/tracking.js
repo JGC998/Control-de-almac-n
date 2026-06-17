@@ -12,6 +12,8 @@
  * Para otras navieras: añadir su endpoint correspondiente.
  */
 
+import { logApiError } from '@/lib/logger';
+
 const YM_API = 'https://www.yangming.com/api/CargoTracking/GetTracking';
 
 const PREFIJOS_YM = new Set(['YMMU', 'YMLU']);
@@ -82,7 +84,7 @@ async function buscarTrackingYangMing(trackingNumber) {
   });
 
   if (!res.ok) {
-    console.warn(`[tracking] Yang Ming API HTTP ${res.status} para ${trackingNumber}`);
+    logApiError(new Error(`Yang Ming API HTTP ${res.status}`), `tracking:${trackingNumber}`);
     return null;
   }
 
@@ -92,7 +94,6 @@ async function buscarTrackingYangMing(trackingNumber) {
 
   const rawEvents = container.ctStatusInfo ?? [];
   if (rawEvents.length === 0) {
-    console.info(`[tracking] ${trackingNumber}: sin eventos aún en Yang Ming`);
     return null;
   }
 
@@ -110,7 +111,6 @@ async function buscarTrackingYangMing(trackingNumber) {
   const etaRaw = rawEvents.find(e => e.dportETA)?.dportETA ?? null;
   const eta = parseFechaYM(etaRaw);
 
-  console.info(`[tracking] ${trackingNumber}: ${eventos.length} eventos — último: "${ultimoEvento?.status}" en ${ultimoEvento?.location}`);
 
   return { eventos, ultimoEvento, eta, shipmentId: null };
 }
@@ -129,7 +129,7 @@ export async function buscarTracking(trackingNumber, _uuid = null) {
     return buscarTrackingYangMing(num);
   }
 
-  console.warn(`[tracking] Naviera no soportada para ${num} (prefijo: ${prefijo(num)})`);
+  logApiError(new Error(`Naviera no soportada (prefijo: ${prefijo(num)})`), `tracking:${num}`);
   return null;
 }
 
@@ -143,7 +143,6 @@ export async function enviarWhatsApp(mensaje) {
   ].filter(d => d.phone && d.apikey);
 
   if (destinatarios.length === 0) {
-    console.warn('[tracking] Ningún CALLMEBOT_PHONE/APIKEY configurado — WhatsApp desactivado');
     return false;
   }
 
@@ -151,10 +150,10 @@ export async function enviarWhatsApp(mensaje) {
     const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(mensaje)}&apikey=${encodeURIComponent(apikey)}`;
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      if (!r.ok) console.warn(`[tracking] CallMeBot HTTP ${r.status} para ${phone}`);
+      if (!r.ok) logApiError(new Error(`CallMeBot HTTP ${r.status}`), `tracking:whatsapp:${phone}`);
       return r.ok;
     } catch (e) {
-      console.warn(`[tracking] CallMeBot error para ${phone}: ${e.message}`);
+      logApiError(e, `tracking:whatsapp:${phone}`);
       return false;
     }
   };

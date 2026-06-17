@@ -35,7 +35,6 @@ export async function POST(request) {
         base: validation.data.base || descripcion,
         multiplicador,
         gastoFijo: gastoFijo ?? 0,
-        categoria: data.categoria ?? null,
         tierCliente: tierCliente ?? null,
       },
     });

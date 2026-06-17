@@ -31,6 +31,10 @@ export async function POST(request) {
     if (!titulo || !mensaje) {
       return NextResponse.json({ message: 'titulo y mensaje requeridos' }, { status: 400 });
     }
+    const TIPOS_VALIDOS = ['INFO', 'PENDIENTE', 'ALERTA'];
+    if (!TIPOS_VALIDOS.includes(tipo)) {
+      return NextResponse.json({ message: 'Tipo de notificación inválido' }, { status: 400 });
+    }
     const notif = await db.notificacion.create({
       data: { titulo, mensaje, tipo, url: url || null },
     });

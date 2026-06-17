@@ -13,6 +13,10 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Se requiere presupuestoId' }, { status: 400 });
     }
 
+    // BUG-07: getNextNumber debe llamarse FUERA de la transacción para evitar
+    // SQLITE_BUSY en dev y deadlocks en MySQL (secuencia usa su propio upsert atómico).
+    const newOrderNumber = await getNextNumber('pedido');
+
     // Usamos una transacción para asegurar que ambas operaciones (crear pedido y actualizar presupuesto)
     // ocurran correctamente o fallen juntas.
     const newPedido = await db.$transaction(async (tx) => {
@@ -35,19 +39,15 @@ export async function POST(request) {
         throw new Error('Este presupuesto ya ha sido aceptado y convertido en pedido');
       }
 
-      // 2. Generar un nuevo número de pedido.
-      const newOrderNumber = await getNextNumber('pedido');
-      // Eliminamos la llamada a calculateTotalsBackend y usamos los totales almacenados en el quote (ya correctos)
-
       // 3. Crear el nuevo pedido copiando los datos
       const createdPedido = await tx.pedido.create({
         data: {
           numero: newOrderNumber,
           fechaCreacion: new Date().toISOString(),
-          estado: 'Pendiente', // Estado inicial del pedido
+          estado: 'Pendiente',
 
-          // FIX #1: Usar connect para la relación cliente
-          cliente: { connect: { id: quote.clienteId } },
+          // BUG-01: si el presupuesto no tiene cliente, no intentar connect con id null
+          ...(quote.clienteId ? { cliente: { connect: { id: quote.clienteId } } } : {}),
 
           // Se traspasan las notas del presupuesto al pedido
           notas: quote.notas,
