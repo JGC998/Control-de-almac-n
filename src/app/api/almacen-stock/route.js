@@ -58,17 +58,20 @@ export async function POST(request) {
         );
       }
 
-      // BUG-01: capturar datos del stock ANTES de la transacción (puede borrarse si se agota)
       let datosParaNotificar = null;
 
       await db.$transaction(async (tx) => {
+        // Leer primero para obtener datos (notificación, cálculo de nuevo nivel)
         const stockItem = await tx.stock.findUnique({ where: { id: stockId } });
+        if (!stockItem) throw new Error('Item de stock no encontrado.');
 
-        if (!stockItem) {
-          throw new Error('Item de stock no encontrado.');
-        }
+        // Atomic check + decrement — elimina race condition: solo actualiza si hay metros suficientes
+        const result = await tx.stock.updateMany({
+          where: { id: stockId, metrosDisponibles: { gte: metrosADescontar - 0.001 } },
+          data: { metrosDisponibles: { decrement: metrosADescontar } },
+        });
 
-        if (metrosADescontar > stockItem.metrosDisponibles + 0.001) {
+        if (result.count === 0) {
           logApiError(
             new Error(`Stock insuficiente: disponibles ${stockItem.metrosDisponibles.toFixed(2)}m, solicitados ${metrosADescontar}m`),
             'SALIDA_STOCK'
@@ -78,27 +81,15 @@ export async function POST(request) {
           throw e;
         }
 
-        // 1. Crear el registro de MovimientoStock
+        const newMetros = Math.max(0, stockItem.metrosDisponibles - metrosADescontar);
+        datosParaNotificar = { ...stockItem, metrosDisponibles: newMetros };
+
         await tx.movimientoStock.create({
-          data: {
-            tipo: 'SALIDA',
-            cantidad: -metrosADescontar,
-            stockId: stockId,
-          },
+          data: { tipo: 'SALIDA', cantidad: -metrosADescontar, stockId },
         });
 
-        // 2. Actualizar el registro de Stock
-        const newMetrosDisponibles = stockItem.metrosDisponibles - metrosADescontar;
-        // Capturar datos del item para poder notificar después, aunque se borre
-        datosParaNotificar = { ...stockItem, metrosDisponibles: Math.max(0, newMetrosDisponibles) };
-
-        if (newMetrosDisponibles <= 0.01) {
+        if (newMetros <= 0.01) {
           await tx.stock.delete({ where: { id: stockId } });
-        } else {
-          await tx.stock.update({
-            where: { id: stockId },
-            data: { metrosDisponibles: newMetrosDisponibles },
-          });
         }
       });
 

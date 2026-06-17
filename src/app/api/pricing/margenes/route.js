@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // GET /api/pricing/margenes - Obtiene todas las reglas de margen
 export async function GET() {
   try {
-    const data = await db.reglaMargen.findMany();
+    const data = await db.reglaMargen.findMany({ take: 100 });
     return NextResponse.json(data);
   } catch (error) {
     logApiError(error, 'GET /api/pricing/margenes');

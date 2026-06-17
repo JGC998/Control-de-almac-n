@@ -36,15 +36,17 @@ export async function POST(request) {
       select: { id: true, precio: true },
     });
 
-    await db.$transaction(
-      tarifas.map(t =>
-        db.tarifaMaterial.update({
-          where: { id: t.id },
-          // BUG-18: t.precio es Prisma.Decimal — convertir a number antes de multiplicar
-          data: { precio: Number((Number(t.precio) * factor).toFixed(4)) },
-        })
-      )
-    );
+    const BATCH = 100;
+    for (let i = 0; i < tarifas.length; i += BATCH) {
+      await db.$transaction(
+        tarifas.slice(i, i + BATCH).map(t =>
+          db.tarifaMaterial.update({
+            where: { id: t.id },
+            data: { precio: Number((Number(t.precio) * factor).toFixed(4)) },
+          })
+        )
+      );
+    }
 
     return NextResponse.json({ message: 'Precios actualizados correctamente', count: tarifas.length });
   } catch (error) {

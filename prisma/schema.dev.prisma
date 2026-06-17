@@ -60,6 +60,7 @@ model Pedido {
 
   @@index([estado])
   @@index([fechaCreacion])
+  @@index([clienteId])
 }
 
 model Albaran {
@@ -166,6 +167,8 @@ model PedidoItem {
   pedido   Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
+  @@index([pedidoId])
+  @@index([productoId])
 }
 
 model Presupuesto {
@@ -187,6 +190,7 @@ model Presupuesto {
 
   @@index([estado])
   @@index([fechaCreacion])
+  @@index([clienteId])
 }
 
 model PresupuestoItem {
@@ -202,6 +206,8 @@ model PresupuestoItem {
   presupuesto Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
   producto    Producto?   @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
+  @@index([presupuestoId])
+  @@index([productoId])
 }
 
 model Proveedor {
@@ -275,6 +281,7 @@ model BobinaPedido {
   referenciaId String?
   referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
 
+  @@index([referenciaId])
 }
 
 model ReferenciaBobina {
@@ -368,7 +375,7 @@ model AuditLog {
   action    String
   entity    String
   entityId  String?
-  details   String?
+  details   Json?
   user      String?
   createdAt DateTime @default(now())
 
@@ -483,7 +490,7 @@ model PresupuestoTemplate {
   id          String   @id @default(uuid())
   nombre      String   @unique
   descripcion String?
-  items       String
+  items       Json
   marginId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -524,6 +531,8 @@ model TarifaCliente {
   activa         Boolean   @default(true)
   creadaEn       DateTime  @default(now())
 
+  @@index([clienteId])
+  @@index([productoId])
 }
 
 model HistorialPrecioGrapa {
@@ -557,7 +566,7 @@ model ImportacionContenedor {
   gastosRepercutibles Float     @default(0)
   costeProducto       Float     @default(0)
   totalDesembolso     Float     @default(0)
-  bobinas             String
+  bobinas             Json
   creadaEn            DateTime  @default(now())
 
   // Trazabilidad (T-56 + T-62)

@@ -42,15 +42,10 @@ export async function POST(request) {
       },
     });
 
-    const resultados = [];
-
-    for (const imp of importaciones) {
+    const procesarImportacion = async (imp) => {
       try {
         const trackingNum = imp.numContenedor?.trim() || imp.blNumber?.trim();
-        if (!trackingNum) {
-          resultados.push({ id: imp.id, status: 'sin_numero' });
-          continue;
-        }
+        if (!trackingNum) return { id: imp.id, status: 'sin_numero' };
 
         const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
@@ -68,10 +63,7 @@ export async function POST(request) {
           },
         });
 
-        if (!tracking) {
-          resultados.push({ id: imp.id, status: 'sin_datos', trackingNum });
-          continue;
-        }
+        if (!tracking) return { id: imp.id, status: 'sin_datos', trackingNum };
 
         const claveNueva  = claveEvento(tracking.ultimoEvento);
         const hayNuevidad = claveNueva && claveNueva !== imp.ultimoEvento;
@@ -79,16 +71,18 @@ export async function POST(request) {
         if (hayNuevidad) {
           const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta);
           const enviado = await enviarWhatsApp(mensaje);
-          resultados.push({ id: imp.id, status: 'notificado', trackingNum, whatsapp: enviado });
-        } else {
-          resultados.push({ id: imp.id, status: 'sin_cambio', trackingNum });
+          return { id: imp.id, status: 'notificado', trackingNum, whatsapp: enviado };
         }
+        return { id: imp.id, status: 'sin_cambio', trackingNum };
 
       } catch (err) {
         logApiError(err, `tracking sync: importacion ${imp.id}`);
-        resultados.push({ id: imp.id, status: 'error', message: err.message });
+        return { id: imp.id, status: 'error', message: err.message };
       }
-    }
+    };
+
+    const settled = await Promise.allSettled(importaciones.map(procesarImportacion));
+    const resultados = settled.map(r => r.status === 'fulfilled' ? r.value : { status: 'error' });
 
     return NextResponse.json({
       ok: true,

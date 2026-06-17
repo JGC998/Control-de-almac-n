@@ -29,21 +29,21 @@ export async function POST(request) {
       return acc + (precioBaseEUR * (b.largo || 0));
     }, 0);
 
+    const bobinaData = pedido.bobinas.map((bobina) => {
+      const metrosPorBobina = parseFloat(bobina.largo) || 0;
+      const cantidadBobinas = parseInt(bobina.cantidad, 10) || 1;
+      const metrosTotales = metrosPorBobina * cantidadBobinas;
+      const precioBaseEUR = (parseFloat(bobina.precioMetro) || 0) * (esImportacion ? tasa : 1);
+      const costeTotalBaseLinea = precioBaseEUR * metrosTotales;
+      const factorParticipacion = valorTotalMercanciaEUR > 0 ? (costeTotalBaseLinea / valorTotalMercanciaEUR) : 0;
+      const gastosAsignados = gastos * factorParticipacion;
+      const costoMetroFinal = metrosTotales > 0 ? (precioBaseEUR + (gastosAsignados / metrosTotales)) : 0;
+      return { bobina, metrosTotales, cantidadBobinas, costoMetroFinal };
+    });
+
     await db.$transaction(async (tx) => {
       // BUG-03: secuencial para evitar deadlocks en MySQL y SQLITE_BUSY en SQLite
-      for (const bobina of pedido.bobinas) {
-        const metrosPorBobina = parseFloat(bobina.largo) || 0;
-        const cantidadBobinas = parseInt(bobina.cantidad, 10) || 1;
-        const metrosTotales = metrosPorBobina * cantidadBobinas;
-
-        const precioBaseOriginal = parseFloat(bobina.precioMetro) || 0;
-        const precioBaseEUR = precioBaseOriginal * (esImportacion ? tasa : 1);
-        const costeTotalBaseLinea = precioBaseEUR * metrosTotales;
-
-        const factorParticipacion = valorTotalMercanciaEUR > 0 ? (costeTotalBaseLinea / valorTotalMercanciaEUR) : 0;
-        const gastosAsignados = gastos * factorParticipacion;
-        const costoMetroFinal = metrosTotales > 0 ? (precioBaseEUR + (gastosAsignados / metrosTotales)) : 0;
-
+      for (const { bobina, metrosTotales, cantidadBobinas, costoMetroFinal } of bobinaData) {
         await tx.stock.create({
           data: {
             material: pedido.material || 'Material',

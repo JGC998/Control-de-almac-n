@@ -38,12 +38,18 @@ export async function logAction({ action, entity, entityId, details, user = 'Sys
 /**
  * Helper para registrar creación
  */
+const sanitizeForAudit = (data) => {
+    if (!data || typeof data !== 'object') return data;
+    const { costoUnitario, costo, ...rest } = data;
+    return rest;
+};
+
 export async function logCreate(entity, entityId, newData, user) {
     return logAction({
         action: 'CREATE',
         entity,
         entityId,
-        details: { newValue: newData },
+        details: { newValue: sanitizeForAudit(newData) },
         user
     });
 }

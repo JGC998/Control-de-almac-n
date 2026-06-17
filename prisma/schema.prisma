@@ -19,6 +19,8 @@ model Cliente {
   categoria    String?
   pedidos      Pedido[]
   presupuestos Presupuesto[]
+  albaranes    Albaran[]
+  facturas     Factura[]
   tarifas      TarifaCliente[]
 
   @@index([email])
@@ -54,9 +56,12 @@ model Pedido {
   cliente     Cliente?     @relation(fields: [clienteId], references: [id])
   presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id])
   items       PedidoItem[]
+  albaranes   Albaran[]
+  facturas    Factura[]
 
   @@index([estado])
   @@index([fechaCreacion])
+  @@index([clienteId])
 }
 
 model PedidoItem {
@@ -93,6 +98,7 @@ model Presupuesto {
 
   @@index([estado])
   @@index([fechaCreacion])
+  @@index([clienteId])
 }
 
 model PresupuestoItem {
@@ -181,6 +187,7 @@ model BobinaPedido {
   referenciaId String?
   referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
 
+  @@index([referenciaId])
 }
 
 model ReferenciaBobina {
@@ -314,6 +321,8 @@ model Producto {
 
   itemsPedido    PedidoItem[]
   itemsPresup    PresupuestoItem[]
+  itemsAlbaran   AlbaranItem[]
+  itemsFactura   FacturaItem[]
   documentos     Documento[]
   tarifasCliente TarifaCliente[]
 
@@ -476,6 +485,8 @@ model TarifaCliente {
   activa         Boolean   @default(true)
   creadaEn       DateTime  @default(now())
 
+  @@index([clienteId])
+  @@index([productoId])
 }
 
 model HistorialPrecioGrapa {
@@ -491,5 +502,110 @@ model HistorialPrecioGrapa {
   creadoEn               DateTime    @default(now())
 
   @@index([modeloGrapaId])
+}
+
+model Albaran {
+  id            String   @id @default(uuid())
+  numero        String   @unique
+  fechaCreacion DateTime @default(now())
+  estado        String
+  valorado      Boolean  @default(true)
+  notas         String?  @db.Text
+  subtotal      Float
+  tax           Float
+  total         Float
+  clienteId     String?
+  pedidoId      String?
+
+  cliente  Cliente?      @relation(fields: [clienteId], references: [id])
+  pedido   Pedido?       @relation(fields: [pedidoId], references: [id])
+  items    AlbaranItem[]
+  factura  Factura?
+
+  @@index([estado])
+  @@index([fechaCreacion])
+  @@index([clienteId])
+  @@index([pedidoId])
+}
+
+model AlbaranItem {
+  id               String  @id @default(uuid())
+  descripcion      String
+  quantity         Int
+  unitPrice        Float
+  pesoUnitario     Float   @default(0)
+  detallesTecnicos String? @db.Text
+  albaranId        String
+  productoId       String?
+
+  albaran  Albaran   @relation(fields: [albaranId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([albaranId])
+  @@index([productoId])
+}
+
+model Factura {
+  id               String    @id @default(uuid())
+  numero           String    @unique
+  fechaCreacion    DateTime  @default(now())
+  fechaVencimiento DateTime?
+  fechaPago        DateTime?
+  estado           String
+  notas            String?   @db.Text
+  subtotal         Float
+  tax              Float
+  total            Float
+  clienteId        String?
+  albaranId        String?   @unique
+  pedidoId         String?
+
+  tipoFactura          String    @default("F1")
+  huella               String?
+  huellaAnterior       String?
+  fechaHoraGenRegistro DateTime?
+  estadoEnvioAeat      String    @default("PENDIENTE")
+  csvAeat              String?
+  facturaOriginalId    String?
+  tipoRectificativa    String?
+
+  cliente         Cliente?      @relation(fields: [clienteId], references: [id])
+  albaran         Albaran?      @relation(fields: [albaranId], references: [id])
+  pedido          Pedido?       @relation(fields: [pedidoId], references: [id])
+  items           FacturaItem[]
+  facturaOriginal Factura?      @relation("Rectificativas", fields: [facturaOriginalId], references: [id])
+  rectificativas  Factura[]     @relation("Rectificativas")
+
+  @@index([estado])
+  @@index([fechaCreacion])
+  @@index([estadoEnvioAeat])
+  @@index([clienteId])
+  @@index([pedidoId])
+}
+
+model FacturaItem {
+  id               String  @id @default(uuid())
+  descripcion      String
+  quantity         Int
+  unitPrice        Float
+  pesoUnitario     Float   @default(0)
+  detallesTecnicos String? @db.Text
+  facturaId        String
+  productoId       String?
+
+  factura  Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([facturaId])
+  @@index([productoId])
+}
+
+model ConfiguracionEmisor {
+  id        Int      @id @default(1)
+  nif       String   @default("")
+  nombre    String   @default("")
+  direccion String   @default("")
+  entorno   String   @default("pruebas")
+  updatedAt DateTime @updatedAt
 }
 

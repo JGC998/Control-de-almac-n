@@ -14,8 +14,8 @@ export async function GET(request, { params }) {
     const quote = await db.presupuesto.findUnique({
       where: { id: id },
       include: {
-        cliente: true,
-        items: true,
+        cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, nif: true } },
+        items: { select: { id: true, descripcion: true, quantity: true, unitPrice: true, pesoUnitario: true, detallesTecnicos: true, productoId: true } },
       },
     });
 

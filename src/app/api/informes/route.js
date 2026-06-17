@@ -128,10 +128,19 @@ export async function GET(request) {
 
     // ── Ventas por producto ─────────────────────────────────────────────────
     if (tipo === 'ventas-por-producto') {
+      const desde = searchParams.get('desde');
+      const hasta = searchParams.get('hasta');
+      const parseFechaVP = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
+      const currentYear = new Date().getFullYear();
+      const defaultDesde = new Date(`${currentYear}-01-01T00:00:00.000Z`);
+      const whereVP = { pedido: { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: parseFechaVP(desde) ?? defaultDesde } } };
+      const hastaVP = parseFechaVP(hasta);
+      if (hastaVP) { hastaVP.setHours(23,59,59,999); whereVP.pedido.fechaCreacion.lte = hastaVP; }
+
       const items = await db.pedidoItem.findMany({
-        where: { pedido: { estado: { notIn: EXCLUIDOS } } },
+        where: whereVP,
         select: { descripcion: true, quantity: true, unitPrice: true, productoId: true },
-        take: 5000,
+        take: 2000,
       });
 
       // BUG-03: unitPrice es el precio de COSTE introducido antes de aplicar el margen.
@@ -270,12 +279,15 @@ export async function GET(request) {
 
       const parseFechaRent = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
       const whereRent = { estado: { notIn: EXCLUIDOS }, clienteId: { not: null } };
-      if (desdeRent || hastaRent) {
+      const desdeRentDate = parseFechaRent(desdeRent);
+      const hastaRentDate = parseFechaRent(hastaRent);
+      if (desdeRentDate || hastaRentDate) {
         whereRent.fechaCreacion = {};
-        const desdeRentDate = parseFechaRent(desdeRent);
-        const hastaRentDate = parseFechaRent(hastaRent);
         if (desdeRentDate) whereRent.fechaCreacion.gte = desdeRentDate;
         if (hastaRentDate) { hastaRentDate.setHours(23,59,59,999); whereRent.fechaCreacion.lte = hastaRentDate; }
+      } else {
+        const currentYearRent = new Date().getFullYear();
+        whereRent.fechaCreacion = { gte: new Date(`${currentYearRent}-01-01T00:00:00.000Z`) };
       }
 
       const ivaConfigRent = await db.config.findUnique({ where: { key: 'iva_rate' } });
@@ -288,7 +300,7 @@ export async function GET(request) {
           cliente: { select: { id: true, nombre: true } },
           items: { select: { quantity: true, unitPrice: true } },
         },
-        take: 5000,
+        take: 2000,
       });
 
       const byCliente = {};

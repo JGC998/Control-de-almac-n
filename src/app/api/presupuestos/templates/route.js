@@ -16,7 +16,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
     try {
         const templates = await db.presupuestoTemplate.findMany({
-            orderBy: { nombre: 'asc' }
+            orderBy: { nombre: 'asc' },
+            take: 200,
         });
         return NextResponse.json(templates);
     } catch (error) {
