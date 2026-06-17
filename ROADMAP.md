@@ -1,13 +1,13 @@
 # ROADMAP — CRM Taller
 
-> Última actualización: 2026-06-11  
+> Última actualización: 2026-06-17  
 > Generado desde `ideas.txt` + sesión de planificación
 
 ---
 
 ## 🎯 Visión general
 
-El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones, facturación, tracking de contenedores con WhatsApp) y la agilidad de almacén (recepción OCR offline desde tablet). La siguiente iteración construye un **sistema de precios en dos capas** — tarifa de coste interno y tarifa de venta base — que se mantiene vivo automáticamente a medida que llegan nuevos contenedores, sin que el usuario tenga que actualizar precios a mano. A medio plazo: soporte multi-naviera en tracking, portal cliente, dashboard ejecutivo y análisis anual de márgenes.
+El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones, facturación, tracking de contenedores con WhatsApp) y la agilidad de almacén (recepción OCR offline desde tablet). La siguiente iteración refina el **vínculo entre referencias de proveedor y la tarifa de precios interna**, permitiendo mapear espesores nominales del proveedor (2.7 mm) al espesor comercial correcto (3 mm) sin depender de que coincidan exactamente. A medio plazo: soporte multi-naviera, sistema de tarifas de coste en dos capas, dashboard ejecutivo y portal cliente.
 
 ---
 
@@ -15,13 +15,14 @@ El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones,
 
 | ID | Tarea | Tipo | Complejidad | Estado |
 |----|-------|------|-------------|--------|
+| T-75 | Longitud de taco editable en calculadora PVC con valor por defecto (ancho_banda − 10 mm) | Frontend | Pequeña | ⏳ |
+| T-74 | Columna "material" en calculadora de contenedor + vinculación por tipo de material (no por espesor) | Frontend + Backend | Media | ✅ |
 | T-72 | Bug: cámara OCR falla con "NO SE PUDO PROCESAR LA IMAGEN" | Frontend | Pequeña | ⏳ |
 | T-73 | Soporte multi-naviera en tracking (MSC, CMA-CGM, Hapag-Lloyd…) | Backend | Media | ⏳ |
 | T-67 | Tarifa de coste interno por m² (material + espesor) | Full stack + DB | Media | ⏳ |
 | T-68 | Tarifa de venta base con margen mínimo configurable | Full stack + DB | Media | ⏳ |
 | T-69 | Propuesta de actualización de tarifa de coste post-importación | Full stack | Media | ⏳ |
 | T-70 | Informe anual de variación de costes + propuesta de ajuste de ventas | Full stack | Grande | ⏳ |
-| T-71 | PDF del informe de importación simplificado | Frontend | Pequeña | ✅ |
 | T-61 | Plantillas de contenedor reutilizables | Full stack + DB | Media | ⏳ |
 | T-65 | Vincular referencias OCR con materiales del catálogo | Full stack | Grande | ⏳ |
 | N-06 | Dashboard ejecutivo con KPIs reales | Frontend | Media | ⏳ |
@@ -32,7 +33,63 @@ El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones,
 
 ## 🗺️ Fases propuestas
 
-### Fase 1 — Bugs y tracking multi-naviera *(prioridad inmediata)*
+### Fase 1 — Vinculación material-tarifa en calculadora de contenedor *(prioridad inmediata)*
+> Permitir que cada fila de la calculadora de contenedor indique el tipo de material y se vincule a la tarifa correcta aunque el espesor del proveedor no coincida exactamente. Estimación: 1-2 días.
+
+---
+
+#### T-74 — Columna "material" + vinculación por tipo en la calculadora de contenedor
+**Tipo:** Frontend + Backend · **Complejidad:** Media
+
+**Problema actual:** la vinculación `Tarifa €/m² → vincular` filtra el dropdown por `espesor` de la fila. Pero el proveedor puede indicar 2.7 mm cuando el producto se vende como 3 mm, por lo que el dropdown no muestra la entrada correcta de la tarifa.
+
+**Diseño propuesto:**
+
+1. **Nueva columna "Material"** en la tabla de bobinas — dropdown con los valores distintos de `material` en `TarifaMaterial` (PVC, LONA, GOMA, etc.). Este campo se persiste en el JSON `bobinas` de la importación junto al resto.
+
+2. **Dropdown "Tarifa €/m²"** filtrado únicamente por `material` seleccionado (sin filtrar por espesor). Muestra todas las entradas de ese material: `PVC 2mm`, `PVC 3mm`, `PVC 5mm`… para que el usuario elija la correcta aunque el espesor del proveedor sea distinto.
+
+3. **`__nuevo__` sigue funcionando** — si el material/espesor no existe, crear entrada en `TarifaMaterial`.
+
+4. **`actualizarPrecioMateriales`** ya usa `tarifaMaterialId`, así que el backend no requiere cambios — solo el frontend para pasar el ID correcto.
+
+**Ejemplo de uso:**
+- Referencia proveedor: `EM120/2 BLANCO(12CF)` — Espesor indicado: 2.7 mm
+- El usuario selecciona Material: `PVC`, luego en el dropdown ve `PVC BLANCO 2MM`, `PVC BLANCO 3MM`…
+- Elige `PVC BLANCO 2MM` aunque la fila diga 2.7 mm
+- Al guardar la importación, el precio €/m² de `PVC BLANCO 2MM` se actualiza automáticamente
+
+**Implementación:**
+- Añadir campo `material: ''` a `nuevaBobina` en `calculadora-contenedor/page.js`
+- Añadir columna Material con `<select>` de valores únicos de `tarifas.map(t => t.material)`
+- Cambiar el filtro del dropdown "Tarifa €/m²": en vez de `tarifas.filter(t => Math.abs(t.espesor - row.espesor) < 0.1)`, usar `tarifas.filter(t => t.material === row.material)`
+- Persistir el campo `material` en el JSON junto a `tarifaMaterialId`
+
+---
+
+---
+
+#### T-75 — Longitud de taco editable en calculadora PVC (valor por defecto: ancho − 10 mm)
+**Tipo:** Frontend · **Complejidad:** Pequeña
+
+**Comportamiento actual:** la calculadora de bandas PVC calcula la longitud del taco como `ancho_banda - 10 mm` (ej. banda 400 mm → taco 390 mm) de forma automática y no editable.
+
+**Problema:** a veces el cliente necesita una longitud de taco menor (p.ej. 350 mm en vez de 390 mm) y no hay forma de ajustarlo sin cambiar el ancho de la banda.
+
+**Diseño propuesto:**
+- El campo "Longitud taco" en la sección de tacos pasa de texto estático a `<input type="number">` editable
+- Se prellena automáticamente con `ancho_banda - 10` cuando el ancho cambia (si el usuario no lo ha tocado) o cuando se abre la calculadora por primera vez
+- Si el usuario edita el valor manualmente, ese valor prevalece y deja de actualizarse automáticamente al cambiar el ancho
+- Un botón/enlace "Restaurar por defecto" vuelve a `ancho - 10` si hace falta
+- El valor editado se propaga al PDF y al pedido igual que los demás campos de la sección de tacos
+
+**Archivos afectados:**
+- `src/componentes/calculadoras/CalculadoraBandas.js` — añadir estado `longitudTacoCustom` y lógica de sincronización
+- `src/app/api/pedidos/route.js` y `[id]/route.js` — asegurarse de que `longitudTaco` ya se guarda (verificar)
+
+---
+
+### Fase 2 — Bugs y tracking multi-naviera *(prioridad alta)*
 > Corregir el fallo OCR de cámara y ampliar el sistema de tracking a otras navieras. Estimación: 1-2 días.
 
 ---
@@ -76,7 +133,7 @@ El sistema actual soporta solo Yang Ming (prefijos YMMU/YMLU). Cuando llega un c
 
 ---
 
-### Fase 2 — Sistema de precios en dos capas *(prioridad alta)*
+### Fase 3 — Sistema de precios en dos capas *(prioridad alta)*
 > Saber exactamente cuánto cuesta cada material y garantizar que la tarifa de venta siempre cubre ese coste más un margen mínimo. Estimación: 3-4 días.
 
 ---
@@ -102,7 +159,7 @@ Nueva tabla `TarifaCoste` en la BD que almacena, por cada combinación `material
 
 Extensión de `TarifaCoste`: cada material tiene un `margenMinimo` (configurable por material, defecto global en `Config`). La tarifa de venta base se calcula como `precioM2 × (1 + margenMinimo)` y se muestra como referencia en los pedidos.
 
-**Pantalla:** misma página `/configuracion/tarifas-coste`, columna adicional "Precio venta base" calculada en tiempo real. Si el precio de venta actual en `tarifas-rollo` está por debajo del precio base → alerta visual.
+**Pantalla:** misma página `/configuracion/tarifas-coste`, columna adicional "Precio venta base" calculada en tiempo real. Si el precio de venta actual en `TarifaMaterial` está por debajo del precio base → alerta visual.
 
 **No reemplaza las tarifas actuales** — es una referencia interna. El operario sigue usando las tarifas de cliente como siempre.
 
@@ -132,7 +189,7 @@ Extensión del semáforo N-01: cuando el análisis de rentabilidad muestra que e
 
 ---
 
-### Fase 3 — Calidad del PDF y plantillas de contenedor
+### Fase 4 — Calidad del PDF y plantillas de contenedor
 > Pequeñas mejoras de pulido operativo. Estimación: 1-2 días.
 
 ---
@@ -149,7 +206,7 @@ Botón "Guardar como plantilla" en la calculadora de contenedor. Guarda la lista
 
 ---
 
-### Fase 4 — Análisis anual y propuestas de ajuste *(medio plazo)*
+### Fase 5 — Análisis anual y propuestas de ajuste *(medio plazo)*
 > Herramienta de fin de año para revisar si los precios de venta siguen siendo rentables tras las subidas de coste. Estimación: 3-4 días.
 
 ---
@@ -164,7 +221,7 @@ Nueva herramienta `/herramientas/revision-anual-precios`. Compara el coste de ca
 | PVC 3mm  | 8.50 €/m²   | 9.00 €/m²   | +5.88%    | 18.50 €/m²         | 19.59 €/m² (+5.88%) |
 
 - El usuario revisa la propuesta material a material y hace clic en "Aceptar" en los que quiera subir
-- Al aceptar → actualiza `tarifas-rollo.precioBase` con el nuevo valor
+- Al aceptar → actualiza `TarifaMaterial.precio` con el nuevo valor
 - Historial de revisiones guardado en `AuditLog`
 
 **Requiere T-67** (TarifaCoste con historial por año).
@@ -179,13 +236,13 @@ Nueva herramienta `/herramientas/revision-anual-precios`. Compara el coste de ca
 #### T-65 — Vincular referencias OCR con materiales del catálogo
 **Tipo:** Full stack · **Complejidad:** Grande
 
-Selector opcional por fila en la calculadora de contenedor (y en la recepción tablet) → material de `tarifas-rollo`. Permite propagar automáticamente el €/m calculado a `TarifaCoste` del material vinculado.
+La base de este trabajo ya está implementada (`tarifaMaterialId` en filas de la calculadora). T-74 añade la columna "material" que hace la vinculación más ergonómica. T-65 cubre la integración completa con OCR: cuando el texto escaneado de una etiqueta coincide con una referencia conocida, prellenar automáticamente el `material` y el `tarifaMaterialId`.
 
-**Requiere T-67** y **decisión previa**: vincular a `tarifas-rollo` (tiene `precioBase`) o a `materiales`. Ver bloqueos.
+**Requiere T-74** y decisión previa: vincular a `TarifaMaterial` (ya decidido) o a `materiales`.
 
 ---
 
-### Fase 5 — Engagement y portal cliente *(futuro)*
+### Fase 6 — Engagement y portal cliente *(futuro)*
 > Reducir fricción con el cliente y mejorar visibilidad del negocio.
 
 ---
@@ -222,6 +279,7 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 ## ⚡ Quick wins
 
+- ~~**T-75** — Longitud de taco editable en calculadora PVC con valor por defecto ancho−10 mm~~ ✅
 - [ ] **T-72** — Arreglar bug OCR cámara "NO SE PUDO PROCESAR LA IMAGEN" (~1-2h)
 - [ ] **T-73** — Añadir una naviera nueva al tracking una vez localizada su API con DevTools (~1h por naviera)
 - [ ] **T-61** — Plantillas de contenedor (~3h)
@@ -233,7 +291,7 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 - **T-69** requiere **T-67** (la tarifa de coste tiene que existir para poder actualizarla)
 - **T-70** requiere **T-67** con campo de historial anual — diseñar snapshot de inicio de año (cron job o manual en enero)
-- **T-65** requiere **decisión de diseño**: vincular a `tarifas-rollo` (tiene `precioBase`) o a `materiales` (más genérico). Impacta en T-67 y T-69
+- **T-65** requiere **T-74** (columna material ya disponible) — la parte OCR es adicional
 - **T-73** requiere identificar qué navieras usa el usuario y encontrar sus APIs internas con DevTools
 - **N-07** (portal cliente) requiere decisión sobre política de expiración del token
 - **N-08** (picking tablet) necesita campo `preparado Boolean` en `PedidoItem`
@@ -256,13 +314,21 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 ## ✅ Completado
 
-- ✅ **Tracking Yang Ming sin coste** — Migración de Terminal49 (plan gratuito inútil: 401 en GET) a la API interna de Yang Ming. Sin límites, sin autenticación. Prefijos YMMU/YMLU (2026-06-11)
+- ✅ **T-75** — Longitud de taco editable en modal de configuración de tacos; valor por defecto `ancho − 10 mm`, restaurable con un clic (2026-06-17)
+- ✅ **T-74** — Columna "Material" en calculadora de contenedor + vinculación tarifa por tipo de material (no por espesor) (2026-06-17)
+- ✅ **Columna "Acabado" en TarifaMaterial** — Migración Prisma, constraint único actualizado, edición inline en TablaTarifas, PDF incluido (2026-06-17)
+- ✅ **Fix: proveedor se borraba al abrir modal guardar importación** — SWR movido al componente padre y pasado como prop; cuando el modal abre ya tiene los datos cacheados (2026-06-17)
+- ✅ **17 bugs corregidos (revisión completa)** — IVA desde Config, subtotales redondeados, totales recalculados en PUT, Decimal→Number en informes, serializeDecimals nulos, costoUnitario excluido de CSV, tier enum, BOM CSV, anti-doble-submit, cleanup timeouts, race condition config-cache (2026-06-16)
+- ✅ **Columna lonas en TarifaMaterial** — Migración Prisma, constraint único (material, espesor, color, lonas), edición inline en TablaTarifas, PDF incluido (2026-06-15/16)
+- ✅ **Auto-actualización TarifaMaterial desde contenedor** — `actualizarPrecioMateriales()` fuego-y-olvido al guardar/actualizar importación; vinculación por `tarifaMaterialId` con opción `__nuevo__` para crear entrada si no existe (2026-06-15)
+- ✅ **Grapa v2 — HistorialPrecioGrapa + auto-actualización desde contenedor** — Modelo `HistorialPrecioGrapa`, fórmula `precioPor100mm = costePorCaja / (paresPorCaja × ancho / 100)`, historial visible en `/configuracion/grapas` (2026-06-15)
+- ✅ **Tracking Yang Ming sin coste** — Migración de Terminal49 a la API interna de Yang Ming. Sin límites, sin autenticación. Prefijos YMMU/YMLU (2026-06-11)
 - ✅ **Página de detalle de contenedor** — `/compras/contenedores/[id]` con tabla de eventos de tracking, botón "Actualizar ahora", ETA, botón "Llegó" (2026-06-11)
 - ✅ **Eliminación contador Ship24** — Eliminado el badge "0/50 trackers Ship24" y toda la lógica de `usoShip24` de la página de contenedores (2026-06-11)
 - ✅ **Cron horario de tracking con WhatsApp** — Sync automático cada hora (8h-22h) con notificación WhatsApp vía CallMeBot cuando hay nuevo evento (2026-06-11)
 - ✅ **Fix: globalMutate no importado en pedido detalle** — Crash al eliminar pedido por `ReferenceError: globalMutate is not defined` (2026-06-11)
 - ✅ **Fix: PDF gastoFijo dividía por cantidad individual** — El PDF de presupuesto calculaba `gastoFijoUnitario` dividiendo por `item.quantity` en vez del total de unidades (2026-06-11)
-- ✅ **T-71** — PDF del informe de importación simplificado — dos botones "PDF Completo" y "PDF Resumen" en la calculadora de contenedor (fecha desconocida)
+- ✅ **T-71** — PDF del informe de importación simplificado — dos botones "PDF Completo" y "PDF Resumen" en la calculadora de contenedor
 - ✅ **Recepción offline en tablet** — Tab "Recepción" en `/tablet`: escaneo OCR + IndexedDB + sync automático al recuperar wifi (2026-06-08)
 - ✅ **Escaneo de etiquetas con OCR (Tesseract.js)** — Botón "Escanear etiqueta" en calculadora de contenedor (2026-06-08)
 - ✅ **T-64** Alerta variación precio ▲/▼ en calculadora contenedor (2026-06-04)

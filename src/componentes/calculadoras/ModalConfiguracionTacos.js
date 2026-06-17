@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import useSWR from 'swr';
 import { X, Plus, Info } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
@@ -9,6 +9,17 @@ export default function ModalConfiguracionTacos({ isOpen, onClose, onConfirm, an
     const [tipoTaco, setTipoTaco] = useState('RECTO');
     const [alturaTaco, setAlturaTaco] = useState('');
     const [pasoEntreTacos, setPasoEntreTacos] = useState('');
+    const [longitudTacoInput, setLongitudTacoInput] = useState('');
+    const [longitudOverridden, setLongitudOverridden] = useState(false);
+    const longitudOverriddenRef = useRef(false); // mirrors state for use in effects without stale closure
+
+    // Auto-fill longitud when anchoBanda changes, unless the user has manually overridden it
+    useEffect(() => {
+        if (!longitudOverriddenRef.current) {
+            const ancho = parseFloat(anchoBanda);
+            if (ancho > 10) setLongitudTacoInput(String(ancho - 10));
+        }
+    }, [anchoBanda]);
 
     const { data: tacos, isLoading } = useSWR('/api/tacos');
 
@@ -33,13 +44,12 @@ export default function ModalConfiguracionTacos({ isOpen, onClose, onConfirm, an
         const anchoMm = parseFloat(anchoBanda);
         const largoMm = parseFloat(largoBanda);
         const pasoMm = parseFloat(pasoEntreTacos);
+        const longitudTacoMm = parseFloat(longitudTacoInput);
 
-        if (anchoMm <= 0 || largoMm <= 0 || pasoMm <= 0) {
+        if (anchoMm <= 0 || largoMm <= 0 || pasoMm <= 0 || !longitudTacoMm || longitudTacoMm <= 0) {
             return { isValid: false };
         }
 
-        // Longitud del taco = ancho de banda - 10mm (margen)
-        const longitudTacoMm = anchoMm - 10;
         const longitudTacoM = longitudTacoMm / 1000;
 
         // Cantidad de tacos = largo de banda / paso
@@ -60,7 +70,7 @@ export default function ModalConfiguracionTacos({ isOpen, onClose, onConfirm, an
             precioMetro: tacoSeleccionado.precioMetro,
             costeTacos,
         };
-    }, [anchoBanda, largoBanda, pasoEntreTacos, tacoSeleccionado]);
+    }, [anchoBanda, largoBanda, pasoEntreTacos, tacoSeleccionado, longitudTacoInput]);
 
     const handleConfirm = () => {
         if (!calculo.isValid) return;
@@ -80,10 +90,21 @@ export default function ModalConfiguracionTacos({ isOpen, onClose, onConfirm, an
         onClose();
     };
 
+    const handleRestoreDefaultLongitud = () => {
+        longitudOverriddenRef.current = false;
+        setLongitudOverridden(false);
+        const ancho = parseFloat(anchoBanda);
+        if (ancho > 10) setLongitudTacoInput(String(ancho - 10));
+    };
+
     const handleReset = () => {
         setTipoTaco('RECTO');
         setAlturaTaco('');
         setPasoEntreTacos('');
+        longitudOverriddenRef.current = false;
+        setLongitudOverridden(false);
+        const ancho = parseFloat(anchoBanda);
+        if (ancho > 10) setLongitudTacoInput(String(ancho - 10));
     };
 
     if (!isOpen) return null;
@@ -113,6 +134,38 @@ export default function ModalConfiguracionTacos({ isOpen, onClose, onConfirm, an
                             <span className="text-sm">
                                 Banda: {anchoBanda}mm × {largoBanda}mm
                             </span>
+                        </div>
+
+                        {/* Longitud del taco (editable, por defecto ancho - 10) */}
+                        <div className="form-control">
+                            <label className="label">
+                                <span className="label-text font-bold">Longitud del Taco (mm)</span>
+                                {longitudOverridden && (
+                                    <button
+                                        type="button"
+                                        className="label-text-alt link link-primary text-xs"
+                                        onClick={handleRestoreDefaultLongitud}
+                                    >
+                                        Restaurar por defecto ({parseFloat(anchoBanda) - 10}mm)
+                                    </button>
+                                )}
+                            </label>
+                            <input
+                                type="number"
+                                className="input input-bordered w-full"
+                                value={longitudTacoInput}
+                                onChange={e => {
+                                    longitudOverriddenRef.current = true;
+                                    setLongitudOverridden(true);
+                                    setLongitudTacoInput(e.target.value);
+                                }}
+                                placeholder={anchoBanda ? String(parseFloat(anchoBanda) - 10) : ''}
+                            />
+                            {!longitudOverridden && (
+                                <label className="label py-0">
+                                    <span className="label-text-alt text-base-content/50">Por defecto: ancho − 10 mm</span>
+                                </label>
+                            )}
                         </div>
 
                         {/* Tipo de taco */}
