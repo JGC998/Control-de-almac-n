@@ -15,6 +15,8 @@ const nuevaBobina = (id) => ({
   tipo: 'BOBINA', // 'BOBINA' | 'TACO' | 'GRAPA' | 'MAQUINA' | 'OTRO'
   referencia: '',
   material: '',    // Tipo de material (PVC, LONA…) — filtra el dropdown de tarifa
+  lonas: '',       // Nº de lonas — filtrado progresivo de tarifa (T-76)
+  acabado: '',     // Acabado de superficie — filtrado progresivo de tarifa (T-76)
   espesor: '',
   ancho: '',
   longitud: '',
@@ -630,6 +632,8 @@ function CalculadoraContenedorPage() {
         tipo: b.tipo || 'BOBINA',
         precio: b.precio ?? b.usdPorMetro ?? '',
         unidadPrecio: b.unidadPrecio || 'M',
+        lonas: b.lonas || '',
+        acabado: b.acabado || '',
         notas: b.notas || '',
       })));
       setNextId(bobs.length + 1);
@@ -1323,23 +1327,73 @@ function CalculadoraContenedorPage() {
                           <option value="OTRO">Otro</option>
                         </select>
                       </td>
-                      {/* Material (T-74) — selector de tipo para filtrar tarifa */}
+                      {/* Material + Lonas + Acabado (T-74/T-76) — filtrado progresivo de tarifa */}
                       <td>
                         {esBobina ? (
-                          <select
-                            className="select select-xs select-bordered w-28"
-                            value={b.material || ''}
-                            onChange={e => {
-                              handleBobinaChange(b.id, 'material', e.target.value);
-                              // Al cambiar material, limpiar vínculo de tarifa para evitar referencias cruzadas
-                              handleBobinaChange(b.id, 'tarifaMaterialId', '');
-                            }}
-                          >
-                            <option value="">— tipo —</option>
-                            {materialesUnicos.map(m => (
-                              <option key={m} value={m}>{m}</option>
-                            ))}
-                          </select>
+                          <div className="space-y-1">
+                            <select
+                              className="select select-xs select-bordered w-28"
+                              value={b.material || ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setBobinas(prev => prev.map(r => r.id === b.id
+                                  ? { ...r, material: val, lonas: '', acabado: '', tarifaMaterialId: '' }
+                                  : r
+                                ));
+                              }}
+                            >
+                              <option value="">— tipo —</option>
+                              {materialesUnicos.map(m => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+                            {/* Lonas — solo aparece si el material elegido tiene tarifas con lonas */}
+                            {(() => {
+                              const opts = b.material
+                                ? [...new Set((tarifasMaterial || []).filter(t => t.material === b.material && t.lonas).map(t => t.lonas))].sort()
+                                : [];
+                              return opts.length > 0 ? (
+                                <select
+                                  className="select select-xs select-bordered w-28"
+                                  value={b.lonas || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setBobinas(prev => prev.map(r => r.id === b.id
+                                      ? { ...r, lonas: val, acabado: '', tarifaMaterialId: '' }
+                                      : r
+                                    ));
+                                  }}
+                                >
+                                  <option value="">— lonas —</option>
+                                  {opts.map(l => <option key={l} value={l}>{l}</option>)}
+                                </select>
+                              ) : null;
+                            })()}
+                            {/* Acabado — solo aparece si hay tarifas con acabado para el material+lonas seleccionados */}
+                            {(() => {
+                              const opts = b.material
+                                ? [...new Set((tarifasMaterial || [])
+                                    .filter(t => t.material === b.material && (!b.lonas || t.lonas === b.lonas) && t.acabado)
+                                    .map(t => t.acabado))].sort()
+                                : [];
+                              return opts.length > 0 ? (
+                                <select
+                                  className="select select-xs select-bordered w-28"
+                                  value={b.acabado || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setBobinas(prev => prev.map(r => r.id === b.id
+                                      ? { ...r, acabado: val, tarifaMaterialId: '' }
+                                      : r
+                                    ));
+                                  }}
+                                >
+                                  <option value="">— acabado —</option>
+                                  {opts.map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                              ) : null;
+                            })()}
+                          </div>
                         ) : <span className="text-base-content/20 text-xs px-2">—</span>}
                       </td>
                       {/* Referencia + Notas (T-58: datalist autocompletar) */}
@@ -1463,21 +1517,36 @@ function CalculadoraContenedorPage() {
                           })()}
                         </div>
                       </td>
-                      {/* Tarifa €/m² — solo BOBINA (T-74: filtra por material seleccionado) */}
+                      {/* Tarifa €/m² — solo BOBINA (T-74/T-76: filtra por material + lonas + acabado) */}
                       <td>
                         {esBobina ? (
                           <div>
                             <select
                               className="select select-xs select-bordered w-40 font-mono"
                               value={b.tarifaMaterialId || ''}
-                              onChange={e => handleBobinaChange(b.id, 'tarifaMaterialId', e.target.value)}
+                              onChange={e => {
+                                const val = e.target.value;
+                                const tarifa = (tarifasMaterial || []).find(t => t.id === val);
+                                setBobinas(prev => prev.map(r => r.id === b.id ? {
+                                  ...r,
+                                  tarifaMaterialId: val,
+                                  ...(tarifa ? {
+                                    lonas: tarifa.lonas || r.lonas,
+                                    acabado: tarifa.acabado || r.acabado,
+                                  } : {}),
+                                } : r));
+                              }}
                             >
                               <option value="">— no vincular —</option>
                               {(tarifasMaterial || [])
-                                .filter(t => !b.material || t.material === b.material)
+                                .filter(t =>
+                                  (!b.material || t.material === b.material) &&
+                                  (!b.lonas || t.lonas === b.lonas) &&
+                                  (!b.acabado || t.acabado === b.acabado)
+                                )
                                 .map(t => (
                                   <option key={t.id} value={t.id}>
-                                    {t.material} {t.espesor}mm{t.color ? ` (${t.color})` : ''}{t.lonas ? ` ${t.lonas}L` : ''}
+                                    {t.material} {t.espesor}mm{t.color ? ` (${t.color})` : ''}{t.lonas ? ` ${t.lonas}L` : ''}{t.acabado ? ` ${t.acabado}` : ''}
                                   </option>
                                 ))}
                               {b.material && n(b.espesor) > 0 && (

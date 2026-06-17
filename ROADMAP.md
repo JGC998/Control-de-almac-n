@@ -1,7 +1,8 @@
 # ROADMAP — CRM Taller
 
 > Última actualización: 2026-06-17  
-> Generado desde `ideas.txt` + sesión de planificación
+> Generado desde `ideas.txt` + sesión de planificación  
+> Última actualización ideas: 2026-06-17 (añadido T-76)
 
 ---
 
@@ -15,7 +16,8 @@ El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones,
 
 | ID | Tarea | Tipo | Complejidad | Estado |
 |----|-------|------|-------------|--------|
-| T-75 | Longitud de taco editable en calculadora PVC con valor por defecto (ancho_banda − 10 mm) | Frontend | Pequeña | ⏳ |
+| T-76 | Añadir campos "Lonas" y "Acabado" por fila en calculadora de contenedor para vinculación exacta con TarifaMaterial | Frontend | Pequeña | ✅ |
+| T-75 | Longitud de taco editable en calculadora PVC con valor por defecto (ancho_banda − 10 mm) | Frontend | Pequeña | ✅ |
 | T-74 | Columna "material" en calculadora de contenedor + vinculación por tipo de material (no por espesor) | Frontend + Backend | Media | ✅ |
 | T-72 | Bug: cámara OCR falla con "NO SE PUDO PROCESAR LA IMAGEN" | Frontend | Pequeña | ⏳ |
 | T-73 | Soporte multi-naviera en tracking (MSC, CMA-CGM, Hapag-Lloyd…) | Backend | Media | ⏳ |
@@ -66,6 +68,24 @@ El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones,
 - Persistir el campo `material` en el JSON junto a `tarifaMaterialId`
 
 ---
+
+---
+
+#### T-76 — Campos "Lonas" y "Acabado" en cada fila de la calculadora de contenedor
+**Tipo:** Frontend · **Complejidad:** Pequeña
+
+**Contexto:** T-74 añadió la columna "Material" para filtrar el dropdown "Tarifa €/m²" por tipo de material. Sin embargo, `TarifaMaterial` tiene un constraint único sobre 4 campos: `(material, espesor, lonas, acabado)`. Sin "Lonas" y "Acabado" en la fila, el dropdown puede mostrar varias opciones con el mismo material y espesor pero diferente acabado/lonas, obligando al usuario a elegir manualmente con riesgo de error.
+
+**Diseño propuesto:**
+1. Añadir dos columnas nuevas por fila de bobina: **Lonas** (dropdown con valores únicos de `tarifas.map(t => t.lonas)` para el material seleccionado) y **Acabado** (idem)
+2. Los campos que ya existen en la fila del proveedor (Tipo, Referencia, Espesor, Ancho, Largo, Precio USD) no se repiten — solo se añaden los que faltan del "universo tarifa": Lonas y Acabado
+3. Filtro del dropdown "Tarifa €/m²": `tarifas.filter(t => t.material === row.material && (!row.lonas || t.lonas === row.lonas) && (!row.acabado || t.acabado === row.acabado))` — filtrado progresivo, tolerante a vacío
+4. Cuando el usuario selecciona una tarifa concreta, los campos Lonas y Acabado se auto-rellenan desde la tarifa elegida (si estaban vacíos)
+5. Persistir `lonas` y `acabado` en el JSON `bobinas` de la importación
+
+**Archivos afectados:**
+- `src/app/compras/calculadora-contenedor/page.js` — añadir campos a `nuevaBobina`, columnas en la tabla, lógica de filtrado encadenado
+- No requiere cambios de backend ni de BD
 
 ---
 
@@ -279,6 +299,7 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 ## ⚡ Quick wins
 
+- ~~**T-76** — Añadir "Lonas" y "Acabado" por fila en calculadora de contenedor para vinculación exacta~~ ✅
 - ~~**T-75** — Longitud de taco editable en calculadora PVC con valor por defecto ancho−10 mm~~ ✅
 - [ ] **T-72** — Arreglar bug OCR cámara "NO SE PUDO PROCESAR LA IMAGEN" (~1-2h)
 - [ ] **T-73** — Añadir una naviera nueva al tracking una vez localizada su API con DevTools (~1h por naviera)
@@ -314,6 +335,7 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 ## ✅ Completado
 
+- ✅ **T-76** — Campos "Lonas" y "Acabado" apilados en columna Material de calculadora de contenedor; filtrado progresivo de tarifa por material→lonas→acabado; auto-relleno al seleccionar tarifa (2026-06-17)
 - ✅ **T-75** — Longitud de taco editable en modal de configuración de tacos; valor por defecto `ancho − 10 mm`, restaurable con un clic (2026-06-17)
 - ✅ **T-74** — Columna "Material" en calculadora de contenedor + vinculación tarifa por tipo de material (no por espesor) (2026-06-17)
 - ✅ **Columna "Acabado" en TarifaMaterial** — Migración Prisma, constraint único actualizado, edición inline en TablaTarifas, PDF incluido (2026-06-17)
