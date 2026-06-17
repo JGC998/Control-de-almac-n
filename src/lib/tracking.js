@@ -15,9 +15,8 @@
 import { logApiError } from '@/lib/logger';
 
 const YM_API        = 'https://www.yangming.com/api/CargoTracking/GetTracking';
-// Vessel schedule — endpoint descubierto vía DevTools en yangming.com/en/esolution/schedule/vessel_schedule
-// Si esta URL falla, abrir esa página en DevTools → Network y buscar la llamada JSON con el itinerario.
-const YM_VESSEL_API = 'https://www.yangming.com/api/Schedule/GetVesselSchedule';
+// Vessel status — descubierto vía DevTools en yangming.com/en/esolution/schedule/vessel_schedule
+const YM_VESSEL_API = 'https://www.yangming.com/api/VesselTracking/GetVesselStatus';
 
 const PREFIJOS_YM = new Set(['YMMU', 'YMLU']);
 
@@ -139,7 +138,7 @@ export function extraerNombreBarco(eventos) {
 export async function buscarScheduleBarco(vesselCode) {
   if (!vesselCode) return null;
   try {
-    const url = `${YM_VESSEL_API}?paramVesselCode=${encodeURIComponent(vesselCode)}`;
+    const url = `${YM_VESSEL_API}?vesselCode=${encodeURIComponent(vesselCode)}`;
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
