@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarTracking, enviarWhatsApp, formatearMensajeTracking, claveEvento } from '@/lib/tracking';
+import { buscarTracking, enviarWhatsApp, formatearMensajeTracking, claveEvento, extraerNombreBarco, buscarScheduleBarco } from '@/lib/tracking';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
@@ -49,27 +49,39 @@ export async function POST(request) {
 
         const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
-        await db.importacionContenedor.update({
-          where: { id: imp.id },
-          data: {
-            ultimoTrackingCheck: ahora,
-            ...(tracking?.ultimoEvento && {
-              ultimoEvento:         claveEvento(tracking.ultimoEvento),
-              ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,
-            }),
-            ...(tracking?.eta && {
-              etaEstimada: new Date(tracking.eta),
-            }),
-          },
-        });
-
-        if (!tracking) return { id: imp.id, status: 'sin_datos', trackingNum };
+        if (!tracking) {
+          await db.importacionContenedor.update({
+            where: { id: imp.id },
+            data: { ultimoTrackingCheck: ahora },
+          });
+          return { id: imp.id, status: 'sin_datos', trackingNum };
+        }
 
         const claveNueva  = claveEvento(tracking.ultimoEvento);
         const hayNuevidad = claveNueva && claveNueva !== imp.ultimoEvento;
 
+        const nombreBarco = extraerNombreBarco(tracking.eventos);
+
+        // Solo pedir schedule del barco si hay evento nuevo (evita llamada extra en cada sync)
+        const scheduleBarco = hayNuevidad && nombreBarco
+          ? await buscarScheduleBarco(nombreBarco).catch(() => null)
+          : null;
+
+        await db.importacionContenedor.update({
+          where: { id: imp.id },
+          data: {
+            ultimoTrackingCheck: ahora,
+            ...(tracking.ultimoEvento && {
+              ultimoEvento:         claveEvento(tracking.ultimoEvento),
+              ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,
+            }),
+            ...(tracking.eta && { etaEstimada: new Date(tracking.eta) }),
+            ...(nombreBarco   && { nombreBarco }),
+          },
+        });
+
         if (hayNuevidad) {
-          const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta);
+          const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta, scheduleBarco);
           const enviado = await enviarWhatsApp(mensaje);
           return { id: imp.id, status: 'notificado', trackingNum, whatsapp: enviado };
         }

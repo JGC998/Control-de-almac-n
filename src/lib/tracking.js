@@ -247,8 +247,9 @@ const EMOJI_EVENTO = {
 
 /**
  * Genera el texto del mensaje de WhatsApp para un nuevo evento.
+ * scheduleBarco es opcional — si se pasa, añade posición actual y próxima escala del barco.
  */
-export function formatearMensajeTracking(imp, evento, eta = null) {
+export function formatearMensajeTracking(imp, evento, eta = null, scheduleBarco = null) {
   const num   = imp.numContenedor || imp.blNumber || 'Sin número';
   const desc  = evento.status || 'Nuevo estado';
   const emoji = EMOJI_EVENTO[desc] || '📋';
@@ -264,15 +265,34 @@ export function formatearMensajeTracking(imp, evento, eta = null) {
     ? new Date(eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
     : null;
 
+  // Sección de barco: posición actual + próximas escalas (máx 2)
+  const lineasBarco = [];
+  if (scheduleBarco?.puertos?.length) {
+    const nombre = scheduleBarco.vesselName ?? scheduleBarco.vesselCode ?? '';
+    if (nombre) lineasBarco.push(``, `🚢 *${nombre}*`);
+
+    const posActual = scheduleBarco.puertos.find(p => p.esPosicionActual);
+    if (posActual) lineasBarco.push(`📍 Últ. posición: ${posActual.puerto}`);
+
+    const proximas = scheduleBarco.puertos
+      .filter(p => p.eta)
+      .slice(0, 2);
+    proximas.forEach(p => {
+      const d = new Date(p.eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+      lineasBarco.push(`⏭ ${p.puerto} — ${d}`);
+    });
+  }
+
   return [
     imp.descripcion ? `📦 *${imp.descripcion}*` : `📦 *Contenedor ${num}*`,
     imp.descripcion ? `🔢 ${num}` : null,
     ``,
     `${emoji} ${desc}`,
-    evento.location  ? `📍 ${evento.location}` : null,
+    evento.location     ? `📍 ${evento.location}` : null,
     evento.vesselVoyage ? `🛳 ${evento.vesselVoyage}` : null,
-    fecha            ? `📅 ${fecha}` : null,
-    etaFmt           ? `🕐 ETA prevista: ${etaFmt}` : null,
+    fecha               ? `📅 ${fecha}` : null,
+    etaFmt              ? `🕐 ETA prevista: ${etaFmt}` : null,
+    ...lineasBarco,
   ].filter(s => s !== null).join('\n');
 }
 
