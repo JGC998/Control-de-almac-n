@@ -2,7 +2,7 @@
 
 > Última actualización: 2026-06-17  
 > Generado desde `ideas.txt` + sesión de planificación  
-> Última actualización ideas: 2026-06-17 (añadido T-76)
+> Última actualización ideas: 2026-06-17 (añadido T-77)
 
 ---
 
@@ -16,6 +16,7 @@ El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones,
 
 | ID | Tarea | Tipo | Complejidad | Estado |
 |----|-------|------|-------------|--------|
+| T-77 | Tracking de barco en paralelo al tracking de contenedor (Yang Ming vessel schedule) | Backend + Frontend | Media | ✅ |
 | T-76 | Añadir campos "Lonas" y "Acabado" por fila en calculadora de contenedor para vinculación exacta con TarifaMaterial | Frontend | Pequeña | ✅ |
 | T-75 | Longitud de taco editable en calculadora PVC con valor por defecto (ancho_banda − 10 mm) | Frontend | Pequeña | ✅ |
 | T-74 | Columna "material" en calculadora de contenedor + vinculación por tipo de material (no por espesor) | Frontend + Backend | Media | ✅ |
@@ -109,8 +110,8 @@ El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones,
 
 ---
 
-### Fase 2 — Bugs y tracking multi-naviera *(prioridad alta)*
-> Corregir el fallo OCR de cámara y ampliar el sistema de tracking a otras navieras. Estimación: 1-2 días.
+### Fase 2 — Tracking mejorado y bugs *(prioridad alta)*
+> Añadir tracking paralelo de barco para ETAs más rápidas, corregir el fallo OCR de cámara y ampliar el tracking a otras navieras. Estimación: 2-3 días.
 
 ---
 
@@ -129,6 +130,52 @@ Posibles causas:
 1. Añadir log del error real del worker Tesseract antes de mostrar el mensaje genérico
 2. Comprobar que el canvas tiene píxeles reales en el momento de la captura
 3. Probar añadir un delay mínimo tras `getUserMedia` antes de capturar el frame
+
+---
+
+#### T-77 — Tracking de barco en paralelo al tracking de contenedor
+**Tipo:** Backend + Frontend · **Complejidad:** Media
+
+**Problema actual:** el tracking del contenedor solo da eventos cuando la naviera registra un movimiento del contenedor en concreto, que puede tardar horas. El barco en el que está cargado tiene su propio schedule con ETAs por puerto que se actualiza con más frecuencia y da visibilidad antes de que el contenedor genere un evento propio.
+
+**Cómo funciona:**
+- El tracking de Yang Ming ya devuelve el nombre del barco como parte de los eventos (campo `vessel` o en la descripción del evento "Loaded on vessel OSOL")
+- Yang Ming tiene una página de schedule de barco: `https://www.yangming.com/en/esolution/schedule/vessel_schedule?vessel=OSOL`
+- Esta página llama a una API JSON interna que devuelve el itinerario completo del barco (puertos, ETA, ATA)
+
+**Implementación:**
+
+1. **Investigar la API interna** (DevTools → Network en esa URL con un nombre de barco real):
+   - Buscar la llamada XHR/fetch que devuelve el JSON del itinerario
+   - Copiar URL, headers mínimos necesarios, parámetro del nombre del barco
+
+2. **Backend — `src/lib/tracking.js`**: añadir función `buscarScheduleBarco(vesselName)`:
+   ```js
+   export async function buscarScheduleBarco(vesselName) {
+     // llamada a la API interna de Yang Ming vessel schedule
+     // devuelve array de { puerto, eta, ata, estado } ordenado por fecha
+   }
+   ```
+
+3. **Backend — `src/app/api/importaciones/[id]/tracking/route.js`**: extraer el nombre del barco del evento más reciente de "loaded on vessel" y llamar también a `buscarScheduleBarco`. Devolver al frontend tanto los eventos del contenedor como el schedule del barco:
+   ```js
+   return NextResponse.json({
+     eventos,           // tracking del contenedor (existente)
+     eta,
+     scheduleBarco: {   // NUEVO
+       nombreBarco,
+       puertos,         // [{ puerto, eta, ata, esPróximo }]
+     },
+   });
+   ```
+
+4. **Frontend — `ModalTracking`** en `calculadora-contenedor/page.js`: mostrar una segunda sección "Itinerario del barco" con los puertos pendientes, destacando el puerto de destino con la ETA.
+
+5. **Campo `nombreBarco String?`** en `ImportacionContenedor` (ambos schemas): guardar el nombre del barco cuando se detecta en el tracking para poder mostrarlo sin rellamar al tracking.
+
+**Referencia:** URL de ejemplo Yang Ming vessel schedule: `https://www.yangming.com/en/esolution/schedule/vessel_schedule?vessel=OSOL`
+
+**Nota:** Antes de implementar, el usuario debe abrir esa URL en DevTools → Network y localizar la llamada JSON para obtener el endpoint real y los headers.
 
 ---
 
@@ -301,6 +348,7 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 - ~~**T-76** — Añadir "Lonas" y "Acabado" por fila en calculadora de contenedor para vinculación exacta~~ ✅
 - ~~**T-75** — Longitud de taco editable en calculadora PVC con valor por defecto ancho−10 mm~~ ✅
+- ~~**T-77** — Tracking paralelo del barco — implementado; pendiente verificar URL del API con DevTools~~ ✅
 - [ ] **T-72** — Arreglar bug OCR cámara "NO SE PUDO PROCESAR LA IMAGEN" (~1-2h)
 - [ ] **T-73** — Añadir una naviera nueva al tracking una vez localizada su API con DevTools (~1h por naviera)
 - [ ] **T-61** — Plantillas de contenedor (~3h)
@@ -313,6 +361,7 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 - **T-69** requiere **T-67** (la tarifa de coste tiene que existir para poder actualizarla)
 - **T-70** requiere **T-67** con campo de historial anual — diseñar snapshot de inicio de año (cron job o manual en enero)
 - **T-65** requiere **T-74** (columna material ya disponible) — la parte OCR es adicional
+- **T-77** requiere investigación previa con DevTools en `yangming.com/en/esolution/schedule/vessel_schedule?vessel=OSOL` para localizar el endpoint JSON interno antes de implementar
 - **T-73** requiere identificar qué navieras usa el usuario y encontrar sus APIs internas con DevTools
 - **N-07** (portal cliente) requiere decisión sobre política de expiración del token
 - **N-08** (picking tablet) necesita campo `preparado Boolean` en `PedidoItem`
@@ -335,6 +384,7 @@ Vista tablet para preparar pedidos: lista de artículos con checkboxes táctiles
 
 ## ✅ Completado
 
+- ✅ **T-77** — Tracking de barco en paralelo al contenedor: nombre del barco extraído de `vesselVoyage`, schedule via API Yang Ming, campo `nombreBarco` en BD, sección "🛳 Barco" en modal de tracking (2026-06-17). URL API pendiente de verificar con DevTools.
 - ✅ **T-76** — Campos "Lonas" y "Acabado" apilados en columna Material de calculadora de contenedor; filtrado progresivo de tarifa por material→lonas→acabado; auto-relleno al seleccionar tarifa (2026-06-17)
 - ✅ **T-75** — Longitud de taco editable en modal de configuración de tacos; valor por defecto `ancho − 10 mm`, restaurable con un clic (2026-06-17)
 - ✅ **T-74** — Columna "Material" en calculadora de contenedor + vinculación tarifa por tipo de material (no por espesor) (2026-06-17)

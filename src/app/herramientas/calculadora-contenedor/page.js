@@ -271,7 +271,7 @@ function ModalTracking({ importacionId, numContenedor, blNumber, onClose }) {
 
         {!cargando && datos && (
           <div className="space-y-4">
-            {/* ETA */}
+            {/* ETA contenedor */}
             {datos.eta && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center gap-3">
                 <span className="text-2xl">🎯</span>
@@ -279,6 +279,39 @@ function ModalTracking({ importacionId, numContenedor, blNumber, onClose }) {
                   <p className="text-xs text-base-content/50">ETA estimada</p>
                   <p className="font-bold">{fmtFecha(datos.eta)}</p>
                 </div>
+              </div>
+            )}
+
+            {/* Barco — nombre + schedule (T-77) */}
+            {datos.nombreBarco && (
+              <div className="border border-base-300 rounded-lg p-3">
+                <p className="text-xs font-semibold text-base-content/60 mb-2 flex items-center gap-1.5">
+                  🛳 Barco: <span className="font-mono text-base-content">{datos.nombreBarco}</span>
+                </p>
+                {datos.scheduleBarco?.puertos?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="table table-xs w-full">
+                      <thead>
+                        <tr>
+                          <th>Puerto</th>
+                          <th>ETA</th>
+                          <th>ETD</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {datos.scheduleBarco.puertos.map((p, i) => (
+                          <tr key={i} className={p.ata ? 'opacity-40' : ''}>
+                            <td className="font-medium">{p.puerto}</td>
+                            <td className="font-mono text-xs">{p.eta ? fmtFecha(p.eta) : (p.ata ? `ATA ${fmtFecha(p.ata)}` : '—')}</td>
+                            <td className="font-mono text-xs text-base-content/50">{p.etd ? fmtFecha(p.etd) : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-base-content/40">Schedule del barco no disponible todavía (verificar URL API en DevTools).</p>
+                )}
               </div>
             )}
 
@@ -1347,12 +1380,12 @@ function CalculadoraContenedorPage() {
                                 <option key={m} value={m}>{m}</option>
                               ))}
                             </select>
-                            {/* Lonas — solo aparece si el material elegido tiene tarifas con lonas */}
-                            {(() => {
-                              const opts = b.material
-                                ? [...new Set((tarifasMaterial || []).filter(t => t.material === b.material && t.lonas).map(t => t.lonas))].sort()
-                                : [];
-                              return opts.length > 0 ? (
+                            {/* Lonas — visible cuando hay material; puede quedar vacía (sin lona) */}
+                            {b.material ? (() => {
+                              const opts = [...new Set((tarifasMaterial || [])
+                                .filter(t => t.material === b.material && t.lonas != null)
+                                .map(t => String(t.lonas)))].sort((a, z) => Number(a) - Number(z));
+                              return (
                                 <select
                                   className="select select-xs select-bordered w-28"
                                   value={b.lonas || ''}
@@ -1364,19 +1397,17 @@ function CalculadoraContenedorPage() {
                                     ));
                                   }}
                                 >
-                                  <option value="">— lonas —</option>
-                                  {opts.map(l => <option key={l} value={l}>{l}</option>)}
+                                  <option value="">sin lona</option>
+                                  {opts.map(l => <option key={l} value={l}>{l} L</option>)}
                                 </select>
-                              ) : null;
-                            })()}
-                            {/* Acabado — solo aparece si hay tarifas con acabado para el material+lonas seleccionados */}
-                            {(() => {
-                              const opts = b.material
-                                ? [...new Set((tarifasMaterial || [])
-                                    .filter(t => t.material === b.material && (!b.lonas || t.lonas === b.lonas) && t.acabado)
-                                    .map(t => t.acabado))].sort()
-                                : [];
-                              return opts.length > 0 ? (
+                              );
+                            })() : null}
+                            {/* Acabado — visible cuando hay material */}
+                            {b.material ? (() => {
+                              const opts = [...new Set((tarifasMaterial || [])
+                                .filter(t => t.material === b.material && (!b.lonas || String(t.lonas) === b.lonas) && t.acabado)
+                                .map(t => t.acabado))].sort();
+                              return (
                                 <select
                                   className="select select-xs select-bordered w-28"
                                   value={b.acabado || ''}
@@ -1391,8 +1422,8 @@ function CalculadoraContenedorPage() {
                                   <option value="">— acabado —</option>
                                   {opts.map(a => <option key={a} value={a}>{a}</option>)}
                                 </select>
-                              ) : null;
-                            })()}
+                              );
+                            })() : null}
                           </div>
                         ) : <span className="text-base-content/20 text-xs px-2">—</span>}
                       </td>
@@ -1531,7 +1562,7 @@ function CalculadoraContenedorPage() {
                                   ...r,
                                   tarifaMaterialId: val,
                                   ...(tarifa ? {
-                                    lonas: tarifa.lonas || r.lonas,
+                                    lonas: tarifa.lonas != null ? String(tarifa.lonas) : r.lonas,
                                     acabado: tarifa.acabado || r.acabado,
                                   } : {}),
                                 } : r));
@@ -1541,7 +1572,7 @@ function CalculadoraContenedorPage() {
                               {(tarifasMaterial || [])
                                 .filter(t =>
                                   (!b.material || t.material === b.material) &&
-                                  (!b.lonas || t.lonas === b.lonas) &&
+                                  (!b.lonas || String(t.lonas) === b.lonas) &&
                                   (!b.acabado || t.acabado === b.acabado)
                                 )
                                 .map(t => (

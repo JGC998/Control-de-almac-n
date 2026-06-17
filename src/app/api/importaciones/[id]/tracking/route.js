@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarTracking, claveEvento } from '@/lib/tracking';
+import { buscarTracking, claveEvento, extraerNombreBarco, buscarScheduleBarco } from '@/lib/tracking';
 
 /**
  * GET /api/importaciones/[id]/tracking
@@ -29,6 +29,13 @@ export async function GET(request, { params }) {
 
     const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
+    const nombreBarco = tracking ? extraerNombreBarco(tracking.eventos) : null;
+
+    // Vessel schedule y tracking de contenedor en paralelo para no bloquear
+    const [scheduleBarco] = await Promise.all([
+      nombreBarco ? buscarScheduleBarco(nombreBarco) : Promise.resolve(null),
+    ]);
+
     if (tracking) {
       await db.importacionContenedor.update({
         where: { id },
@@ -39,6 +46,7 @@ export async function GET(request, { params }) {
             ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,
           }),
           ...(tracking.eta && { etaEstimada: new Date(tracking.eta) }),
+          ...(nombreBarco && { nombreBarco }),
         },
       });
     }
@@ -48,6 +56,8 @@ export async function GET(request, { params }) {
       eventos: tracking?.eventos ?? [],
       ultimoEvento: tracking?.ultimoEvento ?? null,
       eta: tracking?.eta ?? null,
+      nombreBarco,
+      scheduleBarco,
       consultadoEn: new Date().toISOString(),
     });
 

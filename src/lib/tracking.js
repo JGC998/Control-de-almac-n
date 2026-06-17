@@ -14,7 +14,10 @@
 
 import { logApiError } from '@/lib/logger';
 
-const YM_API = 'https://www.yangming.com/api/CargoTracking/GetTracking';
+const YM_API        = 'https://www.yangming.com/api/CargoTracking/GetTracking';
+// Vessel schedule — endpoint descubierto vía DevTools en yangming.com/en/esolution/schedule/vessel_schedule
+// Si esta URL falla, abrir esa página en DevTools → Network y buscar la llamada JSON con el itinerario.
+const YM_VESSEL_API = 'https://www.yangming.com/api/Schedule/GetVesselSchedule';
 
 const PREFIJOS_YM = new Set(['YMMU', 'YMLU']);
 
@@ -113,6 +116,59 @@ async function buscarTrackingYangMing(trackingNumber) {
 
 
   return { eventos, ultimoEvento, eta, shipmentId: null };
+}
+
+/**
+ * Extrae el nombre del barco a partir de los eventos de tracking ya parseados.
+ * vesselVoyage tiene formato "OSOL / 134E" → devuelve "OSOL".
+ */
+export function extraerNombreBarco(eventos) {
+  for (const e of eventos) {
+    if (e.vesselVoyage) {
+      const nombre = e.vesselVoyage.split('/')[0].trim().toUpperCase();
+      if (nombre) return nombre;
+    }
+  }
+  return null;
+}
+
+/**
+ * Consulta el schedule de escala del barco en Yang Ming.
+ * Devuelve array de puertos con ETA/ETD, o null si el endpoint no está disponible.
+ */
+export async function buscarScheduleBarco(vesselCode) {
+  if (!vesselCode) return null;
+  try {
+    const url = `${YM_VESSEL_API}?paramVesselCode=${encodeURIComponent(vesselCode)}`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept':  'application/json, text/plain, */*',
+        'Referer': `https://www.yangming.com/en/esolution/schedule/vessel_schedule?vessel=${encodeURIComponent(vesselCode)}`,
+        'Origin':  'https://www.yangming.com',
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+
+    // Yang Ming puede devolver la lista bajo distintas claves — probamos las más comunes
+    const portCalls = json?.portCallList ?? json?.scheduleList ?? json?.vesselScheduleList ?? json?.data ?? [];
+    if (!Array.isArray(portCalls) || portCalls.length === 0) return null;
+
+    return {
+      vesselCode,
+      puertos: portCalls.map(p => ({
+        puerto:  p.portName  ?? p.port  ?? p.portCode  ?? p.portNameEn ?? '?',
+        eta:     parseFechaYM(p.eta  ?? p.ETA  ?? p.arrivalDate   ?? p.estimatedArrivalDate ?? null),
+        ata:     parseFechaYM(p.ata  ?? p.ATA  ?? p.actualArrival ?? null),
+        etd:     parseFechaYM(p.etd  ?? p.ETD  ?? p.departureDate ?? p.estimatedDepartureDate ?? null),
+      })).filter(p => p.eta || p.ata || p.etd),
+    };
+  } catch (e) {
+    logApiError(e, `tracking:vessel:${vesselCode}`);
+    return null;
+  }
 }
 
 /**
