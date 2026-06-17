@@ -61,7 +61,6 @@ model Pedido {
 
   @@index([estado])
   @@index([fechaCreacion])
-  @@index([clienteId])
 }
 
 model PedidoItem {
@@ -98,7 +97,6 @@ model Presupuesto {
 
   @@index([estado])
   @@index([fechaCreacion])
-  @@index([clienteId])
 }
 
 model PresupuestoItem {
@@ -187,7 +185,6 @@ model BobinaPedido {
   referenciaId String?
   referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
 
-  @@index([referenciaId])
 }
 
 model ReferenciaBobina {
@@ -485,8 +482,6 @@ model TarifaCliente {
   activa         Boolean   @default(true)
   creadaEn       DateTime  @default(now())
 
-  @@index([clienteId])
-  @@index([productoId])
 }
 
 model HistorialPrecioGrapa {
