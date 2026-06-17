@@ -142,6 +142,22 @@ export function extraerNombreBarco(eventos) {
   return null;
 }
 
+// ISO 3166-1 alpha-2 → nombre en español (rutas relevantes Asia–Europa)
+const PAIS_POR_ISO = {
+  AE: 'Emiratos Árabes', BE: 'Bélgica',  CN: 'China',       DE: 'Alemania',
+  EG: 'Egipto',          ES: 'España',    FR: 'Francia',     GB: 'Reino Unido',
+  GR: 'Grecia',          ID: 'Indonesia', IN: 'India',       IT: 'Italia',
+  JP: 'Japón',           KR: 'Corea del Sur', LK: 'Sri Lanka', MA: 'Marruecos',
+  MT: 'Malta',           MY: 'Malasia',   NL: 'Países Bajos', OM: 'Omán',
+  PK: 'Pakistán',        PT: 'Portugal',  SA: 'Arabia Saudí', SG: 'Singapur',
+  TH: 'Tailandia',       TR: 'Turquía',   TW: 'Taiwán',      VN: 'Vietnam',
+};
+
+function paisDesdeCodigo(portCode) {
+  if (!portCode || portCode.length < 2) return null;
+  return PAIS_POR_ISO[portCode.slice(0, 2).toUpperCase()] ?? null;
+}
+
 /**
  * Consulta el schedule de escala del barco en Yang Ming.
  * Devuelve array de puertos con ETA/ETD, o null si el endpoint no está disponible.
@@ -192,6 +208,7 @@ export async function buscarScheduleBarco(vesselCode) {
         return {
           puerto:           p.portName ?? '?',
           portCode:         p.portCode ?? null,
+          pais:             paisDesdeCodigo(p.portCode),
           eta:              !isActual ? parseFechaYM(arrDate) : null,
           ata:              isActual  ? parseFechaYM(arrDate) : null,
           etd:              parseFechaYM(depDate),
@@ -298,14 +315,18 @@ export function formatearMensajeTracking(imp, evento, eta = null, scheduleBarco 
     if (nombre) lineasBarco.push(``, `🚢 *${nombre}*`);
 
     const posActual = scheduleBarco.puertos.find(p => p.esPosicionActual);
-    if (posActual) lineasBarco.push(`📍 Últ. posición: ${posActual.puerto}`);
+    if (posActual) {
+      const pais = posActual.pais ? ` (${posActual.pais})` : '';
+      lineasBarco.push(`📍 Últ. posición: ${posActual.puerto}${pais}`);
+    }
 
     const proximas = scheduleBarco.puertos
       .filter(p => p.eta)
       .slice(0, 2);
     proximas.forEach(p => {
-      const d = new Date(p.eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-      lineasBarco.push(`⏭ ${p.puerto} — ${d}`);
+      const d    = new Date(p.eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+      const pais = p.pais ? ` (${p.pais})` : '';
+      lineasBarco.push(`⏭ ${p.puerto}${pais} — ${d}`);
     });
   }
 
