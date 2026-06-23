@@ -60,3 +60,5 @@ prisma/seed-production.js
 prisma/seed-logistica.js
 prisma/seed-tarifas-logistica.js
 prisma/seed-tacos.js
+# Navieras locales (endpoints descubiertos por DevTools)
+carrier-apis.local.json

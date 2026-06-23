@@ -1,0 +1,27 @@
+[
+  {
+    "_nota": [
+      "Este archivo es la PLANTILLA. Copia su contenido en carrier-apis.local.json cuando añadas una naviera nueva.",
+      "Yang Ming (YMMU/YMLU) ya está integrado directamente en el código — NO la añadas aquí.",
+      "carrier-apis.local.json está en .gitignore y no se sube a GitHub."
+    ],
+    "nombre": "NOMBRE_NAVIERA",
+    "prefijos": ["XXXX"],
+    "endpoint": {
+      "url": "https://www.naviera.com/api/tracking",
+      "param": "containerNumber",
+      "headers": {
+        "Accept": "application/json",
+        "Referer": "https://www.naviera.com/tracking"
+      }
+    },
+    "campos": {
+      "eventos":  "ruta.al.array.de.eventos",
+      "estado":   "campoDescripcionEvento",
+      "fecha":    "campoFechaEvento",
+      "lugar":    "campoUbicacion",
+      "barco":    "campoNombreBarco",
+      "eta":      "campoETA"
+    }
+  }
+]
