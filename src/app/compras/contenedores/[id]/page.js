@@ -6,8 +6,69 @@ import Link from 'next/link';
 import { fetcher } from '@/lib/fetcher';
 import {
   ArrowLeft, RefreshCw, MapPin, Package, Calendar,
-  Ship, PackageCheck, Calculator, AlertTriangle,
+  Ship, PackageCheck, Calculator, AlertTriangle, Anchor, Navigation,
 } from 'lucide-react';
+
+// Coordenadas de los principales puertos en rutas China–España
+// Clave: portCode (UN/LOCODE, primeros 2 chars = país ISO)
+const PORT_COORDS = {
+  // China
+  CNNBO: { lat: 29.873, lon: 121.549, nombre: 'Ningbo'   },
+  CNSHA: { lat: 31.222, lon: 121.651, nombre: 'Shanghai'  },
+  CNQIN: { lat: 36.087, lon: 120.358, nombre: 'Qingdao'  },
+  CNYTN: { lat: 22.557, lon: 114.265, nombre: 'Yantian'  },
+  CNSZN: { lat: 22.557, lon: 114.265, nombre: 'Shenzhen' },
+  CNGZH: { lat: 23.107, lon: 113.260, nombre: 'Guangzhou'},
+  CNTXG: { lat: 39.001, lon: 117.723, nombre: 'Tianjin'  },
+  CNXMN: { lat: 24.480, lon: 118.080, nombre: 'Xiamen'   },
+  HKHKG: { lat: 22.289, lon: 114.158, nombre: 'Hong Kong'},
+  TWKHH: { lat: 22.614, lon: 120.273, nombre: 'Kaohsiung'},
+  // Sudeste asiático
+  SGSIN: { lat: 1.265,  lon: 103.820, nombre: 'Singapur'        },
+  MYPKG: { lat: 3.000,  lon: 101.400, nombre: 'Port Klang'      },
+  MYTPP: { lat: 1.363,  lon: 103.549, nombre: 'Tanjung Pelepas' },
+  LKCMB: { lat: 6.935,  lon: 79.858,  nombre: 'Colombo'         },
+  VNHPH: { lat: 20.861, lon: 106.679, nombre: 'Hai Phong'       },
+  VNSGN: { lat: 10.783, lon: 106.700, nombre: 'Ho Chi Minh'     },
+  // Sur de Asia / Golfo
+  INNHV: { lat: 18.949, lon: 72.950,  nombre: 'Nhava Sheva'     },
+  SAJED: { lat: 21.485, lon: 39.170,  nombre: 'Jeddah'          },
+  AEJEA: { lat: 25.048, lon: 55.140,  nombre: 'Jebel Ali'       },
+  OMMCT: { lat: 23.618, lon: 58.574,  nombre: 'Muscat'          },
+  PKPQG: { lat: 25.003, lon: 66.990,  nombre: 'Karachi'         },
+  // Mediterráneo / Europa
+  EGPSD: { lat: 31.267, lon: 32.301,  nombre: 'Port Said'       },
+  MAPTM: { lat: 35.889, lon: -5.498,  nombre: 'Tanger Med'      },
+  ESALG: { lat: 36.140, lon: -5.452,  nombre: 'Algeciras'       },
+  ESVLC: { lat: 39.432, lon: -0.316,  nombre: 'Valencia'        },
+  ESBCN: { lat: 41.350, lon:  2.165,  nombre: 'Barcelona'       },
+  ESMLN: { lat: 36.720, lon: -4.430,  nombre: 'Málaga'          },
+  ESBIO: { lat: 43.360, lon: -3.050,  nombre: 'Bilbao'          },
+  PTLEI: { lat: 41.186, lon: -8.700,  nombre: 'Leixões'         },
+  PTLIS: { lat: 38.694, lon: -9.234,  nombre: 'Lisboa'          },
+  FRLEH: { lat: 49.484, lon:  0.107,  nombre: 'Le Havre'        },
+  NLRTM: { lat: 51.900, lon:  4.480,  nombre: 'Rotterdam'       },
+  DEHAM: { lat: 53.557, lon:  9.966,  nombre: 'Hamburgo'        },
+  GBFXT: { lat: 51.964, lon:  1.352,  nombre: 'Felixstowe'      },
+  GBSOU: { lat: 50.897, lon: -1.404,  nombre: 'Southampton'     },
+  ITGOA: { lat: 44.408, lon:  8.929,  nombre: 'Génova'          },
+  GRPIR: { lat: 37.942, lon: 23.637,  nombre: 'Pireo'           },
+  MTMLA: { lat: 35.900, lon: 14.512,  nombre: 'Malta'           },
+  TRIZM: { lat: 38.440, lon: 27.143,  nombre: 'Izmir'           },
+  BEANR: { lat: 51.233, lon:  4.400,  nombre: 'Amberes'         },
+};
+
+// Busca coordenadas por portCode o por nombre aproximado
+function coordsParaPuerto(portCode, nombrePuerto) {
+  if (portCode && PORT_COORDS[portCode.toUpperCase()]) {
+    return PORT_COORDS[portCode.toUpperCase()];
+  }
+  if (!nombrePuerto) return null;
+  const nombre = nombrePuerto.toUpperCase();
+  return Object.values(PORT_COORDS).find(p =>
+    nombre.includes(p.nombre.toUpperCase()) || p.nombre.toUpperCase().includes(nombre.split(/[,-]/)[0].trim())
+  ) ?? null;
+}
 
 const ESTADOS = {
   BORRADOR:  { label: 'Borrador',     color: 'badge-warning' },
@@ -37,9 +98,10 @@ export default function ContenedorDetalle() {
 
   const { data: imp, isLoading, mutate } = useSWR(id ? `/api/importaciones/${id}` : null, fetcher);
 
-  const [actualizando, setActualizando]   = useState(false);
-  const [eventos, setEventos]             = useState(null);
-  const [errorTracking, setErrorTracking] = useState(null);
+  const [actualizando, setActualizando]     = useState(false);
+  const [eventos, setEventos]               = useState(null);
+  const [scheduleBarco, setScheduleBarco]   = useState(null);
+  const [errorTracking, setErrorTracking]   = useState(null);
   const [ultimaConsulta, setUltimaConsulta] = useState(null);
   const [marcandoRecibido, setMarcandoRecibido] = useState(false);
 
@@ -59,6 +121,7 @@ export default function ContenedorDetalle() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al obtener tracking');
       setEventos(data.eventos || []);
+      setScheduleBarco(data.scheduleBarco ?? null);
       setUltimaConsulta(data.consultadoEn ? new Date(data.consultadoEn) : new Date());
       mutate();
     } catch (err) {
@@ -269,6 +332,85 @@ export default function ContenedorDetalle() {
           </div>
         </div>
       ) : null}
+
+      {/* Sección: Posición del barco */}
+      {scheduleBarco?.puertos?.length > 0 && (
+        <div className="card bg-base-100 shadow-sm border border-base-200 mt-4">
+          <div className="card-body p-5">
+            <h2 className="font-bold text-lg flex items-center gap-2 mb-3">
+              <Navigation className="w-5 h-5 text-secondary" />
+              {scheduleBarco.vesselName ?? scheduleBarco.vesselCode ?? 'Barco'}
+              <span className="text-base-content/40 text-sm font-normal">— escalas</span>
+            </h2>
+
+            {/* Timeline de escalas */}
+            <div className="space-y-1 mb-4">
+              {scheduleBarco.puertos.map((p, i) => {
+                const confirmado = !!p.ata;
+                const esCurrent  = p.esPosicionActual;
+                const fecha      = confirmado ? p.ata : p.eta;
+                return (
+                  <div key={i} className={`flex items-start gap-3 py-2 px-3 rounded-lg ${esCurrent ? 'bg-secondary/10 border border-secondary/30' : confirmado ? 'opacity-60' : ''}`}>
+                    <div className="flex flex-col items-center mt-0.5">
+                      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${esCurrent ? 'bg-secondary' : confirmado ? 'bg-success' : 'bg-base-300'}`} />
+                      {i < scheduleBarco.puertos.length - 1 && <div className="w-0.5 h-4 bg-base-300 mt-1" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-medium text-sm ${esCurrent ? 'text-secondary' : ''}`}>
+                          {p.puerto}
+                          {p.pais && <span className="text-base-content/40 font-normal"> ({p.pais})</span>}
+                        </span>
+                        {esCurrent && <span className="badge badge-secondary badge-xs">Posición actual</span>}
+                        {confirmado && !esCurrent && <span className="badge badge-success badge-xs">Confirmado</span>}
+                      </div>
+                      {fecha && (
+                        <p className="text-xs text-base-content/50 mt-0.5">
+                          {confirmado ? 'ATA' : 'ETA'}: {fmtFecha(fecha)}
+                          {p.etd && <span className="ml-2">ETD: {fmtFecha(p.etd)}</span>}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mapa OpenStreetMap del puerto actual */}
+            {(() => {
+              const pActual = scheduleBarco.puertos.find(p => p.esPosicionActual)
+                ?? scheduleBarco.puertos.findLast(p => p.ata)
+                ?? null;
+              const coords = pActual ? coordsParaPuerto(pActual.portCode, pActual.puerto) : null;
+              if (!coords) return null;
+              const { lat, lon, nombre } = coords;
+              const delta = 0.4;
+              const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon-delta},${lat-delta},${lon+delta},${lat+delta}&layer=mapnik&marker=${lat},${lon}`;
+              return (
+                <div className="mt-2">
+                  <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
+                    <Anchor className="w-3 h-3" /> {nombre}
+                  </p>
+                  <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 260 }}>
+                    <iframe
+                      title={`Mapa puerto ${nombre}`}
+                      src={mapUrl}
+                      width="100%"
+                      height="260"
+                      style={{ border: 0, display: 'block' }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <p className="text-xs text-base-content/30 mt-1 text-right">
+                    © <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap</a>
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
     </div>
   );
