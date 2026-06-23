@@ -3,6 +3,8 @@ import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { PlusCircle, Edit, Trash2, Save, X } from 'lucide-react';
 import TablaGenerica from '@/componentes/ui/TablaGenerica';
+import { toastError } from '@/lib/toast';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 
 // Componente para gestionar CRUD de modelos simples (Material, Fabricante, Proveedor)
@@ -10,6 +12,7 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
   const [formData, setFormData] = useState(initialForm);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState(null);
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   // Clave SWR para la mutación
   const cacheKey = endpoint;
@@ -94,23 +97,26 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
   };
 
   const handleDelete = async (id) => {
-    if (confirm(`¿Estás seguro de que quieres eliminar este ${title.slice(0, -1).toLowerCase()}?`)) {
-      setError(null);
-      try {
-        const res = await fetch(`${endpoint}/${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-          let errorMessage = 'Error al eliminar el ítem. Puede tener elementos dependientes.';
-          try { const errData = await res.json(); errorMessage = errData.message || errorMessage; } catch {}
-          throw new Error(errorMessage);
-        }
-        await mutate(cacheKey);
-      } catch (err) {
-        alert(err.message);
+    const ok = await confirmar({
+      titulo: `¿Eliminar ${title.slice(0, -1).toLowerCase()}?`,
+      mensaje: 'Esta acción puede afectar a elementos dependientes.',
+    });
+    if (!ok) return;
+    setError(null);
+    try {
+      const res = await fetch(`${endpoint}/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        let errorMessage = 'Error al eliminar el ítem. Puede tener elementos dependientes.';
+        try { const errData = await res.json(); errorMessage = errData.message || errorMessage; } catch {}
+        throw new Error(errorMessage);
       }
+      await mutate(cacheKey);
+    } catch (err) {
+      toastError(err.message);
     }
   };
 
-  if (swrError) return <div className="text-red-500">Error al cargar {title.toLowerCase()}.</div>;
+  if (swrError) return <div className="text-error">Error al cargar {title.toLowerCase()}.</div>;
 
   // Construye los campos del formulario
   const formFields = Object.keys(initialForm).map(key => ({
@@ -212,6 +218,7 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
 
   return (
     <div className="card bg-base-100 shadow-xl">
+      <ModalConfirmacion />
       <div className="card-body">
         <div className="flex justify-between items-center mb-4">
           <h2 className="card-title">Gestión de {title}</h2>
@@ -235,7 +242,7 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
             <h3 className="font-bold text-lg">{formData.id ? `Editar ${title.slice(0, -1)}` : `Nuevo ${title.slice(0, -1)}`}</h3>
             <form onSubmit={handleSubmit} className="py-4 space-y-4">
               {renderFormFields()}
-              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {error && <p className="text-error text-sm">{error}</p>}
               <div className="modal-action">
                 <button type="button" onClick={closeModal} className="btn">Cancelar</button>
                 <button type="submit" className="btn btn-primary">Guardar</button>

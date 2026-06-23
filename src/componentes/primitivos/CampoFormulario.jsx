@@ -16,6 +16,7 @@ import React from 'react';
 export default function CampoFormulario({
     children,
     etiqueta,
+    id,
     error = null,
     ayuda = null,
     requerido = false,
@@ -44,7 +45,7 @@ export default function CampoFormulario({
     return (
         <div className={`form-control w-full ${className}`} {...props}>
             {etiqueta && (
-                <label className="label">
+                <label className="label" htmlFor={id}>
                     <span className="label-text font-medium">
                         {etiqueta}
                         {requerido && <span className="text-error ml-1">*</span>}

@@ -4,6 +4,8 @@ import useSWR, { mutate } from 'swr';
 import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit, Anchor, Eye, Trash2, Clock, Archive } from 'lucide-react';
 import Link from 'next/link';
 import PedidoProveedorDetalleModal from '@/componentes/pedidos/ModalDetallePedidoProveedor';
+import { toastError } from '@/lib/toast';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 
 // Mapa de URLs de seguimiento
@@ -123,34 +125,41 @@ const PedidoCard = ({ pedido, onReceive, onDelete, onViewDetails }) => {
 export default function ProveedoresPage() {
     const [activeTab, setActiveTab] = useState('NACIONAL');
     const [detallePedido, setDetallePedido] = useState(null);
+    const { confirmar, ModalConfirmacion } = useConfirmacion();
 
     const { data: pedidos, error: pedidosError, isLoading } = useSWR('/api/pedidos-proveedores-data');
 
     const handleReceiveOrder = async (pedidoId) => {
-        if (confirm('¿Estás seguro de que quieres recibir este pedido? Esto añadirá las bobinas al stock con el coste calculado.')) {
-            try {
-                const res = await fetch('/api/stock-management/receive-order', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pedidoId }),
-                });
-                if (!res.ok) {
-                    const errData = await res.json();
-                    throw new Error(errData.message || 'Error al recibir el pedido');
-                }
-                mutate('/api/pedidos-proveedores-data');
-                mutate('/api/almacen-stock');
-                mutate('/api/movimientos');
-            } catch (err) {
-                alert(err.message);
+        const ok = await confirmar({
+            titulo: '¿Recibir pedido?',
+            mensaje: 'Se añadirán las bobinas al stock con el coste calculado.',
+            variante: 'exito',
+        });
+        if (!ok) return;
+        try {
+            const res = await fetch('/api/stock-management/receive-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pedidoId }),
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || 'Error al recibir el pedido');
             }
+            mutate('/api/pedidos-proveedores-data');
+            mutate('/api/almacen-stock');
+            mutate('/api/movimientos');
+        } catch (err) {
+            toastError(err.message);
         }
     };
 
     const handleDeletePedido = async (pedidoId) => {
-        if (!confirm('¿Estás seguro de que quieres ELIMINAR este pedido? Si el pedido está "Recibido", debe primero revertir el stock manualmente.')) {
-            return;
-        }
+        const ok = await confirmar({
+            titulo: '¿Eliminar pedido?',
+            mensaje: 'Si el pedido está "Recibido", debes revertir el stock manualmente antes.',
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`/api/pedidos-proveedores-data/${pedidoId}`, { method: 'DELETE' });
             if (!res.ok) {
@@ -159,7 +168,7 @@ export default function ProveedoresPage() {
             }
             mutate('/api/pedidos-proveedores-data');
         } catch (err) {
-            alert(err.message);
+            toastError(err.message);
         }
     };
 
@@ -172,10 +181,11 @@ export default function ProveedoresPage() {
     const recibidos = pedidosDelTab.filter(p => p.estado === 'Recibido');
 
     if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-    if (pedidosError) return <div className="text-red-500 text-center">Error al cargar los pedidos a proveedores.</div>;
+    if (pedidosError) return <div className="text-error text-center">Error al cargar los pedidos a proveedores.</div>;
 
     return (
         <div className="container mx-auto p-4">
+            <ModalConfirmacion />
             <h1 className="text-3xl font-bold mb-6 flex items-center"><Truck className="mr-2" /> Pedidos a Proveedores</h1>
 
             <div className="flex gap-4 mb-6">
@@ -212,7 +222,7 @@ export default function ProveedoresPage() {
                     <div className="collapse-content">
                         <div className="pt-4">
                             {pendientes.length === 0 ? (
-                                <p className="text-center text-gray-400 py-4 italic">No hay pedidos pendientes en esta sección.</p>
+                                <p className="text-center text-base-content/40 py-4 italic">No hay pedidos pendientes en esta sección.</p>
                             ) : (
                                 pendientes.map(pedido => (
                                     <PedidoCard
@@ -237,7 +247,7 @@ export default function ProveedoresPage() {
                     <div className="collapse-content">
                         <div className="pt-4">
                             {recibidos.length === 0 ? (
-                                <p className="text-center text-gray-400 py-4 italic">No hay pedidos recibidos en esta sección.</p>
+                                <p className="text-center text-base-content/40 py-4 italic">No hay pedidos recibidos en esta sección.</p>
                             ) : (
                                 recibidos.map(pedido => (
                                     <PedidoCard

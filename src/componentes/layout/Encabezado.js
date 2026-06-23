@@ -247,7 +247,7 @@ export default function Encabezado() {
     return () => document.removeEventListener('keydown', handleCtrlK);
   }, []);
 
-  const { data: authStatus } = useSWR('/api/auth/status');
+  const { data: authStatus } = useSWR('/api/auth/status', { dedupingInterval: 60000 });
   const authRequired = authStatus?.required ?? false;
 
   async function handleLogout() {

@@ -4,13 +4,15 @@ import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Package, DollarSign, Tag, Info, List, FileText, Upload, Trash2, Edit } from 'lucide-react';
+import { toastError } from '@/lib/toast';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 
 const InfoCard = ({ title, value, unit = '', icon: Icon = Package }) => (
   <div className="flex items-center p-4 bg-base-200 rounded-lg shadow-inner">
     <Icon className="w-5 h-5 mr-3 text-primary" />
     <div>
-      <div className="text-sm font-medium text-gray-500">{title}</div>
+      <div className="text-sm font-medium text-base-content/50">{title}</div>
       <div className="text-lg font-semibold">{value} {unit}</div>
     </div>
   </div>
@@ -22,6 +24,7 @@ function DocumentosProducto({ productoId, documentos }) {
   const [referencia, setReferencia] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState(null);
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -66,25 +69,23 @@ function DocumentosProducto({ productoId, documentos }) {
   };
 
   const handleDelete = async (docId) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este documento? Esta acción es irreversible.')) {
-      return;
-    }
+    const ok = await confirmar({ titulo: '¿Eliminar documento?', mensaje: 'Esta acción es irreversible.' });
+    if (!ok) return;
     try {
-      const res = await fetch(`/api/documentos/${docId}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(`/api/documentos/${docId}`, { method: 'DELETE' });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Error al eliminar');
       }
       mutate(`/api/documentos?productoId=${productoId}`);
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      toastError(`Error: ${err.message}`);
     }
   };
 
   return (
     <div className="mt-8">
+      <ModalConfirmacion />
       <div className="divider">Documentación Técnica</div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card bg-base-200 p-4">
@@ -106,7 +107,7 @@ function DocumentosProducto({ productoId, documentos }) {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-gray-500">No hay documentos asociados a este producto.</p>
+            <p className="text-sm text-base-content/50">No hay documentos asociados a este producto.</p>
           )}
         </div>
 
@@ -152,29 +153,30 @@ import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';
 
 export default function ProductoDetallePage() {
   const params = useParams();
-  const router = useRouter(); // <-- AÑADIDO: router
+  const router = useRouter();
   const { id } = params;
+  const { confirmar, ModalConfirmacion: ModalBorrarProducto } = useConfirmacion();
 
-  const { data: producto, error, isLoading, mutate } = useSWR(id ? `/api/productos/${id}` : null); // <-- AÑADIDO: mutate
+  const { data: producto, error, isLoading, mutate } = useSWR(id ? `/api/productos/${id}` : null);
   const { data: documentos = [], isLoading: docsLoading } = useSWR(id ? `/api/documentos?productoId=${id}` : null);
 
-  // Estado para el modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const openEditModal = () => setIsEditModalOpen(true);
   const closeEditModal = () => setIsEditModalOpen(false);
 
-  // Manejador de eliminación
   const handleDeleteProduct = async () => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este producto? Esta acción también eliminará documentos asociados.')) {
-      return;
-    }
+    const ok = await confirmar({
+      titulo: '¿Eliminar producto?',
+      mensaje: 'Esta acción también eliminará documentos asociados.',
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/productos/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Error al eliminar producto');
       router.push('/gestion/productos');
     } catch (err) {
-      alert(err.message);
+      toastError(err.message);
     }
   };
 
@@ -192,6 +194,7 @@ export default function ProductoDetallePage() {
 
   return (
     <div className="container mx-auto p-6 max-w-5xl">
+      <ModalBorrarProducto />
       <Link href="/gestion/productos" className="btn btn-ghost mb-6 gap-2">
         <ArrowLeft className="w-4 h-4" /> Volver al Catálogo
       </Link>

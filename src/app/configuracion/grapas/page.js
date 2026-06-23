@@ -3,6 +3,8 @@ import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Link2, Plus, Pencil, Trash2, Save, X, Settings, History } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
+import { toastError } from '@/lib/toast';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,7 +79,8 @@ function SeccionModelosGenericos() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [errMsg, setErrMsg] = useState('');
-  const [historialAbierto, setHistorialAbierto] = useState(null); // id del modelo
+  const [historialAbierto, setHistorialAbierto] = useState(null);
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   const handleGuardarMerma = async () => {
     setGuardandoMerma(true);
@@ -92,7 +95,7 @@ function SeccionModelosGenericos() {
       setMermaGuardada(true);
       setTimeout(() => setMermaGuardada(false), 2500);
     } catch (e) {
-      alert('Error al guardar: ' + e.message);
+      toastError('Error al guardar: ' + e.message);
     } finally {
       setGuardandoMerma(false);
     }
@@ -158,18 +161,20 @@ function SeccionModelosGenericos() {
   };
 
   const handleEliminar = async (id) => {
-    if (!confirm('¿Eliminar este modelo?')) return;
+    const ok = await confirmar({ titulo: '¿Eliminar modelo de grapa?' });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/modelos-grapa/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json()).message);
       await mutate('/api/modelos-grapa');
     } catch (e) {
-      alert('Error: ' + e.message);
+      toastError('Error: ' + e.message);
     }
   };
 
   return (
     <div className="card bg-base-100 shadow border border-base-200">
+      <ModalConfirmacion />
       <div className="card-body">
         <div className="flex items-center justify-between mb-4">
           <h2 className="card-title text-base">Modelos genéricos de grapa</h2>
@@ -402,6 +407,7 @@ function SeccionGrapasFabricante() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [errMsg, setErrMsg] = useState('');
+  const { confirmar, ModalConfirmacion: ModalGrapa } = useConfirmacion();
 
   const abrirNuevo = () => { setForm(GRAPA_FORM_VACIO); setEditandoId(null); setErrMsg(''); setMostrarForm(true); };
   const abrirEditar = (g) => {
@@ -443,18 +449,20 @@ function SeccionGrapasFabricante() {
   };
 
   const handleEliminar = async (id) => {
-    if (!confirm('¿Eliminar esta grapa?')) return;
+    const ok = await confirmar({ titulo: '¿Eliminar esta grapa?' });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/grapas/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json()).message);
       await mutate('/api/grapas');
     } catch (e) {
-      alert('Error: ' + e.message);
+      toastError('Error: ' + e.message);
     }
   };
 
   return (
     <div className="card bg-base-100 shadow border border-base-200">
+      <ModalGrapa />
       <div className="card-body">
         <div className="flex items-center justify-between mb-2">
           <h2 className="card-title text-base">Grapas por fabricante</h2>

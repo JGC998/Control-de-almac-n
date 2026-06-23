@@ -64,6 +64,7 @@ export default function TablonNotas() {
           <input
             type="text"
             placeholder="Escribe una nota rápida..."
+            aria-label="Nueva nota"
             className="input input-bordered w-full"
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}

@@ -4,8 +4,9 @@ import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Plus, Ban, ReceiptText, ClipboardList } from 'lucide-react';
-import { toast } from '@/lib/toast';
+import { toast, toastError } from '@/lib/toast';
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 
 // Componente para manejar el desglose del total y los cálculos por item.
@@ -131,6 +132,7 @@ export default function PedidoDetalle() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   const openEditModal = () => setIsEditModalOpen(true);
   const closeEditModal = () => setIsEditModalOpen(false);
@@ -139,21 +141,21 @@ export default function PedidoDetalle() {
   const { data: margenes } = useSWR('/api/pricing/margenes');
   const { data: config } = useSWR('/api/config');
   const handleDelete = async () => {
-    if (confirm('¿Estás seguro de que quieres eliminar este pedido?')) {
-      setIsDeleting(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.message || 'Error al eliminar');
-        }
-        globalMutate('/api/pedidos');
-        router.push('/pedidos');
-      } catch (err) {
-        setError(err.message);
-        setIsDeleting(false);
+    const ok = await confirmar({ titulo: '¿Eliminar pedido?', mensaje: 'Esta acción no se puede deshacer.' });
+    if (!ok) return;
+    setIsDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Error al eliminar');
       }
+      globalMutate('/api/pedidos');
+      router.push('/pedidos');
+    } catch (err) {
+      setError(err.message);
+      setIsDeleting(false);
     }
   };
 
@@ -219,13 +221,14 @@ export default function PedidoDetalle() {
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (orderError || !order) {
     if (orderError?.status === 404) return notFound();
-    return <div className="text-red-500 text-center">Error al cargar el pedido.</div>;
+    return <div className="text-error text-center">Error al cargar el pedido.</div>;
   }
 
   const margenAplicado = margenes?.find(m => m.id === order.marginId);
 
   return (
     <div className="container mx-auto p-4">
+      <ModalConfirmacion />
       <button onClick={() => router.back()} className="btn btn-ghost mb-4">
         <ArrowLeft className="w-4 h-4" /> Volver
       </button>
@@ -276,7 +279,7 @@ export default function PedidoDetalle() {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold">Pedido {order.numero}</h1>
-            <p className="text-gray-500">Fecha: {order.fechaCreacion ? new Date(order.fechaCreacion).toLocaleDateString() : 'N/A'}</p>
+            <p className="text-base-content/60">Fecha: {order.fechaCreacion ? new Date(order.fechaCreacion).toLocaleDateString() : 'N/A'}</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {order.sinFacturacion && (
                 <span className="badge badge-error badge-outline gap-1 text-xs">
@@ -288,9 +291,9 @@ export default function PedidoDetalle() {
                 {order.estado}
               </div>
               <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-52">
-                <li><a onClick={() => handleUpdateStatus('Pendiente')}>Pendiente</a></li>
-                {!order.sinFacturacion && <li><a onClick={() => handleUpdateStatus('Facturado')}>Facturado</a></li>}
-                <li><a onClick={() => handleUpdateStatus('Cancelado')}>Cancelado</a></li>
+                <li><button onClick={() => handleUpdateStatus('Pendiente')}>Pendiente</button></li>
+                {!order.sinFacturacion && <li><button onClick={() => handleUpdateStatus('Facturado')}>Facturado</button></li>}
+                <li><button onClick={() => handleUpdateStatus('Cancelado')}>Cancelado</button></li>
               </ul>
             </div>
             </div>

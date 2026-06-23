@@ -6,6 +6,7 @@ import { formatCurrency } from '@/utils/utilidades';
 import { Download, Settings } from 'lucide-react';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { toastError } from '@/lib/toast';
 
 
 export default function TablaTarifas() {
@@ -76,7 +77,7 @@ export default function TablaTarifas() {
 
   const handleExportPDF = () => {
     if (filteredTarifas.length === 0) {
-      alert("No hay tarifas para exportar.");
+      toastError('No hay tarifas para exportar.');
       return;
     }
 

@@ -24,6 +24,10 @@ export default function FiltroBusqueda({ placeholder = 'Buscar...', param = 'bus
         router.push(`?${params.toString()}`);
     };
 
+    useEffect(() => {
+        return () => clearTimeout(timeoutRef.current);
+    }, []);
+
     const handleChange = (e) => {
         const v = e.target.value;
         setValor(v);
@@ -42,6 +46,7 @@ export default function FiltroBusqueda({ placeholder = 'Buscar...', param = 'bus
                 <input
                     type="text"
                     placeholder={placeholder}
+                    aria-label={placeholder}
                     className="input input-bordered w-full pr-10"
                     value={valor}
                     onChange={handleChange}
@@ -49,10 +54,10 @@ export default function FiltroBusqueda({ placeholder = 'Buscar...', param = 'bus
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                     {valor ? (
                         <button onClick={limpiar} className="btn btn-ghost btn-xs btn-circle">
-                            <X className="w-4 h-4 text-gray-500" />
+                            <X className="w-4 h-4 text-base-content/50" />
                         </button>
                     ) : (
-                        <Search className="w-4 h-4 text-gray-500" />
+                        <Search className="w-4 h-4 text-base-content/50" />
                     )}
                 </div>
             </div>

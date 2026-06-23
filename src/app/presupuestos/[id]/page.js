@@ -4,6 +4,7 @@ import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, Download, DollarSign, FileText } from 'lucide-react';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 
 
@@ -146,6 +147,7 @@ export default function PresupuestoDetalle() {
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState(null);
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   // Cargamos el presupuesto y la información necesaria para el cálculo
   const { data: quote, error: quoteError, isLoading: quoteLoading } = useSWR(id ? `/api/presupuestos/${id}` : null);
@@ -154,21 +156,21 @@ export default function PresupuestoDetalle() {
 
 
   const handleDelete = async () => {
-    if (confirm('¿Estás seguro de que quieres eliminar este presupuesto?')) {
-      setIsDeleting(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/presupuestos/${id}`, { method: 'DELETE' });
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.message || 'Error al eliminar');
-        }
-        mutate('/api/presupuestos'); // Actualiza la lista
-        router.push('/presupuestos'); // Vuelve a la lista
-      } catch (err) {
-        setError(err.message);
-        setIsDeleting(false);
+    const ok = await confirmar({ titulo: '¿Eliminar presupuesto?', mensaje: 'Esta acción no se puede deshacer.' });
+    if (!ok) return;
+    setIsDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/presupuestos/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Error al eliminar');
       }
+      mutate('/api/presupuestos');
+      router.push('/presupuestos');
+    } catch (err) {
+      setError(err.message);
+      setIsDeleting(false);
     }
   };
 
@@ -222,14 +224,22 @@ export default function PresupuestoDetalle() {
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (quoteError || !quote) {
     if (quoteError?.status === 404) return notFound();
-    return <div className="text-red-500 text-center">Error al cargar el presupuesto.</div>;
+    return <div className="text-error text-center">Error al cargar el presupuesto.</div>;
   }
+
+  const badgeEstado = {
+    Pendiente: 'badge-warning',
+    Aceptado: 'badge-success',
+    Rechazado: 'badge-error',
+    Enviado: 'badge-info',
+  }[quote.estado] ?? 'badge-neutral';
 
   const margenAplicado = margenes?.find(m => m.id === quote.marginId);
 
 
   return (
     <div className="container mx-auto p-4">
+      <ModalConfirmacion />
       <button onClick={() => router.back()} className="btn btn-ghost mb-4">
         <ArrowLeft className="w-4 h-4" /> Volver
       </button>
@@ -260,8 +270,8 @@ export default function PresupuestoDetalle() {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold">Presupuesto {quote.numero}</h1>
-            <p className="text-gray-500">Fecha: {quote.fechaCreacion ? new Date(quote.fechaCreacion).toLocaleDateString() : 'N/A'}</p>
-            <span className="badge badge-info mt-2">{quote.estado}</span>
+            <p className="text-base-content/60">Fecha: {quote.fechaCreacion ? new Date(quote.fechaCreacion).toLocaleDateString() : 'N/A'}</p>
+            <span className={`badge ${badgeEstado} mt-2`}>{quote.estado}</span>
             {/* Información del Margen Aplicado */}
             {margenAplicado && (
               <div className="flex items-center mt-2 text-sm text-accent">

@@ -2,6 +2,8 @@
 import React, { useState, useCallback } from 'react';
 import useSWR from 'swr';
 import { Plus, Edit, Trash2, Save, X, RotateCw } from 'lucide-react';
+import { toastError } from '@/lib/toast';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 
 // Helper para determinar el tipo de input basado en el tipo de dato
@@ -24,6 +26,7 @@ const DataManagerTable = ({ apiEndpoint, modelName, fields, idField = 'id' }) =>
   const [formState, setFormState] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   const handleOpenModal = (record = null) => {
     setCurrentRecord(record);
@@ -93,7 +96,11 @@ const DataManagerTable = ({ apiEndpoint, modelName, fields, idField = 'id' }) =>
   };
 
   const handleDelete = useCallback(async (id) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar este registro de ${modelName}? Esta acción es irreversible.`)) return;
+    const ok = await confirmar({
+      titulo: `¿Eliminar registro de ${modelName}?`,
+      mensaje: 'Esta acción es irreversible.',
+    });
+    if (!ok) return;
 
     try {
       const response = await fetch(apiEndpoint, {
@@ -110,18 +117,18 @@ const DataManagerTable = ({ apiEndpoint, modelName, fields, idField = 'id' }) =>
 
       mutate();
     } catch (error) {
-      alert(`Error al eliminar: ${error.message}`);
+      toastError(`Error al eliminar: ${error.message}`);
       console.error('[TablaGestionDatos]', error?.message ?? 'Error desconocido');
     }
-  }, [apiEndpoint, modelName, mutate, idField]);
+  }, [apiEndpoint, modelName, mutate, idField, confirmar]);
 
   if (isLoading) return <div className="text-center p-8"><span className="loading loading-spinner loading-lg"></span></div>;
-  
-  // Mostrar error si la carga inicial falló
+
   if (error) return <div className="alert alert-error">Error al cargar datos: {error.message}</div>;
 
   return (
     <div className="p-4">
+      <ModalConfirmacion />
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">Gestión de {modelName} ({Array.isArray(data) ? data.length : 0})</h2>
         <button 

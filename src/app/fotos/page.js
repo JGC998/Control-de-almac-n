@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import { toast } from '@/lib/toast';
 
 const FotosPage = () => {
   const [isMobile, setIsMobile] = useState(false);
@@ -91,7 +92,7 @@ const FotosPage = () => {
         throw new Error('Failed to save photo');
       }
       const data = await response.json();
-      alert(`Foto guardada en: ${data.path}`);
+      toast(`Foto guardada: ${data.path}`);
     } catch (error) {
       setErrorMsg('Error al guardar la foto. Inténtalo de nuevo.');
     }
@@ -109,7 +110,7 @@ const FotosPage = () => {
       )}
 
       {!isMobile && (
-        <p className="text-red-500 mb-4">
+        <p className="text-error mb-4">
           Esta funcionalidad de cámara está diseñada para dispositivos móviles.
           Puede que no funcione o se comporte de forma inesperada en un escritorio.
         </p>

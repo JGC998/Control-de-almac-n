@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { FileText, PlusCircle, Edit, Trash2, ExternalLink, Upload, Search, Package, Plus, X, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-
+import { toastError } from '@/lib/toast';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import QuickProductForm from '@/componentes/modales/ModalCreacionRapida';
 
 
@@ -72,7 +73,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect, onCreateNew, productos 
                         <tbody>
                             {filteredProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="text-center py-10 text-gray-500">
+                                    <td colSpan={4} className="text-center py-10 text-base-content/50">
                                         <p>No se encontraron productos.</p>
                                         <button onClick={() => onCreateNew(search)} className="btn btn-link btn-sm mt-2">
                                             Crear &quot;{search}&quot; ahora
@@ -276,7 +277,7 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
                                     <Search className="w-4 h-4" />
                                 </button>
                             </div>
-                            {!formData.productoId && <span className="text-xs text-gray-500 mt-1 ml-1">Haga clic para buscar o crear</span>}
+                            {!formData.productoId && <span className="text-xs text-base-content/50 mt-1 ml-1">Haga clic para buscar o crear</span>}
                         </div>
 
                         {/* Referencia/Título */}
@@ -348,6 +349,7 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
 
 export default function GestionDocumentos() {
     const router = useRouter();
+    const { confirmar, ModalConfirmacion } = useConfirmacion();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentDocumento, setCurrentDocumento] = useState(initialFormData);
@@ -381,26 +383,29 @@ export default function GestionDocumentos() {
     };
 
     const handleDelete = async (id) => {
-        if (confirm('¿Estás seguro de que quieres eliminar este documento? Esta acción es irreversible y eliminará el archivo del disco.')) {
-            try {
-                const res = await fetch(`/api/documentos/${id}`, { method: 'DELETE' });
+        const ok = await confirmar({
+            titulo: '¿Eliminar documento?',
+            mensaje: 'Esta acción es irreversible y eliminará el archivo del disco.',
+        });
+        if (!ok) return;
+        try {
+            const res = await fetch(`/api/documentos/${id}`, { method: 'DELETE' });
 
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    let errorMessage = 'Error al eliminar el documento.';
-                    try {
-                        const errData = JSON.parse(errorText);
-                        errorMessage = errData.message || errorMessage;
-                    } catch { }
-                    throw new Error(errorMessage);
-                }
-
-                mutate(`/api/documentos?tipo=PLANO&referencia=${filtroReferencia}`);
-                router.refresh();
-
-            } catch (err) {
-                alert(`Error: ${err.message}`);
+            if (!res.ok) {
+                const errorText = await res.text();
+                let errorMessage = 'Error al eliminar el documento.';
+                try {
+                    const errData = JSON.parse(errorText);
+                    errorMessage = errData.message || errorMessage;
+                } catch { }
+                throw new Error(errorMessage);
             }
+
+            mutate(`/api/documentos?tipo=PLANO&referencia=${filtroReferencia}`);
+            router.refresh();
+
+        } catch (err) {
+            toastError(`Error: ${err.message}`);
         }
     };
 
@@ -418,12 +423,13 @@ export default function GestionDocumentos() {
 
 
     if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-    if (docsError || prodError || fabError || matError) return <div className="text-red-500 text-center">Error al cargar datos necesarios.</div>;
+    if (docsError || prodError || fabError || matError) return <div className="text-error text-center">Error al cargar datos necesarios.</div>;
 
     const documentosList = Array.isArray(documentos) ? documentos : [];
 
     return (
         <div className="container mx-auto p-4">
+            <ModalConfirmacion />
             <h1 className="text-3xl font-bold mb-6 flex items-center"><FileText className="mr-2" /> Gestión de Planos de Producto</h1>
 
             <div className="flex justify-between items-center mb-6">
@@ -495,7 +501,7 @@ export default function GestionDocumentos() {
                     </tbody>
                 </table>
                 {documentosList.length === 0 && !isLoading && (
-                    <div className="text-center p-6 text-gray-500">No se encontraron planos.</div>
+                    <div className="text-center p-6 text-base-content/50">No se encontraron planos.</div>
                 )}
             </div>
 

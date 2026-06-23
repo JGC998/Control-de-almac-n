@@ -4,6 +4,8 @@ import { useState, useCallback, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckSquare, Square, Download, CheckCircle, XCircle, Trash2, X } from 'lucide-react';
+import { toastError } from '@/lib/toast';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 // ── Utilidades ───────────────────────────────────────────────────────────────
 
@@ -138,6 +140,7 @@ export default function TablaConSeleccion({
   const [selected, setSelected] = useState(new Set());
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   const acciones = getAcciones(tipo);
   const selectedIds = [...selected];
@@ -157,7 +160,10 @@ export default function TablaConSeleccion({
   }, []);
 
   const handleAccion = async (accion) => {
-    if (accion.confirm && !confirm(accion.confirm)) return;
+    if (accion.confirm) {
+      const ok = await confirmar({ titulo: accion.confirm });
+      if (!ok) return;
+    }
     setError(null);
     try {
       await accion.onClick(selectedIds);
@@ -182,6 +188,7 @@ export default function TablaConSeleccion({
 
   return (
     <div className="relative">
+      <ModalConfirmacion />
       {error && (
         <div className="alert alert-error mb-2 py-2 text-sm">
           <span>{error}</span>
