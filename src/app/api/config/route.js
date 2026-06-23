@@ -62,6 +62,10 @@ export async function PUT(request) {
       clearEmisorCache();
     }
 
+    db.auditLog.create({
+      data: { action: 'CONFIG_UPDATE', entity: 'Config', entityId: 'global', details: JSON.stringify(Object.fromEntries(entries)) },
+    }).catch(() => {});
+
     return NextResponse.json({ message: `${entries.length} clave(s) guardada(s)` });
   } catch (error) {
     logApiError(error);

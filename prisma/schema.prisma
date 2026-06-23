@@ -317,14 +317,29 @@ model Producto {
   material   Material?   @relation(fields: [materialId], references: [id])
 
   itemsPedido    PedidoItem[]
-  itemsPresup    PresupuestoItem[]
-  itemsAlbaran   AlbaranItem[]
-  itemsFactura   FacturaItem[]
-  documentos     Documento[]
-  tarifasCliente TarifaCliente[]
+  itemsPresup     PresupuestoItem[]
+  itemsAlbaran    AlbaranItem[]
+  itemsFactura    FacturaItem[]
+  documentos      Documento[]
+  tarifasCliente  TarifaCliente[]
+  historialCostos HistorialPrecioCosto[]
 
   @@index([nombre])
   @@fulltext([nombre], map: "Producto_nombre_fulltext")
+}
+
+model HistorialPrecioCosto {
+  id           Int      @id @default(autoincrement())
+  productoId   String
+  producto     Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  costoAntes   Float?
+  costoDespues Float
+  fuente       String   @default("manual")
+  nota         String?
+  creadoEn     DateTime @default(now())
+
+  @@index([productoId])
+  @@index([creadoEn])
 }
 
 model Taco {
@@ -441,6 +456,7 @@ model ImportacionContenedor {
   courierCode           String?
   nombreBarco           String?
   ultimaPosicionBarco   String?
+  ultimaAlertaEta       DateTime?
 
   @@index([creadaEn])
   @@index([proveedorId])

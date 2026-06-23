@@ -5,6 +5,39 @@ Registro diario de cambios, mejoras y tareas pendientes.
 
 ---
 
+## 2026-06-23
+
+### ✨ Añadido
+
+- ✅ **Etiquetas de producto con QR** — Nueva función `generateEtiquetaPDF()` en `src/lib/pdfGenerator.js`. Genera etiqueta 100×70 mm con código QR (apunta a la ficha del producto en la app), logo, dimensiones, fabricante y precio. Acepta flag `?costo=1` para mostrar `costoUnitario` (uso interno almacén).
+- ✅ **`GET /api/productos/[id]/etiqueta`** — Nuevo endpoint que sirve la etiqueta en PDF con cabecera `Content-Disposition: attachment`. Construye la URL base del QR desde los headers `x-forwarded-host` / `host`.
+- ✅ **Botón "Etiqueta" en ficha de producto** — `src/app/gestion/productos/[id]/page.js` — botón verde con icono QR junto a Editar/Eliminar. Abre la descarga del PDF directamente.
+- ✅ **Historial de precios de coste** — Nuevo modelo `HistorialPrecioCosto` en ambos schemas (SQLite dev + MySQL prod). El `PUT /api/productos/[id]` detecta cambios en `costoUnitario` y crea el registro automáticamente (fire-and-forget). Campo `fuente` distingue entre cambios manuales e importaciones.
+- ✅ **`GET /api/productos/[id]/historial-costos`** — Devuelve los últimos 50 registros de coste del producto ordenados por fecha desc.
+- ✅ **Tabla de historial de coste en ficha de producto** — Muestra evolución del `costoUnitario` con variación en € y %, fecha y fuente. Integrada al pie de `src/app/gestion/productos/[id]/page.js`.
+- ✅ **Informe "Margen Real"** — Nuevo tipo `margen-real` en `GET /api/informes`. Calcula el margen real por pedido usando el `costoUnitario` actual de cada producto (no el `unitPrice` del pedido). Marca pedidos vendidos por debajo del precio mínimo esperado según `ReglaMargen`. Devuelve las reglas de margen vigentes y el multiplicador mínimo como umbral.
+- ✅ **Tab "Margen Real" en informes** — Nuevo componente `MargenReal` en `src/app/informes/page.js`. Incluye filtros de fecha, KPIs de resumen (venta sin IVA, coste real, margen total, pedidos bajo precio), filtro "Solo bajo precio", tabla detallada con indicador de alerta, badges de reglas de margen vigentes y exportación CSV.
+- ✅ **Alerta WhatsApp de llegada de contenedor** — El cron `POST /api/tracking/sync` ahora detecta cuando el ETA de una importación está dentro de las próximas 48 h y no se ha alertado en las últimas 24 h. Envía WhatsApp automático ("LLEGADA HOY / MAÑANA") y registra `ultimaAlertaEta` para evitar duplicados.
+- ✅ **Campo `ultimaAlertaEta DateTime?`** en `ImportacionContenedor` (ambos schemas) — guarda la última vez que se envió la alerta de ETA próximo.
+
+### 🐛 Corregido
+
+- ✅ **Handlers DELETE con body eliminados (dead code)** — Eliminados de `api/materiales/route.js`, `api/notas/route.js` y `api/precios/route.js`. El frontend ya usaba las rutas `[id]/route.js` para borrar; estos handlers nunca se ejecutaban y podían confundir.
+- ✅ **Audit log faltante en DELETE de tarifas y materiales** — `api/precios/[id]/route.js` y `api/materiales/[id]/route.js` ahora llaman a `logDelete` / `logUpdate` tras cada operación destructiva.
+- ✅ **Errores silenciados en `importaciones/route.js`** — Los errores de `actualizarPrecioGrapas` y `actualizarPrecioMateriales` ahora se logean con `logApiError` en lugar de perderse.
+- ✅ **Audit log faltante en `PUT /api/config`** — Se añadió registro de auditoría fire-and-forget tras cada actualización de configuración global.
+- ✅ **Validación de bobinas insuficiente** — `importacionContenedorSchema` en `validations.js` ahora valida la estructura completa de cada artículo dentro del JSON de bobinas usando `articuloContenedorSchema`. Las fechas `fechaPedido` y `fechaLlegada` también validan que sean fechas reales (no solo formato regex).
+
+### ♻️ Cambiado
+
+- ✅ **Límites `take` reducidos en endpoints de listado** — Cambiados de 1 000–5 000 a 500 filas máximo en: `api/config/backup`, `api/documentos`, `api/precios`, `api/tarifas-rollo`, `api/pedidos/export`, `api/presupuestos/export`, `api/export/csv`, `api/logistica/tarifas`, `api/informes` (margen-pedidos, rentabilidad-clientes).
+
+### 🗄️ Base de datos
+
+- ✅ **`prisma/schema.dev.prisma` + `prisma/schema.prisma`**: añadidos modelos `HistorialPrecioCosto` (con campos `costoAntes`, `costoDespues`, `fuente`, `nota`, `creadoEn`) y relación en `Producto`. Añadido campo `ImportacionContenedor.ultimaAlertaEta DateTime?`. `prisma db push` aplicado en dev.
+
+---
+
 ## 2026-06-08 (2)
 
 ### ✨ Añadido

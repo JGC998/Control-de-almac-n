@@ -50,7 +50,30 @@ export async function PUT(request, { params }) {
         { status: 400 }
       );
     }
+
+    // Leer costo actual antes de actualizar para registrar historial
+    const actual = parsed.data.costoUnitario !== undefined
+      ? await db.producto.findUnique({ where: { id }, select: { costoUnitario: true } })
+      : null;
+
     const updatedProducto = await db.producto.update({ where: { id }, data: parsed.data });
+
+    // Si cambió costoUnitario, registrar en historial (fire-and-forget)
+    if (
+      actual !== null &&
+      parsed.data.costoUnitario !== undefined &&
+      parsed.data.costoUnitario !== actual?.costoUnitario
+    ) {
+      db.historialPrecioCosto.create({
+        data: {
+          productoId:   id,
+          costoAntes:   actual?.costoUnitario ?? null,
+          costoDespues: parsed.data.costoUnitario,
+          fuente:       'manual',
+        },
+      }).catch(err => logApiError(err, 'historial costo'));
+    }
+
     revalidatePath('/gestion/productos');
     revalidatePath(`/gestion/productos/${id}`);
     const { costoUnitario: _omit, ...productoPublico } = updatedProducto;

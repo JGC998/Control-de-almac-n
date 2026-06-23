@@ -6,7 +6,7 @@ export async function GET() {
     try {
         const tarifas = await db.tarifaTransporte.findMany({
             orderBy: { provincia: 'asc' },
-            take: 5000,
+            take: 500,
         });
         return NextResponse.json(tarifas);
     } catch (error) {

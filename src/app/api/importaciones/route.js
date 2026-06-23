@@ -58,8 +58,8 @@ export async function POST(request) {
       include: { proveedor: { select: { id: true, nombre: true } } },
     });
 
-    actualizarPrecioGrapas(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio, registro.id).catch(() => {});
-    actualizarPrecioMateriales(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio).catch(() => {});
+    actualizarPrecioGrapas(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio, registro.id).catch(err => logApiError(err, 'actualizarPrecioGrapas'));
+    actualizarPrecioMateriales(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio).catch(err => logApiError(err, 'actualizarPrecioMateriales'));
     return NextResponse.json(registro, { status: 201 });
   } catch (error) {
     logApiError(error, 'POST /api/importaciones');

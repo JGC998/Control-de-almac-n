@@ -93,10 +93,11 @@ export const importacionContenedorSchema = z.object({
       (s) => {
         try {
           const arr = JSON.parse(s);
-          return Array.isArray(arr) && arr.length > 0;
+          if (!Array.isArray(arr) || arr.length === 0) return false;
+          return arr.every(item => articuloContenedorSchema.safeParse(item).success);
         } catch { return false; }
       },
-      { message: 'Formato de artículos inválido (debe ser JSON array)' }
+      { message: 'Formato de artículos inválido o estructura incorrecta' }
     ),
   descripcion: z.string().max(200).optional().nullable(),
   // Trazabilidad del pedido (SEC-01 / SEC-02)
@@ -104,8 +105,8 @@ export const importacionContenedorSchema = z.object({
   numFactura: z.string().max(200).optional().nullable(),
   numContenedor: z.string().max(100).optional().nullable(),
   estado: z.enum(['PEDIDO', 'TRANSITO', 'ADUANA', 'RECIBIDO', 'BORRADOR']).default('RECIBIDO'),
-  fechaPedido: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional().nullable(),
-  fechaLlegada: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional().nullable(),
+  fechaPedido: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').refine((s) => !isNaN(new Date(s).getTime()), { message: 'Fecha inválida' }).optional().nullable(),
+  fechaLlegada: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').refine((s) => !isNaN(new Date(s).getTime()), { message: 'Fecha inválida' }).optional().nullable(),
   // Tracking de contenedor
   blNumber:       z.string().max(200).optional().nullable(),
   trackingActivo: z.boolean().optional().default(false),

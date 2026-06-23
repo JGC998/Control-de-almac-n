@@ -14,9 +14,9 @@ export async function GET(request) {
   }
 
   try {
-    // API-02: Limitado a 1000 para evitar OOM — suficiente para operativa diaria
+    // API-05: cap en 500 para evitar OOM en generación de XLSX
     const pedidos = await db.pedido.findMany({
-      take: 1000,
+      take: 500,
       include: { cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, nif: true } } },
       orderBy: { fechaCreacion: 'desc' },
     });

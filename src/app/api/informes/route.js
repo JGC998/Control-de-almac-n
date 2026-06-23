@@ -337,6 +337,105 @@ export async function GET(request) {
       return NextResponse.json(result);
     }
 
+    // ── Margen real vs coste real (Feature: compara costoUnitario vs venta) ──
+    if (tipo === 'margen-real') {
+      const desde = searchParams.get('desde');
+      const hasta = searchParams.get('hasta');
+      const parseFecha = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
+
+      const where = { estado: { notIn: EXCLUIDOS } };
+      if (desde || hasta) {
+        where.fechaCreacion = {};
+        const desdeDate = parseFecha(desde);
+        const hastaDate = parseFecha(hasta);
+        if (desdeDate) where.fechaCreacion.gte = desdeDate;
+        if (hastaDate) { hastaDate.setHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
+      } else {
+        where.fechaCreacion = { gte: new Date(`${new Date().getFullYear()}-01-01T00:00:00.000Z`) };
+      }
+
+      const [pedidos, ivaConfig, reglasMargenes] = await Promise.all([
+        db.pedido.findMany({
+          where,
+          select: {
+            id: true, numero: true, fechaCreacion: true, estado: true, total: true,
+            cliente: { select: { id: true, nombre: true } },
+            items: { select: { id: true, descripcion: true, quantity: true, unitPrice: true, productoId: true } },
+          },
+          orderBy: { fechaCreacion: 'desc' },
+          take: 500,
+        }),
+        db.config.findUnique({ where: { key: 'iva_rate' } }),
+        db.reglaMargen.findMany({ take: 50 }),
+      ]);
+
+      const IVA = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
+
+      // Recopilar todos los productoIds para obtener costoUnitario en una sola query
+      const productoIds = [...new Set(
+        pedidos.flatMap(p => p.items.map(i => i.productoId).filter(Boolean))
+      )];
+      const productosMap = new Map();
+      if (productoIds.length > 0) {
+        const productos = await db.producto.findMany({
+          where: { id: { in: productoIds } },
+          select: { id: true, costoUnitario: true, nombre: true },
+        });
+        for (const p of productos) productosMap.set(p.id, p);
+      }
+
+      // Margen mínimo de todas las ReglaMargen (para umbral de alerta)
+      const margenMinimoMultiplicador = reglasMargenes.length > 0
+        ? Math.min(...reglasMargenes.map(r => r.multiplicador))
+        : 1.0;
+
+      const result = pedidos.map(p => {
+        const ventaSinIVA = Number(p.total ?? 0) / (1 + IVA);
+        let costoReal = 0;
+        let itemsConCosto = 0;
+        let totalItems = p.items.length;
+
+        for (const item of p.items) {
+          if (item.productoId) {
+            const prod = productosMap.get(item.productoId);
+            if (prod?.costoUnitario != null) {
+              costoReal += Number(prod.costoUnitario) * Number(item.quantity);
+              itemsConCosto++;
+            } else {
+              // Sin costoUnitario: usar unitPrice como proxy
+              costoReal += Number(item.unitPrice) * Number(item.quantity);
+            }
+          } else {
+            costoReal += Number(item.unitPrice) * Number(item.quantity);
+          }
+        }
+
+        const margenReal = ventaSinIVA - costoReal;
+        const pctMargenReal = ventaSinIVA > 0 ? (margenReal / ventaSinIVA * 100) : 0;
+        // Precio mínimo esperado si se aplicara la ReglaMargen más baja
+        const costeBase = Number(p.items.reduce((s, i) => s + Number(i.unitPrice) * Number(i.quantity), 0));
+        const ventaEsperadaMinima = costeBase * margenMinimoMultiplicador;
+        const bajoPrecio = ventaSinIVA < ventaEsperadaMinima;
+
+        return {
+          id: p.id, numero: p.numero, fecha: p.fechaCreacion, estado: p.estado,
+          clienteId: p.cliente?.id ?? null,
+          clienteNombre: p.cliente?.nombre ?? '—',
+          ventaSinIVA: parseFloat(ventaSinIVA.toFixed(2)),
+          costoReal: parseFloat(costoReal.toFixed(2)),
+          margenReal: parseFloat(margenReal.toFixed(2)),
+          pctMargenReal: parseFloat(pctMargenReal.toFixed(1)),
+          itemsConCosto, totalItems, bajoPrecio,
+        };
+      });
+
+      return NextResponse.json({
+        pedidos: result,
+        reglasMargenes: reglasMargenes.map(r => ({ id: r.id, base: r.base, multiplicador: r.multiplicador, gastoFijo: r.gastoFijo })),
+        margenMinimoMultiplicador,
+      });
+    }
+
     return NextResponse.json({ message: 'Tipo de informe no válido' }, { status: 400 });
   } catch (error) {
     logApiError(error);

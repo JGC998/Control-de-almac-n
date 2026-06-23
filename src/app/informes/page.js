@@ -8,7 +8,7 @@ import {
 import {
   BarChart2, Users, Package, Download, TrendingUp,
   TrendingDown, Clock, ShoppingCart, FileText, AlertCircle, Printer,
-  DollarSign, Package2,
+  DollarSign, Package2, AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
@@ -815,6 +815,162 @@ function HistoricoPrecios() {
   );
 }
 
+// ── Margen Real ──────────────────────────────────────────────────────────────
+function MargenReal() {
+  const currentYear = new Date().getFullYear();
+  const [desde, setDesde] = useState(`${currentYear}-01-01`);
+  const [hasta, setHasta] = useState('');
+  const [filtro, setFiltro] = useState('todos'); // 'todos' | 'bajo'
+
+  const params = new URLSearchParams({ tipo: 'margen-real' });
+  if (desde) params.set('desde', desde);
+  if (hasta) params.set('hasta', hasta);
+  const { data, isLoading } = useSWR(`/api/informes?${params}`);
+
+  const pedidos = data?.pedidos ?? [];
+  const reglas  = data?.reglasMargenes ?? [];
+
+  const filtrados = filtro === 'bajo' ? pedidos.filter(p => p.bajoPrecio) : pedidos;
+
+  const resumen = useMemo(() => {
+    if (!filtrados.length) return null;
+    const totalVenta = filtrados.reduce((s, p) => s + p.ventaSinIVA, 0);
+    const totalCosto = filtrados.reduce((s, p) => s + p.costoReal, 0);
+    const totalMargen = totalVenta - totalCosto;
+    const bajoPrecioCount = pedidos.filter(p => p.bajoPrecio).length;
+    return {
+      totalVenta, totalCosto, totalMargen,
+      pct: totalVenta > 0 ? (totalMargen / totalVenta * 100) : 0,
+      bajoPrecioCount,
+    };
+  }, [filtrados, pedidos]);
+
+  const exportar = () => {
+    if (!filtrados.length) return;
+    const rows = filtrados.map(p => ({
+      Pedido: p.numero, Fecha: new Date(p.fecha).toLocaleDateString('es-ES'),
+      Estado: p.estado, Cliente: p.clienteNombre,
+      'Venta sin IVA': p.ventaSinIVA, 'Coste real': p.costoReal,
+      'Margen €': p.margenReal, 'Margen %': p.pctMargenReal,
+      'Bajo precio': p.bajoPrecio ? 'Sí' : 'No',
+    }));
+    const csv = [Object.keys(rows[0]).join(';'), ...rows.map(r => Object.values(r).join(';'))].join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'margen-real.csv'; a.click();
+  };
+
+  return (
+    <div>
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3 mb-4 items-end">
+        <div>
+          <label className="label text-xs">Desde</label>
+          <input type="date" className="input input-bordered input-sm" value={desde} onChange={e => setDesde(e.target.value)} />
+        </div>
+        <div>
+          <label className="label text-xs">Hasta</label>
+          <input type="date" className="input input-bordered input-sm" value={hasta} onChange={e => setHasta(e.target.value)} />
+        </div>
+        <div className="flex gap-2 mt-auto">
+          <button
+            className={`btn btn-sm ${filtro === 'bajo' ? 'btn-error' : 'btn-outline'}`}
+            onClick={() => setFiltro(f => f === 'bajo' ? 'todos' : 'bajo')}
+          >
+            <AlertTriangle className="w-4 h-4" /> Solo bajo precio
+          </button>
+          <button className="btn btn-sm btn-outline" onClick={exportar} disabled={!filtrados.length}>
+            <Download className="w-4 h-4" /> CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Reglas referencia */}
+      {reglas.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {reglas.map(r => (
+            <span key={r.id} className="badge badge-outline badge-sm">
+              {r.base}: ×{r.multiplicador}{r.gastoFijo ? ` +${r.gastoFijo}€` : ''}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {isLoading && <div className="flex justify-center py-8"><span className="loading loading-spinner" /></div>}
+
+      {/* KPIs de resumen */}
+      {resumen && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="stat bg-base-200 rounded-xl p-3">
+            <div className="stat-title text-xs">Venta total (sin IVA)</div>
+            <div className="stat-value text-base">{formatCurrency(resumen.totalVenta)}</div>
+          </div>
+          <div className="stat bg-base-200 rounded-xl p-3">
+            <div className="stat-title text-xs">Coste real total</div>
+            <div className="stat-value text-base">{formatCurrency(resumen.totalCosto)}</div>
+          </div>
+          <div className={`stat rounded-xl p-3 ${resumen.totalMargen >= 0 ? 'bg-success/10' : 'bg-error/10'}`}>
+            <div className="stat-title text-xs">Margen real</div>
+            <div className={`stat-value text-base ${resumen.totalMargen >= 0 ? 'text-success' : 'text-error'}`}>
+              {formatCurrency(resumen.totalMargen)} ({resumen.pct.toFixed(1)}%)
+            </div>
+          </div>
+          <div className={`stat rounded-xl p-3 ${resumen.bajoPrecioCount > 0 ? 'bg-warning/10' : 'bg-base-200'}`}>
+            <div className="stat-title text-xs">Pedidos bajo precio</div>
+            <div className={`stat-value text-base ${resumen.bajoPrecioCount > 0 ? 'text-warning' : ''}`}>
+              {resumen.bajoPrecioCount}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && filtrados.length === 0 && (
+        <p className="text-center text-base-content/40 py-8">No hay pedidos en el rango seleccionado.</p>
+      )}
+
+      {filtrados.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="table table-xs w-full">
+            <thead>
+              <tr>
+                <th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Estado</th>
+                <th className="text-right">Venta s/IVA</th>
+                <th className="text-right">Coste real</th>
+                <th className="text-right">Margen €</th>
+                <th className="text-right">Margen %</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map(p => (
+                <tr key={p.id} className={`hover ${p.bajoPrecio ? 'bg-warning/5' : ''}`}>
+                  <td className="font-mono font-semibold">{p.numero}</td>
+                  <td className="text-xs">{new Date(p.fecha).toLocaleDateString('es-ES')}</td>
+                  <td className="text-xs truncate max-w-[120px]">{p.clienteNombre}</td>
+                  <td><span className="badge badge-ghost badge-sm">{p.estado}</span></td>
+                  <td className="text-right font-mono">{formatCurrency(p.ventaSinIVA)}</td>
+                  <td className="text-right font-mono">{formatCurrency(p.costoReal)}</td>
+                  <td className={`text-right font-mono font-bold ${p.margenReal >= 0 ? 'text-success' : 'text-error'}`}>
+                    {formatCurrency(p.margenReal)}
+                  </td>
+                  <td className={`text-right font-mono text-xs ${p.pctMargenReal < 20 ? 'text-warning' : p.pctMargenReal >= 0 ? 'text-success' : 'text-error'}`}>
+                    {p.pctMargenReal.toFixed(1)}%
+                  </td>
+                  <td>
+                    {p.bajoPrecio && <AlertTriangle className="w-4 h-4 text-warning" title="Vendido por debajo del precio mínimo esperado" />}
+                    {p.itemsConCosto < p.totalItems && (
+                      <span className="text-xs text-base-content/30" title={`${p.totalItems - p.itemsConCosto} ítems sin costoUnitario`}>~</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Página ───────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'mensuales',    label: 'Ventas por Mes',    icon: BarChart2,    component: VentasMensuales },
@@ -825,6 +981,7 @@ const TABS = [
   { id: 'margen',      label: 'Margen por Pedido',  icon: DollarSign,   component: MargenPedidos },
   { id: 'rentabilidad',label: 'Rentabilidad',       icon: TrendingUp,   component: RentabilidadClientes },
   { id: 'precios-imp', label: 'Precios Importación',icon: Package2,     component: HistoricoPrecios },
+  { id: 'margen-real', label: 'Margen Real',        icon: AlertTriangle,component: MargenReal },
 ];
 
 export default function InformesPage() {

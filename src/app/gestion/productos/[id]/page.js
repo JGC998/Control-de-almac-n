@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Tag, Info, List, FileText, Upload, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Tag, Info, List, FileText, Upload, Trash2, Edit, QrCode, TrendingUp } from 'lucide-react';
 import { toastError } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
@@ -149,6 +149,46 @@ function DocumentosProducto({ productoId, documentos }) {
 // Importar el modal de edición
 import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';
 
+function HistorialCostos({ productoId }) {
+  const { data: historial = [], isLoading } = useSWR(`/api/productos/${productoId}/historial-costos`);
+
+  if (isLoading) return <div className="flex justify-center py-4"><span className="loading loading-spinner loading-sm" /></div>;
+  if (!historial.length) return <p className="text-sm text-base-content/50 italic">Sin cambios de coste registrados.</p>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="table table-xs w-full">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th className="text-right">Antes</th>
+            <th className="text-right">Después</th>
+            <th className="text-right">Variación</th>
+            <th>Fuente</th>
+          </tr>
+        </thead>
+        <tbody>
+          {historial.map((h) => {
+            const variacion = h.costoAntes != null ? h.costoDespues - h.costoAntes : null;
+            const pct = h.costoAntes ? ((variacion / h.costoAntes) * 100).toFixed(1) : null;
+            return (
+              <tr key={h.id} className="hover">
+                <td className="font-mono text-xs">{new Date(h.creadoEn).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                <td className="text-right font-mono">{h.costoAntes != null ? `${h.costoAntes.toFixed(4)} €` : '—'}</td>
+                <td className="text-right font-mono font-semibold">{h.costoDespues.toFixed(4)} €</td>
+                <td className={`text-right font-mono text-xs ${variacion > 0 ? 'text-error' : variacion < 0 ? 'text-success' : ''}`}>
+                  {variacion != null ? `${variacion > 0 ? '+' : ''}${variacion.toFixed(4)} €${pct ? ` (${variacion > 0 ? '+' : ''}${pct}%)` : ''}` : '—'}
+                </td>
+                <td><span className="badge badge-ghost badge-sm">{h.fuente}</span></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ... (código existente)
 
 export default function ProductoDetallePage() {
@@ -218,6 +258,9 @@ export default function ProductoDetallePage() {
               <div className="text-sm text-base-content/60 uppercase font-bold tracking-wider">Precio</div>
               <div className="text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario))} €</div>
               <div className="flex justify-end gap-2 mt-2">
+                <a href={`/api/productos/${id}/etiqueta`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline btn-success">
+                  <QrCode className="w-4 h-4" /> Etiqueta
+                </a>
                 <button onClick={openEditModal} className="btn btn-sm btn-outline btn-info">
                   <Edit className="w-4 h-4" /> Editar
                 </button>
@@ -262,6 +305,15 @@ export default function ProductoDetallePage() {
           </div>
 
           <DocumentosProducto productoId={id} documentos={documentos} />
+
+          {/* Historial de costos */}
+          <div className="mt-8">
+            <div className="divider">
+              <TrendingUp className="w-4 h-4 inline mr-1" />
+              Historial de Precio de Coste
+            </div>
+            <HistorialCostos productoId={id} />
+          </div>
         </div>
       </div>
     </div>

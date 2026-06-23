@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
+import { logDelete, logUpdate } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +9,9 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const { nombre } = await request.json();
+    const anterior = await db.material.findUnique({ where: { id } });
     const updatedItem = await db.material.update({ where: { id }, data: { nombre } });
+    logUpdate('Material', id, anterior, updatedItem, 'Admin').catch(() => {});
     return NextResponse.json(updatedItem);
   } catch (error) {
     return handlePrismaError(error, {
@@ -21,13 +24,16 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
+    let deleted;
     await db.$transaction(async (tx) => {
       const mat = await tx.material.findUnique({ where: { id } });
       if (mat) {
+        deleted = mat;
         await tx.tarifaMaterial.deleteMany({ where: { material: mat.nombre } });
       }
       await tx.material.delete({ where: { id } });
     });
+    if (deleted) logDelete('Material', id, deleted, 'Admin').catch(() => {});
     return NextResponse.json({ message: 'Material eliminado' });
   } catch (error) {
     return handlePrismaError(error, {

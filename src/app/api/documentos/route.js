@@ -97,7 +97,7 @@ export async function GET(request) {
         },
       },
       orderBy: { fechaSubida: 'desc' },
-      take: 2000,
+      take: 500,
     });
 
     return NextResponse.json(documentos);

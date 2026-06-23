@@ -992,3 +992,131 @@ export async function generarCartaPortePDF(datos) {
         throw error;
     }
 }
+
+/**
+ * Genera una etiqueta PDF (100x70mm) con QR para un producto.
+ * El QR apunta a la ficha del producto en la app.
+ * @param {object} producto - Datos del producto (id, nombre, referenciaFabricante, material, color, espesor, ancho, largo, precioUnitario, pesoUnitario, costoUnitario, fabricante)
+ * @param {string} baseUrl - URL base de la app (ej: "http://localhost:3000")
+ * @param {object} opciones - { mostrarCosto: boolean }
+ */
+export async function generateEtiquetaPDF(producto, baseUrl, opciones = {}) {
+    try {
+        const { mostrarCosto = false } = opciones;
+        const doc = new jsPDF({ format: [100, 70], unit: 'mm' });
+
+        // Logo (pequeño, esquina superior derecha)
+        const logoBase64 = await getLogoBase64();
+        if (logoBase64) {
+            doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 67, 3, 30, 9);
+        }
+
+        // QR code (izquierda, 28x28mm)
+        const urlProducto = `${baseUrl}/gestion/productos/${producto.id}`;
+        const qrDataUrl = await QRCode.toDataURL(urlProducto, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+        doc.addImage(qrDataUrl, 'PNG', 4, 16, 28, 28);
+        doc.setFontSize(5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(120, 120, 120);
+        doc.text('Escanear', 18, 47, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+
+        // Separador vertical
+        doc.setDrawColor(220, 220, 220);
+        doc.line(36, 14, 36, 66);
+
+        // Columna de info (derecha del separador)
+        const x = 39;
+        let y = 15;
+
+        // Nombre del producto
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        const nombreLines = doc.splitTextToSize(producto.nombre, 57);
+        doc.text(nombreLines.slice(0, 2), x, y);
+        y += nombreLines.slice(0, 2).length * 4.5 + 1;
+
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+
+        // Referencia fabricante
+        if (producto.referenciaFabricante) {
+            doc.setTextColor(80, 80, 80);
+            doc.text(`Ref: ${producto.referenciaFabricante}`, x, y);
+            doc.setTextColor(0, 0, 0);
+            y += 4;
+        }
+
+        // Material + Color
+        const matParts = [producto.material?.nombre, producto.color].filter(Boolean);
+        if (matParts.length > 0) {
+            doc.text(matParts.join(' · '), x, y);
+            y += 4;
+        }
+
+        // Dimensiones
+        const dims = [
+            producto.espesor && `${producto.espesor} mm`,
+            producto.ancho   && `${producto.ancho} mm`,
+            producto.largo   && `${producto.largo} m`,
+        ].filter(Boolean);
+        if (dims.length > 0) {
+            doc.text(dims.join(' × '), x, y);
+            y += 4;
+        }
+
+        // Fabricante
+        if (producto.fabricante?.nombre) {
+            doc.setTextColor(100, 100, 100);
+            doc.text(producto.fabricante.nombre, x, y);
+            doc.setTextColor(0, 0, 0);
+            y += 4;
+        }
+
+        // Separador antes de precios
+        doc.setDrawColor(220, 220, 220);
+        doc.line(39, y, 97, y);
+        y += 3;
+
+        // Precios
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${fmtN(parseFloat(producto.precioUnitario) || 0)} €/u`, x, y);
+
+        if (mostrarCosto && producto.costoUnitario != null) {
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Coste: ${fmtN(parseFloat(producto.costoUnitario) || 0)} €`, x + 32, y);
+            doc.setTextColor(0, 0, 0);
+        }
+        y += 4;
+
+        // Peso
+        if (producto.pesoUnitario) {
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 100, 100);
+            doc.text(`${fmtN(parseFloat(producto.pesoUnitario) || 0)} kg`, x, y);
+            doc.setTextColor(0, 0, 0);
+        }
+
+        // Borde exterior de la etiqueta
+        doc.setDrawColor(180, 180, 180);
+        doc.rect(1, 1, 98, 68);
+
+        // Línea superior con fondo gris
+        doc.setFillColor(245, 245, 245);
+        doc.rect(1, 1, 98, 12, 'F');
+        doc.setFontSize(5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(120, 120, 120);
+        doc.text(`ID: ${producto.id}`, 4, 9);
+        doc.setTextColor(0, 0, 0);
+
+        return doc.output('arraybuffer');
+    } catch (error) {
+        logApiError(error, 'Error generating etiqueta PDF');
+        throw error;
+    }
+}

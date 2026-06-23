@@ -42,31 +42,3 @@ export async function PUT(request) {
   }
 }
 
-export async function DELETE(request) {
-  try {
-    const { id } = await request.json();
-    if (!id) {
-      return NextResponse.json({ error: 'ID del Material es requerido para eliminar.' }, { status: 400 });
-    }
-    
-    await db.$transaction(async (tx) => {
-      const materialToDelete = await tx.material.findUnique({ where: { id } });
-      if (materialToDelete) {
-        await tx.tarifaMaterial.deleteMany({ where: { material: materialToDelete.nombre } });
-      }
-      await tx.material.delete({ where: { id } });
-    });
-    revalidatePath('/configuracion'); // Invalidate cache after delete
-    return NextResponse.json({ message: 'Material eliminado.' });
-  } catch (error) {
-    logApiError(error, 'Error deleting material:');
-    // P2003 (Clave foránea): Si llega aquí, es porque está enlazado a un Producto.
-    if (error.code === 'P2003') {
-      return NextResponse.json({ 
-        error: 'No se puede eliminar el material porque está enlazado a uno o varios productos. Elimine los productos dependientes de este material en "Gestión de Productos" y vuelva a intentarlo.', 
-        details: undefined 
-      }, { status: 409 });
-    }
-    return NextResponse.json({ error: 'Error al eliminar el material.' }, { status: 500 });
-  }
-}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
 import { tarifaMaterialSchema, validateData } from '@/lib/validations';
+import { logDelete, logUpdate } from '@/lib/audit';
 
 const getSafeFloat = (v) => {
   if (v == null || v === '') return null;
@@ -34,6 +35,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ message: 'Material no encontrado' }, { status: 400 });
     }
 
+    const anterior = await db.tarifaMaterial.findUnique({ where: { id } });
     const updatedItem = await db.tarifaMaterial.update({
       where: { id },
       data: {
@@ -46,6 +48,7 @@ export async function PUT(request, { params }) {
         acabado: validation.data.acabado,
       },
     });
+    logUpdate('TarifaMaterial', id, anterior, updatedItem, 'Admin').catch(() => {});
     return NextResponse.json(updatedItem);
   } catch (error) {
     return handlePrismaError(error, {
@@ -58,7 +61,9 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
+    const anterior = await db.tarifaMaterial.findUnique({ where: { id } });
     await db.tarifaMaterial.delete({ where: { id } });
+    logDelete('TarifaMaterial', id, anterior, 'Admin').catch(() => {});
     return NextResponse.json({ message: 'Tarifa eliminada' });
   } catch (error) {
     return handlePrismaError(error, { notFound: 'Tarifa no encontrada' });

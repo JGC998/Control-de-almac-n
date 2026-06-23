@@ -2,7 +2,7 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { logCreate, logUpdate, logDelete } from '@/lib/audit';
+import { logCreate, logUpdate } from '@/lib/audit';
 import { tarifaMaterialSchema, validateData } from '@/lib/validations';
 
 // Función para obtener un número de forma segura o null si es inválido/vacío
@@ -19,7 +19,7 @@ export async function GET() {
   try {
     const tarifas = await db.tarifaMaterial.findMany({
       orderBy: [{ material: 'asc' }, { espesor: 'asc' }],
-      take: 2000,
+      take: 500,
     });
     return NextResponse.json(tarifas);
   } catch (error) {
@@ -108,24 +108,3 @@ export async function PUT(request) {
   }
 }
 
-// DELETE /api/precios - Elimina una tarifa
-export async function DELETE(request) {
-  try {
-    const { id } = await request.json();
-    if (!id) {
-      return NextResponse.json({ error: 'ID de la tarifa es requerido para eliminar.' }, { status: 400 });
-    }
-
-    const tarifaAnterior = await db.tarifaMaterial.findUnique({ where: { id } });
-    await db.tarifaMaterial.delete({ where: { id: id } });
-    await logDelete('TarifaMaterial', id, tarifaAnterior, 'Admin');
-    revalidatePath('/tarifas');
-    return NextResponse.json({ message: 'Tarifa eliminada.' }, { status: 200 });
-  } catch (error) {
-    logApiError(error, 'Error deleting tarifa:');
-    if (error.code === 'P2025') {
-        return NextResponse.json({ error: 'Tarifa no encontrada.' }, { status: 404 });
-    }
-    return NextResponse.json({ error: 'Error al eliminar la tarifa.' }, { status: 500 });
-  }
-}

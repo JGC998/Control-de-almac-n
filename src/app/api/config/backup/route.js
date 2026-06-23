@@ -24,12 +24,12 @@ export async function GET(request) {
             configPaletizado,
             sequence
         ] = await Promise.all([
-            db.config.findMany(),
-            db.reglaMargen.findMany(),
-            db.tarifaMaterial.findMany(),
-            db.tarifaTransporte.findMany(),
-            db.configPaletizado.findMany(),
-            db.sequence.findMany()
+            db.config.findMany({ take: 500 }),
+            db.reglaMargen.findMany({ take: 500 }),
+            db.tarifaMaterial.findMany({ take: 500 }),
+            db.tarifaTransporte.findMany({ take: 500 }),
+            db.configPaletizado.findMany({ take: 500 }),
+            db.sequence.findMany({ take: 500 }),
         ]);
 
         const backupData = {

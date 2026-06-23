@@ -36,22 +36,3 @@ export async function POST(request) {
   }
 }
 
-// DELETE /api/notas — BUG-04: deprecated. Usar DELETE /api/notas/[id].
-// Se mantiene por compatibilidad con el frontend actual (TablonNotas.js).
-export async function DELETE(request) {
-  try {
-    const { id } = await request.json();
-    if (!id) {
-      return NextResponse.json({ message: 'El ID de la nota es requerido' }, { status: 400 });
-    }
-
-    await db.nota.delete({
-      where: { id: id },
-    });
-
-    return NextResponse.json({ message: 'Nota eliminada con éxito' }, { status: 200 });
-  } catch (error) {
-    logApiError(error, 'DELETE /api/notas');
-    return NextResponse.json({ message: 'Error al eliminar la nota' }, { status: 500 });
-  }
-}

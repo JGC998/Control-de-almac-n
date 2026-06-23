@@ -41,6 +41,8 @@ export async function POST(request) {
         courierCode: true,
         nombreBarco: true,
         ultimaPosicionBarco: true,
+        etaEstimada: true,
+        ultimaAlertaEta: true,
       },
     });
 
@@ -90,6 +92,34 @@ export async function POST(request) {
           },
         });
 
+        // Resolver ETA definitiva: la del tracking o la ya almacenada
+        const etaFinal = tracking.eta
+          ? new Date(tracking.eta)
+          : imp.etaEstimada ?? null;
+
+        // Comprobar alerta de llegada próxima (hoy o mañana)
+        let alertaEtaEnviada = false;
+        if (etaFinal) {
+          const horasHastaEta = (etaFinal.getTime() - ahora.getTime()) / 3_600_000;
+          const yaAlertadoReciente = imp.ultimaAlertaEta
+            && (ahora.getTime() - imp.ultimaAlertaEta.getTime()) < 24 * 3_600_000;
+
+          if (horasHastaEta >= 0 && horasHastaEta <= 48 && !yaAlertadoReciente) {
+            const llegaHoy = horasHastaEta <= 24;
+            const fechaEtaStr = etaFinal.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const mensajeEta =
+              `🚢 LLEGADA ${llegaHoy ? 'HOY' : 'MAÑANA'} — ${imp.descripcion || imp.numContenedor || imp.blNumber}\n` +
+              `📅 ETA: ${fechaEtaStr}\n` +
+              `📦 Contenedor: ${imp.numContenedor || imp.blNumber || '—'}`;
+            await enviarWhatsApp(mensajeEta);
+            await db.importacionContenedor.update({
+              where: { id: imp.id },
+              data: { ultimaAlertaEta: ahora },
+            });
+            alertaEtaEnviada = true;
+          }
+        }
+
         const notificaciones = [];
 
         // 1. Nuevo evento del contenedor
@@ -114,8 +144,11 @@ export async function POST(request) {
         if (notificaciones.length > 0) {
           const todos = await Promise.all(notificaciones);
           const ok    = todos.every(r => r.some(p => p.ok));
-          const tipos = [hayNuevoEvento && 'contenedor', hayTransbordo && 'transbordo', hayNuevaPosicion && !hayNuevoEvento && !hayTransbordo && 'barco'].filter(Boolean);
+          const tipos = [hayNuevoEvento && 'contenedor', hayTransbordo && 'transbordo', hayNuevaPosicion && !hayNuevoEvento && !hayTransbordo && 'barco', alertaEtaEnviada && 'eta'].filter(Boolean);
           return { id: imp.id, status: 'notificado', tipo: tipos.join('+'), trackingNum, whatsapp: ok };
+        }
+        if (alertaEtaEnviada) {
+          return { id: imp.id, status: 'notificado', tipo: 'eta', trackingNum, whatsapp: true };
         }
         return { id: imp.id, status: 'sin_cambio', trackingNum };
 
