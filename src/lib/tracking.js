@@ -12,9 +12,7 @@
  * Para otras navieras: añadir su endpoint correspondiente.
  */
 
-import { readFileSync } from 'fs';
-import { join }         from 'path';
-import { logApiError }  from '@/lib/logger';
+import { logApiError } from '@/lib/logger';
 
 const YM_API        = 'https://www.yangming.com/api/CargoTracking/GetTracking';
 // Vessel status — descubierto vía DevTools en yangming.com/en/esolution/schedule/vessel_schedule
@@ -224,72 +222,10 @@ export async function buscarScheduleBarco(vesselCode) {
   }
 }
 
-// ─── Navieras genéricas (carrier-apis.local.json) ───────────────────────────
-
-function cargarCarriersLocales() {
-  try {
-    const raw = readFileSync(join(process.cwd(), 'carrier-apis.local.json'), 'utf8');
-    const lista = JSON.parse(raw);
-    // Filtrar entradas de ejemplo que tengan _comentario o URL sin rellenar
-    return lista.filter(c => c.prefijos?.length && c.endpoint?.url && !c.endpoint.url.includes('...'));
-  } catch {
-    return [];
-  }
-}
-
-function getPath(obj, ruta) {
-  if (!ruta || !obj) return undefined;
-  return ruta.split('.').reduce((acc, k) => acc?.[k], obj);
-}
-
-function parseFechaGenerica(str) {
-  if (!str) return null;
-  const d = new Date(str);
-  return isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-async function buscarTrackingGenerico(trackingNumber, carrier) {
-  const { url, param, headers = {} } = carrier.endpoint;
-  const { campos } = carrier;
-
-  const fullUrl = `${url}?${param}=${encodeURIComponent(trackingNumber)}`;
-  const res = await fetch(fullUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json, text/plain, */*',
-      ...headers,
-    },
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  if (!res.ok) {
-    logApiError(new Error(`${carrier.nombre} API HTTP ${res.status}`), `tracking:${trackingNumber}`);
-    return null;
-  }
-
-  const json = await res.json();
-  const rawEventos = getPath(json, campos.eventos);
-  if (!Array.isArray(rawEventos) || rawEventos.length === 0) return null;
-
-  const eventos = rawEventos.map(e => ({
-    status:             getPath(e, campos.estado) ?? 'Evento desconocido',
-    occurrenceDatetime: parseFechaGenerica(getPath(e, campos.fecha)),
-    location:           getPath(e, campos.lugar) ?? null,
-    vesselVoyage:       getPath(e, campos.barco) ?? null,
-    vesselCode:         null,
-  }));
-
-  const ultimoEvento = eventos[0] ?? null;
-  const etaRaw       = getPath(json, campos.eta);
-  const eta          = parseFechaGenerica(etaRaw);
-
-  return { eventos, ultimoEvento, eta, shipmentId: null };
-}
-
 /**
  * Consulta el estado de un contenedor.
- * Yang Ming: integración directa.
- * Otras navieras: configurar en carrier-apis.local.json (ver carrier-apis.example.json).
+ * Actualmente soporta Yang Ming (YMMU/YMLU).
+ * Para otras navieras: añadir su función correspondiente.
  */
 export async function buscarTracking(trackingNumber, _uuid = null) {
   if (!trackingNumber?.trim()) return null;
@@ -297,16 +233,6 @@ export async function buscarTracking(trackingNumber, _uuid = null) {
   const num = trackingNumber.trim().toUpperCase();
 
   if (esYangMing(num)) return buscarTrackingYangMing(num);
-
-  // Buscar en navieras configuradas localmente
-  const carriers = cargarCarriersLocales();
-  const carrier  = carriers.find(c => c.prefijos.includes(prefijo(num)));
-  if (carrier) {
-    return buscarTrackingGenerico(num, carrier).catch(e => {
-      logApiError(e, `tracking:generico:${carrier.nombre}:${num}`);
-      return null;
-    });
-  }
 
   logApiError(new Error(`Naviera no soportada (prefijo: ${prefijo(num)})`), `tracking:${num}`);
   return null;
