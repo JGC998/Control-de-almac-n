@@ -65,7 +65,7 @@ const PORT_COORDS = {
 
 // Alias de nombres para puertos con múltiples denominaciones
 const PORT_ALIASES = {
-  SHEKOU: 'CNSHK', SHEK KOU: 'CNSHK',
+  SHEKOU: 'CNSHK', 'SHEK KOU': 'CNSHK',
   YANTIAN: 'CNYTN', 'CHIWAN': 'CNSZN',
   NANSHA: 'CNNSA', 'GUANGZHOU NANSHA': 'CNNSA',
   NINGBO: 'CNNBO', SHANGHAI: 'CNSHA',
