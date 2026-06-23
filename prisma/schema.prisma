@@ -440,6 +440,7 @@ model ImportacionContenedor {
   etaEstimada           DateTime?
   courierCode           String?
   nombreBarco           String?
+  ultimaPosicionBarco   String?
 
   @@index([creadaEn])
   @@index([proveedorId])

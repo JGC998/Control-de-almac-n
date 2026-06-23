@@ -352,6 +352,30 @@ export function formatearMensajeTracking(imp, evento, eta = null, scheduleBarco 
 }
 
 /**
+ * Mensaje WhatsApp cuando el barco llega a un nuevo puerto.
+ * Se dispara cuando ultimaPosicionBarco cambia (independiente del evento del contenedor).
+ */
+export function formatearMensajeBarco(imp, puertoActual, proximoPuerto) {
+  const num    = imp.numContenedor || imp.blNumber || 'Sin número';
+  const nombre = imp.descripcion ? `${imp.descripcion} (${num})` : `Contenedor ${num}`;
+  const pais   = puertoActual.pais ? ` (${puertoActual.pais})` : '';
+
+  const lineas = [
+    `🚢 *${puertoActual.vesselName ?? puertoActual.vesselCode ?? 'Barco'} llegó a ${puertoActual.puerto}${pais}*`,
+    ``,
+    `📦 ${nombre}`,
+  ];
+
+  if (proximoPuerto) {
+    const d     = new Date(proximoPuerto.eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+    const pNext = proximoPuerto.pais ? ` (${proximoPuerto.pais})` : '';
+    lineas.push(`⏭ Próx. escala: ${proximoPuerto.puerto}${pNext} — ${d}`);
+  }
+
+  return lineas.join('\n');
+}
+
+/**
  * Clave de deduplicación para detectar si un evento ya fue notificado.
  */
 export function claveEvento(evento) {

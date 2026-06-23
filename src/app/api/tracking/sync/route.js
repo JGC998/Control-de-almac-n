@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarTracking, enviarWhatsApp, formatearMensajeTracking, claveEvento, extraerNombreBarco, buscarScheduleBarco } from '@/lib/tracking';
+import { buscarTracking, enviarWhatsApp, formatearMensajeTracking, formatearMensajeBarco, claveEvento, extraerNombreBarco, buscarScheduleBarco } from '@/lib/tracking';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +39,7 @@ export async function POST(request) {
         descripcion: true,
         estado: true,
         courierCode: true,
+        ultimaPosicionBarco: true,
       },
     });
 
@@ -57,15 +58,18 @@ export async function POST(request) {
           return { id: imp.id, status: 'sin_datos', trackingNum };
         }
 
-        const claveNueva  = claveEvento(tracking.ultimoEvento);
-        const hayNuevidad = claveNueva && claveNueva !== imp.ultimoEvento;
+        const claveNueva      = claveEvento(tracking.ultimoEvento);
+        const hayNuevoEvento  = claveNueva && claveNueva !== imp.ultimoEvento;
 
-        const nombreBarco = extraerNombreBarco(tracking.eventos);
-
-        // Solo pedir schedule del barco si hay evento nuevo (evita llamada extra en cada sync)
-        const scheduleBarco = hayNuevidad && nombreBarco
+        const nombreBarco   = extraerNombreBarco(tracking.eventos);
+        const scheduleBarco = nombreBarco
           ? await buscarScheduleBarco(nombreBarco).catch(() => null)
           : null;
+
+        // Detectar cambio de posición del barco
+        const posicionActual    = scheduleBarco?.puertos?.find(p => p.esPosicionActual) ?? null;
+        const clavePos          = posicionActual ? `${posicionActual.puerto}|${posicionActual.ata ?? posicionActual.eta ?? ''}` : null;
+        const hayNuevaPosicion  = clavePos && clavePos !== imp.ultimaPosicionBarco;
 
         await db.importacionContenedor.update({
           where: { id: imp.id },
@@ -75,15 +79,34 @@ export async function POST(request) {
               ultimoEvento:         claveEvento(tracking.ultimoEvento),
               ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,
             }),
-            ...(tracking.eta && { etaEstimada: new Date(tracking.eta) }),
+            ...(tracking.eta  && { etaEstimada: new Date(tracking.eta) }),
             ...(nombreBarco   && { nombreBarco }),
+            ...(clavePos      && { ultimaPosicionBarco: clavePos }),
           },
         });
 
-        if (hayNuevidad) {
+        const notificaciones = [];
+
+        // 1. Nuevo evento del contenedor
+        if (hayNuevoEvento) {
           const mensaje = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta, scheduleBarco);
-          const resultados = await enviarWhatsApp(mensaje);
-          return { id: imp.id, status: 'notificado', trackingNum, whatsapp: resultados.some(r => r.ok) };
+          notificaciones.push(enviarWhatsApp(mensaje));
+        }
+
+        // 2. Barco llegó a un nuevo puerto (independiente del evento del contenedor)
+        if (hayNuevaPosicion && !hayNuevoEvento) {
+          const proximoPuerto = scheduleBarco.puertos.find(p => p.eta) ?? null;
+          const payload       = { ...posicionActual, vesselName: scheduleBarco.vesselName, vesselCode: scheduleBarco.vesselCode };
+          const mensaje       = formatearMensajeBarco(imp, payload, proximoPuerto);
+          notificaciones.push(enviarWhatsApp(mensaje));
+        }
+
+        if (notificaciones.length > 0) {
+          const todos = await Promise.all(notificaciones);
+          const ok    = todos.every(r => r.some(p => p.ok));
+          const tipo  = hayNuevoEvento && hayNuevaPosicion ? 'contenedor+barco'
+                      : hayNuevoEvento ? 'contenedor' : 'barco';
+          return { id: imp.id, status: 'notificado', tipo, trackingNum, whatsapp: ok };
         }
         return { id: imp.id, status: 'sin_cambio', trackingNum };
 
