@@ -376,6 +376,25 @@ export function formatearMensajeBarco(imp, puertoActual, proximoPuerto) {
 }
 
 /**
+ * Mensaje WhatsApp cuando el contenedor cambia de barco (transbordo).
+ */
+export function formatearMensajeTransbordo(imp, barcoAnterior, barcoNuevoCodigo, barcoNuevoNombre, puertoTransbordo) {
+  const num    = imp.numContenedor || imp.blNumber || 'Sin número';
+  const nombre = imp.descripcion ? `${imp.descripcion} (${num})` : `Contenedor ${num}`;
+  const barcoNuevo = barcoNuevoNombre ?? barcoNuevoCodigo ?? 'nuevo barco';
+  const pais   = puertoTransbordo?.pais ? ` (${puertoTransbordo.pais})` : '';
+  const puerto = puertoTransbordo ? `\n📍 Puerto de transbordo: ${puertoTransbordo.puerto}${pais}` : '';
+
+  return [
+    `🔄 *Transbordo detectado*`,
+    ``,
+    `📦 ${nombre}`,
+    `🚢 Barco anterior: ${barcoAnterior}`,
+    `🚢 Nuevo barco: *${barcoNuevo}*${puerto}`,
+  ].join('\n');
+}
+
+/**
  * Clave de deduplicación para detectar si un evento ya fue notificado.
  */
 export function claveEvento(evento) {
