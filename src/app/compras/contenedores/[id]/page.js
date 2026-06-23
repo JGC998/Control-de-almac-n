@@ -13,16 +13,21 @@ import {
 // Clave: portCode (UN/LOCODE, primeros 2 chars = país ISO)
 const PORT_COORDS = {
   // China
-  CNNBO: { lat: 29.873, lon: 121.549, nombre: 'Ningbo'   },
+  CNNBO: { lat: 29.873, lon: 121.549, nombre: 'Ningbo'    },
   CNSHA: { lat: 31.222, lon: 121.651, nombre: 'Shanghai'  },
-  CNQIN: { lat: 36.087, lon: 120.358, nombre: 'Qingdao'  },
-  CNYTN: { lat: 22.557, lon: 114.265, nombre: 'Yantian'  },
-  CNSZN: { lat: 22.557, lon: 114.265, nombre: 'Shenzhen' },
-  CNGZH: { lat: 23.107, lon: 113.260, nombre: 'Guangzhou'},
-  CNTXG: { lat: 39.001, lon: 117.723, nombre: 'Tianjin'  },
-  CNXMN: { lat: 24.480, lon: 118.080, nombre: 'Xiamen'   },
-  HKHKG: { lat: 22.289, lon: 114.158, nombre: 'Hong Kong'},
-  TWKHH: { lat: 22.614, lon: 120.273, nombre: 'Kaohsiung'},
+  CNQIN: { lat: 36.087, lon: 120.358, nombre: 'Qingdao'   },
+  CNYTN: { lat: 22.557, lon: 114.265, nombre: 'Yantian'   },
+  CNSZN: { lat: 22.557, lon: 114.265, nombre: 'Shenzhen'  },
+  CNSHK: { lat: 22.488, lon: 113.897, nombre: 'Shekou'    },
+  CNGZH: { lat: 23.107, lon: 113.260, nombre: 'Guangzhou' },
+  CNTXG: { lat: 39.001, lon: 117.723, nombre: 'Tianjin'   },
+  CNXMN: { lat: 24.480, lon: 118.080, nombre: 'Xiamen'    },
+  CNNGB: { lat: 29.873, lon: 121.549, nombre: 'Ningbo'    },
+  CNTNJ: { lat: 39.001, lon: 117.723, nombre: 'Tianjin'   },
+  CNDAL: { lat: 38.916, lon: 121.631, nombre: 'Dalian'    },
+  CNNSA: { lat: 22.488, lon: 113.897, nombre: 'Shekou'    },
+  HKHKG: { lat: 22.289, lon: 114.158, nombre: 'Hong Kong' },
+  TWKHH: { lat: 22.614, lon: 120.273, nombre: 'Kaohsiung' },
   // Sudeste asiático
   SGSIN: { lat: 1.265,  lon: 103.820, nombre: 'Singapur'        },
   MYPKG: { lat: 3.000,  lon: 101.400, nombre: 'Port Klang'      },
@@ -58,15 +63,45 @@ const PORT_COORDS = {
   BEANR: { lat: 51.233, lon:  4.400,  nombre: 'Amberes'         },
 };
 
+// Alias de nombres para puertos con múltiples denominaciones
+const PORT_ALIASES = {
+  SHEKOU: 'CNSHK', SHEK KOU: 'CNSHK',
+  YANTIAN: 'CNYTN', 'CHIWAN': 'CNSZN',
+  NANSHA: 'CNNSA', 'GUANGZHOU NANSHA': 'CNNSA',
+  NINGBO: 'CNNBO', SHANGHAI: 'CNSHA',
+  QINGDAO: 'CNQIN', TIANJIN: 'CNTXG',
+  XINGANG: 'CNTXG', DALIAN: 'CNDAL',
+  XIAMEN: 'CNXMN', 'HONG KONG': 'HKHKG',
+  KAOHSIUNG: 'TWKHH', SINGAPORE: 'SGSIN',
+  'PORT KLANG': 'MYPKG', KLANG: 'MYPKG',
+  COLOMBO: 'LKCMB', JEDDAH: 'SAJED',
+  'JEBEL ALI': 'AEJEA', ALGECIRAS: 'ESALG',
+  VALENCIA: 'ESVLC', BARCELONA: 'ESBCN',
+  ROTTERDAM: 'NLRTM', HAMBURG: 'DEHAM',
+  'LE HAVRE': 'FRLEH', FELIXSTOWE: 'GBFXT',
+  'PORT SAID': 'EGPSD', 'TANGER MED': 'MAPTM',
+  TANGIER: 'MAPTM', LEIXOES: 'PTLEI',
+  PIRAEUS: 'GRPIR', GENOA: 'ITGOA',
+  ANTWERP: 'BEANR', SOUTHAMPTON: 'GBSOU',
+};
+
 // Busca coordenadas por portCode o por nombre aproximado
 function coordsParaPuerto(portCode, nombrePuerto) {
   if (portCode && PORT_COORDS[portCode.toUpperCase()]) {
     return PORT_COORDS[portCode.toUpperCase()];
   }
   if (!nombrePuerto) return null;
-  const nombre = nombrePuerto.toUpperCase();
+  const nombreUp = nombrePuerto.toUpperCase().trim();
+  // Buscar en aliases exactos
+  if (PORT_ALIASES[nombreUp]) {
+    return PORT_COORDS[PORT_ALIASES[nombreUp]] ?? null;
+  }
+  // Buscar alias que contenga el nombre
+  const aliasKey = Object.keys(PORT_ALIASES).find(a => nombreUp.includes(a) || a.includes(nombreUp.split(/[\s,-]/)[0]));
+  if (aliasKey) return PORT_COORDS[PORT_ALIASES[aliasKey]] ?? null;
+  // Fallback: coincidencia parcial en nombre del puerto
   return Object.values(PORT_COORDS).find(p =>
-    nombre.includes(p.nombre.toUpperCase()) || p.nombre.toUpperCase().includes(nombre.split(/[,-]/)[0].trim())
+    nombreUp.includes(p.nombre.toUpperCase()) || p.nombre.toUpperCase().includes(nombreUp.split(/[\s,-]/)[0])
   ) ?? null;
 }
 
@@ -361,7 +396,7 @@ export default function ContenedorDetalle() {
                           {p.puerto}
                           {p.pais && <span className="text-base-content/40 font-normal"> ({p.pais})</span>}
                         </span>
-                        {esCurrent && <span className="badge badge-secondary badge-xs">Posición actual</span>}
+                        {esCurrent && <span className="badge badge-secondary badge-xs">Última posición</span>}
                         {confirmado && !esCurrent && <span className="badge badge-success badge-xs">Confirmado</span>}
                       </div>
                       {fecha && (
