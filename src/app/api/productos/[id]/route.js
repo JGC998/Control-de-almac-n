@@ -14,6 +14,8 @@ const productoUpdateSchema = z.object({
   largo:                z.number().nonnegative().optional().nullable(),
   ancho:                z.number().nonnegative().optional().nullable(),
   color:                z.string().max(100).optional().nullable(),
+  acabado:              z.string().max(100).optional().nullable(),
+  lonas:                z.number().int().positive().optional().nullable(),
   referenciaFabricante: z.string().max(200).optional().nullable(),
   tieneTroquel:         z.boolean().optional(),
   fabricanteId:         z.string().optional().nullable(),

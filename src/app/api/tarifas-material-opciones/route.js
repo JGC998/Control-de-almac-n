@@ -32,14 +32,16 @@ export async function GET(request) {
       return NextResponse.json({ espesores: rows.map(r => r.espesor) });
     }
 
-    // Material + espesor → devuelve colores y la tarifa completa
+    // Material + espesor → devuelve acabados, colores y tarifas completas
     const tarifas = await db.tarifaMaterial.findMany({
       where: { material, espesor: parseFloat(espesor) },
-      orderBy: { color: 'asc' },
+      orderBy: [{ acabado: 'asc' }, { color: 'asc' }],
     });
 
-    const colores = [...new Set(tarifas.map(t => t.color).filter(Boolean))];
-    return NextResponse.json({ tarifas, colores });
+    // Acabados únicos ('' = estándar/sin acabado)
+    const acabados = [...new Set(tarifas.map(t => t.acabado ?? ''))].sort();
+    const colores  = [...new Set(tarifas.map(t => t.color).filter(Boolean))];
+    return NextResponse.json({ tarifas, acabados, colores });
   } catch (error) {
     return handlePrismaError(error);
   }

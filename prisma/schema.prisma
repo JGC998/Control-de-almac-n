@@ -302,6 +302,8 @@ model Producto {
   costoUnitario        Float?  @map("costo")
   tieneTroquel         Boolean @default(false)
   color                String?
+  acabado              String?
+  lonas                Int?
   fabricanteId         String?
   materialId           String?
 

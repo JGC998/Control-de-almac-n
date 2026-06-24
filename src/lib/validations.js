@@ -177,6 +177,8 @@ export const productoSchema = z.object({
     costoUnitario: z.number().nonnegative().optional().nullable(),
     tieneTroquel: z.boolean().optional(),
     color: z.string().optional().nullable(),
+    acabado: z.string().max(100).optional().nullable(),
+    lonas: z.number().int().positive().optional().nullable(),
     fabricanteId: z.string().uuid().optional().nullable(),
     materialId: z.string().uuid().optional().nullable(),
     precioVentaFab: z.number().nonnegative().optional().nullable(),

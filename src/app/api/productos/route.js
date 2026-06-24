@@ -123,6 +123,8 @@ export async function POST(request) {
         costoUnitario: d.costoUnitario ?? null,
         tieneTroquel: d.tieneTroquel ?? false,
         color: d.color ?? null,
+        acabado: d.acabado ?? null,
+        lonas: d.lonas ?? null,
         fabricanteId: d.fabricanteId ?? null,
         materialId: d.materialId ?? null,
         precioVentaFab: d.precioVentaFab ?? 0,

@@ -2,13 +2,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Package, Loader2 } from 'lucide-react';
 
-const VACIO = { materiales: [], espesores: [], colores: [], tarifa: null };
+const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] };
 
 export default function FormularioProductoInteligente({ productoAEditar, onGuardado, onCancelar, initialNombre = '' }) {
   const [form, setForm] = useState({
     nombre: initialNombre,
     material: '',
     espesor: '',
+    acabado: '',
     color: '',
     ancho: '',
     largo: '',
@@ -34,23 +35,24 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   useEffect(() => {
     if (productoAEditar) {
       setForm({
-        nombre: productoAEditar.nombre ?? '',
-        material: productoAEditar.material?.nombre ?? '',
-        espesor: productoAEditar.espesor ?? '',
-        color: productoAEditar.color ?? '',
-        ancho: productoAEditar.ancho ?? '',
-        largo: productoAEditar.largo ?? '',
-        precioUnitario: productoAEditar.precioUnitario ?? '',
-        pesoUnitario: productoAEditar.pesoUnitario ?? '',
+        nombre:               productoAEditar.nombre ?? '',
+        material:             productoAEditar.material?.nombre ?? '',
+        espesor:              productoAEditar.espesor ?? '',
+        acabado:              productoAEditar.acabado ?? '',
+        color:                productoAEditar.color ?? '',
+        ancho:                productoAEditar.ancho ?? '',
+        largo:                productoAEditar.largo ?? '',
+        precioUnitario:       productoAEditar.precioUnitario ?? '',
+        pesoUnitario:         productoAEditar.pesoUnitario ?? '',
         referenciaFabricante: productoAEditar.referenciaFabricante ?? '',
       });
     }
   }, [productoAEditar]);
 
-  // Cuando cambia el material → cargar espesores
+  // Material → espesores
   const handleMaterialChange = useCallback(async (material) => {
-    setForm(f => ({ ...f, material, espesor: '', color: '', precioUnitario: '', pesoUnitario: '' }));
-    setOpciones(prev => ({ ...prev, espesores: [], colores: [], tarifa: null }));
+    setForm(f => ({ ...f, material, espesor: '', acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
+    setOpciones(prev => ({ ...prev, espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] }));
     setTarifaEncontrada(false);
     if (!material) return;
     setCargando(true);
@@ -59,49 +61,73 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       const d = await r.json();
       setOpciones(prev => ({ ...prev, espesores: d.espesores ?? [] }));
     } catch {
-      setError('No se pudieron cargar las opciones de espesor. Comprueba la conexión.');
+      setError('No se pudieron cargar las opciones de espesor.');
     } finally {
       setCargando(false);
     }
   }, []);
 
-  // Cuando cambia el espesor → cargar colores + tarifa
+  // Espesor → acabados (+ colores si no hay acabados)
   const handleEspesorChange = useCallback(async (espesor) => {
-    setForm(f => ({ ...f, espesor, color: '', precioUnitario: '', pesoUnitario: '' }));
-    setOpciones(prev => ({ ...prev, colores: [], tarifa: null }));
+    setForm(f => ({ ...f, espesor, acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
+    setOpciones(prev => ({ ...prev, acabados: [], colores: [], tarifa: null, tarifas: [] }));
     setTarifaEncontrada(false);
     if (!espesor || !form.material) return;
     setCargando(true);
     try {
       const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(form.material)}&espesor=${espesor}`);
       const d = await r.json();
-      setOpciones(prev => ({ ...prev, colores: d.colores ?? [], tarifas: d.tarifas ?? [], tarifa: d.tarifas?.[0] ?? null }));
-      if (d.tarifas?.length === 1 && !d.colores?.length) {
-        aplicarTarifa(d.tarifas[0]);
+      const tarifas  = d.tarifas ?? [];
+      const acabados = d.acabados ?? [];
+      const colores  = d.colores  ?? [];
+
+      setOpciones(prev => ({ ...prev, tarifas, acabados, colores, tarifa: null }));
+
+      // Si solo hay una tarifa y sin acabado ni color → auto-aplicar
+      if (tarifas.length === 1 && acabados.length <= 1 && colores.length === 0) {
+        aplicarTarifa(tarifas[0]);
+        setForm(f => ({ ...f, acabado: tarifas[0].acabado ?? '' }));
       }
+      // Si hay acabados múltiples → esperar selección
+      // Si no hay acabados distintos pero hay colores → mantener flujo color (PVC legacy)
     } catch {
-      setError('No se pudieron cargar las tarifas para ese espesor. Comprueba la conexión.');
+      setError('No se pudieron cargar las tarifas para ese espesor.');
     } finally {
       setCargando(false);
     }
   }, [form.material]);
 
-  // Cuando cambia el color → buscar la tarifa exacta en la lista completa
+  // Acabado → filtra tarifas, obtiene colores, auto-aplica si solo hay una
+  const handleAcabadoChange = useCallback((acabado) => {
+    setForm(f => ({ ...f, acabado, color: '', precioUnitario: '', pesoUnitario: '' }));
+    setTarifaEncontrada(false);
+
+    const tarifasFiltradas = (opciones.tarifas ?? []).filter(t => (t.acabado ?? '') === acabado);
+    const coloresFiltrados = [...new Set(tarifasFiltradas.map(t => t.color).filter(Boolean))];
+
+    setOpciones(prev => ({ ...prev, colores: coloresFiltrados, tarifa: null }));
+
+    if (tarifasFiltradas.length === 1) {
+      aplicarTarifa(tarifasFiltradas[0]);
+    }
+  }, [opciones.tarifas]);
+
+  // Color → busca tarifa exacta
   const handleColorChange = useCallback((color) => {
     setForm(f => ({ ...f, color }));
-    const tarifa = (opciones.tarifas ?? []).find(t => (t.color ?? '') === (color ?? ''))
-      ?? opciones.tarifa ?? null;
+    const tarifa = (opciones.tarifas ?? []).find(
+      t => (t.acabado ?? '') === (form.acabado ?? '') && (t.color ?? '') === color
+    ) ?? opciones.tarifa ?? null;
     if (tarifa) aplicarTarifa(tarifa);
-  }, [opciones.tarifas, opciones.tarifa]);
+  }, [opciones.tarifas, opciones.tarifa, form.acabado]);
 
   function aplicarTarifa(tarifa) {
     if (!tarifa) return;
     setTarifaEncontrada(true);
     setOpciones(prev => ({ ...prev, tarifa }));
-    // Leer ancho y largo del estado actual para evitar clausuras viejas
     setForm(f => {
-      const a = parseFloat(f.ancho) / 1000 || 0; // mm → m
-      const l = parseFloat(f.largo) / 1000 || 0; // mm → m
+      const a = parseFloat(f.ancho) / 1000 || 0;
+      const l = parseFloat(f.largo) / 1000 || 0;
       if (a > 0 && l > 0) {
         return {
           ...f,
@@ -113,7 +139,6 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     });
   }
 
-  // Recalcular precio/peso cuando cambia ancho o largo
   function handleDimensionChange(campo, valor) {
     setForm(f => {
       const next = { ...f, [campo]: valor };
@@ -135,13 +160,15 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     setGuardando(true);
 
     const payload = {
-      nombre: form.nombre.trim(),
-      espesor: form.espesor ? parseFloat(form.espesor) : null,
-      ancho:   form.ancho   ? parseFloat(form.ancho)   : null,
-      largo:   form.largo   ? parseFloat(form.largo)   : null,
-      color:   form.color   || null,
-      precioUnitario: parseFloat(form.precioUnitario) || 0,
-      pesoUnitario:   parseFloat(form.pesoUnitario)   || 0,
+      nombre:               form.nombre.trim(),
+      espesor:              form.espesor              ? parseFloat(form.espesor) : null,
+      ancho:                form.ancho                ? parseFloat(form.ancho)   : null,
+      largo:                form.largo                ? parseFloat(form.largo)   : null,
+      color:                form.color                || null,
+      acabado:              form.acabado              || null,
+      lonas:                opciones.tarifa?.lonas    ?? null,
+      precioUnitario:       parseFloat(form.precioUnitario) || 0,
+      pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
       referenciaFabricante: form.referenciaFabricante || null,
     };
 
@@ -160,14 +187,13 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       }
       const saved = await res.json();
 
-      // Si el material no tenía tarifa → crear notificación (fire-and-forget: no bloquea el guardado)
       if (!tarifaEncontrada && form.material) {
         fetch('/api/notificaciones', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            titulo: `Tarifa pendiente: ${form.material}${form.espesor ? ` ${form.espesor}mm` : ''}`,
-            mensaje: `El producto "${payload.nombre}" fue creado sin precio automático porque no hay tarifa para "${form.material}". Añade el precio base en Tarifas m² para que el precio se calcule solo la próxima vez.`,
+            titulo: `Tarifa pendiente: ${form.material}${form.acabado ? ' ' + form.acabado : ''}${form.espesor ? ` ${form.espesor}mm` : ''}`,
+            mensaje: `El producto "${payload.nombre}" fue creado sin precio automático porque no hay tarifa configurada. Añade el precio base en Tarifas m².`,
             tipo: 'PENDIENTE',
             url: '/configuracion/margenes',
           }),
@@ -182,7 +208,9 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     }
   }
 
-  const tieneTarifa = tarifaEncontrada && opciones.tarifa;
+  const tieneTarifa  = tarifaEncontrada && opciones.tarifa;
+  // Mostrar acabado si hay múltiples opciones distintas (incluyendo la opción vacía = estándar)
+  const hayAcabados  = opciones.acabados.length > 1 || (opciones.acabados.length === 1 && opciones.acabados[0] !== '');
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -232,7 +260,24 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
       )}
 
-      {/* Color (solo si hay opciones) */}
+      {/* Acabado (si hay opciones) */}
+      {form.espesor && hayAcabados && (
+        <div className="form-control">
+          <label className="label"><span className="label-text font-medium">Acabado</span></label>
+          <select
+            className="select select-bordered"
+            value={form.acabado}
+            onChange={e => handleAcabadoChange(e.target.value)}
+          >
+            <option value="">— Estándar (sin acabado) —</option>
+            {opciones.acabados.filter(a => a !== '').map(a => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Color (solo si hay opciones, generalmente PVC) */}
       {opciones.colores.length > 0 && (
         <div className="form-control">
           <label className="label"><span className="label-text font-medium">Color</span></label>
@@ -244,6 +289,13 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
             <option value="">— Sin color específico —</option>
             {opciones.colores.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+        </div>
+      )}
+
+      {/* Lonas — info de solo lectura de la tarifa */}
+      {opciones.tarifa?.lonas && (
+        <div className="alert alert-info py-2 text-sm">
+          Lonas: <strong>{opciones.tarifa.lonas}</strong> — obtenido de la tarifa de {form.material} {form.espesor}mm
         </div>
       )}
 
@@ -271,7 +323,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
       </div>
 
-      {/* Precio y Peso — autocalculados o manuales */}
+      {/* Precio y Peso */}
       <div className="grid grid-cols-2 gap-3">
         <div className="form-control">
           <label className="label">
@@ -316,7 +368,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       {/* Aviso si no hay tarifa */}
       {form.material && form.espesor && !tieneTarifa && !cargando && (
         <div className="alert alert-warning text-sm">
-          No hay tarifa para <strong>{form.material} {form.espesor}mm</strong>. El precio se calculará manualmente. Se creará una notificación para que añadas la tarifa base después.
+          No hay tarifa para <strong>{form.material}{form.acabado ? ' ' + form.acabado : ''} {form.espesor}mm</strong>. El precio se pondrá manualmente.
         </div>
       )}
 
