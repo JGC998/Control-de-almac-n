@@ -6,13 +6,39 @@ import { db } from '@/lib/db';
 import { crearManejadoresCRUD } from '@/lib/manejadores-api';
 import { revalidatePath } from 'next/cache';
 
-const { GET, POST } = crearManejadoresCRUD('material', {
-  findMany: {
-    orderBy: { nombre: 'asc' },
+// GET devuelve materiales con conteos de productos y tarifas m²
+export async function GET() {
+  try {
+    const [materiales, tarifasCounts] = await Promise.all([
+      db.material.findMany({
+        orderBy: { nombre: 'asc' },
+        include: { _count: { select: { productos: true } } },
+      }),
+      db.tarifaMaterial.groupBy({
+        by: ['material'],
+        _count: { id: true },
+      }),
+    ]);
+    const tarifasMap = Object.fromEntries(tarifasCounts.map(t => [t.material, t._count.id]));
+    return NextResponse.json(
+      materiales.map(m => ({
+        id: m.id,
+        nombre: m.nombre,
+        numProductos: m._count.productos,
+        numTarifas:   tarifasMap[m.nombre] ?? 0,
+      }))
+    );
+  } catch (error) {
+    logApiError(error, 'GET /api/materiales');
+    return NextResponse.json({ error: 'Error al cargar materiales' }, { status: 500 });
   }
+}
+
+const { POST } = crearManejadoresCRUD('material', {
+  findMany: { orderBy: { nombre: 'asc' } },
 }, '/configuracion');
 
-export { GET, POST };
+export { POST };
 
 export async function PUT(request) {
   try {
