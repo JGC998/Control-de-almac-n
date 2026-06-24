@@ -3,8 +3,9 @@ import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import {
   Settings, DollarSign, Layers, TrendingUp, Package,
-  Wrench, Download, Plus, Save, RefreshCw, Trash2, AlignJustify, ScrollText,
+  Wrench, Download, Plus, Save, RefreshCw, Trash2, AlignJustify, ScrollText, ExternalLink,
 } from 'lucide-react';
+import Link from 'next/link';
 import GestorCatalogo from '@/componentes/productos/GestorCatalogo';
 import BulkPriceUpdateModal from '@/componentes/modales/ModalActualizacionPrecios';
 
@@ -925,7 +926,14 @@ export default function ConfiguracionPage() {
       {/* ── TARIFAS m² ───────────────────────────────────────────────────── */}
       {activeTab === 'tarifas' && (
         <div className="relative">
-          <div className="absolute top-4 right-36 z-10">
+          <div className="absolute top-4 right-36 z-10 flex gap-2">
+            <Link
+              href="/gestion/catalogos/materiales"
+              className="btn btn-sm btn-outline gap-1"
+              title="Gestionar la lista de materiales"
+            >
+              <Layers className="w-3 h-3" /> Materiales <ExternalLink className="w-3 h-3" />
+            </Link>
             <button
               onClick={() => setIsBulkModalOpen(true)}
               className="btn btn-sm btn-warning btn-outline gap-1"
