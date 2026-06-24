@@ -115,9 +115,14 @@ export default function GestionMaterialesPage() {
   };
 
   const eliminar = async (mat) => {
-    const aviso = mat.numProductos > 0 || mat.numTarifas > 0
-      ? `Este material tiene ${mat.numTarifas} tarifa(s) y ${mat.numProductos} producto(s) asociados. ¿Seguro que quieres eliminarlo?`
-      : '¿Eliminar este material?';
+    let aviso = '¿Eliminar este material? Esta acción no se puede deshacer.';
+    if (mat.numProductos > 0 && mat.numTarifas > 0) {
+      aviso = `${mat.numProductos} producto(s) perderán su material asignado (quedarán sin material) y se eliminarán ${mat.numTarifas} tarifa(s) m². ¿Continuar?`;
+    } else if (mat.numProductos > 0) {
+      aviso = `${mat.numProductos} producto(s) perderán su material asignado y quedarán sin material. ¿Continuar?`;
+    } else if (mat.numTarifas > 0) {
+      aviso = `Se eliminarán ${mat.numTarifas} tarifa(s) m² de este material. ¿Continuar?`;
+    }
     const ok = await confirmar({ titulo: `Eliminar "${mat.nombre}"`, mensaje: aviso });
     if (!ok) return;
     try {
