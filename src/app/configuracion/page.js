@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Settings, DollarSign, Truck, Layers, ScrollText } from 'lucide-react';
+import { Settings, DollarSign, Truck, Layers, ScrollText, Package } from 'lucide-react';
 
 export const metadata = { title: 'Configuración — CRM Taller' };
 
@@ -31,6 +31,13 @@ export default function ConfiguracionHub() {
           titulo: 'Tacos',
           descripcion: 'Precios por metro de tacos (U, T, V, CUT) usados en el cálculo de bandas PVC.',
           accion: 'Configurar tacos',
+        },
+        {
+          href: '/gestion/catalogos/materiales',
+          icon: Package,
+          titulo: 'Materiales',
+          descripcion: 'Gestiona la lista de tipos de material: GOMA, PVC, FIELTRO, etc. y consulta cuántos productos y tarifas tiene cada uno.',
+          accion: 'Gestionar materiales',
         },
         {
           href: '/configuracion/audit-log',
