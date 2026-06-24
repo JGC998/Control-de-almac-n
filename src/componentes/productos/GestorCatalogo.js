@@ -138,7 +138,8 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
     if (typeof displayValue === 'number' && key !== 'lonas' && !key.toLowerCase().includes('lonas')) {
       displayValue = displayValue.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
-    return displayValue || 'N/A';
+    const opcionales = ['lonas', 'acabado', 'color', 'ancho'];
+    return displayValue ?? (opcionales.includes(key) ? '—' : 'N/A');
   }
 
   const renderFormFields = () => {
