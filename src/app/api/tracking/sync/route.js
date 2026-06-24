@@ -135,7 +135,7 @@ export async function POST(request) {
           notificaciones.push(enviarWhatsApp(mensaje));
         } else if (hayNuevaPosicion && !hayNuevoEvento) {
           // 3. Barco llegó a nuevo puerto (sin evento de contenedor ni transbordo)
-          const proximoPuerto = scheduleBarco.puertos.find(p => p.eta) ?? null;
+          const proximoPuerto = scheduleBarco.puertos.find(p => p.eta && !p.esPosicionActual) ?? null;
           const payload       = { ...posicionActual, vesselName: scheduleBarco.vesselName, vesselCode: scheduleBarco.vesselCode };
           const mensaje       = formatearMensajeBarco(imp, payload, proximoPuerto);
           notificaciones.push(enviarWhatsApp(mensaje));

@@ -321,7 +321,7 @@ export function formatearMensajeTracking(imp, evento, eta = null, scheduleBarco 
     }
 
     scheduleBarco.puertos
-      .filter(p => p.eta)
+      .filter(p => p.eta && !p.esPosicionActual)
       .slice(0, 2)
       .forEach(p => {
         const d    = new Date(p.eta).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
