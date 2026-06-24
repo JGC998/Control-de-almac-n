@@ -73,7 +73,8 @@ export async function POST(request) {
 
         // Detectar cambio de posición del barco
         const posicionActual   = scheduleBarco?.puertos?.find(p => p.esPosicionActual) ?? null;
-        const clavePos         = posicionActual ? `${posicionActual.puerto}|${posicionActual.ata ?? posicionActual.eta ?? ''}` : null;
+        // Solo el código/nombre del puerto — sin fecha, para que ETA→ATA no dispare un segundo mensaje
+        const clavePos         = posicionActual ? (posicionActual.portCode ?? posicionActual.puerto) : null;
         // Al transbordo reseteamos ultimaPosicionBarco para empezar fresco con el nuevo barco
         const posAnterior      = hayTransbordo ? null : imp.ultimaPosicionBarco;
         const hayNuevaPosicion = clavePos && clavePos !== posAnterior;
