@@ -144,7 +144,7 @@ export async function POST(request) {
 
         if (notificaciones.length > 0) {
           const todos = await Promise.all(notificaciones);
-          const ok    = todos.every(r => r.some(p => p.ok));
+          const ok    = todos.every(r => Array.isArray(r) && r.some(p => p.ok));
           const tipos = [hayNuevoEvento && 'contenedor', hayTransbordo && 'transbordo', hayNuevaPosicion && !hayNuevoEvento && !hayTransbordo && 'barco', alertaEtaEnviada && 'eta'].filter(Boolean);
           return { id: imp.id, status: 'notificado', tipo: tipos.join('+'), trackingNum, whatsapp: ok };
         }

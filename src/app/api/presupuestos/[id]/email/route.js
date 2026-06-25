@@ -32,7 +32,8 @@ export async function POST(request, { params }) {
             db.config.findUnique({ where: { key: 'iva_rate' } }),
             getMargenes(),
         ]);
-        const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;
+        const rawIva = configIva ? parseFloat(configIva.value) : 21;
+        const ivaRate = rawIva > 1 ? rawIva / 100 : rawIva;
         const marginRule = margenes?.find(m => m.id === quote.marginId);
 
         const multiplicador = marginRule?.multiplicador || 1;

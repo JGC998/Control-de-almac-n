@@ -69,7 +69,7 @@ export async function POST(request) {
     // Incrementar contador mensual de uso de Ship24 (fire-and-forget)
     if (registro.trackingActivo && (registro.numContenedor || registro.blNumber)) {
       const mesKey = `ship24_trackers_${new Date().toISOString().slice(0, 7)}`;
-      db.$transaction(async tx => {
+      void db.$transaction(async tx => {
         const cur = await tx.config.findUnique({ where: { key: mesKey } });
         const n = parseInt(cur?.value || '0', 10) + 1;
         await tx.config.upsert({

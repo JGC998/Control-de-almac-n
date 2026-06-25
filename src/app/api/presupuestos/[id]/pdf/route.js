@@ -25,7 +25,8 @@ export async function GET(request, { params }) {
       getMargenes(),
     ]);
 
-    const ivaRate = configIva ? parseFloat(configIva.value) : 0.21;
+    const rawIva = configIva ? parseFloat(configIva.value) : 21;
+    const ivaRate = rawIva > 1 ? rawIva / 100 : rawIva;
     const marginRule = margenes?.find(m => m.id === quote.marginId);
 
     const multiplicador = marginRule?.multiplicador || 1;

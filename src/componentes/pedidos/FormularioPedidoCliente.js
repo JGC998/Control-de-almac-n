@@ -322,9 +322,9 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     isSubmittingRef.current = true;
     setIsLoading(true);
     setError(null);
-    if (!clienteId) { setError('Debe seleccionar un cliente.'); setIsLoading(false); return; }
-    if (isMarginRequired && !selectedMarginId) { setError('Debe seleccionar una Regla de Margen.'); setIsLoading(false); return; }
-    if (items.filter(item => item.quantity > 0 && item.descripcion).length === 0) { setError('Añada items válidos.'); setIsLoading(false); return; }
+    if (!clienteId) { setError('Debe seleccionar un cliente.'); setIsLoading(false); isSubmittingRef.current = false; return; }
+    if (isMarginRequired && !selectedMarginId) { setError('Debe seleccionar una Regla de Margen.'); setIsLoading(false); isSubmittingRef.current = false; return; }
+    if (items.filter(item => item.quantity > 0 && item.descripcion).length === 0) { setError('Añada items válidos.'); setIsLoading(false); isSubmittingRef.current = false; return; }
 
     const dataPayload = {
       clienteId,
@@ -368,6 +368,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         if (onSuccess) onSuccess(savedData);
         setIsLoading(false);
       } else {
+        isSubmittingRef.current = false;
         router.push(formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`);
       }
     } catch (err) {

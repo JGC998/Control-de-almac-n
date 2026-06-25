@@ -27,16 +27,16 @@ export async function POST(request) {
       });
 
       if (!quote) {
-        throw new Error('Presupuesto no encontrado');
+        throw Object.assign(new Error('Presupuesto no encontrado'), { status: 404 });
       }
 
-      // BUG-10: actualización atómica para evitar TOCTOU (doble click / dos pestañas)
+      // Actualización atómica para evitar TOCTOU (doble click / dos pestañas)
       const marcado = await tx.presupuesto.updateMany({
         where: { id: presupuestoId, estado: { notIn: ['Aceptado'] } },
         data: { estado: 'Aceptado' },
       });
       if (marcado.count === 0) {
-        throw new Error('Este presupuesto ya ha sido aceptado y convertido en pedido');
+        throw Object.assign(new Error('Este presupuesto ya ha sido aceptado y convertido en pedido'), { status: 409 });
       }
 
       // 3. Crear el nuevo pedido copiando los datos
@@ -82,9 +82,9 @@ export async function POST(request) {
     return NextResponse.json(newPedido, { status: 201 });
 
   } catch (error) {
-    // BUG-02: Errores de negocio (sin código Prisma) → 409 Conflict, no 500
-    if (!error.code && error.message) {
-      return NextResponse.json({ message: error.message }, { status: 409 });
+    // Errores de negocio con status explícito (404, 409…)
+    if (error.status && !error.code) {
+      return NextResponse.json({ message: error.message }, { status: error.status });
     }
     logApiError(error, 'Error al convertir presupuesto a pedido:');
     return NextResponse.json({ message: 'Error interno' }, { status: 500 });

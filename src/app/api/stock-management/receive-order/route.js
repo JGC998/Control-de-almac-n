@@ -42,7 +42,16 @@ export async function POST(request) {
     });
 
     await db.$transaction(async (tx) => {
-      // BUG-03: secuencial para evitar deadlocks en MySQL y SQLITE_BUSY en SQLite
+      // Guard atómico: marcar como Recibido solo si aún no lo está (evita doble recepción)
+      const marcado = await tx.pedidoProveedor.updateMany({
+        where: { id: pedidoId, estado: { not: 'Recibido' } },
+        data: { estado: 'Recibido' },
+      });
+      if (marcado.count === 0) {
+        throw Object.assign(new Error('Este pedido ya ha sido recibido anteriormente.'), { alreadyReceived: true });
+      }
+
+      // Secuencial para evitar deadlocks en MySQL y SQLITE_BUSY en SQLite
       for (const { bobina, metrosTotales, cantidadBobinas, costoMetroFinal } of bobinaData) {
         await tx.stock.create({
           data: {
@@ -58,11 +67,6 @@ export async function POST(request) {
           },
         });
       }
-
-      await tx.pedidoProveedor.update({
-        where: { id: pedidoId },
-        data: { estado: 'Recibido' },
-      });
     });
 
     revalidatePath('/almacen');
@@ -71,6 +75,9 @@ export async function POST(request) {
     revalidatePath(`/pedidos-proveedores-data/${pedidoId}`);
     return NextResponse.json({ message: 'Pedido recibido y stock actualizado correctamente' });
   } catch (error) {
+    if (error.alreadyReceived) {
+      return NextResponse.json({ message: error.message }, { status: 409 });
+    }
     logApiError(error, 'Error al recibir pedido:');
     return NextResponse.json({ message: 'Error interno' }, { status: 500 });
   }

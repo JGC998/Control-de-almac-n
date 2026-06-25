@@ -10,7 +10,7 @@ const clienteUpdateSchema = z.object({
   direccion: z.string().optional().nullable(),
   telefono: z.string().optional().nullable(),
   nif: z.string().optional().nullable(),
-  categoria: z.string().optional().nullable(),
+  categoria: z.enum(['FABRICANTE', 'INTERMEDIARIO', 'FINAL']).optional().nullable(),
 });
 
 export async function GET(request, { params }) {
