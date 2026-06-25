@@ -243,9 +243,16 @@ export default function PedidoDetalle() {
         <button onClick={handlePrintPDF} className="btn btn-outline gap-1">
           <Printer className="w-4 h-4" /> Imprimir PDF
         </button>
-        <Link href={`/pedidos/${id}/nota-trabajo`} className="btn btn-outline btn-warning gap-1">
-          <ClipboardList className="w-4 h-4" /> Nota de trabajo
-        </Link>
+        {/*
+          OCULTO — Botón Nota de trabajo
+          Genera un PDF interno con dimensiones técnicas (columnas: Descripción, Detalles, Cantidad, Peso).
+          La ruta destino es /pedidos/[id]/nota-trabajo y el PDF lo produce generateNotaTrabajoPDF en pdfGenerator.js.
+          Descomentar cuando se quiera activar el flujo de producción interna.
+
+          <Link href={`/pedidos/${id}/nota-trabajo`} className="btn btn-outline btn-warning gap-1">
+            <ClipboardList className="w-4 h-4" /> Nota de trabajo
+          </Link>
+        */}
         <button onClick={openEditModal} className="btn btn-outline btn-primary">
           <Edit className="w-4 h-4" /> Editar Pedido
         </button>
@@ -259,16 +266,24 @@ export default function PedidoDetalle() {
             <CheckCircle className="w-4 h-4" /> Marcar como Facturado
           </button>
         )}
-        <button
-          onClick={handleToggleSinFacturacion}
-          className={`btn btn-sm gap-1 ${order.sinFacturacion ? 'btn-success btn-outline' : 'btn-ghost text-base-content/50 border border-base-300'}`}
-          title={order.sinFacturacion ? 'Quitar marca: se podrá generar albarán y factura' : 'Marcar como pedido interno / no facturable'}
-        >
-          {order.sinFacturacion
-            ? <><ReceiptText className="w-4 h-4" /> Facturar normalmente</>
-            : <><Ban className="w-4 h-4" /> Sin facturación</>
-          }
-        </button>
+        {/*
+          OCULTO — Botón Sin facturación / Facturar normalmente
+          Alterna order.sinFacturacion (true/false) vía handleToggleSinFacturacion → PUT /api/pedidos/[id].
+          Cuando sinFacturacion=true el pedido no genera albarán ni factura y no entra en la secuencia AEAT.
+          Está relacionado con el tab "Internos / No facturables" de la lista de pedidos.
+          Descomentar junto con los tabs de Facturables cuando se active la separación de pedidos internos.
+
+          <button
+            onClick={handleToggleSinFacturacion}
+            className={`btn btn-sm gap-1 ${order.sinFacturacion ? 'btn-success btn-outline' : 'btn-ghost text-base-content/50 border border-base-300'}`}
+            title={order.sinFacturacion ? 'Quitar marca: se podrá generar albarán y factura' : 'Marcar como pedido interno / no facturable'}
+          >
+            {order.sinFacturacion
+              ? <><ReceiptText className="w-4 h-4" /> Facturar normalmente</>
+              : <><Ban className="w-4 h-4" /> Sin facturación</>
+            }
+          </button>
+        */}
         <button onClick={handleDelete} className="btn btn-outline btn-error" disabled={isDeleting}>
           {isDeleting ? <span className="loading loading-spinner loading-xs"></span> : <Trash2 className="w-4 h-4" />}
           Eliminar

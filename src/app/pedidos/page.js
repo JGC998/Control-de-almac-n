@@ -90,17 +90,23 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-4">
-        <Link href="/pedidos" className={`btn btn-sm gap-1 ${!esInterno ? 'btn-neutral' : 'btn-ghost'}`}>
-          <Package className="w-3 h-3" /> Facturables
-          <span className="badge badge-sm">{totalFacturables}</span>
-        </Link>
-        <Link href="/pedidos?tab=interno" className={`btn btn-sm gap-1 ${esInterno ? 'btn-neutral' : 'btn-ghost'}`}>
-          <Ban className="w-3 h-3" /> Internos / No facturables
-          {totalInternos > 0 && <span className="badge badge-sm badge-warning">{totalInternos}</span>}
-        </Link>
-      </div>
+      {/*
+        OCULTO — Tabs Facturables / Internos
+        Descomenta cuando se quiera separar pedidos facturables de pedidos internos (sin facturación).
+        Requiere también descomentar el bloque de alerta de "esInterno" justo debajo.
+        El filtro funciona por ?tab=interno en la URL; el conteo viene de totalFacturables y totalInternos.
+
+        <div className="flex gap-2 mb-4">
+          <Link href="/pedidos" className={`btn btn-sm gap-1 ${!esInterno ? 'btn-neutral' : 'btn-ghost'}`}>
+            <Package className="w-3 h-3" /> Facturables
+            <span className="badge badge-sm">{totalFacturables}</span>
+          </Link>
+          <Link href="/pedidos?tab=interno" className={`btn btn-sm gap-1 ${esInterno ? 'btn-neutral' : 'btn-ghost'}`}>
+            <Ban className="w-3 h-3" /> Internos / No facturables
+            {totalInternos > 0 && <span className="badge badge-sm badge-warning">{totalInternos}</span>}
+          </Link>
+        </div>
+      */}
 
       {esInterno && (
         <div className="alert alert-warning mb-4 py-2 text-sm">
