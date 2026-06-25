@@ -178,7 +178,7 @@ export const productoSchema = z.object({
     tieneTroquel: z.boolean().optional(),
     color: z.string().optional().nullable(),
     acabado: z.string().max(100).optional().nullable(),
-    lonas: z.number().int().positive().optional().nullable(),
+    lonas: z.number().int().nonnegative().optional().nullable(),
     fabricanteId: z.string().uuid().optional().nullable(),
     materialId: z.string().uuid().optional().nullable(),
     precioVentaFab: z.number().nonnegative().optional().nullable(),
@@ -210,7 +210,7 @@ export const tarifaMaterialSchema = z.object({
     precio: z.number().nonnegative('Precio no puede ser negativo'),
     peso: z.number().nonnegative('Peso no puede ser negativo'),
     color: z.string().optional().nullable(),
-    lonas: z.number().int().positive().optional().nullable(),
+    lonas: z.number().int().nonnegative().optional().nullable(),
     acabado: z.string().max(100).optional().nullable(),
 });
 
