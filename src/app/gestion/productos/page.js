@@ -8,17 +8,23 @@ import { ContenedorCargando } from '@/componentes/ui';
 
 const COLUMNAS = [
   { key: 'nombre',        label: 'Nombre',   tipo: 'string' },
+  { key: 'material',      label: 'Material', tipo: 'string' },
+  { key: 'acabado',       label: 'Acabado',  tipo: 'string' },
   { key: 'espesor',       label: 'Espesor',  tipo: 'number' },
   { key: 'ancho',         label: 'Ancho',    tipo: 'number' },
   { key: 'largo',         label: 'Largo',    tipo: 'number' },
-  { key: 'color',         label: 'Color',    tipo: 'string' },
   { key: 'precioUnitario',label: 'Precio',   tipo: 'number' },
   { key: 'pesoUnitario',  label: 'Peso',     tipo: 'number' },
 ];
 
+function valorOrden(p, key) {
+  if (key === 'material') return p.material?.nombre ?? '';
+  return p[key];
+}
+
 function comparar(a, b, key, tipo, dir) {
-  const va = a[key];
-  const vb = b[key];
+  const va = valorOrden(a, key);
+  const vb = valorOrden(b, key);
   // Nulls/vacíos siempre primero en ascendente, últimos en descendente
   const aNulo = va == null || va === '';
   const bNulo = vb == null || vb === '';
@@ -57,8 +63,12 @@ export default function GestionProductosPage() {
   }
 
   const filtrados = useMemo(() => {
+    const q = busqueda.toLowerCase();
     let lista = productos.filter(p =>
-      p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+      !q ||
+      p.nombre?.toLowerCase().includes(q) ||
+      (p.material?.nombre ?? '').toLowerCase().includes(q) ||
+      (p.acabado ?? '').toLowerCase().includes(q)
     );
     if (sort.campo) {
       const col = COLUMNAS.find(c => c.key === sort.campo);
@@ -130,7 +140,7 @@ export default function GestionProductosPage() {
             </thead>
             <tbody>
               {filtrados.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
               )}
               {filtrados.map(p => {
                 const incompleto = p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario;
@@ -140,10 +150,11 @@ export default function GestionProductosPage() {
                       {p.nombre}
                       {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
                     </td>
+                    <td className="text-sm">{p.material?.nombre ?? '—'}</td>
+                    <td className="text-sm">{p.acabado ?? '—'}</td>
                     <td className={p.espesor == null ? 'text-warning font-bold' : ''}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
                     <td className={p.ancho == null ? 'text-warning font-bold' : ''}>{p.ancho != null ? `${p.ancho} mm` : '—'}</td>
                     <td className={p.largo == null ? 'text-warning font-bold' : ''}>{p.largo != null ? `${p.largo} mm` : '—'}</td>
-                    <td>{p.color || '—'}</td>
                     <td className={!p.precioUnitario ? 'text-warning font-bold' : ''}>{p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : '—'}</td>
                     <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg` : '—'}</td>
                     <td className="text-right">
