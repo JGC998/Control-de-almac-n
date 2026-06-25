@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, X, Save, Search, Ruler, Package } from 'lucide-react';
+import { Plus, X, Save, Search, Ruler, Package, Scissors } from 'lucide-react';
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 import FormularioProductoInteligente from "@/componentes/productos/FormularioProductoInteligente";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
 import ModalBusquedaBandasPVC from "@/componentes/modales/ModalBusquedaBandasPVC";
+import ModalMetrajeMaterial from "@/componentes/modales/ModalMetrajeMaterial";
 import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
 import ModalBusquedaProductos from "@/componentes/modales/ModalBusquedaProductos";
 import EditorFilaItem from './EditorFilaItem';
@@ -28,6 +29,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   const [isClientSearchOpen, setIsClientSearchOpen] = useState(false);
   const [isBandaModalOpen, setIsBandaModalOpen] = useState(false);
   const [isBandaCatalogoOpen, setIsBandaCatalogoOpen] = useState(false);
+  const [isMetrajeOpen, setIsMetrajeOpen] = useState(false);
   const [productSearchState, setProductSearchState] = useState({ isOpen: false, rowIndex: null, initialSearch: '' });
 
   const [error, setError] = useState(null);
@@ -174,6 +176,19 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     }
     setModalState(null);
     mutate('/api/productos');
+  };
+
+  const handleMetrajeAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario }) => {
+    setItems(prev => [...prev, {
+      id: Date.now() + Math.random(),
+      descripcion,
+      quantity: unidades,
+      unitPrice: precioUnitario,
+      costoUnitario: 0,
+      pesoUnitario,
+      productoId: null,
+      producto: null,
+    }]);
   };
 
   const handleBandaAdded = (bandaItem) => {
@@ -455,6 +470,9 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                 <button type="button" onClick={addItem} className="btn btn-sm btn-outline btn-primary gap-1">
                   <Plus className="w-3.5 h-3.5" /> Añadir producto
                 </button>
+                <button type="button" onClick={() => setIsMetrajeOpen(true)} className="btn btn-sm btn-outline btn-accent gap-1">
+                  <Scissors className="w-3.5 h-3.5" /> Metraje material
+                </button>
                 <button type="button" onClick={() => setIsBandaCatalogoOpen(true)} className="btn btn-sm btn-outline btn-secondary gap-1">
                   <Ruler className="w-3.5 h-3.5" /> Buscar Banda PVC
                 </button>
@@ -627,6 +645,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       )}
 
       <ModalBusquedaBandasPVC isOpen={isBandaCatalogoOpen} onClose={() => setIsBandaCatalogoOpen(false)} onSelect={handleBandaCatalogoSelected} />
+      <ModalMetrajeMaterial isOpen={isMetrajeOpen} onClose={() => setIsMetrajeOpen(false)} onAñadir={handleMetrajeAñadido} />
     </>
   );
 }
