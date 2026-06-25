@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Package, PlusCircle, Download, Ban } from 'lucide-react';
 import { db } from '@/lib/db';
 import TablaConSeleccion from '@/componentes/compuestos/TablaConSeleccion';
@@ -33,15 +34,18 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
   const page    = parseInt(searchParams?.page  || '1');
   const limit   = parseInt(searchParams?.limit || '20');
   const skip    = (page - 1) * limit;
-  const estado  = searchParams?.estado;
   const busqueda = searchParams?.busqueda;
   const desde   = searchParams?.desde;
   const hasta   = searchParams?.hasta;
 
+  // 'todos' = sin filtro; sin parámetro = redirigir a Pendiente por defecto
+  if (!searchParams?.estado) redirect('/pedidos?estado=Pendiente');
+  const estado = searchParams.estado === 'todos' ? null : searchParams.estado;
+
   const esInterno = tab === 'interno';
 
   const where = { sinFacturacion: esInterno };
-  if (estado)   where.estado = estado;
+  if (estado) where.estado = estado;
   if (busqueda) {
     where.OR = [
       { numero: { contains: busqueda } },
