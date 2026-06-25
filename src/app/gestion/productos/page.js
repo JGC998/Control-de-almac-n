@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Package, PlusCircle, Edit, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Package, PlusCircle, Edit, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, CheckSquare, X, Layers } from 'lucide-react';
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { ContenedorCargando } from '@/componentes/ui';
@@ -25,7 +25,6 @@ function valorOrden(p, key) {
 function comparar(a, b, key, tipo, dir) {
   const va = valorOrden(a, key);
   const vb = valorOrden(b, key);
-  // Nulls/vacíos siempre primero en ascendente, últimos en descendente
   const aNulo = va == null || va === '';
   const bNulo = vb == null || vb === '';
   if (aNulo && bNulo) return 0;
@@ -44,15 +43,96 @@ function IconoOrden({ campo, sort }) {
     : <ChevronDown className="w-3 h-3 text-primary" />;
 }
 
+function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar }) {
+  const [materialNombre, setMaterialNombre] = useState('');
+  const [acabado, setAcabado]               = useState('');
+  const [aplicando, setAplicando]           = useState(false);
+  const [error, setError]                   = useState(null);
+
+  async function aplicar() {
+    if (!materialNombre) { setError('Selecciona un material'); return; }
+    setAplicando(true); setError(null);
+    try {
+      // Buscar el materialId a partir del nombre
+      const mat = materiales.find(m => m.nombre === materialNombre);
+      const resultados = await Promise.all(
+        [...seleccion].map(id =>
+          fetch(`/api/productos/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              materialId: mat?.id ?? null,
+              acabado:    acabado.trim() || null,
+            }),
+          })
+        )
+      );
+      const fallidos = resultados.filter(r => !r.ok).length;
+      if (fallidos > 0) throw new Error(`${fallidos} producto(s) no se pudieron actualizar`);
+      onAplicar();
+    } catch (e) { setError(e.message); }
+    finally { setAplicando(false); }
+  }
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-base-100 border-t-2 border-primary shadow-2xl px-6 py-4">
+      <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2 font-medium text-primary">
+          <CheckSquare className="w-5 h-5" />
+          <span>{seleccion.size} producto{seleccion.size !== 1 ? 's' : ''} seleccionado{seleccion.size !== 1 ? 's' : ''}</span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-1 flex-wrap">
+          <select
+            className="select select-bordered select-sm"
+            value={materialNombre}
+            onChange={e => setMaterialNombre(e.target.value)}
+          >
+            <option value="">— Material —</option>
+            {materiales.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+          </select>
+
+          <input
+            type="text"
+            className="input input-bordered input-sm w-36"
+            placeholder="Acabado (opcional)"
+            value={acabado}
+            onChange={e => setAcabado(e.target.value)}
+          />
+
+          <button
+            className="btn btn-primary btn-sm gap-1"
+            onClick={aplicar}
+            disabled={aplicando || !materialNombre}
+          >
+            {aplicando
+              ? <span className="loading loading-spinner loading-xs" />
+              : <Layers className="w-4 h-4" />}
+            Aplicar a {seleccion.size} producto{seleccion.size !== 1 ? 's' : ''}
+          </button>
+
+          {error && <span className="text-error text-sm">{error}</span>}
+        </div>
+
+        <button onClick={onCancelar} className="btn btn-ghost btn-sm btn-square" title="Cancelar selección">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function GestionProductosPage() {
-  const { data, isLoading, error } = useSWR('/api/productos?page=1&limit=200');
+  const { data, isLoading, error } = useSWR('/api/productos?page=1&limit=500');
+  const { data: materiales = [] }  = useSWR('/api/materiales');
   const productos = data?.data ?? [];
 
-  const [modalAbierto, setModalAbierto] = useState(false);
+  const [modalAbierto, setModalAbierto]     = useState(false);
   const [productoEditando, setProductoEditando] = useState(null);
-  const [busqueda, setBusqueda] = useState('');
-  const [sort, setSort] = useState({ campo: null, dir: 'asc' });
-  const { confirmar, ModalConfirmacion } = useConfirmacion();
+  const [busqueda, setBusqueda]             = useState('');
+  const [sort, setSort]                     = useState({ campo: null, dir: 'asc' });
+  const [seleccion, setSeleccion]           = useState(new Set());
+  const { confirmar, ModalConfirmacion }    = useConfirmacion();
 
   function toggleSort(key, tipo) {
     setSort(prev =>
@@ -77,13 +157,34 @@ export default function GestionProductosPage() {
     return lista;
   }, [productos, busqueda, sort]);
 
+  function toggleSeleccion(id) {
+    setSeleccion(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleTodos() {
+    if (seleccion.size === filtrados.length) {
+      setSeleccion(new Set());
+    } else {
+      setSeleccion(new Set(filtrados.map(p => p.id)));
+    }
+  }
+
   function abrirNuevo() { setProductoEditando(null); setModalAbierto(true); }
   function abrirEditar(p) { setProductoEditando(p); setModalAbierto(true); }
   function cerrar() { setModalAbierto(false); setProductoEditando(null); }
 
   function onGuardado() {
-    mutate('/api/productos?page=1&limit=200');
+    mutate('/api/productos?page=1&limit=500');
     cerrar();
+  }
+
+  async function onAplicarMasivo() {
+    setSeleccion(new Set());
+    mutate('/api/productos?page=1&limit=500');
   }
 
   async function eliminar(id) {
@@ -94,11 +195,14 @@ export default function GestionProductosPage() {
     });
     if (!ok) return;
     await fetch(`/api/productos/${id}`, { method: 'DELETE' });
-    mutate('/api/productos?page=1&limit=200');
+    mutate('/api/productos?page=1&limit=500');
   }
 
+  const todosMarcados = filtrados.length > 0 && seleccion.size === filtrados.length;
+  const algunoMarcado = seleccion.size > 0 && seleccion.size < filtrados.length;
+
   return (
-    <div className="container mx-auto p-4">
+    <div className={`container mx-auto p-4 ${seleccion.size > 0 ? 'pb-24' : ''}`}>
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -109,8 +213,8 @@ export default function GestionProductosPage() {
             type="text"
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar..."
-            className="input input-bordered input-sm w-48"
+            placeholder="Buscar por nombre, material, acabado..."
+            className="input input-bordered input-sm w-64"
           />
           <button onClick={abrirNuevo} className="btn btn-primary btn-sm">
             <PlusCircle className="w-4 h-4" /> Nuevo
@@ -124,6 +228,16 @@ export default function GestionProductosPage() {
           <table className="table table-sm table-zebra w-full">
             <thead>
               <tr className="text-xs uppercase tracking-wider text-base-content/50">
+                {/* Checkbox "seleccionar todos" */}
+                <th className="w-8">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={todosMarcados}
+                    ref={el => { if (el) el.indeterminate = algunoMarcado; }}
+                    onChange={toggleTodos}
+                  />
+                </th>
                 {COLUMNAS.map(col => (
                   <th key={col.key}>
                     <button
@@ -140,24 +254,37 @@ export default function GestionProductosPage() {
             </thead>
             <tbody>
               {filtrados.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
+                <tr><td colSpan={10} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
               )}
               {filtrados.map(p => {
                 const incompleto = p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario;
+                const marcado    = seleccion.has(p.id);
                 return (
-                  <tr key={p.id} className={`hover${incompleto ? ' opacity-60' : ''}`}>
+                  <tr
+                    key={p.id}
+                    className={`hover cursor-pointer${incompleto ? ' opacity-60' : ''}${marcado ? ' bg-primary/10' : ''}`}
+                    onClick={() => toggleSeleccion(p.id)}
+                  >
+                    <td onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm"
+                        checked={marcado}
+                        onChange={() => toggleSeleccion(p.id)}
+                      />
+                    </td>
                     <td className="font-medium">
                       {p.nombre}
                       {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
                     </td>
-                    <td className="text-sm">{p.material?.nombre ?? '—'}</td>
-                    <td className="text-sm">{p.acabado ?? '—'}</td>
+                    <td className="text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
+                    <td className="text-sm">{p.acabado ?? <span className="text-base-content/30">—</span>}</td>
                     <td className={p.espesor == null ? 'text-warning font-bold' : ''}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
                     <td className={p.ancho == null ? 'text-warning font-bold' : ''}>{p.ancho != null ? `${p.ancho} mm` : '—'}</td>
                     <td className={p.largo == null ? 'text-warning font-bold' : ''}>{p.largo != null ? `${p.largo} mm` : '—'}</td>
-                    <td className={!p.precioUnitario ? 'text-warning font-bold' : ''}>{p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : '—'}</td>
-                    <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg` : '—'}</td>
-                    <td className="text-right">
+                    <td className={!p.precioUnitario ? 'text-warning font-bold' : ''}>{p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '—'}</td>
+                    <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} kg` : '—'}</td>
+                    <td onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => abrirEditar(p)} className="btn btn-ghost btn-xs text-info">
                           <Edit className="w-3.5 h-3.5" />
@@ -173,9 +300,22 @@ export default function GestionProductosPage() {
             </tbody>
           </table>
         </div>
+        {filtrados.length > 0 && (
+          <p className="text-xs text-base-content/40 mt-2 text-right">{filtrados.length} productos</p>
+        )}
       </ContenedorCargando>
 
-      {/* Modal */}
+      {/* Panel asignación masiva */}
+      {seleccion.size > 0 && (
+        <PanelAsignacionMasiva
+          seleccion={seleccion}
+          materiales={materiales}
+          onAplicar={onAplicarMasivo}
+          onCancelar={() => setSeleccion(new Set())}
+        />
+      )}
+
+      {/* Modal editar/crear */}
       {modalAbierto && (
         <div className="modal modal-open">
           <div className="modal-box w-11/12 max-w-lg">
