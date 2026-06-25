@@ -354,8 +354,25 @@ export async function generateOrderPDF(order, config = {}) {
             const pesoSubtotal = cantidad * pesoUnitario;
             pesoTotalGlobal += pesoSubtotal;
 
+            let descripcionFila = item.descripcion;
             let detalles = 'Item manual';
-            if (item.producto) {
+
+            // Metraje de material crudo
+            if (item.detallesTecnicos) {
+                try {
+                    const dt = JSON.parse(item.detallesTecnicos);
+                    if (dt.tipo === 'metraje') {
+                        const partes = [dt.material];
+                        if (dt.acabado) partes.push(dt.acabado);
+                        if (dt.espesor) partes.push(`${dt.espesor}mm`);
+                        descripcionFila = partes.join(' ');
+                        const fmtMm = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
+                        detalles = `${fmtMm(dt.ancho)}mm × ${fmtMm(dt.largo)}mm`;
+                    }
+                } catch { /* detallesTecnicos inválido, ignorar */ }
+            }
+
+            if (detalles === 'Item manual' && item.producto) {
                 detalles = item.producto.nombre || 'Sin nombre';
             }
 
@@ -365,7 +382,7 @@ export async function generateOrderPDF(order, config = {}) {
             }
 
             tableRows.push([
-                item.descripcion,
+                descripcionFila,
                 detalles,
                 cantidad,
                 pesoUnitario.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
@@ -420,7 +437,9 @@ export async function generateOrderPDF(order, config = {}) {
             .map(item => {
                 if (!item.detallesTecnicos) return null;
                 try {
-                    return { descripcion: item.descripcion, quantity: item.quantity, dt: JSON.parse(item.detallesTecnicos) };
+                    const dt = JSON.parse(item.detallesTecnicos);
+                    if (dt.tipo === 'metraje') return null; // los metrajes ya están en la tabla principal
+                    return { descripcion: item.descripcion, quantity: item.quantity, dt };
                 } catch { return null; }
             })
             .filter(Boolean);

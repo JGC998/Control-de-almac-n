@@ -178,7 +178,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     mutate('/api/productos');
   };
 
-  const handleMetrajeAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario }) => {
+  const handleMetrajeAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario, detallesTecnicos }) => {
     setItems(prev => [...prev, {
       id: Date.now() + Math.random(),
       descripcion,
@@ -188,6 +188,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       pesoUnitario,
       productoId: null,
       producto: null,
+      detallesTecnicos,
     }]);
   };
 

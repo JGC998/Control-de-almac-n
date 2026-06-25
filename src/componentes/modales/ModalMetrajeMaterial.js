@@ -4,18 +4,22 @@ import { X, Loader2, Scissors } from 'lucide-react';
 
 const VACIO = { espesores: [], acabados: [], tarifa: null, tarifas: [] };
 
-export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
-  const [material,  setMaterial]  = useState('');
-  const [espesor,   setEspesor]   = useState('');
-  const [acabado,   setAcabado]   = useState('');
-  const [ancho,     setAncho]     = useState('');  // mm
-  const [metros,    setMetros]    = useState('');  // metros lineales
-  const [opciones,  setOpciones]  = useState(VACIO);
-  const [materiales, setMateriales] = useState([]);
-  const [cargando,  setCargando]  = useState(false);
-  const [error,     setError]     = useState(null);
+// Formatea un número en mm con separador de miles español: 10000 → "10.000"
+function fmtMm(mm) {
+  return Number(mm).toLocaleString('es-ES', { maximumFractionDigits: 0 });
+}
 
-  // Cargar materiales al abrir
+export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
+  const [material,   setMaterial]   = useState('');
+  const [espesor,    setEspesor]    = useState('');
+  const [acabado,    setAcabado]    = useState('');
+  const [ancho,      setAncho]      = useState('');  // mm
+  const [largo,      setLargo]      = useState('');  // mm
+  const [opciones,   setOpciones]   = useState(VACIO);
+  const [materiales, setMateriales] = useState([]);
+  const [cargando,   setCargando]   = useState(false);
+  const [error,      setError]      = useState(null);
+
   useEffect(() => {
     if (!isOpen) return;
     fetch('/api/tarifas-material-opciones')
@@ -24,7 +28,7 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
   }, [isOpen]);
 
   const resetCampos = () => {
-    setEspesor(''); setAcabado(''); setAncho(''); setMetros('');
+    setEspesor(''); setAcabado(''); setAncho(''); setLargo('');
     setOpciones(VACIO); setError(null);
   };
 
@@ -41,7 +45,7 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
   }, []);
 
   const handleEspesor = useCallback(async (esp) => {
-    setEspesor(esp); setAcabado(''); setAncho('');
+    setEspesor(esp); setAcabado(''); setAncho(''); setLargo('');
     setOpciones(prev => ({ ...prev, acabados: [], tarifa: null, tarifas: [] }));
     if (!esp || !material) return;
     setCargando(true);
@@ -51,7 +55,6 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
       const tarifas  = d.tarifas  ?? [];
       const acabados = d.acabados ?? [];
       setOpciones(prev => ({ ...prev, tarifas, acabados, tarifa: null }));
-      // Auto-seleccionar si solo hay una tarifa sin acabado
       if (tarifas.length === 1 && acabados.length <= 1) {
         setAcabado(tarifas[0].acabado ?? '');
         setOpciones(prev => ({ ...prev, tarifa: tarifas[0] }));
@@ -67,34 +70,41 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
     if (tf?.ancho) setAncho(String(tf.ancho));
   }, [opciones.tarifas]);
 
-  const tarifa = opciones.tarifa;
-  const anchom = parseFloat(ancho) / 1000 || 0;   // mm → m
-  const metrosN = parseFloat(metros) || 0;
-  const precioPorMetro = tarifa ? tarifa.precio * anchom : 0;
-  const pesoPorMetro   = tarifa ? tarifa.peso   * anchom : 0;
-  const totalPrecio    = precioPorMetro * metrosN;
-  const totalPeso      = pesoPorMetro   * metrosN;
+  const tarifa    = opciones.tarifa;
+  const anchom    = parseFloat(ancho) / 1000 || 0;   // mm → m
+  const largom    = parseFloat(largo) / 1000 || 0;   // mm → m
+  const precioTotal = tarifa ? tarifa.precio * anchom * largom : 0;
+  const pesoTotal   = tarifa ? tarifa.peso   * anchom * largom : 0;
 
   const hayAcabados = opciones.acabados.length > 1 || (opciones.acabados.length === 1 && opciones.acabados[0] !== '');
-  const listo = tarifa && anchom > 0 && metrosN > 0;
+  const listo = tarifa && anchom > 0 && largom > 0;
 
-  function descripcion() {
+  // Descripción para la línea del pedido — sin "Estándar", con dimensiones
+  function buildDescripcion() {
     const partes = [material];
-    if (acabado) partes.push(acabado);
+    if (acabado) partes.push(acabado);           // solo si no es vacío/estándar
     if (espesor) partes.push(`${espesor}mm`);
-    partes.push(`— ${ancho}mm × ${metros}m`);
+    partes.push(`— ${fmtMm(ancho)}mm × ${fmtMm(largo)}mm`);
     return partes.join(' ');
   }
 
   function confirmar() {
     if (!listo) return;
     onAñadir({
-      descripcion:   descripcion(),
-      unidades:      metrosN,
-      precioUnitario: parseFloat(precioPorMetro.toFixed(4)),
-      pesoUnitario:   parseFloat(pesoPorMetro.toFixed(4)),
+      descripcion:    buildDescripcion(),
+      unidades:       1,                              // 1 rollo/pieza de ese metraje
+      precioUnitario: parseFloat(precioTotal.toFixed(2)),
+      pesoUnitario:   parseFloat(pesoTotal.toFixed(3)),
+      detallesTecnicos: JSON.stringify({
+        tipo:     'metraje',
+        material,
+        acabado:  acabado || null,
+        espesor:  parseFloat(espesor),
+        ancho:    parseFloat(ancho),
+        largo:    parseFloat(largo),
+        metros:   largom,
+      }),
     });
-    // Reset
     setMaterial(''); resetCampos();
     onClose();
   }
@@ -106,7 +116,7 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
       <div className="modal-box max-w-md">
         <div className="flex justify-between items-center mb-5">
           <h3 className="font-bold text-lg flex items-center gap-2">
-            <Scissors className="w-5 h-5 text-secondary" /> Añadir metraje de material
+            <Scissors className="w-5 h-5 text-accent" /> Añadir metraje de material
           </h3>
           <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-4 h-4" /></button>
         </div>
@@ -146,7 +156,7 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
             </div>
           )}
 
-          {/* Ancho y Metros */}
+          {/* Ancho y Largo en mm */}
           {espesor && (
             <div className="grid grid-cols-2 gap-3">
               <div className="form-control">
@@ -160,26 +170,27 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
                 />
               </div>
               <div className="form-control">
-                <label className="label"><span className="label-text font-medium">Metros lineales *</span></label>
+                <label className="label"><span className="label-text font-medium">Largo (mm) *</span></label>
                 <input
-                  type="number" min="0.01" step="0.01"
+                  type="number" min="1" step="1"
                   className="input input-bordered"
-                  placeholder="Ej: 5"
-                  value={metros}
-                  onChange={e => setMetros(e.target.value)}
+                  placeholder="Ej: 10000"
+                  value={largo}
+                  onChange={e => setLargo(e.target.value)}
                 />
+                {largo && <span className="label text-xs text-base-content/40 pt-1">{largom.toLocaleString('es-ES', { maximumFractionDigits: 3 })} m</span>}
               </div>
             </div>
           )}
 
-          {/* Tarifa no encontrada */}
+          {/* Sin tarifa */}
           {espesor && !tarifa && !cargando && (
             <div className="alert alert-warning text-sm py-2">
-              No hay tarifa configurada para {material}{acabado ? ' ' + acabado : ''} {espesor}mm. Ve a Configuración → Tarifas m² para añadirla.
+              Sin tarifa para {material}{acabado ? ' ' + acabado : ''} {espesor}mm — añádela en Configuración → Tarifas m².
             </div>
           )}
 
-          {/* Resumen de precio */}
+          {/* Resumen */}
           {listo && (
             <div className="bg-base-200 rounded-xl p-4 space-y-2 text-sm">
               <div className="font-medium text-base-content/60 text-xs uppercase tracking-wide mb-1">Resumen</div>
@@ -188,24 +199,20 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
                 <span>{tarifa.precio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-base-content/60">Precio × metro lineal ({ancho}mm)</span>
-                <span>{precioPorMetro.toLocaleString('es-ES', { minimumFractionDigits: 4 })} €/m</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-base-content/60">Peso × metro lineal</span>
-                <span>{pesoPorMetro.toLocaleString('es-ES', { minimumFractionDigits: 4 })} kg/m</span>
+                <span className="text-base-content/60">Superficie ({fmtMm(ancho)}mm × {fmtMm(largo)}mm)</span>
+                <span>{(anchom * largom).toLocaleString('es-ES', { minimumFractionDigits: 4 })} m²</span>
               </div>
               <div className="divider my-1" />
               <div className="flex justify-between font-bold text-base">
-                <span>Total ({metros} m)</span>
-                <span className="text-primary">{totalPrecio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <span>Total (1 rollo)</span>
+                <span className="text-primary">{precioTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
               </div>
               <div className="flex justify-between text-base-content/60">
-                <span>Peso total</span>
-                <span>{totalPeso.toLocaleString('es-ES', { minimumFractionDigits: 3 })} kg</span>
+                <span>Peso</span>
+                <span>{pesoTotal.toLocaleString('es-ES', { minimumFractionDigits: 3 })} kg</span>
               </div>
-              <div className="text-xs text-base-content/40 mt-1 truncate" title={descripcion()}>
-                {descripcion()}
+              <div className="text-xs text-base-content/40 mt-1">
+                {buildDescripcion()}
               </div>
             </div>
           )}
@@ -215,12 +222,7 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
 
         <div className="modal-action mt-5">
           <button type="button" onClick={onClose} className="btn btn-ghost">Cancelar</button>
-          <button
-            type="button"
-            onClick={confirmar}
-            disabled={!listo}
-            className="btn btn-secondary gap-1"
-          >
+          <button type="button" onClick={confirmar} disabled={!listo} className="btn btn-accent gap-1">
             <Scissors className="w-4 h-4" /> Añadir al pedido
           </button>
         </div>
