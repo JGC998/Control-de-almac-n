@@ -1,13 +1,19 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { X, ArrowRight, Ruler, Plus } from 'lucide-react';
+import { X, ArrowRight, Ruler, Plus, HelpCircle } from 'lucide-react';
 import ModalCalculadoraBandas from './ModalCalculadoraBandas';
 
 function getTipo(nombre) {
-    if (nombre?.includes('Sin Fin')) return 'Sin Fin';
-    if (nombre?.includes('Con Grapa')) return 'Con Grapa';
-    if (nombre?.includes('Abierta')) return 'Abierta';
+    if (!nombre) return '—';
+    // Nomenclatura nueva: PVC-8mm-SF-AZ-...
+    if (/-SF-/.test(nombre)) return 'Sin Fin';
+    if (/-GR-/.test(nombre)) return 'Con Grapa';
+    if (/-AB-/.test(nombre)) return 'Abierta';
+    // Formato antiguo (compatibilidad)
+    if (nombre.includes('Sin Fin')) return 'Sin Fin';
+    if (nombre.includes('Con Grapa')) return 'Con Grapa';
+    if (nombre.includes('Abierta')) return 'Abierta';
     return '—';
 }
 
@@ -75,12 +81,12 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
                     </div>
 
                     {/* Filtros */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                         <input
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            placeholder="Nombre, color..."
+                            placeholder="Ej: GR-NG, SF-AZ, TR40…"
                             className="input input-bordered input-sm w-full"
                             autoFocus
                         />
@@ -94,10 +100,33 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
                         </select>
                         <select className="select select-bordered select-sm" value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
                             <option value="">Todos los tipos</option>
-                            <option value="Sin Fin">Sin Fin</option>
-                            <option value="Con Grapa">Con Grapa</option>
-                            <option value="Abierta">Abierta</option>
+                            <option value="Sin Fin">Sin Fin (SF)</option>
+                            <option value="Con Grapa">Con Grapa (GR)</option>
+                            <option value="Abierta">Abierta (AB)</option>
                         </select>
+                    </div>
+
+                    {/* Leyenda de nomenclatura */}
+                    <div className="collapse collapse-arrow bg-base-200/60 border border-base-300 rounded-lg mb-3 text-xs">
+                        <input type="checkbox" className="min-h-0" />
+                        <div className="collapse-title min-h-0 py-2 font-semibold flex items-center gap-1.5 text-base-content/60">
+                            <HelpCircle className="w-3.5 h-3.5" /> Leyenda — cómo leer los códigos
+                        </div>
+                        <div className="collapse-content pb-3">
+                            <p className="font-mono text-base-content/40 mb-2">PVC-[ESP]mm-[CONF]-[COLOR]-[A]x[L][-T[TIPO][mm]]</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1">
+                                <div><span className="font-mono font-bold">SF</span> = Sin Fin (vulcanizado)</div>
+                                <div><span className="font-mono font-bold">GR</span> = Con Grapa</div>
+                                <div><span className="font-mono font-bold">AB</span> = Abierta</div>
+                                <div><span className="font-mono font-bold">AZ</span> = Azul</div>
+                                <div><span className="font-mono font-bold">BL</span> = Blanco</div>
+                                <div><span className="font-mono font-bold">NG</span> = Negro</div>
+                                <div><span className="font-mono font-bold">VD</span> = Verde</div>
+                                <div><span className="font-mono font-bold">TR40</span> = Tacos Rectos 40mm</div>
+                                <div><span className="font-mono font-bold">TI35</span> = Tacos Inclinados 35mm</div>
+                            </div>
+                            <p className="text-base-content/40 mt-2">Ejemplo: <span className="font-mono">PVC-8mm-GR-NG-800x10000-TR40</span> → PVC 8mm, Con Grapa, Negro, 800×10000mm, Tacos Rectos 40mm</p>
+                        </div>
                     </div>
 
                     {/* Contador de resultados */}

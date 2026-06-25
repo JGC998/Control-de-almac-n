@@ -23,7 +23,20 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
     const [guardandoCatalogo, setGuardandoCatalogo] = useState(false);
     const [catalogoGuardado, setCatalogoGuardado] = useState(false);
-    const [referenciaBanda, setReferenciaBanda] = useState('');
+
+    const COLOR_ABR = { AZUL: 'AZ', BLANCO: 'BL', NEGRO: 'NG', VERDE: 'VD' };
+
+    // Nomenclatura automática: PVC-[espesor]mm-[CONF]-[COLOR]-[ancho]x[largo][-T[R/I][altura]]
+    const nomenclatura = useMemo(() => {
+        if (!selectedEspesor || !selectedColor || !ancho || !largo) return null;
+        const conf = tipoConfeccion === 'VULCANIZADA' ? 'SF' : tipoConfeccion === 'GRAPA' ? 'GR' : 'AB';
+        const col = COLOR_ABR[selectedColor] ?? selectedColor.slice(0, 2);
+        let code = `PVC-${selectedEspesor}mm-${conf}-${col}-${ancho}x${largo}`;
+        if (configuracionTacos) {
+            code += `-T${configuracionTacos.tipo === 'RECTO' ? 'R' : 'I'}${configuracionTacos.altura}`;
+        }
+        return code;
+    }, [selectedEspesor, selectedColor, ancho, largo, tipoConfeccion, configuracionTacos]);
 
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
     const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
@@ -161,11 +174,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const handleAdd = () => {
         if (!currentCalculation.isValid) return;
 
-        const tipoLabel = tipoConfeccion === 'VULCANIZADA' ? 'Cerrada Sin Fin' : tipoConfeccion === 'GRAPA' ? 'Cerrada con Grapa' : 'Abierta';
-        let descripcion = `${selectedMaterial} ${selectedEspesor}mm`;
-        if (isPVC && selectedColor) descripcion += ` ${selectedColor}`;
-        descripcion += ` - ${tipoLabel}`;
-        if (configuracionTacos) descripcion += ` + Tacos ${configuracionTacos.tipo} ${configuracionTacos.altura}mm`;
+        const descripcion = nomenclatura ?? `${selectedMaterial} ${selectedEspesor}mm`;
 
         const uds = parseInt(unidades, 10);
         const item = {
@@ -192,14 +201,9 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     };
 
     const handleGuardarEnCatalogo = async () => {
-        if (!currentCalculation.isValid) return;
+        if (!currentCalculation.isValid || !nomenclatura) return;
         setGuardandoCatalogo(true);
-        const tipoLabel = tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin' : tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta';
-        let nombre = referenciaBanda.trim() ? `${referenciaBanda.trim()} — ` : '';
-        nombre += `PVC ${selectedEspesor}mm`;
-        if (selectedColor) nombre += ` ${selectedColor}`;
-        nombre += ` - ${tipoLabel} - ${ancho}×${largo}mm`;
-        if (configuracionTacos) nombre += ` + Tacos ${configuracionTacos.tipo} ${configuracionTacos.altura}mm`;
+        const nombre = nomenclatura;
 
         const uds = parseInt(unidades, 10) || 1;
         try {
@@ -611,16 +615,12 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     </div>
                 )}
 
-                {currentCalculation.isValid && (
-                    <div className="form-control mt-4">
-                        <label className="label py-1"><span className="label-text text-xs">Referencia (opcional, para guardar en catálogo)</span></label>
-                        <input
-                            type="text"
-                            className="input input-sm input-bordered w-full"
-                            placeholder="Ej: Cliente ABC, Banda estándar…"
-                            value={referenciaBanda}
-                            onChange={e => setReferenciaBanda(e.target.value)}
-                        />
+                {nomenclatura && (
+                    <div className="mt-4">
+                        <p className="text-xs text-base-content/50 mb-1 font-semibold uppercase tracking-wide">Referencia generada</p>
+                        <div className="font-mono text-sm bg-base-200 rounded-lg px-3 py-2 select-all border border-base-300 break-all">
+                            {nomenclatura}
+                        </div>
                     </div>
                 )}
 
