@@ -55,10 +55,15 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
       const tarifas  = d.tarifas  ?? [];
       const acabados = d.acabados ?? [];
       setOpciones(prev => ({ ...prev, tarifas, acabados, tarifa: null }));
-      if (tarifas.length === 1 && acabados.length <= 1) {
-        setAcabado(tarifas[0].acabado ?? '');
-        setOpciones(prev => ({ ...prev, tarifa: tarifas[0] }));
-        if (tarifas[0].ancho) setAncho(String(tarifas[0].ancho));
+      // Auto-seleccionar si solo hay un acabado único (aunque haya varias tarifas con distinto lonas)
+      if (acabados.length <= 1) {
+        const ac = acabados[0] ?? '';
+        setAcabado(ac);
+        const tf = tarifas.find(t => (t.acabado ?? '') === ac);
+        if (tf) {
+          setOpciones(prev => ({ ...prev, tarifa: tf }));
+          if (tf.ancho) setAncho(String(tf.ancho));
+        }
       }
     } finally { setCargando(false); }
   }, [material]);
