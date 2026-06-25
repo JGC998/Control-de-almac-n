@@ -127,7 +127,7 @@ const pedidoItemSchema = z.object({
 
 export const pedidoSchema = z.object({
     clienteId: z.string().min(1, 'ID de cliente inválido').optional().nullable(),
-    estado: z.enum(['Borrador', 'Pendiente', 'Enviado', 'Completado', 'Cancelado']).optional(),
+    estado: z.enum(['Pendiente', 'Facturado', 'Cancelado']).optional(),
     items: z.array(pedidoItemSchema).min(1, 'Debe haber al menos un item'),
     subtotal: z.number().nonnegative('Subtotal no puede ser negativo'),
     tax: z.number().nonnegative('Tax no puede ser negativo'),
