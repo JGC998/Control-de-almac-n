@@ -12,7 +12,7 @@ function fmtMm(mm) {
 export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
   const [material,   setMaterial]   = useState('');
   const [espesor,    setEspesor]    = useState('');
-  const [acabado,    setAcabado]    = useState('');
+  const [acabado,    setAcabado]    = useState(null); // null = aún no elegido; '' = Estándar
   const [ancho,      setAncho]      = useState('');  // mm
   const [largo,      setLargo]      = useState('');  // mm
   const [opciones,   setOpciones]   = useState(VACIO);
@@ -28,7 +28,7 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
   }, [isOpen]);
 
   const resetCampos = () => {
-    setEspesor(''); setAcabado(''); setAncho(''); setLargo('');
+    setEspesor(''); setAcabado(null); setAncho(''); setLargo('');
     setOpciones(VACIO); setError(null);
   };
 
@@ -45,7 +45,7 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
   }, []);
 
   const handleEspesor = useCallback(async (esp) => {
-    setEspesor(esp); setAcabado(''); setAncho(''); setLargo('');
+    setEspesor(esp); setAcabado(null); setAncho(''); setLargo('');
     setOpciones(prev => ({ ...prev, acabados: [], tarifa: null, tarifas: [] }));
     if (!esp || !material) return;
     setCargando(true);
@@ -154,8 +154,13 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
           {espesor && hayAcabados && (
             <div className="form-control">
               <label className="label"><span className="label-text font-medium">Acabado</span></label>
-              <select className="select select-bordered" value={acabado} onChange={e => handleAcabado(e.target.value)}>
-                <option value="">— Estándar —</option>
+              <select
+                className="select select-bordered"
+                value={acabado ?? '__none__'}
+                onChange={e => handleAcabado(e.target.value)}
+              >
+                {acabado === null && <option value="__none__" disabled>— Selecciona acabado —</option>}
+                {opciones.acabados.includes('') && <option value="">— Estándar —</option>}
                 {opciones.acabados.filter(a => a !== '').map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
@@ -188,8 +193,8 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
             </div>
           )}
 
-          {/* Sin tarifa */}
-          {espesor && !tarifa && !cargando && (
+          {/* Sin tarifa — solo mostrar si el usuario ya eligió un acabado (o no hay que elegir) */}
+          {espesor && !tarifa && !cargando && acabado !== null && (
             <div className="alert alert-warning text-sm py-2">
               Sin tarifa para {material}{acabado ? ' ' + acabado : ''} {espesor}mm — añádela en Configuración → Tarifas m².
             </div>
