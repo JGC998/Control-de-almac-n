@@ -243,6 +243,13 @@ export default function PedidoDetalle() {
         <button onClick={handlePrintPDF} className="btn btn-outline gap-1">
           <Printer className="w-4 h-4" /> Imprimir PDF
         </button>
+        <button
+          onClick={() => window.open(`/api/pedidos/${id}/pdf-taller`, '_blank')}
+          className="btn btn-outline btn-warning gap-1"
+          title="PDF simplificado para dejar en el taller"
+        >
+          <ClipboardList className="w-4 h-4" /> PDF Taller
+        </button>
         {/*
           OCULTO — Botón Nota de trabajo
           Genera un PDF interno con dimensiones técnicas (columnas: Descripción, Detalles, Cantidad, Peso).

@@ -547,6 +547,110 @@ export async function generateOrderPDF(order, config = {}) {
     }
 }
 
+// PDF simplificado para dejar en el taller: cliente, artículos, peso y precio.
+// Sin márgenes, sin referencias internas, sin notas internas.
+export async function generateTallerPDF(order) {
+    try {
+        const doc = new jsPDF();
+        const client = order.cliente;
+
+        const logoBase64 = await getLogoBase64();
+        if (logoBase64) {
+            doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 12, 50, 15);
+        }
+
+        // Título
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("NOTA DE TALLER", 14, 22);
+
+        // Número + fecha
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Pedido: ${order.numero}`, 14, 32);
+        doc.text(new Date(order.fechaCreacion).toLocaleDateString('es-ES'), 14, 38);
+
+        // Recuadro cliente
+        const clienteNombre = client?.nombre || 'Sin cliente';
+        const clienteTel = client?.telefono || '';
+        const boxH = clienteTel ? 24 : 18;
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        doc.rect(14, 45, 182, boxH);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.text("CLIENTE", 18, 52);
+        doc.setFontSize(14);
+        doc.text(clienteNombre, 18, 60);
+        if (clienteTel) {
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(clienteTel, 18, 66);
+        }
+
+        // Tabla de artículos
+        const tableStartY = 45 + boxH + 6;
+        const tableRows = [];
+        let pesoTotal = 0;
+        let importeTotal = 0;
+
+        for (const item of order.items || []) {
+            const qty   = item.quantity  || 0;
+            const precio = item.unitPrice || 0;
+            const peso   = item.pesoUnitario || 0;
+            const pesoLinea    = qty * peso;
+            const importeLinea = qty * precio;
+            pesoTotal    += pesoLinea;
+            importeTotal += importeLinea;
+
+            tableRows.push([
+                item.descripcion || '',
+                qty.toString(),
+                `${fmtN(precio)} €`,
+                `${fmtN(importeLinea)} €`,
+                fmtN(pesoLinea),
+            ]);
+        }
+
+        autoTable(doc, {
+            head: [["Descripción", "Cant.", "Precio/ud", "Total línea", "Peso (kg)"]],
+            body: tableRows,
+            startY: tableStartY,
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
+            columnStyles: {
+                0: { cellWidth: 80 },
+                1: { halign: 'center', cellWidth: 15 },
+                2: { halign: 'right',  cellWidth: 30 },
+                3: { halign: 'right',  cellWidth: 33 },
+                4: { halign: 'right',  cellWidth: 28 },
+            },
+        });
+
+        let finalY = doc.lastAutoTable.finalY + 8;
+
+        // Totales destacados
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("Peso total:", 120, finalY);
+        doc.text(`${fmtN(pesoTotal)} kg`, 198, finalY, { align: 'right' });
+
+        finalY += 10;
+        doc.setLineWidth(0.8);
+        doc.rect(112, finalY - 8, 86, 14);
+        doc.setFontSize(15);
+        doc.text("TOTAL:", 116, finalY);
+        doc.text(`${fmtN(importeTotal)} €`, 196, finalY, { align: 'right' });
+
+        return Buffer.from(doc.output('arraybuffer'));
+
+    } catch (error) {
+        logApiError(error, "Error generating Taller PDF");
+        throw error;
+    }
+}
+
 export async function generateFacturaPDF(factura) {
     try {
         const doc = new jsPDF();

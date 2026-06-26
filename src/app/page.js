@@ -2,14 +2,73 @@
 import React from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { Package, FileText, Truck, Users, DollarSign, Activity, AlertCircle, Clock, Receipt } from 'lucide-react';
+import {
+  Package, Receipt, AlertCircle, Clock,
+  PlusCircle, Ship, Warehouse, Table2,
+  Calculator, Ruler,
+} from 'lucide-react';
 
-import KPICard from '@/componentes/ui/TarjetaKPI';
-import TablonNotas from '@/componentes/TablonNotas';
+const ACCESOS = [
+  {
+    label: 'Pedidos de cliente',
+    href: '/pedidos',
+    icon: Package,
+    color: 'bg-primary text-primary-content',
+  },
+  {
+    label: 'Nuevo pedido',
+    href: '/pedidos/nuevo',
+    icon: PlusCircle,
+    color: 'bg-success text-success-content',
+  },
+  {
+    label: 'Contenedores',
+    href: '/compras/contenedores',
+    icon: Ship,
+    color: 'bg-secondary text-secondary-content',
+  },
+  {
+    label: 'Almacén',
+    href: '/almacen',
+    icon: Warehouse,
+    color: 'bg-accent text-accent-content',
+  },
+  {
+    label: 'Tarifa de materiales',
+    href: '/tarifas',
+    icon: Table2,
+    color: 'bg-info text-info-content',
+  },
+  {
+    label: 'Calculadora bandas PVC',
+    href: '/calculadora/bandas',
+    icon: Calculator,
+    color: 'bg-warning text-warning-content',
+  },
+  {
+    label: 'Calculadora metrajes',
+    href: '/calculadora/metrajes',
+    icon: Ruler,
+    color: 'bg-neutral text-neutral-content',
+  },
+];
 
-const iconMap = {
-  Package, FileText, Truck, Users, DollarSign, Activity,
-};
+function AccesosDirectos() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {ACCESOS.map(({ label, href, icon: Icon, color }) => (
+        <Link
+          key={href}
+          href={href}
+          className={`${color} rounded-2xl p-5 flex flex-col items-center justify-center gap-3 shadow hover:scale-105 active:scale-95 transition-transform text-center`}
+        >
+          <Icon className="w-8 h-8" strokeWidth={1.5} />
+          <span className="text-sm font-semibold leading-tight">{label}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 function PanelFacturasPendientes({ datos }) {
   if (!datos) return null;
@@ -26,7 +85,6 @@ function PanelFacturasPendientes({ datos }) {
           <Link href="/facturas" className="text-xs text-primary hover:underline">Ver todas</Link>
         </div>
 
-        {/* Resumen */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="bg-base-200 rounded-lg p-3 text-center">
             <p className="text-2xl font-bold">{count}</p>
@@ -40,17 +98,18 @@ function PanelFacturasPendientes({ datos }) {
 
         <div className="flex justify-between items-center mb-3 pb-2 border-b border-base-200">
           <span className="text-sm text-base-content/60">Total pendiente</span>
-          <span className="font-bold text-lg">{Number(total ?? 0).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
+          <span className="font-bold text-lg">
+            {Number(total ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+          </span>
         </div>
 
-        {/* Lista de facturas */}
         {lista.length === 0 ? (
           <p className="text-sm text-base-content/40 text-center py-4">Sin facturas pendientes</p>
         ) : (
           <div className="space-y-1">
             {lista.map(f => (
               <Link key={f.id} href={`/facturas/${f.id}`}
-                className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-base-200 transition-colors group">
+                className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-base-200 transition-colors">
                 <div className="flex items-center gap-2 min-w-0">
                   {f.vencida
                     ? <AlertCircle className="w-3.5 h-3.5 text-error shrink-0" />
@@ -62,7 +121,9 @@ function PanelFacturasPendientes({ datos }) {
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <p className={`text-sm font-semibold ${f.vencida ? 'text-error' : ''}`}>{f.total.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</p>
+                  <p className={`text-sm font-semibold ${f.vencida ? 'text-error' : ''}`}>
+                    {f.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </p>
                   {f.fechaVencimiento && (
                     <p className={`text-xs ${f.vencida ? 'text-error' : 'text-base-content/40'}`}>
                       {new Date(f.fechaVencimiento).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
@@ -87,7 +148,7 @@ export default function Dashboard() {
 
   if (isLoading || !data) return (
     <div className="flex justify-center items-center h-screen">
-      <span className="loading loading-spinner loading-lg"></span>
+      <span className="loading loading-spinner loading-lg" />
     </div>
   );
   if (error) return (
@@ -98,31 +159,21 @@ export default function Dashboard() {
     </div>
   );
 
-  const { kpiData, facturasPendientes } = data;
+  const { facturasPendientes } = data;
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Dashboard de Operaciones</h1>
+    <div className="container mx-auto p-4 max-w-4xl">
+      <h1 className="text-2xl font-bold mb-5">Inicio</h1>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {kpiData.map((kpi, index) => {
-          const IconComponent = iconMap[kpi.icon] || Activity;
-          return (
-            <Link key={index} href={kpi.href} className="block hover:shadow-xl transition-shadow duration-300 rounded-lg">
-              <KPICard title={kpi.title} value={kpi.value} icon={<IconComponent className="w-6 h-6" />} />
-            </Link>
-          );
-        })}
-      </div>
+      {/* Accesos directos — misma grid en escritorio y tablet/móvil */}
+      <AccesosDirectos />
 
-      {/* Cuerpo principal */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
+      {/* Panel facturas pendientes */}
+      {facturasPendientes && (
+        <div className="mt-6">
           <PanelFacturasPendientes datos={facturasPendientes} />
-          <TablonNotas />
         </div>
-      </div>
+      )}
     </div>
   );
 }
