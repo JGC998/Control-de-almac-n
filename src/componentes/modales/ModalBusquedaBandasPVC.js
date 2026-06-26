@@ -1,27 +1,138 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { X, ArrowRight, Ruler, Plus, HelpCircle } from 'lucide-react';
+import { X, ArrowRight, Ruler, Plus, HelpCircle, FilterX } from 'lucide-react';
 import ModalCalculadoraBandas from './ModalCalculadoraBandas';
 
-function getTipo(nombre) {
-    if (!nombre) return '—';
-    // Nomenclatura nueva: PVC-8mm-SF-AZ-...
-    if (/-SF-/.test(nombre)) return 'Sin Fin';
-    if (/-GR-/.test(nombre)) return 'Con Grapa';
-    if (/-AB-/.test(nombre)) return 'Abierta';
-    // Formato antiguo (compatibilidad)
-    if (nombre.includes('Sin Fin')) return 'Sin Fin';
-    if (nombre.includes('Con Grapa')) return 'Con Grapa';
-    if (nombre.includes('Abierta')) return 'Abierta';
-    return '—';
+// ─── Helpers de parseo del nombre de nomenclatura ───────────────────────────
+
+function parseConf(nombre) {
+    if (!nombre) return null;
+    if (/-SF-/.test(nombre) || nombre.includes('Sin Fin')) return 'SF';
+    if (/-GR-/.test(nombre) || nombre.includes('Con Grapa')) return 'GR';
+    if (/-AB-/.test(nombre) || nombre.includes('Abierta')) return 'AB';
+    return null;
 }
+
+function parseTacos(nombre) {
+    if (!nombre) return null;
+    const m = nombre.match(/-T([RI])(\d+)/);
+    return m ? { tipo: m[1], altura: parseInt(m[2], 10) } : null;
+}
+
+const CONF_LABEL = { SF: 'Sin Fin (SF)', GR: 'Con Grapa (GR)', AB: 'Abierta (AB)' };
+const TACO_LABEL = { R: 'Rectos (TR)', I: 'Inclinados (TI)' };
+
+// ─── Filtros en cascada ───────────────────────────────────────────────────────
+
+function useCascade(bandas) {
+    const [filtroEspesor,   setFiltroEspesorRaw]   = useState('');
+    const [filtroColor,     setFiltroColorRaw]      = useState('');
+    const [filtroConf,      setFiltroConfRaw]       = useState('');
+    const [filtroTacos,     setFiltroTacosRaw]      = useState(''); // 'si' | 'no' | ''
+    const [filtroTipoTaco,  setFiltroTipoTacoRaw]   = useState('');
+    const [filtroAncho,     setFiltroAnchoRaw]      = useState('');
+    const [filtroLargo,     setFiltroLargoRaw]      = useState('');
+
+    // Cada setter resetea los filtros downstream
+    const setFiltroEspesor = v => { setFiltroEspesorRaw(v); setFiltroColorRaw(''); setFiltroConfRaw(''); setFiltroTacosRaw(''); setFiltroTipoTacoRaw(''); setFiltroAnchoRaw(''); setFiltroLargoRaw(''); };
+    const setFiltroColor   = v => { setFiltroColorRaw(v);   setFiltroConfRaw(''); setFiltroTacosRaw(''); setFiltroTipoTacoRaw(''); setFiltroAnchoRaw(''); setFiltroLargoRaw(''); };
+    const setFiltroConf    = v => { setFiltroConfRaw(v);    setFiltroTacosRaw(''); setFiltroTipoTacoRaw(''); setFiltroAnchoRaw(''); setFiltroLargoRaw(''); };
+    const setFiltroTacos   = v => { setFiltroTacosRaw(v);   setFiltroTipoTacoRaw(''); setFiltroAnchoRaw(''); setFiltroLargoRaw(''); };
+    const setFiltroTipoTaco= v => { setFiltroTipoTacoRaw(v); setFiltroAnchoRaw(''); setFiltroLargoRaw(''); };
+    const setFiltroAncho   = v => { setFiltroAnchoRaw(v);   setFiltroLargoRaw(''); };
+    const setFiltroLargo   = v => { setFiltroLargoRaw(v); };
+
+    const resetAll = () => { setFiltroEspesor(''); };
+
+    // ─── Conjuntos progresivos ────────────────────────────────────────────────
+
+    // Nivel 0 → espesores disponibles (de todo el catálogo)
+    const espsDisp = useMemo(() =>
+        [...new Set(bandas.map(b => b.espesor).filter(v => v != null))].sort((a, b) => a - b),
+    [bandas]);
+
+    // Nivel 1 → filtrado por espesor
+    const b1 = useMemo(() =>
+        filtroEspesor ? bandas.filter(b => String(b.espesor) === filtroEspesor) : bandas,
+    [bandas, filtroEspesor]);
+
+    const colsDisp = useMemo(() =>
+        [...new Set(b1.map(b => b.color).filter(Boolean))].sort(),
+    [b1]);
+
+    // Nivel 2 → filtrado por color
+    const b2 = useMemo(() =>
+        filtroColor ? b1.filter(b => b.color === filtroColor) : b1,
+    [b1, filtroColor]);
+
+    const confsDisp = useMemo(() =>
+        [...new Set(b2.map(b => parseConf(b.nombre)).filter(Boolean))].sort(),
+    [b2]);
+
+    // Nivel 3 → filtrado por confección
+    const b3 = useMemo(() =>
+        filtroConf ? b2.filter(b => parseConf(b.nombre) === filtroConf) : b2,
+    [b2, filtroConf]);
+
+    const { hayConTacos, haySinTacos } = useMemo(() => ({
+        hayConTacos:  b3.some(b => !!parseTacos(b.nombre)),
+        haySinTacos:  b3.some(b => !parseTacos(b.nombre)),
+    }), [b3]);
+
+    // Nivel 4 → filtrado por tacos
+    const b4 = useMemo(() => {
+        if (!filtroTacos) return b3;
+        return b3.filter(b => filtroTacos === 'si' ? !!parseTacos(b.nombre) : !parseTacos(b.nombre));
+    }, [b3, filtroTacos]);
+
+    const tiposTacosDisp = useMemo(() =>
+        [...new Set(b4.map(b => parseTacos(b.nombre)?.tipo).filter(Boolean))].sort(),
+    [b4]);
+
+    // Nivel 5 → filtrado por tipo de taco
+    const b5 = useMemo(() =>
+        filtroTipoTaco ? b4.filter(b => parseTacos(b.nombre)?.tipo === filtroTipoTaco) : b4,
+    [b4, filtroTipoTaco]);
+
+    const anchosDisp = useMemo(() =>
+        [...new Set(b5.map(b => b.ancho).filter(v => v != null))].sort((a, b) => a - b),
+    [b5]);
+
+    // Nivel 6 → filtrado por ancho
+    const b6 = useMemo(() =>
+        filtroAncho ? b5.filter(b => String(b.ancho) === filtroAncho) : b5,
+    [b5, filtroAncho]);
+
+    const largosDisp = useMemo(() =>
+        [...new Set(b6.map(b => b.largo).filter(v => v != null))].sort((a, b) => a - b),
+    [b6]);
+
+    // Nivel 7 → filtrado por largo → resultado final de la cascada
+    const resultado = useMemo(() =>
+        filtroLargo ? b6.filter(b => String(b.largo) === filtroLargo) : b6,
+    [b6, filtroLargo]);
+
+    const hayFiltrosActivos = !!(filtroEspesor || filtroColor || filtroConf || filtroTacos || filtroTipoTaco || filtroAncho || filtroLargo);
+
+    return {
+        // valores
+        filtroEspesor, filtroColor, filtroConf, filtroTacos, filtroTipoTaco, filtroAncho, filtroLargo,
+        // setters en cascada
+        setFiltroEspesor, setFiltroColor, setFiltroConf, setFiltroTacos, setFiltroTipoTaco, setFiltroAncho, setFiltroLargo,
+        // opciones disponibles para cada select
+        espsDisp, colsDisp, confsDisp, hayConTacos, haySinTacos, tiposTacosDisp, anchosDisp, largosDisp,
+        // resultado parcial (antes del text search)
+        resultado,
+        resetAll,
+        hayFiltrosActivos,
+    };
+}
+
+// ─── Modal principal ─────────────────────────────────────────────────────────
 
 export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
     const [search, setSearch] = useState('');
-    const [filtroEspesor, setFiltroEspesor] = useState('');
-    const [filtroColor, setFiltroColor] = useState('');
-    const [filtroTipo, setFiltroTipo] = useState('');
     const [creandoBanda, setCreandoBanda] = useState(false);
 
     const { data: productos, mutate } = useSWR(isOpen ? '/api/productos' : null);
@@ -32,30 +143,18 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
         return arr.filter(p => p.referenciaFabricante === 'BANDA_PVC');
     }, [productos]);
 
-    const espesores = useMemo(() =>
-        [...new Set(bandas.map(b => b.espesor).filter(Boolean))].sort((a, b) => a - b),
-    [bandas]);
+    const cascade = useCascade(bandas);
 
-    const colores = useMemo(() =>
-        [...new Set(bandas.map(b => b.color).filter(Boolean))].sort(),
-    [bandas]);
-
+    // Búsqueda de texto sobre el resultado de la cascada
     const filtered = useMemo(() => {
+        if (!search.trim()) return cascade.resultado;
         const term = search.toLowerCase();
-        return bandas.filter(b => {
-            const matchSearch = !search || b.nombre?.toLowerCase().includes(term) || b.color?.toLowerCase().includes(term);
-            const matchEspesor = !filtroEspesor || String(b.espesor) === filtroEspesor;
-            const matchColor = !filtroColor || b.color === filtroColor;
-            const matchTipo = !filtroTipo || getTipo(b.nombre) === filtroTipo;
-            return matchSearch && matchEspesor && matchColor && matchTipo;
-        });
-    }, [bandas, search, filtroEspesor, filtroColor, filtroTipo]);
+        return cascade.resultado.filter(b => b.nombre?.toLowerCase().includes(term));
+    }, [cascade.resultado, search]);
 
     const handleBandaCreada = (bandaItem) => {
-        // Cuando se crea una banda nueva desde la calculadora, se añade directamente al pedido
         setCreandoBanda(false);
         onSelect({
-            // Adaptar formato de banda calculadora al formato de producto
             nombre: bandaItem.descripcion,
             precioUnitario: bandaItem.precioUnitario,
             pesoUnitario: bandaItem.pesoUnitario,
@@ -66,48 +165,120 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
         onClose();
     };
 
+    const handleReset = () => {
+        cascade.resetAll();
+        setSearch('');
+    };
+
     if (!isOpen) return null;
+
+    const mostrarTacos   = !!cascade.filtroConf; // solo si ya hay confección elegida
+    const mostrarTipoTaco= cascade.filtroTacos === 'si';
 
     return (
         <>
             <div className="modal modal-open z-40">
-                <div className="modal-box w-11/12 max-w-5xl h-[85vh] flex flex-col">
+                <div className="modal-box w-11/12 max-w-5xl h-[90vh] flex flex-col gap-3">
+
                     {/* Cabecera */}
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex justify-between items-center">
                         <h3 className="font-bold text-lg flex items-center gap-2">
                             <Ruler className="w-5 h-5 text-secondary" /> Buscar Banda PVC
                         </h3>
                         <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost"><X className="w-5 h-5" /></button>
                     </div>
 
-                    {/* Filtros */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Ej: GR-NG, SF-AZ, TR40…"
-                            className="input input-bordered input-sm w-full"
-                            autoFocus
-                        />
-                        <select className="select select-bordered select-sm" value={filtroEspesor} onChange={e => setFiltroEspesor(e.target.value)}>
-                            <option value="">Todos los espesores</option>
-                            {espesores.map(e => <option key={e} value={String(e)}>{e} mm</option>)}
-                        </select>
-                        <select className="select select-bordered select-sm" value={filtroColor} onChange={e => setFiltroColor(e.target.value)}>
-                            <option value="">Todos los colores</option>
-                            {colores.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <select className="select select-bordered select-sm" value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
-                            <option value="">Todos los tipos</option>
-                            <option value="Sin Fin">Sin Fin (SF)</option>
-                            <option value="Con Grapa">Con Grapa (GR)</option>
-                            <option value="Abierta">Abierta (AB)</option>
-                        </select>
+                    {/* ─── Filtros en cascada ─────────────────────────────── */}
+                    <div className="bg-base-200 rounded-xl p-3 space-y-2">
+                        {/* Fila 1: espesor · color · confección */}
+                        <div className="grid grid-cols-3 gap-2">
+                            <FiltroSelect
+                                label="Espesor"
+                                value={cascade.filtroEspesor}
+                                onChange={cascade.setFiltroEspesor}
+                                placeholder="Todos"
+                                options={cascade.espsDisp.map(e => ({ value: String(e), label: `${e} mm` }))}
+                            />
+                            <FiltroSelect
+                                label="Color"
+                                value={cascade.filtroColor}
+                                onChange={cascade.setFiltroColor}
+                                placeholder={cascade.filtroEspesor ? 'Todos' : '— elige espesor primero —'}
+                                disabled={!cascade.filtroEspesor || cascade.colsDisp.length === 0}
+                                options={cascade.colsDisp.map(c => ({ value: c, label: c }))}
+                            />
+                            <FiltroSelect
+                                label="Confección"
+                                value={cascade.filtroConf}
+                                onChange={cascade.setFiltroConf}
+                                placeholder={cascade.filtroColor ? 'Todos' : '— elige color primero —'}
+                                disabled={!cascade.filtroColor || cascade.confsDisp.length === 0}
+                                options={cascade.confsDisp.map(c => ({ value: c, label: CONF_LABEL[c] ?? c }))}
+                            />
+                        </div>
+
+                        {/* Fila 2: tacos · tipo taco · ancho · largo */}
+                        <div className="grid grid-cols-4 gap-2">
+                            <FiltroSelect
+                                label="¿Lleva tacos?"
+                                value={cascade.filtroTacos}
+                                onChange={cascade.setFiltroTacos}
+                                placeholder={mostrarTacos ? 'Indiferente' : '— elige confección —'}
+                                disabled={!mostrarTacos}
+                                options={[
+                                    ...(cascade.hayConTacos  ? [{ value: 'si', label: 'Con tacos' }]   : []),
+                                    ...(cascade.haySinTacos  ? [{ value: 'no', label: 'Sin tacos' }]   : []),
+                                ]}
+                            />
+                            <FiltroSelect
+                                label="Tipo de taco"
+                                value={cascade.filtroTipoTaco}
+                                onChange={cascade.setFiltroTipoTaco}
+                                placeholder={mostrarTipoTaco ? 'Todos' : '— elige "Con tacos" —'}
+                                disabled={!mostrarTipoTaco || cascade.tiposTacosDisp.length === 0}
+                                options={cascade.tiposTacosDisp.map(t => ({ value: t, label: TACO_LABEL[t] ?? t }))}
+                            />
+                            <FiltroSelect
+                                label="Ancho (mm)"
+                                value={cascade.filtroAncho}
+                                onChange={cascade.setFiltroAncho}
+                                placeholder={cascade.filtroConf ? 'Todos' : '— elige confección —'}
+                                disabled={!cascade.filtroConf || cascade.anchosDisp.length === 0}
+                                options={cascade.anchosDisp.map(a => ({ value: String(a), label: `${a} mm` }))}
+                            />
+                            <FiltroSelect
+                                label="Largo (mm)"
+                                value={cascade.filtroLargo}
+                                onChange={cascade.setFiltroLargo}
+                                placeholder={cascade.filtroAncho ? 'Todos' : '— elige ancho —'}
+                                disabled={!cascade.filtroAncho || cascade.largosDisp.length === 0}
+                                options={cascade.largosDisp.map(l => ({ value: String(l), label: `${l} mm` }))}
+                            />
+                        </div>
+
+                        {/* Búsqueda de texto + limpiar */}
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Buscar en nombre… (ej: GR-NG, TR40)"
+                                className="input input-bordered input-sm flex-1"
+                            />
+                            {(cascade.hayFiltrosActivos || search) && (
+                                <button
+                                    className="btn btn-sm btn-ghost gap-1"
+                                    onClick={handleReset}
+                                    title="Limpiar todos los filtros"
+                                >
+                                    <FilterX className="w-4 h-4" /> Limpiar
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Leyenda de nomenclatura */}
-                    <div className="collapse collapse-arrow bg-base-200/60 border border-base-300 rounded-lg mb-3 text-xs">
+                    {/* Leyenda */}
+                    <div className="collapse collapse-arrow bg-base-200/60 border border-base-300 rounded-lg text-xs">
                         <input type="checkbox" className="min-h-0" />
                         <div className="collapse-title min-h-0 py-2 font-semibold flex items-center gap-1.5 text-base-content/60">
                             <HelpCircle className="w-3.5 h-3.5" /> Leyenda — cómo leer los códigos
@@ -129,8 +300,8 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
                         </div>
                     </div>
 
-                    {/* Contador de resultados */}
-                    <p className="text-xs text-base-content/40 mb-2">
+                    {/* Contador */}
+                    <p className="text-xs text-base-content/40">
                         {filtered.length} banda{filtered.length !== 1 ? 's' : ''} encontrada{filtered.length !== 1 ? 's' : ''}
                         {bandas.length > 0 && ` de ${bandas.length} en total`}
                     </p>
@@ -153,19 +324,19 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
                             </thead>
                             <tbody>
                                 {bandas.length === 0 ? (
-                                    <tr><td colSpan={9} className="text-center py-10 text-gray-500">
+                                    <tr><td colSpan={9} className="text-center py-10 text-base-content/40">
                                         No hay bandas guardadas. Crea una nueva con el botón de abajo.
                                     </td></tr>
                                 ) : filtered.length === 0 ? (
-                                    <tr><td colSpan={9} className="text-center py-10 text-gray-500">
+                                    <tr><td colSpan={9} className="text-center py-10 text-base-content/40">
                                         No se encontraron bandas con esos filtros.
                                     </td></tr>
                                 ) : filtered.map(b => (
                                     <tr key={b.id} className="hover:bg-base-200 cursor-pointer" onClick={() => { onSelect(b); onClose(); }}>
-                                        <td className="font-bold max-w-xs truncate" title={b.nombre}>{b.nombre}</td>
+                                        <td className="font-bold max-w-xs truncate font-mono text-xs" title={b.nombre}>{b.nombre}</td>
                                         <td>{b.espesor != null ? `${b.espesor} mm` : '—'}</td>
                                         <td>{b.color || '—'}</td>
-                                        <td><span className="badge badge-sm badge-ghost">{getTipo(b.nombre)}</span></td>
+                                        <td><span className="badge badge-sm badge-ghost">{CONF_LABEL[parseConf(b.nombre)] ?? '—'}</span></td>
                                         <td>{b.ancho != null ? `${b.ancho} mm` : '—'}</td>
                                         <td>{b.largo != null ? `${b.largo} mm` : '—'}</td>
                                         <td className="text-right font-mono">{(b.precioUnitario ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
@@ -177,8 +348,8 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
                         </table>
                     </div>
 
-                    {/* Footer con botón crear */}
-                    <div className="mt-4 pt-3 border-t border-base-300 flex justify-between items-center">
+                    {/* Footer */}
+                    <div className="pt-3 border-t border-base-300 flex justify-between items-center">
                         <button
                             type="button"
                             onClick={() => setCreandoBanda(true)}
@@ -192,12 +363,32 @@ export default function ModalBusquedaBandasPVC({ isOpen, onClose, onSelect }) {
                 <div className="modal-backdrop" onClick={onClose} />
             </div>
 
-            {/* Calculadora de banda — se abre encima del modal de búsqueda */}
             <ModalCalculadoraBandas
                 isOpen={creandoBanda}
                 onClose={() => setCreandoBanda(false)}
                 onAddItem={handleBandaCreada}
             />
         </>
+    );
+}
+
+// ─── Sub-componente: select con label flotante ────────────────────────────────
+
+function FiltroSelect({ label, value, onChange, options, placeholder = 'Todos', disabled = false }) {
+    return (
+        <div className="flex flex-col gap-0.5">
+            <label className="text-xs font-medium text-base-content/50 pl-1">{label}</label>
+            <select
+                className="select select-bordered select-sm w-full"
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                disabled={disabled}
+            >
+                <option value="">{placeholder}</option>
+                {options.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+            </select>
+        </div>
     );
 }
