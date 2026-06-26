@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import useSWR, { mutate } from 'swr';
 import { Package, PlusCircle, Edit, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, CheckSquare, X, Layers } from 'lucide-react';
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
@@ -274,7 +275,13 @@ export default function GestionProductosPage() {
                       />
                     </td>
                     <td className="font-medium">
-                      {p.nombre}
+                      <Link
+                        href={`/gestion/productos/${p.id}`}
+                        onClick={e => e.stopPropagation()}
+                        className="hover:text-primary hover:underline"
+                      >
+                        {p.nombre}
+                      </Link>
                       {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
                     </td>
                     <td className="text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
