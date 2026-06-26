@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Tag, Info, List, FileText, Upload, Trash2, Edit, QrCode, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Tag, Info, List, Edit, QrCode, TrendingUp } from 'lucide-react';
 import { toastError } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
@@ -17,134 +17,6 @@ const InfoCard = ({ title, value, unit = '', icon: Icon = Package }) => (
     </div>
   </div>
 );
-
-// --- COMPONENTE PARA LA GESTIÓN DE DOCUMENTOS (Sin cambios funcionales, solo estilo si necesario) ---
-function DocumentosProducto({ productoId, documentos }) {
-  const [file, setFile] = useState(null);
-  const [referencia, setReferencia] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState(null);
-  const { confirmar, ModalConfirmacion } = useConfirmacion();
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
-
-  const handleUpload = async (e) => {
-    e.preventDefault();
-    if (!file || !referencia) {
-      setError('Se requiere un archivo y una referencia.');
-      return;
-    }
-
-    setIsUploading(true);
-    setError(null);
-
-    const formData = new FormData();
-    formData.append('fileUpload', file);
-    formData.append('productoId', productoId);
-    formData.append('referencia', referencia);
-    formData.append('tipo', 'PLANO');
-
-    try {
-      const res = await fetch('/api/documentos', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Error al subir el archivo.');
-      }
-
-      setFile(null);
-      setReferencia('');
-      e.target.reset();
-      mutate(`/api/documentos?productoId=${productoId}`);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleDelete = async (docId) => {
-    const ok = await confirmar({ titulo: '¿Eliminar documento?', mensaje: 'Esta acción es irreversible.' });
-    if (!ok) return;
-    try {
-      const res = await fetch(`/api/documentos/${docId}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Error al eliminar');
-      }
-      mutate(`/api/documentos?productoId=${productoId}`);
-    } catch (err) {
-      toastError(`Error: ${err.message}`);
-    }
-  };
-
-  return (
-    <div className="mt-8">
-      <ModalConfirmacion />
-      <div className="divider">Documentación Técnica</div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="card bg-base-200 p-4">
-          <h3 className="text-lg font-semibold mb-2">Archivos Asociados</h3>
-          {documentos && documentos.length > 0 ? (
-            <ul className="space-y-2">
-              {documentos.map((doc) => (
-                <li key={doc.id} className="flex items-center justify-between p-2 bg-base-100 rounded-md">
-                  <div className="flex items-center">
-                    <FileText className="w-4 h-4 mr-2" />
-                    <a href={doc.rutaArchivo} target="_blank" rel="noopener noreferrer" className="link link-primary">
-                      {doc.referencia}
-                    </a>
-                  </div>
-                  <button onClick={() => handleDelete(doc.id)} className="btn btn-xs btn-ghost text-error">
-                    <Trash2 size={16} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-base-content/50">No hay documentos asociados a este producto.</p>
-          )}
-        </div>
-
-        <div className="card bg-base-200 p-4">
-          <h3 className="text-lg font-semibold mb-2">Subir Nuevo Documento</h3>
-          <form onSubmit={handleUpload} className="space-y-3">
-            <div>
-              <label className="label">Nombre del Documento</label>
-              <input
-                type="text"
-                value={referencia}
-                onChange={(e) => setReferencia(e.target.value)}
-                className="input input-bordered w-full"
-                placeholder="Ej: Ficha técnica"
-                required
-              />
-            </div>
-            <div>
-              <label className="label">Archivo</label>
-              <input
-                type="file"
-                onChange={handleFileChange}
-                className="file-input file-input-bordered w-full"
-                required
-              />
-            </div>
-            <button type="submit" className="btn btn-primary w-full" disabled={isUploading}>
-              {isUploading ? <span className="loading loading-spinner"></span> : <Upload className="w-4 h-4 mr-2" />}
-              Subir Archivo
-            </button>
-            {error && <p className="text-error text-sm mt-2">{error}</p>}
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Importar el modal de edición
 import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';
@@ -198,7 +70,6 @@ export default function ProductoDetallePage() {
   const { confirmar, ModalConfirmacion: ModalBorrarProducto } = useConfirmacion();
 
   const { data: producto, error, isLoading, mutate } = useSWR(id ? `/api/productos/${id}` : null);
-  const { data: documentos = [], isLoading: docsLoading } = useSWR(id ? `/api/documentos?productoId=${id}` : null);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -208,7 +79,7 @@ export default function ProductoDetallePage() {
   const handleDeleteProduct = async () => {
     const ok = await confirmar({
       titulo: '¿Eliminar producto?',
-      mensaje: 'Esta acción también eliminará documentos asociados.',
+      mensaje: 'Esta acción es irreversible.',
     });
     if (!ok) return;
     try {
@@ -303,8 +174,6 @@ export default function ProductoDetallePage() {
               <InfoCard title="Peso Unitario" value={formatValue(parseFloat(producto.pesoUnitario ?? 0))} unit="kg" icon={List} />
             </div>
           </div>
-
-          <DocumentosProducto productoId={id} documentos={documentos} />
 
           {/* Historial de costos */}
           <div className="mt-8">
