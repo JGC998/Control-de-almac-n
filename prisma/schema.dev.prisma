@@ -489,7 +489,7 @@ model ModeloGrapa {
   updatedAt         DateTime @updatedAt
   historialPrecios  HistorialPrecioGrapa[]
 
-  @@unique([tipo, espesorDesde])
+  // @@unique([tipo, espesorDesde]) eliminado — 62 y 62 Inox son distintos pero comparten espesor
 }
 
 model TarifaTransporte {
