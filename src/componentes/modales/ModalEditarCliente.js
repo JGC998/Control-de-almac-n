@@ -26,7 +26,7 @@ const ClientEditModal = ({ cliente, isOpen, onClose, onUpdate }) => {
       setFormData({
         nombre: cliente.nombre || '',
         nif: cliente.nif || '',
-        categoria: cliente.categoria || 'NORMAL',
+        categoria: cliente.tier || 'NORMAL',
         email: cliente.email || '',
         telefono: cliente.telefono || '',
         direccion: cliente.direccion || '',

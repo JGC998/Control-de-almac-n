@@ -608,7 +608,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
           <div className="flex-1">
             <div className="font-bold">{cli.nombre}</div>
             <div className="flex flex-wrap gap-2 text-sm opacity-70">
-              <span className="badge badge-sm badge-ghost">{cli.categoria || 'Estándar'}</span>
+              <span className="badge badge-sm badge-ghost">{cli.tier || 'Estándar'}</span>
               {cli.email && <span>{cli.email}</span>}
               {cli.telefono && <span>{cli.telefono}</span>}
             </div>

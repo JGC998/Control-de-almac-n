@@ -58,7 +58,7 @@ export async function POST(request) {
             material: pedido.material || 'Material',
             espesor: bobina.espesor,
             metrosDisponibles: metrosTotales,
-            proveedor: pedido.proveedorId,
+            proveedorId: pedido.proveedorId,
             costoMetro: costoMetroFinal,
             cantidadBobinas: cantidadBobinas,
             movimientos: {

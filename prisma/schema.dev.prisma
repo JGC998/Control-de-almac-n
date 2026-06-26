@@ -16,7 +16,7 @@ model Cliente {
   direccion    String?
   telefono     String?
   tier         String?
-  categoria    String?
+  // categoria eliminado — era columna duplicada de tier (nunca se escribía en BD)
   pedidos      Pedido[]
   presupuestos Presupuesto[]
   albaranes    Albaran[]
@@ -50,10 +50,10 @@ model Pedido {
   clienteId      String?
   presupuestoId  String?   @unique
   marginId       String?
-  sinFacturacion Boolean   @default(false)  // pedido interno / no facturable
+  sinFacturacion Boolean   @default(false)
 
-  cliente     Cliente?     @relation(fields: [clienteId], references: [id])
-  presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id])
+  cliente     Cliente?     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id], onDelete: SetNull)
   items       PedidoItem[]
   albaranes   Albaran[]
   facturas    Factura[]
@@ -68,7 +68,7 @@ model Albaran {
   numero        String   @unique
   fechaCreacion DateTime @default(now())
   estado        String
-  valorado      Boolean  @default(true)  // false = sin valorar (PDF sin precios)
+  valorado      Boolean  @default(true)
   notas         String?
   subtotal      Float
   tax           Float
@@ -76,13 +76,15 @@ model Albaran {
   clienteId     String?
   pedidoId      String?
 
-  cliente  Cliente?      @relation(fields: [clienteId], references: [id])
-  pedido   Pedido?       @relation(fields: [pedidoId], references: [id])
+  cliente  Cliente?      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  pedido   Pedido?       @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
   items    AlbaranItem[]
   factura  Factura?
 
   @@index([estado])
   @@index([fechaCreacion])
+  @@index([clienteId])
+  @@index([pedidoId])
 }
 
 model Factura {
@@ -101,27 +103,29 @@ model Factura {
   pedidoId         String?
 
   // VeriFactu — Fase D
-  tipoFactura          String    @default("F1")       // F1|F2|R1|R2|R3|R4|R5
-  huella               String?                        // SHA-256 de este registro
-  huellaAnterior       String?                        // SHA-256 del registro anterior
-  fechaHoraGenRegistro DateTime?                      // timestamp de emisión (entra en el hash)
-  estadoEnvioAeat      String    @default("PENDIENTE") // PENDIENTE|EXPORTADO|CONFIRMADO
-  csvAeat              String?                        // CSV de confirmación AEAT
+  tipoFactura          String    @default("F1")
+  huella               String?
+  huellaAnterior       String?
+  fechaHoraGenRegistro DateTime?
+  estadoEnvioAeat      String    @default("PENDIENTE")
+  csvAeat              String?
 
   // Rectificativas — Fase D3
-  facturaOriginalId    String?                        // ID de la factura que rectifica
-  tipoRectificativa    String?                        // "S"=Sustitución | "I"=Diferencias
+  facturaOriginalId    String?
+  tipoRectificativa    String?
 
-  cliente         Cliente?      @relation(fields: [clienteId], references: [id])
-  albaran         Albaran?      @relation(fields: [albaranId], references: [id])
-  pedido          Pedido?       @relation(fields: [pedidoId], references: [id])
+  cliente         Cliente?      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  albaran         Albaran?      @relation(fields: [albaranId], references: [id], onDelete: Restrict)
+  pedido          Pedido?       @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
   items           FacturaItem[]
-  facturaOriginal Factura?      @relation("Rectificativas", fields: [facturaOriginalId], references: [id])
+  facturaOriginal Factura?      @relation("Rectificativas", fields: [facturaOriginalId], references: [id], onDelete: SetNull)
   rectificativas  Factura[]     @relation("Rectificativas")
 
   @@index([estado])
   @@index([fechaCreacion])
   @@index([estadoEnvioAeat])
+  @@index([clienteId])
+  @@index([pedidoId])
 }
 
 model FacturaItem {
@@ -137,6 +141,8 @@ model FacturaItem {
   factura  Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
   producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
+  @@index([facturaId])
+  @@index([productoId])
 }
 
 model AlbaranItem {
@@ -152,6 +158,8 @@ model AlbaranItem {
   albaran  Albaran   @relation(fields: [albaranId], references: [id], onDelete: Cascade)
   producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
+  @@index([albaranId])
+  @@index([productoId])
 }
 
 model PedidoItem {
@@ -184,7 +192,7 @@ model Presupuesto {
   marginId            String?
   ultimoRecordatorio  DateTime?
 
-  cliente Cliente?          @relation(fields: [clienteId], references: [id])
+  cliente Cliente?          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   items   PresupuestoItem[]
   pedido  Pedido?
 
@@ -218,6 +226,7 @@ model Proveedor {
   direccion     String?
   pedidos       PedidoProveedor[]
   importaciones ImportacionContenedor[]
+  stocks        Stock[]
 }
 
 model Stock {
@@ -226,14 +235,15 @@ model Stock {
   espesor           Float?
   metrosDisponibles Float
   stockMinimo       Float             @default(0)
-  proveedor         String?
+  proveedorId       String?
+  proveedor         Proveedor?        @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
   costoMetro        Float?
   cantidadBobinas   Int?              @default(0)
   movimientos       MovimientoStock[]
 
   @@index([material])
   @@index([metrosDisponibles])
-  @@index([proveedor])
+  @@index([proveedorId])
 }
 
 model MovimientoStock {
@@ -263,8 +273,12 @@ model PedidoProveedor {
   naviera              String?
   fechaLlegadaEstimada DateTime?
 
-  proveedor Proveedor      @relation(fields: [proveedorId], references: [id])
+  proveedor Proveedor      @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
   bobinas   BobinaPedido[]
+
+  @@index([proveedorId])
+  @@index([estado])
+  @@index([fecha])
 }
 
 model BobinaPedido {
@@ -279,7 +293,7 @@ model BobinaPedido {
   precioMetro Float  @default(0)
 
   referenciaId String?
-  referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id])
+  referencia   ReferenciaBobina? @relation(fields: [referenciaId], references: [id], onDelete: SetNull)
 
   @@index([referenciaId])
 }
@@ -346,6 +360,7 @@ model Documento {
 
   @@unique([referencia, rutaArchivo])
   @@index([tipo])
+  @@index([productoId])
   @@map("Documento")
 }
 
@@ -421,6 +436,7 @@ model Producto {
   historialCostos  HistorialPrecioCosto[]
 
   @@index([nombre])
+  @@unique([nombre, referenciaFabricante])
 }
 
 model HistorialPrecioCosto {
@@ -429,7 +445,7 @@ model HistorialPrecioCosto {
   producto     Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
   costoAntes   Float?
   costoDespues Float
-  fuente       String   @default("manual") // "manual" | "importacion"
+  fuente       String   @default("manual")
   nota         String?
   creadoEn     DateTime @default(now())
 
@@ -451,7 +467,7 @@ model Taco {
 
 model Grapa {
   id          Int      @id @default(autoincrement())
-  nombre      String
+  nombre      String   @unique
   fabricante  String?
   descripcion String?
   precioMetro Float    @default(0)
@@ -472,6 +488,8 @@ model ModeloGrapa {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   historialPrecios  HistorialPrecioGrapa[]
+
+  @@unique([tipo, espesorDesde])
 }
 
 model TarifaTransporte {
@@ -521,19 +539,25 @@ model Notificacion {
   leida    Boolean  @default(false)
   url      String?
   creadaEn DateTime @default(now())
+
+  @@index([leida])
+  @@index([creadaEn])
 }
 
 model ArticuloSimple {
   id             String   @id @default(uuid())
   nombre         String
-  categoria      String   @default("OTRO") // CORDON | BORDE_ONDULADO | OTRO
-  unidad         String   @default("UDS")  // M | UDS | KG | ML
+  categoria      String   @default("OTRO")
+  unidad         String   @default("UDS")
   precioUnitario Float    @default(0)
   costoUnitario  Float?
   fabricante     String?
   descripcion    String?
   activo         Boolean  @default(true)
   creadoEn       DateTime @default(now())
+
+  @@index([categoria])
+  @@index([activo])
 }
 
 model TarifaCliente {
@@ -586,16 +610,14 @@ model ImportacionContenedor {
   bobinas             Json
   creadaEn            DateTime  @default(now())
 
-  // Trazabilidad (T-56 + T-62)
   proveedorId         String?
   proveedor           Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
   numFactura          String?
   numContenedor       String?
-  estado              String    @default("RECIBIDO")
+  estado              String    @default("BORRADOR") // BORRADOR | PEDIDO | TRANSITO | ADUANA | RECIBIDO
   fechaPedido         DateTime?
   fechaLlegada        DateTime?
 
-  // Tracking automático de contenedor (Ship24 + CallMeBot WhatsApp)
   blNumber              String?
   trackingActivo        Boolean   @default(false)
   ultimoEvento          String?
@@ -605,18 +627,19 @@ model ImportacionContenedor {
   courierCode           String?
   nombreBarco           String?
   ultimaPosicionBarco   String?
-  ultimaAlertaEta       DateTime? // última vez que se envió alerta de "llega hoy/mañana"
+  ultimaAlertaEta       DateTime?
 
   @@index([creadaEn])
   @@index([proveedorId])
+  @@index([estado])
+  @@index([trackingActivo])
 }
 
-// VeriFactu — configuración del emisor (registro único, id siempre = 1)
 model ConfiguracionEmisor {
   id          Int      @id @default(1)
   nif         String   @default("")
   nombre      String   @default("")
   direccion   String   @default("")
-  entorno     String   @default("pruebas") // pruebas|produccion
+  entorno     String   @default("pruebas")
   updatedAt   DateTime @updatedAt
 }

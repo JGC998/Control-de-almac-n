@@ -28,7 +28,7 @@ export async function GET() {
     // 3. Unir los datos
     const stockConNombres = stockItems.map(item => ({
       ...item,
-      proveedorNombre: proveedorMap.get(item.proveedor) || 'N/A',
+      proveedorNombre: proveedorMap.get(item.proveedorId) || 'N/A',
     }));
 
     return NextResponse.json({ stock: stockConNombres });
@@ -127,7 +127,7 @@ export async function POST(request) {
             material: data.material,
             espesor: parseFloat(data.espesor) || 0,
             metrosDisponibles: parseFloat(data.metrosDisponibles),
-            proveedor: data.proveedor || null,
+            proveedorId: data.proveedor || null,
             cantidadBobinas: parseInt(data.cantidadBobinas, 10) || 1,
           },
         });

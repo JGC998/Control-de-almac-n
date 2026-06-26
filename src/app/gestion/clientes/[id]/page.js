@@ -225,7 +225,7 @@ export default function ClienteDetalle() {
       {/* Info básica */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
-          { icon: Tag, label: 'Categoría', value: cliente.categoria || cliente.tier || 'NORMAL' },
+          { icon: Tag, label: 'Categoría', value: cliente.tier || 'NORMAL' },
           { icon: Mail, label: 'Email', value: cliente.email },
           { icon: Phone, label: 'Teléfono', value: cliente.telefono },
           { icon: MapPin, label: 'Dirección', value: cliente.direccion },
