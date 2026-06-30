@@ -1,5 +1,5 @@
 /**
- * Tracking de contenedores Yang Ming + notificaciones WhatsApp via CallMeBot.
+ * Tracking de contenedores Yang Ming + MSC + notificaciones WhatsApp via CallMeBot.
  *
  * Variables de entorno requeridas:
  *   CALLMEBOT_PHONE   — Número sin + (ej: 34612345678)
@@ -7,9 +7,9 @@
  *   CALLMEBOT_PHONE_2  — (Opcional) Segundo número
  *   CALLMEBOT_APIKEY_2 — (Opcional) API key del segundo número
  *
- * Fuente de datos: API pública de Yang Ming (sin autenticación).
- * Soporta contenedores con prefijo YMMU / YMLU.
- * Para otras navieras: añadir su endpoint correspondiente.
+ * Navieras soportadas:
+ *   Yang Ming — prefijos YMMU/YMLU — API pública sin autenticación
+ *   MSC       — prefijos MSCU/MEDU/MSDU/MSKL/MSXU — API pública sin autenticación
  */
 
 import { logApiError } from '@/lib/logger';
@@ -18,7 +18,10 @@ const YM_API        = 'https://www.yangming.com/api/CargoTracking/GetTracking';
 // Vessel status — descubierto vía DevTools en yangming.com/en/esolution/schedule/vessel_schedule
 const YM_VESSEL_API = 'https://www.yangming.com/api/VesselTracking/GetVesselStatus';
 
-const PREFIJOS_YM = new Set(['YMMU', 'YMLU']);
+const MSC_API = 'https://www.msc.com/api/feature/tools/TrackingInfo';
+
+const PREFIJOS_YM  = new Set(['YMMU', 'YMLU']);
+const PREFIJOS_MSC = new Set(['MSCU', 'MEDU', 'MSDU', 'MSKL', 'MSXU']);
 
 // Traducción de eventos Yang Ming → español
 const YM_EVENT_ES = {
@@ -56,12 +59,101 @@ const YM_EVENT_ES = {
   'Delivered':                                             'Entregado al receptor',
 };
 
+// Traducción de eventos MSC → español
+const MSC_EVENT_ES = {
+  'Gate in':                          'Entrada en terminal',
+  'Gate out':                         'Salida de terminal',
+  'Load':                             'Cargado en buque',
+  'Loaded':                           'Cargado en buque',
+  'Discharge':                        'Descargado del buque',
+  'Discharged':                       'Descargado del buque',
+  'Vessel Departure':                 'Buque en ruta — salida',
+  'Vessel Arrival':                   'Buque llegado al puerto de destino',
+  'Arrival':                          'Llegada al puerto de destino',
+  'Departure':                        'Buque en ruta — salida',
+  'Empty to Shipper':                 'Contenedor vacío entregado al cargador',
+  'Empty Return':                     'Devolución de contenedor vacío',
+  'Stuffing':                         'Carga del contenedor',
+  'Stripping':                        'Descarga del contenedor',
+  'Customs Cleared':                  'Liberado por aduana',
+  'Customs Release':                  'Liberado por aduana',
+  'Delivered':                        'Entregado al receptor',
+  'Out for Delivery':                 'En camino — entrega en curso',
+  'Transhipment':                     'Trasbordo',
+  'Container on Rail':                'Contenedor en ferrocarril',
+};
+
 function prefijo(num) {
   return num?.trim().toUpperCase().slice(0, 4) ?? '';
 }
 
-function esYangMing(num) {
-  return PREFIJOS_YM.has(prefijo(num));
+function esYangMing(num) { return PREFIJOS_YM.has(prefijo(num)); }
+function esMSC(num)      { return PREFIJOS_MSC.has(prefijo(num)); }
+
+async function buscarTrackingMSC(trackingNumber) {
+  const res = await fetch(`${MSC_API}?container=${encodeURIComponent(trackingNumber)}&scac=MSCU`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept':     'application/json, text/plain, */*',
+      'Referer':    'https://www.msc.com/en/track-a-shipment',
+      'Origin':     'https://www.msc.com',
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!res.ok) {
+    logApiError(new Error(`MSC API HTTP ${res.status}`), `tracking:msc:${trackingNumber}`);
+    return null;
+  }
+
+  let json;
+  try { json = await res.json(); } catch { return null; }
+
+  // La API de MSC puede devolver la info en distintos niveles — probamos las rutas más comunes
+  const rawEvents =
+    json?.trackingDetails?.containerStatus ??
+    json?.containers?.[0]?.events ??
+    json?.result?.containers?.[0]?.events ??
+    json?.data?.events ??
+    null;
+
+  if (!Array.isArray(rawEvents) || rawEvents.length === 0) {
+    logApiError(new Error(`MSC: respuesta inesperada`), `tracking:msc:${trackingNumber}:${JSON.stringify(json).slice(0, 200)}`);
+    return null;
+  }
+
+  // Normalizar al mismo formato que YM
+  const eventos = rawEvents.map(e => {
+    const desc   = e.eventDescription ?? e.eventType ?? e.status ?? 'Evento';
+    const fecha  = e.eventDate ?? e.eventDateTime ?? e.date ?? null;
+    const lugar  = e.location ?? e.portName ?? e.facility ?? null;
+    const barco  = e.vessel ?? e.vesselName ?? null;
+    const viaje  = e.voyage ?? null;
+    return {
+      status:             MSC_EVENT_ES[desc] ?? desc,
+      occurrenceDatetime: fecha ? new Date(fecha).toISOString() : null,
+      location:           lugar,
+      vesselVoyage:       barco && viaje ? `${barco} / ${viaje}` : barco ?? null,
+      vesselCode:         null,
+    };
+  }).sort((a, b) => {
+    // Más reciente primero
+    if (!a.occurrenceDatetime) return 1;
+    if (!b.occurrenceDatetime) return -1;
+    return new Date(b.occurrenceDatetime) - new Date(a.occurrenceDatetime);
+  });
+
+  const ultimoEvento = eventos[0] ?? null;
+
+  // ETA: buscar en distintos campos posibles
+  const etaRaw =
+    json?.trackingDetails?.portOfDischarge?.estimatedArrival ??
+    json?.containers?.[0]?.eta ??
+    rawEvents.find(e => e.eta)?.eta ??
+    null;
+  const eta = etaRaw ? new Date(etaRaw).toISOString() : null;
+
+  return { eventos, ultimoEvento, eta, shipmentId: null };
 }
 
 function parseFechaYM(str) {
@@ -224,8 +316,7 @@ export async function buscarScheduleBarco(vesselCode) {
 
 /**
  * Consulta el estado de un contenedor.
- * Actualmente soporta Yang Ming (YMMU/YMLU).
- * Para otras navieras: añadir su función correspondiente.
+ * Soporta: Yang Ming (YMMU/YMLU), MSC (MSCU/MEDU/MSDU/MSKL/MSXU).
  */
 export async function buscarTracking(trackingNumber, _uuid = null) {
   if (!trackingNumber?.trim()) return null;
@@ -233,6 +324,7 @@ export async function buscarTracking(trackingNumber, _uuid = null) {
   const num = trackingNumber.trim().toUpperCase();
 
   if (esYangMing(num)) return buscarTrackingYangMing(num);
+  if (esMSC(num))      return buscarTrackingMSC(num);
 
   logApiError(new Error(`Naviera no soportada (prefijo: ${prefijo(num)})`), `tracking:${num}`);
   return null;
