@@ -234,7 +234,122 @@ export function extraerNombreBarco(eventos) {
   return null;
 }
 
-// ISO 3166-1 alpha-2 → nombre en español (rutas relevantes Asia–Europa)
+// ─── VesselFinder — tracking universal de barcos (cualquier naviera) ──────────
+
+const VF_SEARCH    = 'https://www.vesselfinder.com/searchjson.js';
+const VF_PORTCALLS = 'https://www.vesselfinder.com/api/pub/pcext/v4';
+
+const VF_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept':     'application/json, text/plain, */*',
+  'Referer':    'https://www.vesselfinder.com/',
+  'Origin':     'https://www.vesselfinder.com',
+};
+
+// ETA de VesselFinder viene como string "MMDDHHMM" (UTC)
+function parseVFEta(etaStr) {
+  if (!etaStr) return null;
+  const s = etaStr.toString().padStart(8, '0');
+  if (s === '00000000') return null;
+  const now   = new Date();
+  const month = parseInt(s.slice(0, 2), 10) - 1;
+  const day   = parseInt(s.slice(2, 4), 10);
+  const hour  = parseInt(s.slice(4, 6), 10);
+  const min   = parseInt(s.slice(6, 8), 10);
+  let year = now.getFullYear();
+  let d = new Date(Date.UTC(year, month, day, hour, min));
+  if (isNaN(d.getTime())) return null;
+  // Si la fecha calculada es más de 60 días en el pasado → es del año siguiente
+  if (d < now - 60 * 86400_000) d = new Date(Date.UTC(year + 1, month, day, hour, min));
+  return d.toISOString();
+}
+
+// Fechas de escalas: "Jun 25, 01:09" (sin año, UTC implícito)
+function parseVFDate(str) {
+  if (!str) return null;
+  try {
+    const year = new Date().getFullYear();
+    const d = new Date(str.replace(',', '') + ` ${year} UTC`);
+    if (isNaN(d.getTime())) return null;
+    // Si queda más de 6 meses en el futuro → probablemente del año pasado
+    if (d - Date.now() > 6 * 30 * 86400_000) d.setFullYear(d.getFullYear() - 1);
+    return d.toISOString();
+  } catch { return null; }
+}
+
+/**
+ * Busca un barco en VesselFinder por nombre y devuelve su posición actual,
+ * destino con ETA y últimas escalas visibles.
+ * Funciona para cualquier naviera (Yang Ming, MSC, CMA-CGM…).
+ */
+async function buscarScheduleVesselFinder(vesselName) {
+  if (!vesselName) return null;
+  try {
+    // 1 — Buscar el barco para obtener MMSI + posición + ETA declarada
+    const searchRes = await fetch(
+      `${VF_SEARCH}?term=${encodeURIComponent(vesselName)}`,
+      { headers: VF_HEADERS, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!searchRes.ok) return null;
+
+    const results = await searchRes.json();
+    const vessel  = Array.isArray(results) ? results[0] : null;
+    if (!vessel?.mmsi) return null;
+
+    const mmsi        = vessel.mmsi;
+    const foundName   = vessel.name ?? vesselName;
+    const destination = vessel.destination?.trim() || null;
+    const eta         = parseVFEta(vessel.eta);
+
+    // 2 — Escalas recientes (las no-locked son gratuitas)
+    let puertos = [];
+    try {
+      const pcRes = await fetch(
+        `${VF_PORTCALLS}/${mmsi}?d`,
+        { headers: VF_HEADERS, signal: AbortSignal.timeout(15_000) },
+      );
+      if (pcRes.ok) {
+        const portCalls = await pcRes.json();
+        if (Array.isArray(portCalls)) {
+          puertos = portCalls
+            .filter(p => p.dp && p.dp !== 'locked' && p.c)
+            .map((p, i) => ({
+              puerto:           p.dp,
+              portCode:         p.l  || null,
+              pais:             p.c  || null,
+              eta:              null,
+              ata:              parseVFDate(p.a),
+              etd:              parseVFDate(p.d),
+              esPosicionActual: i === 0,
+            }));
+        }
+      }
+    } catch { /* escalas son opcionales */ }
+
+    // 3 — Añadir próximo destino con ETA al principio de la lista
+    if (destination && eta) {
+      puertos.unshift({
+        puerto:           destination,
+        portCode:         null,
+        pais:             null,
+        eta,
+        ata:              null,
+        etd:              null,
+        esPosicionActual: false,
+      });
+    }
+
+    if (puertos.length === 0 && !eta) return null;
+
+    return { vesselCode: vesselName, vesselName: foundName, puertos };
+
+  } catch (e) {
+    logApiError(e, `tracking:vf:${vesselName}`);
+    return null;
+  }
+}
+
+// ─── ISO 3166-1 alpha-2 → nombre en español (rutas relevantes Asia–Europa)
 const PAIS_POR_ISO = {
   AE: 'Emiratos Árabes', BE: 'Bélgica',  CN: 'China',       DE: 'Alemania',
   EG: 'Egipto',          ES: 'España',    FR: 'Francia',     GB: 'Reino Unido',
@@ -276,24 +391,16 @@ async function fetchVesselStatus(vesselParam) {
 export async function buscarScheduleBarco(vesselCode) {
   if (!vesselCode) return null;
   try {
-    // Primer intento con el valor recibido (puede ser código "OSOL" o nombre "ONE SOLIDARITY")
+    // Para barcos Yang Ming: intentar primero su propia API (datos de schedule más precisos)
     let json = await fetchVesselStatus(vesselCode);
-
-    // Si falla con nombre completo, intentar solo con la primera palabra
-    // ("ONE SOLIDARITY" → "ONE") — poco probable que funcione pero es gratis intentarlo
     if (!json && vesselCode.includes(' ')) {
       json = await fetchVesselStatus(vesselCode.split(' ')[0]);
     }
 
-    if (!json) return null;
-
-    const vesselName = json.vesselName ?? null;
-    const portCalls  = json.detailedVesselPosition?.berthDetail ?? [];
-
-    return {
-      vesselCode,
-      vesselName,
-      puertos: portCalls.map(p => {
+    if (json) {
+      const vesselName = json.vesselName ?? null;
+      const portCalls  = json.detailedVesselPosition?.berthDetail ?? [];
+      const puertos = portCalls.map(p => {
         const isActual = p.arrivalStatus === 'Actual';
         const arrDate  = p.arrivalDate   !== 'SKIP' ? p.arrivalDate   : null;
         const depDate  = p.departureDate !== 'SKIP' ? p.departureDate : null;
@@ -306,8 +413,13 @@ export async function buscarScheduleBarco(vesselCode) {
           etd:              parseFechaYM(depDate),
           esPosicionActual: p.lastPosition === true,
         };
-      }).filter(p => p.eta || p.ata || p.etd),
-    };
+      }).filter(p => p.eta || p.ata || p.etd);
+
+      if (puertos.length > 0) return { vesselCode, vesselName, puertos };
+    }
+
+    // Fallback universal: VesselFinder (AIS, funciona para MSC y cualquier naviera)
+    return buscarScheduleVesselFinder(vesselCode);
   } catch (e) {
     logApiError(e, `tracking:vessel:${vesselCode}`);
     return null;
