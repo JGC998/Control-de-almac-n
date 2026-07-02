@@ -9,7 +9,7 @@ import { actualizarPrecioMateriales } from '@/lib/importacion-materiales';
 export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
-    const { estado, trackingActivo } = await request.json();
+    const { estado, trackingActivo, nombreBarco } = await request.json();
     const data = {};
     if (estado !== undefined) {
       const ESTADOS_VALIDOS = ['PEDIDO', 'TRANSITO', 'ADUANA', 'RECIBIDO', 'BORRADOR'];
@@ -19,6 +19,7 @@ export async function PATCH(request, { params }) {
       data.estado = estado;
     }
     if (trackingActivo !== undefined)  data.trackingActivo = trackingActivo;
+    if (nombreBarco     !== undefined)  data.nombreBarco    = nombreBarco || null;
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
     }

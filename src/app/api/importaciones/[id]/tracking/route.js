@@ -18,6 +18,7 @@ export async function GET(request, { params }) {
         ultimoEvento: true, ultimoEstadoTracking: true,
         ultimoTrackingCheck: true, etaEstimada: true,
         descripcion: true, estado: true, courierCode: true,
+        nombreBarco: true,
       },
     });
     if (!imp) return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
@@ -29,9 +30,13 @@ export async function GET(request, { params }) {
 
     const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
-    const nombreBarco = tracking ? extraerNombreBarco(tracking.eventos) : null;
+    // Nombre del barco: extraído de los eventos frescos, o el guardado anteriormente en DB
+    const nombreBarco =
+      (tracking ? extraerNombreBarco(tracking.eventos) : null) ??
+      imp.nombreBarco ??
+      null;
 
-    // Vessel schedule y tracking de contenedor en paralelo para no bloquear
+    // Vessel schedule via VesselFinder (funciona aunque MSC bloquee el scraping)
     const [scheduleBarco] = await Promise.all([
       nombreBarco ? buscarScheduleBarco(nombreBarco) : Promise.resolve(null),
     ]);

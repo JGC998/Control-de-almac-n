@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { fetcher } from '@/lib/fetcher';
 import {
   ArrowLeft, RefreshCw, MapPin, Package, Calendar,
-  Ship, PackageCheck, Calculator, AlertTriangle, Anchor, Navigation,
+  Ship, PackageCheck, Calculator, AlertTriangle, Anchor, Navigation, Pencil,
 } from 'lucide-react';
 
 // Coordenadas de los principales puertos en rutas China–España
@@ -139,6 +139,8 @@ export default function ContenedorDetalle() {
   const [errorTracking, setErrorTracking]   = useState(null);
   const [ultimaConsulta, setUltimaConsulta] = useState(null);
   const [marcandoRecibido, setMarcandoRecibido] = useState(false);
+  const [editandoBarco, setEditandoBarco]   = useState(false);
+  const [barcoInput, setBarcoInput]         = useState('');
 
   // Cargar tracking automáticamente al abrir si el contenedor tiene número y está activo
   useEffect(() => {
@@ -164,6 +166,20 @@ export default function ContenedorDetalle() {
     } finally {
       setActualizando(false);
     }
+  };
+
+  const handleGuardarBarco = async (e) => {
+    e.preventDefault();
+    const nombre = barcoInput.trim().toUpperCase();
+    await fetch(`/api/importaciones/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombreBarco: nombre || null }),
+    });
+    setEditandoBarco(false);
+    mutate();
+    // Lanzar actualización de tracking con el nuevo barco
+    if (nombre) handleActualizar();
   };
 
   const handleMarcarRecibido = async () => {
@@ -282,6 +298,38 @@ export default function ContenedorDetalle() {
               </button>
             </div>
 
+            {/* Nombre del barco — editable manualmente (útil cuando la naviera bloquea scraping) */}
+            <div className="flex items-center gap-2 text-sm mb-3">
+              <Ship className="w-4 h-4 text-base-content/30 shrink-0" />
+              {editandoBarco ? (
+                <form onSubmit={handleGuardarBarco} className="flex gap-2 flex-1">
+                  <input
+                    className="input input-xs input-bordered flex-1 font-mono"
+                    value={barcoInput}
+                    onChange={e => setBarcoInput(e.target.value.toUpperCase())}
+                    placeholder="Ej: MSC ALLEGRA"
+                    autoFocus
+                  />
+                  <button type="submit" className="btn btn-xs btn-primary">Guardar</button>
+                  <button type="button" onClick={() => setEditandoBarco(false)} className="btn btn-xs">✕</button>
+                </form>
+              ) : (
+                <span className="flex items-center gap-1">
+                  {imp.nombreBarco
+                    ? <span className="font-mono text-base-content/80">{imp.nombreBarco}</span>
+                    : <span className="text-base-content/30 italic text-xs">Sin barco — escríbelo para activar posición en mapa</span>
+                  }
+                  <button
+                    onClick={() => { setBarcoInput(imp.nombreBarco || ''); setEditandoBarco(true); }}
+                    className="btn btn-ghost btn-xs"
+                    title="Editar nombre del barco"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+
             {/* ETA desde DB */}
             {imp.etaEstimada && (
               <div className="alert alert-info py-2 mb-3 text-sm">
@@ -320,7 +368,7 @@ export default function ContenedorDetalle() {
               <>
                 {ultimaConsulta && (
                   <p className="text-xs text-base-content/40 mb-2">
-                    Datos de Yang Ming — consultado {fmtDatetime(ultimaConsulta)}
+                    Consultado {fmtDatetime(ultimaConsulta)}
                   </p>
                 )}
                 <div className="overflow-x-auto">
