@@ -353,7 +353,11 @@ export default function ContenedorDetalle() {
               <div className="text-center py-6 text-base-content/40">
                 <Ship className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Sin eventos disponibles aún.</p>
-                <p className="text-xs mt-1">Yang Ming puede tardar unas horas en actualizar.</p>
+                <p className="text-xs mt-1">
+                  {['MSCU','MEDU','MSDU','MSKL','MSXU'].includes((imp?.numContenedor || '').slice(0,4).toUpperCase())
+                    ? 'MSC puede tardar unas horas en actualizar.'
+                    : 'La naviera puede tardar unas horas en actualizar.'}
+                </p>
               </div>
             )}
 
