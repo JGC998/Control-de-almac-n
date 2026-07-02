@@ -18,7 +18,8 @@ const YM_API        = 'https://www.yangming.com/api/CargoTracking/GetTracking';
 // Vessel status — descubierto vía DevTools en yangming.com/en/esolution/schedule/vessel_schedule
 const YM_VESSEL_API = 'https://www.yangming.com/api/VesselTracking/GetVesselStatus';
 
-const MSC_API = 'https://www.msc.com/api/feature/tools/TrackingInfo';
+// MSC usa SSR (Sitecore + Alpine.js) — los datos vienen en el HTML, no en JSON
+const MSC_TRACK_URL = 'https://www.msc.com/en/track-a-shipment';
 
 const PREFIJOS_YM  = new Set(['YMMU', 'YMLU']);
 const PREFIJOS_MSC = new Set(['MSCU', 'MEDU', 'MSDU', 'MSKL', 'MSXU']);
@@ -90,70 +91,115 @@ function prefijo(num) {
 function esYangMing(num) { return PREFIJOS_YM.has(prefijo(num)); }
 function esMSC(num)      { return PREFIJOS_MSC.has(prefijo(num)); }
 
+// Convierte "22/07/2026" o "22/07/2026 10:00" → ISO string
+function parseFechaMSC(str) {
+  if (!str) return null;
+  const m = str.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  if (!m) return null;
+  const [, dd, mm, yyyy, hh = '00', min = '00'] = m;
+  const d = new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}:00Z`);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+// Extrae texto de etiqueta → valor en HTML de MSC
+// Busca el patrón: [etiqueta] … [valor hasta <]
+function extraerCampoHTML(html, etiqueta) {
+  // Ej: "POD ETA</label>\n<p>22/07/2026</p>"
+  const re = new RegExp(
+    etiqueta.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+    '[^<]*<[^>]+>\\s*([^<]{1,120})\\s*<',
+    'i',
+  );
+  return html.match(re)?.[1]?.trim() ?? null;
+}
+
 async function buscarTrackingMSC(trackingNumber) {
-  const res = await fetch(`${MSC_API}?container=${encodeURIComponent(trackingNumber)}&scac=MSCU`, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept':     'application/json, text/plain, */*',
-      'Referer':    'https://www.msc.com/en/track-a-shipment',
-      'Origin':     'https://www.msc.com',
-    },
-    signal: AbortSignal.timeout(30_000),
-  });
+  // MSC usa SSR (Sitecore + Alpine.js): los datos del contenedor vienen en el HTML
+  // El parámetro GET más común es ?containerNumber= ; si falla probamos ?query=
+  const intentos = [
+    `${MSC_TRACK_URL}?containerNumber=${encodeURIComponent(trackingNumber)}`,
+    `${MSC_TRACK_URL}?query=${encodeURIComponent(trackingNumber)}`,
+    `${MSC_TRACK_URL}?cn=${encodeURIComponent(trackingNumber)}`,
+  ];
 
-  if (!res.ok) {
-    logApiError(new Error(`MSC API HTTP ${res.status}`), `tracking:msc:${trackingNumber}`);
+  const HEADERS = {
+    'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer':         'https://www.msc.com/en/track-a-shipment',
+  };
+
+  let html = null;
+  for (const url of intentos) {
+    try {
+      const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      // Confirmar que la respuesta contiene datos del contenedor (no solo la página vacía)
+      if (text.includes(trackingNumber)) { html = text; break; }
+    } catch { /* probar siguiente */ }
+  }
+
+  if (!html) {
+    logApiError(new Error('MSC: HTML no contiene datos del contenedor (posible bloqueo Akamai)'), `tracking:msc:${trackingNumber}`);
     return null;
   }
 
-  let json;
-  try { json = await res.json(); } catch { return null; }
+  // ── Extraer campos visibles en la página ────────────────────────────────────
+  const podEtaStr    = extraerCampoHTML(html, 'POD ETA');
+  const latestMove   = extraerCampoHTML(html, 'Latest move');
+  const podName      = extraerCampoHTML(html, 'Port of Discharge');
+  const vesselRaw    = extraerCampoHTML(html, 'Vessel');
 
-  // La API de MSC puede devolver la info en distintos niveles — probamos las rutas más comunes
-  const rawEvents =
-    json?.trackingDetails?.containerStatus ??
-    json?.containers?.[0]?.events ??
-    json?.result?.containers?.[0]?.events ??
-    json?.data?.events ??
-    null;
+  const eta = parseFechaMSC(podEtaStr);
 
-  if (!Array.isArray(rawEvents) || rawEvents.length === 0) {
-    logApiError(new Error(`MSC: respuesta inesperada`), `tracking:msc:${trackingNumber}:${JSON.stringify(json).slice(0, 200)}`);
-    return null;
-  }
-
-  // Normalizar al mismo formato que YM
-  const eventos = rawEvents.map(e => {
-    const desc   = e.eventDescription ?? e.eventType ?? e.status ?? 'Evento';
-    const fecha  = e.eventDate ?? e.eventDateTime ?? e.date ?? null;
-    const lugar  = e.location ?? e.portName ?? e.facility ?? null;
-    const barco  = e.vessel ?? e.vesselName ?? null;
-    const viaje  = e.voyage ?? null;
-    return {
+  // ── Extraer tabla de eventos si está en el HTML ──────────────────────────────
+  // MSC puede tener filas de historial: buscar patrones de fecha DD/MM/YYYY + acción
+  const eventosHTML = [];
+  const reEvento = /(\d{2}\/\d{2}\/\d{4}(?:\s+\d{2}:\d{2})?)[^<]{0,20}<[^>]+>([^<]{3,100})<[^>]+>([^<]{3,80})/g;
+  let m;
+  while ((m = reEvento.exec(html)) !== null) {
+    const [, fecha, accion, lugar] = m;
+    const isoFecha = parseFechaMSC(fecha);
+    if (!isoFecha) continue;
+    const desc = accion.trim();
+    eventosHTML.push({
       status:             MSC_EVENT_ES[desc] ?? desc,
-      occurrenceDatetime: fecha ? new Date(fecha).toISOString() : null,
-      location:           lugar,
-      vesselVoyage:       barco && viaje ? `${barco} / ${viaje}` : barco ?? null,
+      occurrenceDatetime: isoFecha,
+      location:           lugar.trim(),
+      vesselVoyage:       null,
       vesselCode:         null,
-    };
-  }).sort((a, b) => {
-    // Más reciente primero
+    });
+  }
+
+  // Si no hay tabla, generar un pseudo-evento con el último movimiento visible
+  if (eventosHTML.length === 0 && latestMove) {
+    eventosHTML.push({
+      status:             'Último movimiento registrado',
+      occurrenceDatetime: null,
+      location:           latestMove,
+      vesselVoyage:       vesselRaw ?? null,
+      vesselCode:         null,
+    });
+  }
+
+  if (eventosHTML.length === 0 && !eta) return null;
+
+  // Más reciente primero
+  eventosHTML.sort((a, b) => {
     if (!a.occurrenceDatetime) return 1;
     if (!b.occurrenceDatetime) return -1;
     return new Date(b.occurrenceDatetime) - new Date(a.occurrenceDatetime);
   });
 
-  const ultimoEvento = eventos[0] ?? null;
-
-  // ETA: buscar en distintos campos posibles
-  const etaRaw =
-    json?.trackingDetails?.portOfDischarge?.estimatedArrival ??
-    json?.containers?.[0]?.eta ??
-    rawEvents.find(e => e.eta)?.eta ??
-    null;
-  const eta = etaRaw ? new Date(etaRaw).toISOString() : null;
-
-  return { eventos, ultimoEvento, eta, shipmentId: null };
+  return {
+    eventos:      eventosHTML,
+    ultimoEvento: eventosHTML[0] ?? null,
+    eta,
+    shipmentId:   null,
+    // Puerto de descarga para la UI
+    portOfDischarge: podName ?? null,
+  };
 }
 
 function parseFechaYM(str) {
