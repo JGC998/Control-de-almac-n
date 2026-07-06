@@ -385,20 +385,31 @@ export default function ContenedorDetalle() {
             {/* Mapa MarineTraffic embed — gratis, sin API, siempre actualizado */}
             {imp.mmsiBarco && (
               <div className="mb-4">
-                <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 260 }}>
+                <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
+                  <Anchor className="w-3 h-3" /> Última posición AIS conocida
+                </p>
+                <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 300 }}>
                   <iframe
-                    title={`Posición en vivo — ${imp.nombreBarco || imp.mmsiBarco}`}
-                    src={`https://www.marinetraffic.com/en/ais/embed/zoom:5/centery:30/centerx:15/maptype:4/mmsi:${imp.mmsiBarco}`}
+                    title={`Posición — ${imp.nombreBarco || imp.mmsiBarco}`}
+                    src={`https://www.marinetraffic.com/en/ais/embed/zoom:3/centery:20/centerx:65/maptype:4/mmsi:${imp.mmsiBarco}`}
                     width="100%"
-                    height="260"
+                    height="300"
                     style={{ border: 0, display: 'block' }}
                     loading="lazy"
                     referrerPolicy="no-referrer"
                   />
                 </div>
-                <p className="text-xs text-base-content/30 mt-1 text-right">
-                  © <a href="https://www.marinetraffic.com" target="_blank" rel="noopener noreferrer" className="underline">MarineTraffic</a>
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs text-base-content/30">zoom 3 — ruta Singapur → Europa</p>
+                  <a
+                    href={`https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline"
+                  >
+                    Ver en detalle →
+                  </a>
+                </div>
               </div>
             )}
 
