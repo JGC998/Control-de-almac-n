@@ -452,37 +452,57 @@ export default function ContenedorDetalle() {
               </div>
             )}
 
-            {/* Ficha del barco vía MyShipTracking — sin X-Frame-Options, muestra posición + ETA + velocidad */}
-            {imp.mmsiBarco && (
-              <div className="mb-4">
-                <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
-                  <Anchor className="w-3 h-3" /> Posición en vivo — MyShipTracking
-                </p>
-                <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 520 }}>
-                  <iframe
-                    title={`Posición — ${imp.nombreBarco || imp.mmsiBarco}`}
-                    src={`https://www.myshiptracking.com/en/vessels/details/?mmsi=${imp.mmsiBarco}`}
-                    width="100%"
-                    height="520"
-                    style={{ border: 0, display: 'block' }}
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    sandbox="allow-scripts allow-same-origin allow-popups"
-                  />
+            {/* Mapa centrado en la posición real del barco — MarineTraffic embed */}
+            {imp.mmsiBarco && (() => {
+              const lat  = posicionBarco?.lat ?? 20;
+              const lon  = posicionBarco?.lon ?? 65;
+              const zoom = posicionBarco ? 6 : 3;
+              return (
+                <div className="mb-4">
+                  <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
+                    <Anchor className="w-3 h-3" />
+                    {posicionBarco
+                      ? `Posición AIS — ${lat}°, ${lon}° (zoom ${zoom})`
+                      : 'Última posición conocida (actualiza para centrar)'}
+                  </p>
+                  <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 300 }}>
+                    <iframe
+                      key={`${lat}-${lon}-${zoom}`}
+                      title={`Posición — ${imp.nombreBarco || imp.mmsiBarco}`}
+                      src={`https://www.marinetraffic.com/en/ais/embed/zoom:${zoom}/centery:${lat}/centerx:${lon}/maptype:4/mmsi:${imp.mmsiBarco}`}
+                      width="100%"
+                      height="300"
+                      style={{ border: 0, display: 'block' }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-xs text-base-content/30">© MarineTraffic · AIS</p>
+                    <div className="flex gap-3">
+                      {posicionBarco?.lat != null && (
+                        <a
+                          href={`https://www.google.com/maps?q=${posicionBarco.lat},${posicionBarco.lon}&z=6`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-base-content/50 underline"
+                        >
+                          Google Maps
+                        </a>
+                      )}
+                      <a
+                        href={`https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary underline"
+                      >
+                        Ver en detalle →
+                      </a>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center mt-1">
-                  <p className="text-xs text-base-content/30">© MyShipTracking</p>
-                  <a
-                    href={`https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary underline"
-                  >
-                    Ver en MarineTraffic →
-                  </a>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ETA desde DB */}
             {imp.etaEstimada && (
