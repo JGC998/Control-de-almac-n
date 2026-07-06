@@ -61,6 +61,11 @@ export async function POST(request, { params }) {
       : null;
     const etaDias = diasRestantes && diasRestantes > 0 ? ` (en ${diasRestantes} días)` : '';
 
+    // Resumen de escalas: todos los puertos en una línea
+    const puertosLinea = puertos.length > 1
+      ? '🛳 ' + puertos.map(p => (p.esPosicionActual ? '📍' : '') + p.puerto).join(' → ')
+      : null;
+
     const lineas = [
       `🚢 *${barco}*`,
       proveedor
@@ -68,7 +73,7 @@ export async function POST(request, { params }) {
         : `📦 ${contenedor}`,
       origenNombre ? `🗺 ${origenNombre} → Valencia` : null,
       ``,
-      // Datos AIS (solo cuando hay MMSI + posición)
+      // ── Sección AIS (VesselFinder) — solo cuando hay MMSI + posición ──
       posicion?.lrpd
         ? `📡 Señal AIS: ${posicion.lrpd}`
         : null,
@@ -78,12 +83,13 @@ export async function POST(request, { params }) {
       posicion?.lat != null && posicion?.lon != null
         ? `📍 https://maps.google.com/?q=${posicion.lat},${posicion.lon}`
         : null,
-      // Último evento de tracking (útil cuando no hay AIS)
-      !posicion && imp.ultimoEstadoTracking
-        ? `📋 Último evento: ${imp.ultimoEstadoTracking}`
-        : null,
       ``,
       etaFinal ? `📅 ETA Valencia: *${fmtFecha(etaFinal)}*${etaDias}` : null,
+      // ── Sección naviera (Yang Ming / otros) — último evento + escalas ──
+      imp.ultimoEstadoTracking
+        ? `\n📋 Último estado: ${imp.ultimoEstadoTracking}`
+        : null,
+      puertosLinea,
       ``,
       `──────────────────`,
       imp.mmsiBarco

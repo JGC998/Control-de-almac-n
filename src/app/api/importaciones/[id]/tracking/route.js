@@ -30,11 +30,9 @@ export async function GET(request, { params }) {
 
     const tracking = await buscarTracking(trackingNum, imp.courierCode || null);
 
-    // Nombre del barco: extraído de los eventos frescos, o el guardado anteriormente en DB
-    const nombreBarco =
-      (tracking ? extraerNombreBarco(tracking.eventos) : null) ??
-      imp.nombreBarco ??
-      null;
+    // Nombre del barco: preferir el que el usuario guardó en DB; solo auto-rellenar si está vacío
+    const nombreBarcoExtraido = tracking ? extraerNombreBarco(tracking.eventos) : null;
+    const nombreBarco = imp.nombreBarco ?? nombreBarcoExtraido ?? null;
 
     // Schedule del barco:
     // 1. Si hay MMSI guardado → llama directo a VesselFinder pcext (sin búsqueda por nombre)
@@ -55,8 +53,9 @@ export async function GET(request, { params }) {
         datosGuardar.ultimoEvento         = claveEvento(tracking.ultimoEvento);
         datosGuardar.ultimoEstadoTracking = tracking.ultimoEvento.status ?? null;
       }
-      if (tracking.eta)   datosGuardar.etaEstimada = new Date(tracking.eta);
-      if (nombreBarco)    datosGuardar.nombreBarco  = nombreBarco;
+      if (tracking.eta) datosGuardar.etaEstimada = new Date(tracking.eta);
+      // Solo guardar el nombre extraído si el usuario no tiene ya uno guardado
+      if (!imp.nombreBarco && nombreBarcoExtraido) datosGuardar.nombreBarco = nombreBarcoExtraido;
     }
     if (posicionBarco) {
       datosGuardar.ultimaPosicionBarco = JSON.stringify({ ...posicionBarco, at: new Date().toISOString() });
