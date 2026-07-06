@@ -452,57 +452,59 @@ export default function ContenedorDetalle() {
               </div>
             )}
 
-            {/* Mapa centrado en la posición real del barco — MarineTraffic embed */}
-            {imp.mmsiBarco && (() => {
-              const lat  = posicionBarco?.lat ?? 20;
-              const lon  = posicionBarco?.lon ?? 65;
-              const zoom = posicionBarco ? 6 : 3;
+            {/* Mapa de posición AIS — OpenStreetMap cuando hay coords, placeholder si no */}
+            {imp.mmsiBarco && posicionBarco?.lat != null && posicionBarco?.lon != null && (() => {
+              const { lat, lon } = posicionBarco;
+              const delta = 4;
+              const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta},${lat - delta},${lon + delta},${lat + delta}&layer=mapnik&marker=${lat},${lon}`;
               return (
                 <div className="mb-4">
                   <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
                     <Anchor className="w-3 h-3" />
-                    {posicionBarco
-                      ? `Posición AIS — ${lat}°, ${lon}° (zoom ${zoom})`
-                      : 'Última posición conocida (actualiza para centrar)'}
+                    Última posición AIS — {lat}°, {lon}°
+                    {posicionBarco.lrpd && <span className="ml-1 text-warning">({posicionBarco.lrpd})</span>}
                   </p>
-                  <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 300 }}>
+                  <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 280 }}>
                     <iframe
-                      key={`${lat}-${lon}-${zoom}`}
+                      key={`osm-${lat}-${lon}`}
                       title={`Posición — ${imp.nombreBarco || imp.mmsiBarco}`}
-                      src={`https://www.marinetraffic.com/en/ais/embed/zoom:${zoom}/centery:${lat}/centerx:${lon}/maptype:4/mmsi:${imp.mmsiBarco}`}
+                      src={mapUrl}
                       width="100%"
-                      height="300"
+                      height="280"
                       style={{ border: 0, display: 'block' }}
                       loading="lazy"
                       referrerPolicy="no-referrer"
                     />
                   </div>
                   <div className="flex justify-between items-center mt-1">
-                    <p className="text-xs text-base-content/30">© MarineTraffic · AIS</p>
+                    <p className="text-xs text-base-content/30">© OpenStreetMap · marcador = última señal AIS</p>
                     <div className="flex gap-3">
-                      {posicionBarco?.lat != null && (
-                        <a
-                          href={`https://www.google.com/maps?q=${posicionBarco.lat},${posicionBarco.lon}&z=6`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-base-content/50 underline"
-                        >
-                          Google Maps
-                        </a>
-                      )}
+                      <a
+                        href={`https://www.google.com/maps?q=${lat},${lon}&z=6`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-base-content/50 underline"
+                      >
+                        Google Maps
+                      </a>
                       <a
                         href={`https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-primary underline"
                       >
-                        Ver en detalle →
+                        MarineTraffic →
                       </a>
                     </div>
                   </div>
                 </div>
               );
             })()}
+            {imp.mmsiBarco && !posicionBarco && (
+              <p className="text-xs text-base-content/30 mb-3 flex items-center gap-1">
+                <Anchor className="w-3 h-3" /> Pulsa &quot;Actualizar ahora&quot; para cargar la posición en el mapa
+              </p>
+            )}
 
             {/* ETA desde DB */}
             {imp.etaEstimada && (
