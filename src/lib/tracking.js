@@ -324,73 +324,76 @@ function parseVFDate(str) {
 }
 
 /**
- * Busca un barco en VesselFinder por nombre y devuelve su posición actual,
- * destino con ETA y últimas escalas visibles.
- * Funciona para cualquier naviera (Yang Ming, MSC, CMA-CGM…).
+ * Consulta VesselFinder usando el MMSI directamente (sin búsqueda por nombre).
+ * El endpoint pcext/v4/{mmsi}?d devuelve las escalas recientes del barco.
+ * Exportada para usarla desde la ruta de tracking cuando el MMSI está guardado en DB.
+ */
+export async function buscarSchedulePorMmsi(mmsi, vesselName = null) {
+  if (!mmsi) return null;
+  try {
+    const pcRes = await fetch(
+      `${VF_PORTCALLS}/${mmsi}?d`,
+      { headers: VF_HEADERS, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!pcRes.ok) {
+      logApiError(new Error(`VF pcext HTTP ${pcRes.status}`), `tracking:vf:mmsi:${mmsi}`);
+      return null;
+    }
+    const portCalls = await pcRes.json();
+    if (!Array.isArray(portCalls)) return null;
+
+    const puertos = portCalls
+      .filter(p => p.dp && p.dp !== 'locked' && p.c)
+      .map((p, i) => ({
+        puerto:           p.dp,
+        portCode:         p.l  || null,
+        pais:             p.c  || null,
+        eta:              null,
+        ata:              parseVFDate(p.a),
+        etd:              parseVFDate(p.d),
+        esPosicionActual: i === 0,
+      }));
+
+    if (puertos.length === 0) return null;
+
+    return { vesselCode: mmsi, vesselName: vesselName ?? mmsi, puertos };
+  } catch (e) {
+    logApiError(e, `tracking:vf:mmsi:${mmsi}`);
+    return null;
+  }
+}
+
+/**
+ * Busca un barco en VesselFinder por nombre.
+ * NOTA: searchjson.js devuelve 404 — esta función se mantiene pero probablemente no funcione
+ * sin encontrar un nuevo endpoint de búsqueda. Usar buscarSchedulePorMmsi() con MMSI directo.
  */
 async function buscarScheduleVesselFinder(vesselName) {
   if (!vesselName) return null;
   try {
-    // 1 — Buscar el barco para obtener MMSI + posición + ETA declarada
+    // searchjson.js ya no existe (404) — intentar con el endpoint de API pública
     const searchRes = await fetch(
       `${VF_SEARCH}?term=${encodeURIComponent(vesselName)}`,
-      { headers: VF_HEADERS, signal: AbortSignal.timeout(15_000) },
+      { headers: VF_HEADERS, signal: AbortSignal.timeout(10_000) },
     );
     if (!searchRes.ok) return null;
 
-    const results = await searchRes.json();
-    const vessel  = Array.isArray(results) ? results[0] : null;
+    let results;
+    try { results = await searchRes.json(); } catch { return null; }
+
+    // Intentar múltiples formatos de respuesta
+    const vessel =
+      (Array.isArray(results) ? results[0] : null) ??
+      results?.vessels?.[0] ??
+      results?.data?.[0] ??
+      null;
     if (!vessel?.mmsi) return null;
 
-    const mmsi        = vessel.mmsi;
-    const foundName   = vessel.name ?? vesselName;
-    const destination = vessel.destination?.trim() || null;
-    const eta         = parseVFEta(vessel.eta);
-
-    // 2 — Escalas recientes (las no-locked son gratuitas)
-    let puertos = [];
-    try {
-      const pcRes = await fetch(
-        `${VF_PORTCALLS}/${mmsi}?d`,
-        { headers: VF_HEADERS, signal: AbortSignal.timeout(15_000) },
-      );
-      if (pcRes.ok) {
-        const portCalls = await pcRes.json();
-        if (Array.isArray(portCalls)) {
-          puertos = portCalls
-            .filter(p => p.dp && p.dp !== 'locked' && p.c)
-            .map((p, i) => ({
-              puerto:           p.dp,
-              portCode:         p.l  || null,
-              pais:             p.c  || null,
-              eta:              null,
-              ata:              parseVFDate(p.a),
-              etd:              parseVFDate(p.d),
-              esPosicionActual: i === 0,
-            }));
-        }
-      }
-    } catch { /* escalas son opcionales */ }
-
-    // 3 — Añadir próximo destino con ETA al principio de la lista
-    if (destination && eta) {
-      puertos.unshift({
-        puerto:           destination,
-        portCode:         null,
-        pais:             null,
-        eta,
-        ata:              null,
-        etd:              null,
-        esPosicionActual: false,
-      });
-    }
-
-    if (puertos.length === 0 && !eta) return null;
-
-    return { vesselCode: vesselName, vesselName: foundName, puertos };
+    // Con el MMSI obtenido, usar la función directa
+    return buscarSchedulePorMmsi(vessel.mmsi, vessel.name ?? vesselName);
 
   } catch (e) {
-    logApiError(e, `tracking:vf:${vesselName}`);
+    logApiError(e, `tracking:vf:search:${vesselName}`);
     return null;
   }
 }

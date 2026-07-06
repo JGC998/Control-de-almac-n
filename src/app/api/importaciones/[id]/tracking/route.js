@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarTracking, claveEvento, extraerNombreBarco, buscarScheduleBarco } from '@/lib/tracking';
+import { buscarTracking, claveEvento, extraerNombreBarco, buscarScheduleBarco, buscarSchedulePorMmsi } from '@/lib/tracking';
 
 /**
  * GET /api/importaciones/[id]/tracking
@@ -18,7 +18,7 @@ export async function GET(request, { params }) {
         ultimoEvento: true, ultimoEstadoTracking: true,
         ultimoTrackingCheck: true, etaEstimada: true,
         descripcion: true, estado: true, courierCode: true,
-        nombreBarco: true,
+        nombreBarco: true, mmsiBarco: true,
       },
     });
     if (!imp) return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
@@ -36,9 +36,13 @@ export async function GET(request, { params }) {
       imp.nombreBarco ??
       null;
 
-    // Vessel schedule via VesselFinder (funciona aunque MSC bloquee el scraping)
+    // Schedule del barco:
+    // 1. Si hay MMSI guardado → llama directo a VesselFinder pcext (sin búsqueda por nombre)
+    // 2. Si no → busca por nombre (Yang Ming schedule → VesselFinder fallback)
     const [scheduleBarco] = await Promise.all([
-      nombreBarco ? buscarScheduleBarco(nombreBarco) : Promise.resolve(null),
+      imp.mmsiBarco
+        ? buscarSchedulePorMmsi(imp.mmsiBarco, nombreBarco)
+        : (nombreBarco ? buscarScheduleBarco(nombreBarco) : Promise.resolve(null)),
     ]);
 
     if (tracking) {
