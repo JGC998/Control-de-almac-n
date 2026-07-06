@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { fetcher } from '@/lib/fetcher';
 import {
   ArrowLeft, RefreshCw, MapPin, Package, Calendar,
-  Ship, PackageCheck, Calculator, AlertTriangle, Anchor, Navigation, Pencil,
+  Ship, PackageCheck, Calculator, AlertTriangle, Anchor, Navigation, Pencil, MessageCircle,
 } from 'lucide-react';
 
 // Coordenadas de los principales puertos en rutas China–España
@@ -195,6 +195,25 @@ export default function ContenedorDetalle() {
     mutate();
   };
 
+  const handleWhatsApp = () => {
+    const contenedor = imp.numContenedor || imp.blNumber || '-';
+    const barco = imp.nombreBarco || 'Barco';
+    const puertos = scheduleBarco?.puertos ?? [];
+    const ultimaPos = puertos.find(p => p.esPosicionActual)
+      ?? [...puertos].reverse().find(p => !!p.ata);
+    const etaValencia = puertos.find(p =>
+      p.portCode === 'ESVLC' || p.puerto?.toLowerCase().includes('valencia')
+    );
+    const etaFinal = etaValencia?.eta ?? imp.etaEstimada;
+    const lineas = [
+      `🚢 *${barco}* — ${contenedor}`,
+      ultimaPos && `📍 Última posición: ${ultimaPos.puerto}${ultimaPos.ata ? ` (${fmtFecha(ultimaPos.ata)})` : ''}`,
+      etaFinal && `🏁 ETA Valencia: *${fmtFecha(etaFinal)}*`,
+      imp.mmsiBarco && `🔗 https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`,
+    ].filter(Boolean).join('\n');
+    window.open(`https://wa.me/?text=${encodeURIComponent(lineas)}`, '_blank');
+  };
+
   const handleMarcarRecibido = async () => {
     if (!confirm('¿Marcar este contenedor como recibido? Se desactivará el tracking automático.')) return;
     setMarcandoRecibido(true);
@@ -301,14 +320,25 @@ export default function ContenedorDetalle() {
               <h2 className="font-bold text-lg flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-primary" /> Seguimiento
               </h2>
-              <button
-                className="btn btn-sm btn-outline gap-2"
-                onClick={handleActualizar}
-                disabled={actualizando}
-              >
-                <RefreshCw className={`w-4 h-4 ${actualizando ? 'animate-spin' : ''}`} />
-                {actualizando ? 'Consultando…' : 'Actualizar ahora'}
-              </button>
+              <div className="flex items-center gap-2">
+                {(imp.mmsiBarco || imp.nombreBarco) && (
+                  <button
+                    className="btn btn-sm btn-success gap-1"
+                    onClick={handleWhatsApp}
+                    title="Enviar resumen por WhatsApp"
+                  >
+                    <MessageCircle className="w-4 h-4" /> WhatsApp
+                  </button>
+                )}
+                <button
+                  className="btn btn-sm btn-outline gap-2"
+                  onClick={handleActualizar}
+                  disabled={actualizando}
+                >
+                  <RefreshCw className={`w-4 h-4 ${actualizando ? 'animate-spin' : ''}`} />
+                  {actualizando ? 'Consultando…' : 'Actualizar ahora'}
+                </button>
+              </div>
             </div>
 
             {/* Barco + MMSI — editables manualmente */}
@@ -382,32 +412,33 @@ export default function ContenedorDetalle() {
               )}
             </div>
 
-            {/* Mapa MarineTraffic embed — gratis, sin API, siempre actualizado */}
+            {/* Ficha del barco vía MyShipTracking — sin X-Frame-Options, muestra posición + ETA + velocidad */}
             {imp.mmsiBarco && (
               <div className="mb-4">
                 <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
-                  <Anchor className="w-3 h-3" /> Última posición AIS conocida
+                  <Anchor className="w-3 h-3" /> Posición en vivo — MyShipTracking
                 </p>
-                <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 300 }}>
+                <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 520 }}>
                   <iframe
                     title={`Posición — ${imp.nombreBarco || imp.mmsiBarco}`}
-                    src={`https://www.marinetraffic.com/en/ais/embed/zoom:3/centery:20/centerx:65/maptype:4/mmsi:${imp.mmsiBarco}`}
+                    src={`https://www.myshiptracking.com/en/vessels/details/?mmsi=${imp.mmsiBarco}`}
                     width="100%"
-                    height="300"
+                    height="520"
                     style={{ border: 0, display: 'block' }}
                     loading="lazy"
                     referrerPolicy="no-referrer"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
                   />
                 </div>
                 <div className="flex justify-between items-center mt-1">
-                  <p className="text-xs text-base-content/30">zoom 3 — ruta Singapur → Europa</p>
+                  <p className="text-xs text-base-content/30">© MyShipTracking</p>
                   <a
                     href={`https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-primary underline"
                   >
-                    Ver en detalle →
+                    Ver en MarineTraffic →
                   </a>
                 </div>
               </div>
