@@ -145,6 +145,14 @@ export default function ContenedorDetalle() {
   const [editandoMmsi, setEditandoMmsi]     = useState(false);
   const [mmsiInput, setMmsiInput]           = useState('');
 
+  // Cargar posición cacheada desde DB al abrir (antes del fetch en vivo)
+  useEffect(() => {
+    if (imp?.ultimaPosicionBarco && posicionBarco === null) {
+      try { setPosicionBarco(JSON.parse(imp.ultimaPosicionBarco)); } catch {}
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imp?.id]);
+
   // Cargar tracking automáticamente al abrir si el contenedor tiene número y está activo
   useEffect(() => {
     if (imp?.trackingActivo && (imp?.numContenedor || imp?.blNumber)) {
@@ -162,7 +170,7 @@ export default function ContenedorDetalle() {
       if (!res.ok) throw new Error(data.error || 'Error al obtener tracking');
       setEventos(data.eventos || []);
       setScheduleBarco(data.scheduleBarco ?? null);
-      setPosicionBarco(data.posicionBarco ?? null);
+      if (data.posicionBarco) setPosicionBarco(data.posicionBarco);
       setUltimaConsulta(data.consultadoEn ? new Date(data.consultadoEn) : new Date());
       mutate();
     } catch (err) {
@@ -315,10 +323,11 @@ export default function ContenedorDetalle() {
 
       {/* Sección de tracking */}
       {imp.trackingActivo || imp.numContenedor || imp.blNumber ? (
-        <div className="card bg-base-100 shadow-sm border border-base-200">
-          <div className="card-body p-5">
+        <div className="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+          <div className="card-body p-0">
 
-            <div className="flex items-center justify-between mb-3">
+            {/* Cabecera: título + botones */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
               <h2 className="font-bold text-lg flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-primary" /> Seguimiento
               </h2>
@@ -347,11 +356,205 @@ export default function ContenedorDetalle() {
               </div>
             </div>
 
-            {/* Barco + MMSI — editables manualmente */}
-            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm mb-3">
-              {/* Nombre del barco */}
-              <div className="flex items-center gap-1">
-                <Ship className="w-4 h-4 text-base-content/30 shrink-0" />
+            {/* Banner del barco */}
+            {(imp.nombreBarco || posicionBarco) && (
+              <div className="bg-neutral text-neutral-content mx-5 rounded-xl mb-4 px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-extrabold text-lg leading-tight">{imp.nombreBarco || 'Barco'}</p>
+                    {imp.descripcion && (
+                      <p className="text-neutral-content/50 text-xs mt-0.5">{imp.descripcion}</p>
+                    )}
+                  </div>
+                  {posicionBarco && (
+                    <span className="flex items-center gap-1.5 bg-success/20 text-success border border-success/30 rounded-full px-2.5 py-0.5 text-xs font-semibold shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-success inline-block"></span>
+                      EN RUTA
+                    </span>
+                  )}
+                </div>
+                {(() => {
+                  const origen = scheduleBarco?.puertos?.find(p => p.esPosicionActual)
+                    ?? scheduleBarco?.puertos?.filter(p => p.ata)?.[0]
+                    ?? null;
+                  if (!origen) return null;
+                  return (
+                    <div className="flex items-center gap-2 mt-2.5 text-xs">
+                      <span className="bg-neutral-content/15 border border-neutral-content/20 rounded-full px-2.5 py-0.5 font-semibold">
+                        {origen.puerto}
+                      </span>
+                      <span className="text-neutral-content/30">────▶</span>
+                      <span className="bg-neutral-content/15 border border-neutral-content/20 rounded-full px-2.5 py-0.5 font-semibold">
+                        Valencia
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Tira de métricas AIS — 4 celdas */}
+            {posicionBarco && (
+              <div className="grid grid-cols-4 divide-x divide-base-200 border-y border-base-200 mb-4">
+                <div className="py-2.5 px-2 text-center">
+                  <p className="text-xs text-base-content/40 uppercase tracking-wide leading-none mb-1">Velocidad</p>
+                  <p className="font-bold text-base">{posicionBarco.sog ?? '—'} <span className="text-xs font-normal">kn</span></p>
+                </div>
+                <div className="py-2.5 px-2 text-center">
+                  <p className="text-xs text-base-content/40 uppercase tracking-wide leading-none mb-1">Rumbo</p>
+                  <p className="font-bold text-base">{posicionBarco.cog ?? '—'}°</p>
+                </div>
+                <div className="py-2.5 px-1 text-center">
+                  <p className="text-xs text-base-content/40 uppercase tracking-wide leading-none mb-1">Posición</p>
+                  <a
+                    href={`https://www.google.com/maps?q=${posicionBarco.lat},${posicionBarco.lon}&z=5`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-xs font-mono text-primary"
+                  >
+                    {posicionBarco.lat}°, {posicionBarco.lon}°
+                  </a>
+                </div>
+                <div className="py-2.5 px-1 text-center">
+                  <p className="text-xs text-base-content/40 uppercase tracking-wide leading-none mb-1">Señal AIS</p>
+                  <p className="font-semibold text-xs text-warning">{posicionBarco.lrpd ?? '—'}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="px-5">
+              {/* ETA Valencia — tarjeta prominente */}
+              {(() => {
+                const etaValencia = scheduleBarco?.puertos?.find(p =>
+                  p.portCode === 'ESVLC' || p.puerto?.toLowerCase().includes('valencia'),
+                );
+                const etaFinal = etaValencia?.eta ?? imp.etaEstimada;
+                if (!etaFinal) return null;
+                const dias = Math.ceil((new Date(etaFinal) - new Date()) / (1000 * 60 * 60 * 24));
+                return (
+                  <div className="bg-success/10 border border-success/20 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-success font-semibold uppercase tracking-wide">ETA Valencia</p>
+                      <p className="font-extrabold text-success text-lg leading-tight mt-0.5">{fmtFecha(etaFinal)}</p>
+                    </div>
+                    {dias > 0 && (
+                      <span className="text-success font-semibold text-sm">en {dias} días →</span>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Mapa OSM */}
+              {imp.mmsiBarco && posicionBarco?.lat != null && posicionBarco?.lon != null && (() => {
+                const { lat, lon } = posicionBarco;
+                const delta = 4;
+                const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta},${lat - delta},${lon + delta},${lat + delta}&layer=mapnik&marker=${lat},${lon}`;
+                return (
+                  <div className="mb-4">
+                    <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 280 }}>
+                      <iframe
+                        key={`osm-${lat}-${lon}`}
+                        title={`Posición — ${imp.nombreBarco || imp.mmsiBarco}`}
+                        src={mapUrl}
+                        width="100%"
+                        height="280"
+                        style={{ border: 0, display: 'block' }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+              {imp.mmsiBarco && !posicionBarco && (
+                <p className="text-xs text-base-content/30 mb-3 flex items-center gap-1">
+                  <Anchor className="w-3 h-3" /> Pulsa &quot;Actualizar ahora&quot; para cargar la posición en el mapa
+                </p>
+              )}
+
+              {/* Último estado guardado */}
+              {!eventos && imp.ultimoEstadoTracking && (
+                <div className="bg-base-200 rounded-lg p-3 mb-3 text-sm">
+                  <span className="text-base-content/50 text-xs">Último estado conocido</span>
+                  <p className="font-medium mt-0.5">{imp.ultimoEstadoTracking}</p>
+                  {imp.ultimoTrackingCheck && (
+                    <p className="text-xs text-base-content/40 mt-1">
+                      Comprobado {fmtDatetime(imp.ultimoTrackingCheck)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Sin número de tracking */}
+              {!imp.numContenedor && !imp.blNumber && (
+                <div className="alert alert-warning text-sm py-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Este contenedor no tiene número de contenedor ni BL asignado.
+                </div>
+              )}
+
+              {/* Error */}
+              {errorTracking && (
+                <div className="alert alert-error text-sm py-2 mb-3">{errorTracking}</div>
+              )}
+
+              {/* Tabla de eventos */}
+              {eventos !== null && eventos.length > 0 && (
+                <>
+                  {ultimaConsulta && (
+                    <p className="text-xs text-base-content/40 mb-2">
+                      Consultado {fmtDatetime(ultimaConsulta)}
+                    </p>
+                  )}
+                  <div className="overflow-x-auto">
+                    <table className="table table-sm w-full">
+                      <thead>
+                        <tr>
+                          <th>Fecha / Hora</th>
+                          <th>Evento</th>
+                          <th>Ubicación</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {eventos.map((e, i) => (
+                          <tr key={i} className={i === 0 ? 'bg-primary/5 font-semibold' : ''}>
+                            <td className="whitespace-nowrap text-xs">
+                              {e.occurrenceDatetime ? fmtDatetime(e.occurrenceDatetime) : '—'}
+                            </td>
+                            <td>{e.status}</td>
+                            <td className="text-xs text-base-content/60">{e.location || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {/* Sin eventos */}
+              {eventos !== null && eventos.length === 0 && (
+                <div className="text-center py-6 text-base-content/40">
+                  <Ship className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Sin eventos disponibles aún.</p>
+                  <p className="text-xs mt-1">
+                    {['MSCU','MEDU','MSDU','MSKL','MSXU'].includes((imp?.numContenedor || '').slice(0,4).toUpperCase())
+                      ? 'MSC puede tardar unas horas en actualizar.'
+                      : 'La naviera puede tardar unas horas en actualizar.'}
+                  </p>
+                </div>
+              )}
+
+              {/* Cargando */}
+              {actualizando && !eventos && (
+                <div className="flex justify-center py-8">
+                  <span className="loading loading-spinner loading-md" />
+                </div>
+              )}
+            </div>
+
+            {/* Footer: editar barco/MMSI + links externos */}
+            <div className="border-t border-base-200 px-5 py-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {editandoBarco ? (
                   <form onSubmit={handleGuardarBarco} className="flex gap-1">
                     <input
@@ -365,20 +568,15 @@ export default function ContenedorDetalle() {
                     <button type="button" onClick={() => setEditandoBarco(false)} className="btn btn-xs">✕</button>
                   </form>
                 ) : (
-                  <span className="flex items-center gap-1">
-                    {imp.nombreBarco
-                      ? <span className="font-mono text-base-content/80">{imp.nombreBarco}</span>
-                      : <span className="text-base-content/30 italic text-xs">Sin barco</span>
-                    }
-                    <button onClick={() => { setBarcoInput(imp.nombreBarco || ''); setEditandoBarco(true); }} className="btn btn-ghost btn-xs" title="Editar nombre del barco">
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                  </span>
+                  <button
+                    onClick={() => { setBarcoInput(imp.nombreBarco || ''); setEditandoBarco(true); }}
+                    className="btn btn-xs btn-ghost gap-1 text-base-content/40 font-normal"
+                  >
+                    <Ship className="w-3 h-3" />
+                    {imp.nombreBarco || 'Sin barco'}
+                    <Pencil className="w-3 h-3" />
+                  </button>
                 )}
-              </div>
-              {/* MMSI */}
-              <div className="flex items-center gap-1">
-                <Navigation className="w-4 h-4 text-base-content/30 shrink-0" />
                 {editandoMmsi ? (
                   <form onSubmit={handleGuardarMmsi} className="flex gap-1">
                     <input
@@ -392,203 +590,47 @@ export default function ContenedorDetalle() {
                     <button type="button" onClick={() => setEditandoMmsi(false)} className="btn btn-xs">✕</button>
                   </form>
                 ) : (
-                  <span className="flex items-center gap-1">
-                    {imp.mmsiBarco
-                      ? <span className="font-mono text-base-content/80">MMSI {imp.mmsiBarco}</span>
-                      : <span className="text-base-content/30 italic text-xs">Sin MMSI</span>
-                    }
-                    <button onClick={() => { setMmsiInput(imp.mmsiBarco || ''); setEditandoMmsi(true); }} className="btn btn-ghost btn-xs" title="Editar MMSI del barco">
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                  </span>
+                  <button
+                    onClick={() => { setMmsiInput(imp.mmsiBarco || ''); setEditandoMmsi(true); }}
+                    className="btn btn-xs btn-ghost gap-1 text-base-content/40 font-normal"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    {imp.mmsiBarco ? `MMSI ${imp.mmsiBarco}` : 'Sin MMSI'}
+                    <Pencil className="w-3 h-3" />
+                  </button>
                 )}
               </div>
-              {/* Link directo a VesselFinder */}
-              {(imp.mmsiBarco || imp.nombreBarco) && (
-                <a
-                  href={imp.mmsiBarco
-                    ? `https://www.vesselfinder.com/vessels/details/${imp.mmsiBarco}`
-                    : `https://www.vesselfinder.com/vessels/search?name=${encodeURIComponent(imp.nombreBarco)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-ghost btn-xs gap-1 text-primary"
-                >
-                  <Navigation className="w-3 h-3" /> Ver posición en vivo
-                </a>
-              )}
-            </div>
-
-            {/* Tarjeta de posición AIS (VesselFinder djson scraping) */}
-            {posicionBarco && (
-              <div className="grid grid-cols-3 gap-2 mb-3 text-center text-xs">
-                <div className="bg-base-200 rounded-lg py-2 px-1">
-                  <p className="text-base-content/40">Velocidad</p>
-                  <p className="font-bold text-base">{posicionBarco.sog ?? '—'} kn</p>
-                </div>
-                <div className="bg-base-200 rounded-lg py-2 px-1">
-                  <p className="text-base-content/40">Rumbo</p>
-                  <p className="font-bold text-base">{posicionBarco.cog ?? '—'}°</p>
-                </div>
-                <div className="bg-base-200 rounded-lg py-2 px-1">
-                  <p className="text-base-content/40">Última señal</p>
-                  <p className="font-bold text-base truncate">{posicionBarco.lrpd ?? '—'}</p>
-                </div>
-                {posicionBarco.lat != null && posicionBarco.lon != null && (
+              {imp.mmsiBarco && (
+                <div className="flex gap-3">
+                  {posicionBarco?.lat != null && (
+                    <a
+                      href={`https://www.google.com/maps?q=${posicionBarco.lat},${posicionBarco.lon}&z=6`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-base-content/40 hover:text-base-content/70"
+                    >
+                      Google Maps
+                    </a>
+                  )}
                   <a
-                    href={`https://www.google.com/maps?q=${posicionBarco.lat},${posicionBarco.lon}&z=5`}
+                    href={`https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="col-span-3 bg-base-200 rounded-lg py-2 px-3 flex items-center gap-2 hover:bg-base-300"
+                    className="text-xs text-primary"
                   >
-                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span className="font-mono text-base-content/70">
-                      {posicionBarco.lat}°, {posicionBarco.lon}°
-                    </span>
-                    <span className="ml-auto text-primary text-xs">Ver en mapa →</span>
+                    MarineTraffic →
                   </a>
-                )}
-              </div>
-            )}
-
-            {/* Mapa de posición AIS — OpenStreetMap cuando hay coords, placeholder si no */}
-            {imp.mmsiBarco && posicionBarco?.lat != null && posicionBarco?.lon != null && (() => {
-              const { lat, lon } = posicionBarco;
-              const delta = 4;
-              const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta},${lat - delta},${lon + delta},${lat + delta}&layer=mapnik&marker=${lat},${lon}`;
-              return (
-                <div className="mb-4">
-                  <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
-                    <Anchor className="w-3 h-3" />
-                    Última posición AIS — {lat}°, {lon}°
-                    {posicionBarco.lrpd && <span className="ml-1 text-warning">({posicionBarco.lrpd})</span>}
-                  </p>
-                  <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 280 }}>
-                    <iframe
-                      key={`osm-${lat}-${lon}`}
-                      title={`Posición — ${imp.nombreBarco || imp.mmsiBarco}`}
-                      src={mapUrl}
-                      width="100%"
-                      height="280"
-                      style={{ border: 0, display: 'block' }}
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <p className="text-xs text-base-content/30">© OpenStreetMap · marcador = última señal AIS</p>
-                    <div className="flex gap-3">
-                      <a
-                        href={`https://www.google.com/maps?q=${lat},${lon}&z=6`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-base-content/50 underline"
-                      >
-                        Google Maps
-                      </a>
-                      <a
-                        href={`https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary underline"
-                      >
-                        MarineTraffic →
-                      </a>
-                    </div>
-                  </div>
+                  <a
+                    href={`https://www.vesselfinder.com/vessels/details/${imp.mmsiBarco}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-base-content/40 hover:text-base-content/70"
+                  >
+                    VesselFinder
+                  </a>
                 </div>
-              );
-            })()}
-            {imp.mmsiBarco && !posicionBarco && (
-              <p className="text-xs text-base-content/30 mb-3 flex items-center gap-1">
-                <Anchor className="w-3 h-3" /> Pulsa &quot;Actualizar ahora&quot; para cargar la posición en el mapa
-              </p>
-            )}
-
-            {/* ETA desde DB */}
-            {imp.etaEstimada && (
-              <div className="alert alert-info py-2 mb-3 text-sm">
-                🎯 ETA estimada: <strong>{fmtFecha(imp.etaEstimada)}</strong>
-              </div>
-            )}
-
-            {/* Último estado guardado (antes de actualizar) */}
-            {!eventos && imp.ultimoEstadoTracking && (
-              <div className="bg-base-200 rounded-lg p-3 mb-3 text-sm">
-                <span className="text-base-content/50 text-xs">Último estado conocido</span>
-                <p className="font-medium mt-0.5">{imp.ultimoEstadoTracking}</p>
-                {imp.ultimoTrackingCheck && (
-                  <p className="text-xs text-base-content/40 mt-1">
-                    Comprobado {fmtDatetime(imp.ultimoTrackingCheck)}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Sin número de tracking */}
-            {!imp.numContenedor && !imp.blNumber && (
-              <div className="alert alert-warning text-sm py-2">
-                <AlertTriangle className="w-4 h-4" />
-                Este contenedor no tiene número de contenedor ni BL asignado.
-              </div>
-            )}
-
-            {/* Error */}
-            {errorTracking && (
-              <div className="alert alert-error text-sm py-2 mb-3">{errorTracking}</div>
-            )}
-
-            {/* Tabla de eventos */}
-            {eventos !== null && eventos.length > 0 && (
-              <>
-                {ultimaConsulta && (
-                  <p className="text-xs text-base-content/40 mb-2">
-                    Consultado {fmtDatetime(ultimaConsulta)}
-                  </p>
-                )}
-                <div className="overflow-x-auto">
-                  <table className="table table-sm w-full">
-                    <thead>
-                      <tr>
-                        <th>Fecha / Hora</th>
-                        <th>Evento</th>
-                        <th>Ubicación</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {eventos.map((e, i) => (
-                        <tr key={i} className={i === 0 ? 'bg-primary/5 font-semibold' : ''}>
-                          <td className="whitespace-nowrap text-xs">
-                            {e.occurrenceDatetime ? fmtDatetime(e.occurrenceDatetime) : '—'}
-                          </td>
-                          <td>{e.status}</td>
-                          <td className="text-xs text-base-content/60">{e.location || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-
-            {/* Sin eventos */}
-            {eventos !== null && eventos.length === 0 && (
-              <div className="text-center py-6 text-base-content/40">
-                <Ship className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Sin eventos disponibles aún.</p>
-                <p className="text-xs mt-1">
-                  {['MSCU','MEDU','MSDU','MSKL','MSXU'].includes((imp?.numContenedor || '').slice(0,4).toUpperCase())
-                    ? 'MSC puede tardar unas horas en actualizar.'
-                    : 'La naviera puede tardar unas horas en actualizar.'}
-                </p>
-              </div>
-            )}
-
-            {/* Cargando */}
-            {actualizando && !eventos && (
-              <div className="flex justify-center py-8">
-                <span className="loading loading-spinner loading-md" />
-              </div>
-            )}
+              )}
+            </div>
 
           </div>
         </div>

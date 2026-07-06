@@ -48,19 +48,21 @@ export async function GET(request, { params }) {
         : Promise.resolve(null),
     ]);
 
+    const datosGuardar = {};
     if (tracking) {
-      await db.importacionContenedor.update({
-        where: { id },
-        data: {
-          ultimoTrackingCheck: new Date(),
-          ...(tracking.ultimoEvento && {
-            ultimoEvento:         claveEvento(tracking.ultimoEvento),
-            ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,
-          }),
-          ...(tracking.eta && { etaEstimada: new Date(tracking.eta) }),
-          ...(nombreBarco && { nombreBarco }),
-        },
-      });
+      datosGuardar.ultimoTrackingCheck = new Date();
+      if (tracking.ultimoEvento) {
+        datosGuardar.ultimoEvento         = claveEvento(tracking.ultimoEvento);
+        datosGuardar.ultimoEstadoTracking = tracking.ultimoEvento.status ?? null;
+      }
+      if (tracking.eta)   datosGuardar.etaEstimada = new Date(tracking.eta);
+      if (nombreBarco)    datosGuardar.nombreBarco  = nombreBarco;
+    }
+    if (posicionBarco) {
+      datosGuardar.ultimaPosicionBarco = JSON.stringify({ ...posicionBarco, at: new Date().toISOString() });
+    }
+    if (Object.keys(datosGuardar).length > 0) {
+      await db.importacionContenedor.update({ where: { id }, data: datosGuardar });
     }
 
     return NextResponse.json({

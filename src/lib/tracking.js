@@ -292,6 +292,17 @@ const VF_HEADERS = {
   'Origin':     'https://www.vesselfinder.com',
 };
 
+// Traduce el campo lrpd de VesselFinder ("46 hours ago") al español
+function traducirLrpd(lrpd) {
+  if (!lrpd) return null;
+  return lrpd
+    .replace(/^(\d+) hours? ago$/i, (_, n) => `hace ${n} ${+n === 1 ? 'hora' : 'horas'}`)
+    .replace(/^(\d+) days? ago$/i,  (_, n) => `hace ${n} ${+n === 1 ? 'día' : 'días'}`)
+    .replace(/^(\d+) minutes? ago$/i, (_, n) => `hace ${n} ${+n === 1 ? 'minuto' : 'minutos'}`)
+    .replace(/^just now$/i, 'ahora mismo')
+    .replace(/^a few seconds ago$/i, 'ahora mismo');
+}
+
 /**
  * Obtiene posición AIS actual de un barco desde VesselFinder.
  * El MMSI redirige (301) al URL con IMO; el HTML SSR incluye un div#djson con
@@ -318,7 +329,7 @@ export async function buscarPosicionVesselFinder(mmsi) {
       lon:   d.ship_lon  ?? null,
       sog:   d.ship_sog  ?? null,
       cog:   d.ship_cog  ?? null,
-      lrpd:  d.lrpd      ?? null,
+      lrpd:  traducirLrpd(d.lrpd),
     };
   } catch (e) {
     logApiError(e, `tracking:vf:pos:${mmsi}`);
