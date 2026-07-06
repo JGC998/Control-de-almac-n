@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, enviarWhatsApp } from '@/lib/tracking';
+import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, buscarScheduleBarco, enviarWhatsApp } from '@/lib/tracking';
 
 // POST /api/importaciones/[id]/whatsapp
 // Envía la posición actual del barco via CallMeBot WhatsApp
@@ -11,25 +11,28 @@ export async function POST(request, { params }) {
     const imp = await db.importacionContenedor.findUnique({
       where: { id },
       select: {
-        numContenedor: true,
-        blNumber:      true,
-        descripcion:   true,
-        nombreBarco:   true,
-        mmsiBarco:     true,
-        etaEstimada:   true,
-        proveedor:     { select: { nombre: true } },
+        numContenedor:       true,
+        blNumber:            true,
+        descripcion:         true,
+        nombreBarco:         true,
+        mmsiBarco:           true,
+        etaEstimada:         true,
+        ultimoEstadoTracking: true,
+        proveedor:           { select: { nombre: true } },
       },
     });
     if (!imp) return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
-    if (!imp.mmsiBarco) return NextResponse.json({ error: 'Sin MMSI configurado' }, { status: 400 });
 
     const contenedor = imp.numContenedor || imp.blNumber || '-';
     const barco      = imp.nombreBarco || 'Barco';
     const proveedor  = imp.proveedor?.nombre ?? null;
 
+    // Si hay MMSI obtenemos posición AIS + schedule por MMSI; si no, solo schedule por nombre
     const [posicion, schedule] = await Promise.all([
-      buscarPosicionVesselFinder(imp.mmsiBarco),
-      buscarSchedulePorMmsi(imp.mmsiBarco, imp.nombreBarco),
+      imp.mmsiBarco ? buscarPosicionVesselFinder(imp.mmsiBarco) : Promise.resolve(null),
+      imp.mmsiBarco
+        ? buscarSchedulePorMmsi(imp.mmsiBarco, imp.nombreBarco)
+        : (imp.nombreBarco ? buscarScheduleBarco(imp.nombreBarco) : Promise.resolve(null)),
     ]);
 
     const puertos = schedule?.puertos ?? [];
@@ -65,6 +68,7 @@ export async function POST(request, { params }) {
         : `📦 ${contenedor}`,
       origenNombre ? `🗺 ${origenNombre} → Valencia` : null,
       ``,
+      // Datos AIS (solo cuando hay MMSI + posición)
       posicion?.lrpd
         ? `📡 Señal AIS: ${posicion.lrpd}`
         : null,
@@ -74,11 +78,17 @@ export async function POST(request, { params }) {
       posicion?.lat != null && posicion?.lon != null
         ? `📍 https://maps.google.com/?q=${posicion.lat},${posicion.lon}`
         : null,
+      // Último evento de tracking (útil cuando no hay AIS)
+      !posicion && imp.ultimoEstadoTracking
+        ? `📋 Último evento: ${imp.ultimoEstadoTracking}`
+        : null,
       ``,
       etaFinal ? `📅 ETA Valencia: *${fmtFecha(etaFinal)}*${etaDias}` : null,
       ``,
       `──────────────────`,
-      `Seguimiento: https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}`,
+      imp.mmsiBarco
+        ? `Seguimiento: https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}`
+        : (imp.numContenedor ? `Ref: ${imp.numContenedor}` : null),
     ].filter(l => l !== null).join('\n');
 
     const resultados = await enviarWhatsApp(lineas);

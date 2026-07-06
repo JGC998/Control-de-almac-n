@@ -333,12 +333,12 @@ export default function ContenedorDetalle() {
                 <MapPin className="w-5 h-5 text-primary" /> Seguimiento
               </h2>
               <div className="flex items-center gap-2">
-                {imp.mmsiBarco && (
+                {(imp.mmsiBarco || imp.nombreBarco || scheduleBarco) && (
                   <button
                     className={`btn btn-sm gap-1 ${waResultado === 'enviado' ? 'btn-success' : waResultado === 'error' ? 'btn-error' : 'btn-success'}`}
                     onClick={handleWhatsApp}
                     disabled={enviandoWA}
-                    title="Enviar posición por WhatsApp via CallMeBot"
+                    title="Enviar seguimiento por WhatsApp via CallMeBot"
                   >
                     {enviandoWA
                       ? <span className="loading loading-spinner loading-xs" />
