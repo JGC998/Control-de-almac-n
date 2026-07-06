@@ -626,6 +626,7 @@ model ImportacionContenedor {
   etaEstimada           DateTime?
   courierCode           String?
   nombreBarco           String?
+  mmsiBarco             String?
   ultimaPosicionBarco   String?
   ultimaAlertaEta       DateTime?
 

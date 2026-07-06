@@ -141,6 +141,8 @@ export default function ContenedorDetalle() {
   const [marcandoRecibido, setMarcandoRecibido] = useState(false);
   const [editandoBarco, setEditandoBarco]   = useState(false);
   const [barcoInput, setBarcoInput]         = useState('');
+  const [editandoMmsi, setEditandoMmsi]     = useState(false);
+  const [mmsiInput, setMmsiInput]           = useState('');
 
   // Cargar tracking automáticamente al abrir si el contenedor tiene número y está activo
   useEffect(() => {
@@ -178,8 +180,19 @@ export default function ContenedorDetalle() {
     });
     setEditandoBarco(false);
     mutate();
-    // Lanzar actualización de tracking con el nuevo barco
     if (nombre) handleActualizar();
+  };
+
+  const handleGuardarMmsi = async (e) => {
+    e.preventDefault();
+    const mmsi = mmsiInput.trim().replace(/\D/g, '');
+    await fetch(`/api/importaciones/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mmsiBarco: mmsi || null }),
+    });
+    setEditandoMmsi(false);
+    mutate();
   };
 
   const handleMarcarRecibido = async () => {
@@ -298,37 +311,96 @@ export default function ContenedorDetalle() {
               </button>
             </div>
 
-            {/* Nombre del barco — editable manualmente (útil cuando la naviera bloquea scraping) */}
-            <div className="flex items-center gap-2 text-sm mb-3">
-              <Ship className="w-4 h-4 text-base-content/30 shrink-0" />
-              {editandoBarco ? (
-                <form onSubmit={handleGuardarBarco} className="flex gap-2 flex-1">
-                  <input
-                    className="input input-xs input-bordered flex-1 font-mono"
-                    value={barcoInput}
-                    onChange={e => setBarcoInput(e.target.value.toUpperCase())}
-                    placeholder="Ej: MSC ALLEGRA"
-                    autoFocus
-                  />
-                  <button type="submit" className="btn btn-xs btn-primary">Guardar</button>
-                  <button type="button" onClick={() => setEditandoBarco(false)} className="btn btn-xs">✕</button>
-                </form>
-              ) : (
-                <span className="flex items-center gap-1">
-                  {imp.nombreBarco
-                    ? <span className="font-mono text-base-content/80">{imp.nombreBarco}</span>
-                    : <span className="text-base-content/30 italic text-xs">Sin barco — escríbelo para activar posición en mapa</span>
-                  }
-                  <button
-                    onClick={() => { setBarcoInput(imp.nombreBarco || ''); setEditandoBarco(true); }}
-                    className="btn btn-ghost btn-xs"
-                    title="Editar nombre del barco"
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </button>
-                </span>
+            {/* Barco + MMSI — editables manualmente */}
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm mb-3">
+              {/* Nombre del barco */}
+              <div className="flex items-center gap-1">
+                <Ship className="w-4 h-4 text-base-content/30 shrink-0" />
+                {editandoBarco ? (
+                  <form onSubmit={handleGuardarBarco} className="flex gap-1">
+                    <input
+                      className="input input-xs input-bordered w-36 font-mono"
+                      value={barcoInput}
+                      onChange={e => setBarcoInput(e.target.value.toUpperCase())}
+                      placeholder="MSC ALLEGRA"
+                      autoFocus
+                    />
+                    <button type="submit" className="btn btn-xs btn-primary">OK</button>
+                    <button type="button" onClick={() => setEditandoBarco(false)} className="btn btn-xs">✕</button>
+                  </form>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    {imp.nombreBarco
+                      ? <span className="font-mono text-base-content/80">{imp.nombreBarco}</span>
+                      : <span className="text-base-content/30 italic text-xs">Sin barco</span>
+                    }
+                    <button onClick={() => { setBarcoInput(imp.nombreBarco || ''); setEditandoBarco(true); }} className="btn btn-ghost btn-xs" title="Editar nombre del barco">
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+              {/* MMSI */}
+              <div className="flex items-center gap-1">
+                <Navigation className="w-4 h-4 text-base-content/30 shrink-0" />
+                {editandoMmsi ? (
+                  <form onSubmit={handleGuardarMmsi} className="flex gap-1">
+                    <input
+                      className="input input-xs input-bordered w-28 font-mono"
+                      value={mmsiInput}
+                      onChange={e => setMmsiInput(e.target.value)}
+                      placeholder="636020600"
+                      autoFocus
+                    />
+                    <button type="submit" className="btn btn-xs btn-primary">OK</button>
+                    <button type="button" onClick={() => setEditandoMmsi(false)} className="btn btn-xs">✕</button>
+                  </form>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    {imp.mmsiBarco
+                      ? <span className="font-mono text-base-content/80">MMSI {imp.mmsiBarco}</span>
+                      : <span className="text-base-content/30 italic text-xs">Sin MMSI</span>
+                    }
+                    <button onClick={() => { setMmsiInput(imp.mmsiBarco || ''); setEditandoMmsi(true); }} className="btn btn-ghost btn-xs" title="Editar MMSI del barco">
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+              {/* Link directo a VesselFinder */}
+              {(imp.mmsiBarco || imp.nombreBarco) && (
+                <a
+                  href={imp.mmsiBarco
+                    ? `https://www.vesselfinder.com/vessels/details/${imp.mmsiBarco}`
+                    : `https://www.vesselfinder.com/vessels/search?name=${encodeURIComponent(imp.nombreBarco)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost btn-xs gap-1 text-primary"
+                >
+                  <Navigation className="w-3 h-3" /> Ver posición en vivo
+                </a>
               )}
             </div>
+
+            {/* Mapa MarineTraffic embed — gratis, sin API, siempre actualizado */}
+            {imp.mmsiBarco && (
+              <div className="mb-4">
+                <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 260 }}>
+                  <iframe
+                    title={`Posición en vivo — ${imp.nombreBarco || imp.mmsiBarco}`}
+                    src={`https://www.marinetraffic.com/en/ais/embed/zoom:5/centery:30/centerx:15/maptype:4/mmsi:${imp.mmsiBarco}`}
+                    width="100%"
+                    height="260"
+                    style={{ border: 0, display: 'block' }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <p className="text-xs text-base-content/30 mt-1 text-right">
+                  © <a href="https://www.marinetraffic.com" target="_blank" rel="noopener noreferrer" className="underline">MarineTraffic</a>
+                </p>
+              </div>
+            )}
 
             {/* ETA desde DB */}
             {imp.etaEstimada && (
