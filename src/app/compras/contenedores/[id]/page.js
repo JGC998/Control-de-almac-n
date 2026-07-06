@@ -136,6 +136,7 @@ export default function ContenedorDetalle() {
   const [actualizando, setActualizando]     = useState(false);
   const [eventos, setEventos]               = useState(null);
   const [scheduleBarco, setScheduleBarco]   = useState(null);
+  const [posicionBarco, setPosicionBarco]   = useState(null);
   const [errorTracking, setErrorTracking]   = useState(null);
   const [ultimaConsulta, setUltimaConsulta] = useState(null);
   const [marcandoRecibido, setMarcandoRecibido] = useState(false);
@@ -161,6 +162,7 @@ export default function ContenedorDetalle() {
       if (!res.ok) throw new Error(data.error || 'Error al obtener tracking');
       setEventos(data.eventos || []);
       setScheduleBarco(data.scheduleBarco ?? null);
+      setPosicionBarco(data.posicionBarco ?? null);
       setUltimaConsulta(data.consultadoEn ? new Date(data.consultadoEn) : new Date());
       mutate();
     } catch (err) {
@@ -199,17 +201,23 @@ export default function ContenedorDetalle() {
     const contenedor = imp.numContenedor || imp.blNumber || '-';
     const barco = imp.nombreBarco || 'Barco';
     const puertos = scheduleBarco?.puertos ?? [];
-    const ultimaPos = puertos.find(p => p.esPosicionActual)
-      ?? [...puertos].reverse().find(p => !!p.ata);
     const etaValencia = puertos.find(p =>
       p.portCode === 'ESVLC' || p.puerto?.toLowerCase().includes('valencia')
     );
     const etaFinal = etaValencia?.eta ?? imp.etaEstimada;
+    const pos = posicionBarco;
     const lineas = [
       `🚢 *${barco}* — ${contenedor}`,
-      ultimaPos && `📍 Última posición: ${ultimaPos.puerto}${ultimaPos.ata ? ` (${fmtFecha(ultimaPos.ata)})` : ''}`,
+      pos?.sog && pos?.cog
+        ? `⚡ ${pos.sog} kn · Rumbo ${pos.cog}°${pos.lrpd ? ` (hace ${pos.lrpd})` : ''}`
+        : null,
+      pos?.lat != null && pos?.lon != null
+        ? `📍 Posición: https://www.google.com/maps?q=${pos.lat},${pos.lon}&z=5`
+        : null,
       etaFinal && `🏁 ETA Valencia: *${fmtFecha(etaFinal)}*`,
-      imp.mmsiBarco && `🔗 https://www.marinetraffic.com/en/ais/home/mmsi:${imp.mmsiBarco}/zoom:8`,
+      imp.mmsiBarco
+        ? `🔍 https://www.vesselfinder.com/vessels/details/${imp.mmsiBarco}`
+        : null,
     ].filter(Boolean).join('\n');
     window.open(`https://wa.me/?text=${encodeURIComponent(lineas)}`, '_blank');
   };
@@ -411,6 +419,38 @@ export default function ContenedorDetalle() {
                 </a>
               )}
             </div>
+
+            {/* Tarjeta de posición AIS (VesselFinder djson scraping) */}
+            {posicionBarco && (
+              <div className="grid grid-cols-3 gap-2 mb-3 text-center text-xs">
+                <div className="bg-base-200 rounded-lg py-2 px-1">
+                  <p className="text-base-content/40">Velocidad</p>
+                  <p className="font-bold text-base">{posicionBarco.sog ?? '—'} kn</p>
+                </div>
+                <div className="bg-base-200 rounded-lg py-2 px-1">
+                  <p className="text-base-content/40">Rumbo</p>
+                  <p className="font-bold text-base">{posicionBarco.cog ?? '—'}°</p>
+                </div>
+                <div className="bg-base-200 rounded-lg py-2 px-1">
+                  <p className="text-base-content/40">Última señal</p>
+                  <p className="font-bold text-base truncate">{posicionBarco.lrpd ?? '—'}</p>
+                </div>
+                {posicionBarco.lat != null && posicionBarco.lon != null && (
+                  <a
+                    href={`https://www.google.com/maps?q=${posicionBarco.lat},${posicionBarco.lon}&z=5`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="col-span-3 bg-base-200 rounded-lg py-2 px-3 flex items-center gap-2 hover:bg-base-300"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="font-mono text-base-content/70">
+                      {posicionBarco.lat}°, {posicionBarco.lon}°
+                    </span>
+                    <span className="ml-auto text-primary text-xs">Ver en mapa →</span>
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* Ficha del barco vía MyShipTracking — sin X-Frame-Options, muestra posición + ETA + velocidad */}
             {imp.mmsiBarco && (

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarTracking, claveEvento, extraerNombreBarco, buscarScheduleBarco, buscarSchedulePorMmsi } from '@/lib/tracking';
+import { buscarTracking, claveEvento, extraerNombreBarco, buscarScheduleBarco, buscarSchedulePorMmsi, buscarPosicionVesselFinder } from '@/lib/tracking';
 
 /**
  * GET /api/importaciones/[id]/tracking
@@ -39,10 +39,13 @@ export async function GET(request, { params }) {
     // Schedule del barco:
     // 1. Si hay MMSI guardado → llama directo a VesselFinder pcext (sin búsqueda por nombre)
     // 2. Si no → busca por nombre (Yang Ming schedule → VesselFinder fallback)
-    const [scheduleBarco] = await Promise.all([
+    const [scheduleBarco, posicionBarco] = await Promise.all([
       imp.mmsiBarco
         ? buscarSchedulePorMmsi(imp.mmsiBarco, nombreBarco)
         : (nombreBarco ? buscarScheduleBarco(nombreBarco) : Promise.resolve(null)),
+      imp.mmsiBarco
+        ? buscarPosicionVesselFinder(imp.mmsiBarco)
+        : Promise.resolve(null),
     ]);
 
     if (tracking) {
@@ -67,6 +70,7 @@ export async function GET(request, { params }) {
       eta: tracking?.eta ?? null,
       nombreBarco,
       scheduleBarco,
+      posicionBarco,
       consultadoEn: new Date().toISOString(),
     });
 

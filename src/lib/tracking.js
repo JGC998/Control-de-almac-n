@@ -292,6 +292,40 @@ const VF_HEADERS = {
   'Origin':     'https://www.vesselfinder.com',
 };
 
+/**
+ * Obtiene posición AIS actual de un barco desde VesselFinder.
+ * El MMSI redirige (301) al URL con IMO; el HTML SSR incluye un div#djson con
+ * data-json que contiene ship_lat, ship_lon, ship_sog, ship_cog, lrpd (tiempo desde última posición).
+ */
+export async function buscarPosicionVesselFinder(mmsi) {
+  if (!mmsi) return null;
+  try {
+    const res = await fetch(
+      `https://www.vesselfinder.com/vessels/details/${mmsi}`,
+      {
+        headers: { ...VF_HEADERS, Accept: 'text/html,application/xhtml+xml' },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!res.ok) return null;
+    const html = await res.text();
+    const m = html.match(/id="djson"[^>]*data-json='([^']+)'/);
+    if (!m) return null;
+    const d = JSON.parse(m[1]);
+    return {
+      lat:   d.ship_lat  ?? null,
+      lon:   d.ship_lon  ?? null,
+      sog:   d.ship_sog  ?? null,
+      cog:   d.ship_cog  ?? null,
+      lrpd:  d.lrpd      ?? null,
+    };
+  } catch (e) {
+    logApiError(e, `tracking:vf:pos:${mmsi}`);
+    return null;
+  }
+}
+
 // ETA de VesselFinder viene como string "MMDDHHMM" (UTC)
 function parseVFEta(etaStr) {
   if (!etaStr) return null;
