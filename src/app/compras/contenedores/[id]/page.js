@@ -252,6 +252,7 @@ export default function ContenedorDetalle() {
   );
 
   const estado = ESTADOS[imp.estado] ?? { label: imp.estado, color: 'badge-neutral' };
+  const nombreBarcoMostrar = imp.nombreBarco || scheduleBarco?.vesselName || scheduleBarco?.vesselCode || null;
 
   return (
     <div className="container mx-auto p-4 max-w-3xl">
@@ -357,11 +358,11 @@ export default function ContenedorDetalle() {
             </div>
 
             {/* Banner del barco */}
-            {(imp.nombreBarco || posicionBarco) && (
+            {(nombreBarcoMostrar || posicionBarco) && (
               <div className="bg-neutral text-neutral-content mx-5 rounded-xl mb-4 px-4 py-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-extrabold text-lg leading-tight">{imp.nombreBarco || 'Barco'}</p>
+                    <p className="font-extrabold text-lg leading-tight">{nombreBarcoMostrar || 'Barco'}</p>
                     {imp.descripcion && (
                       <p className="text-neutral-content/50 text-xs mt-0.5">{imp.descripcion}</p>
                     )}
@@ -472,6 +473,36 @@ export default function ContenedorDetalle() {
                 </p>
               )}
 
+              {/* Mapa del puerto actual — fallback cuando no hay posición AIS */}
+              {!imp.mmsiBarco && (() => {
+                const pActual = scheduleBarco?.puertos?.find(p => p.esPosicionActual)
+                  ?? scheduleBarco?.puertos?.findLast?.(p => p.ata) ?? null;
+                const coords = pActual ? coordsParaPuerto(pActual.portCode, pActual.puerto) : null;
+                if (!coords) return null;
+                const { lat, lon, nombre } = coords;
+                const delta = 0.4;
+                const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta},${lat - delta},${lon + delta},${lat + delta}&layer=mapnik&marker=${lat},${lon}`;
+                return (
+                  <div className="mb-4">
+                    <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
+                      <Anchor className="w-3 h-3" /> Último puerto confirmado: {nombre}
+                    </p>
+                    <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 260 }}>
+                      <iframe
+                        key={`portmap-${lat}-${lon}`}
+                        title={`Puerto ${nombre}`}
+                        src={mapUrl}
+                        width="100%"
+                        height="260"
+                        style={{ border: 0, display: 'block' }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Último estado guardado */}
               {!eventos && imp.ultimoEstadoTracking && (
                 <div className="bg-base-200 rounded-lg p-3 mb-3 text-sm">
@@ -548,6 +579,47 @@ export default function ContenedorDetalle() {
               {actualizando && !eventos && (
                 <div className="flex justify-center py-8">
                   <span className="loading loading-spinner loading-md" />
+                </div>
+              )}
+
+              {/* Timeline de escalas del buque */}
+              {scheduleBarco?.puertos?.length > 0 && (
+                <div className="mt-3 border-t border-base-200 pt-4 pb-1">
+                  <p className="text-xs font-semibold text-base-content/40 uppercase tracking-wide mb-3">
+                    {scheduleBarco.vesselName || scheduleBarco.vesselCode || imp.nombreBarco || 'Buque'}
+                    {' — escalas'}
+                  </p>
+                  <div className="space-y-1">
+                    {scheduleBarco.puertos.map((p, i) => {
+                      const confirmado = !!p.ata;
+                      const esCurrent  = p.esPosicionActual;
+                      const fecha      = confirmado ? p.ata : p.eta;
+                      return (
+                        <div key={i} className={`flex items-start gap-3 py-2 px-3 rounded-lg ${esCurrent ? 'bg-secondary/10 border border-secondary/30' : confirmado ? 'opacity-60' : ''}`}>
+                          <div className="flex flex-col items-center mt-0.5">
+                            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${esCurrent ? 'bg-secondary' : confirmado ? 'bg-success' : 'bg-base-300'}`} />
+                            {i < scheduleBarco.puertos.length - 1 && <div className="w-0.5 h-4 bg-base-300 mt-1" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`font-medium text-sm ${esCurrent ? 'text-secondary' : ''}`}>
+                                {p.puerto}
+                                {p.pais && <span className="text-base-content/40 font-normal"> ({p.pais})</span>}
+                              </span>
+                              {esCurrent && <span className="badge badge-secondary badge-xs">Última posición</span>}
+                              {confirmado && !esCurrent && <span className="badge badge-success badge-xs">Confirmado</span>}
+                            </div>
+                            {fecha && (
+                              <p className="text-xs text-base-content/50 mt-0.5">
+                                {confirmado ? 'ATA' : 'ETA'}: {fmtFecha(fecha)}
+                                {p.etd && <span className="ml-2">ETD: {fmtFecha(p.etd)}</span>}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -636,84 +708,6 @@ export default function ContenedorDetalle() {
         </div>
       ) : null}
 
-      {/* Sección: Posición del barco */}
-      {scheduleBarco?.puertos?.length > 0 && (
-        <div className="card bg-base-100 shadow-sm border border-base-200 mt-4">
-          <div className="card-body p-5">
-            <h2 className="font-bold text-lg flex items-center gap-2 mb-3">
-              <Navigation className="w-5 h-5 text-secondary" />
-              {scheduleBarco.vesselName ?? scheduleBarco.vesselCode ?? 'Barco'}
-              <span className="text-base-content/40 text-sm font-normal">— escalas</span>
-            </h2>
-
-            {/* Timeline de escalas */}
-            <div className="space-y-1 mb-4">
-              {scheduleBarco.puertos.map((p, i) => {
-                const confirmado = !!p.ata;
-                const esCurrent  = p.esPosicionActual;
-                const fecha      = confirmado ? p.ata : p.eta;
-                return (
-                  <div key={i} className={`flex items-start gap-3 py-2 px-3 rounded-lg ${esCurrent ? 'bg-secondary/10 border border-secondary/30' : confirmado ? 'opacity-60' : ''}`}>
-                    <div className="flex flex-col items-center mt-0.5">
-                      <div className={`w-3 h-3 rounded-full flex-shrink-0 ${esCurrent ? 'bg-secondary' : confirmado ? 'bg-success' : 'bg-base-300'}`} />
-                      {i < scheduleBarco.puertos.length - 1 && <div className="w-0.5 h-4 bg-base-300 mt-1" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-medium text-sm ${esCurrent ? 'text-secondary' : ''}`}>
-                          {p.puerto}
-                          {p.pais && <span className="text-base-content/40 font-normal"> ({p.pais})</span>}
-                        </span>
-                        {esCurrent && <span className="badge badge-secondary badge-xs">Última posición</span>}
-                        {confirmado && !esCurrent && <span className="badge badge-success badge-xs">Confirmado</span>}
-                      </div>
-                      {fecha && (
-                        <p className="text-xs text-base-content/50 mt-0.5">
-                          {confirmado ? 'ATA' : 'ETA'}: {fmtFecha(fecha)}
-                          {p.etd && <span className="ml-2">ETD: {fmtFecha(p.etd)}</span>}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Mapa OpenStreetMap del puerto actual */}
-            {(() => {
-              const pActual = scheduleBarco.puertos.find(p => p.esPosicionActual)
-                ?? scheduleBarco.puertos.findLast(p => p.ata)
-                ?? null;
-              const coords = pActual ? coordsParaPuerto(pActual.portCode, pActual.puerto) : null;
-              if (!coords) return null;
-              const { lat, lon, nombre } = coords;
-              const delta = 0.4;
-              const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon-delta},${lat-delta},${lon+delta},${lat+delta}&layer=mapnik&marker=${lat},${lon}`;
-              return (
-                <div className="mt-2">
-                  <p className="text-xs text-base-content/40 mb-1 flex items-center gap-1">
-                    <Anchor className="w-3 h-3" /> {nombre}
-                  </p>
-                  <div className="rounded-xl overflow-hidden border border-base-300" style={{ height: 260 }}>
-                    <iframe
-                      title={`Mapa puerto ${nombre}`}
-                      src={mapUrl}
-                      width="100%"
-                      height="260"
-                      style={{ border: 0, display: 'block' }}
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <p className="text-xs text-base-content/30 mt-1 text-right">
-                    © <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap</a>
-                  </p>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
 
     </div>
   );

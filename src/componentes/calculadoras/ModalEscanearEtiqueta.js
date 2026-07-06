@@ -98,13 +98,36 @@ export default function ModalEscanearEtiqueta({ onConfirmar, onClose }) {
     };
   }, []);
 
+  // Convierte el File a Canvas para garantizar formato compatible con Tesseract
+  // y escala imágenes grandes de cámara (4K+) para no agotar memoria.
+  const prepararImagen = useCallback(async (file) => {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const MAX = 1800;
+      const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(bitmap.width  * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      const ctx = canvas.getContext('2d');
+      // Aumentar contraste ayuda al OCR en etiquetas de almacén
+      ctx.filter = 'contrast(1.3) grayscale(1)';
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      return canvas;
+    } catch {
+      return file; // si falla el preprocesado, usar el File original
+    }
+  }, []);
+
   const procesar = useCallback(async (file) => {
     setPaso('procesando');
     setError(null);
     setProgreso(0);
     try {
+      const imagen = await prepararImagen(file);
+
       const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker(['eng', 'spa'], 1, {
+      const worker = await createWorker('eng+spa', 1, {
         logger: (m) => {
           if (m.status === 'recognizing text') {
             setProgreso(Math.round(m.progress * 100));
@@ -112,19 +135,30 @@ export default function ModalEscanearEtiqueta({ onConfirmar, onClose }) {
         },
       });
       workerRef.current = worker;
-      const { data: { text } } = await worker.recognize(file);
+      const { data: { text } } = await worker.recognize(imagen);
       await worker.terminate();
       workerRef.current = null;
+
+      if (!text?.trim()) {
+        setError('No se detectó texto. Asegúrate de que la imagen sea nítida y esté bien iluminada.');
+        setPaso('captura');
+        return;
+      }
 
       setTextoOCR(text);
       setCampos(parsearEtiqueta(text));
       setPaso('confirmar');
     } catch (err) {
-      console.error('[OCR] Error en Tesseract:', err);
-      setError('No se pudo procesar la imagen. Asegúrate de que sea nítida y vuelve a intentarlo.');
+      console.error('[OCR] Error Tesseract:', err);
+      const esRedError = /fetch|network|load|CDN/i.test(err?.message ?? '');
+      setError(
+        esRedError
+          ? 'No se pudo descargar el modelo OCR. Comprueba que el servidor tiene salida a Internet (tessdata.projectnaptha.com).'
+          : `Error al procesar la imagen: ${err?.message ?? 'desconocido'}. Inténtalo de nuevo con mejor iluminación.`
+      );
       setPaso('captura');
     }
-  }, []);
+  }, [prepararImagen]);
 
   const handleImagen = useCallback((e) => {
     const file = e.target.files?.[0];
