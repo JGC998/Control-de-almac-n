@@ -197,29 +197,23 @@ export default function ContenedorDetalle() {
     mutate();
   };
 
-  const handleWhatsApp = () => {
-    const contenedor = imp.numContenedor || imp.blNumber || '-';
-    const barco = imp.nombreBarco || 'Barco';
-    const puertos = scheduleBarco?.puertos ?? [];
-    const etaValencia = puertos.find(p =>
-      p.portCode === 'ESVLC' || p.puerto?.toLowerCase().includes('valencia')
-    );
-    const etaFinal = etaValencia?.eta ?? imp.etaEstimada;
-    const pos = posicionBarco;
-    const lineas = [
-      `🚢 *${barco}* — ${contenedor}`,
-      pos?.sog && pos?.cog
-        ? `⚡ ${pos.sog} kn · Rumbo ${pos.cog}°${pos.lrpd ? ` (hace ${pos.lrpd})` : ''}`
-        : null,
-      pos?.lat != null && pos?.lon != null
-        ? `📍 Posición: https://www.google.com/maps?q=${pos.lat},${pos.lon}&z=5`
-        : null,
-      etaFinal && `🏁 ETA Valencia: *${fmtFecha(etaFinal)}*`,
-      imp.mmsiBarco
-        ? `🔍 https://www.vesselfinder.com/vessels/details/${imp.mmsiBarco}`
-        : null,
-    ].filter(Boolean).join('\n');
-    window.open(`https://wa.me/?text=${encodeURIComponent(lineas)}`, '_blank');
+  const [enviandoWA, setEnviandoWA] = useState(false);
+  const [waResultado, setWaResultado] = useState(null);
+
+  const handleWhatsApp = async () => {
+    setEnviandoWA(true);
+    setWaResultado(null);
+    try {
+      const res  = await fetch(`/api/importaciones/${id}/whatsapp`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al enviar');
+      setWaResultado(data.ok ? 'enviado' : 'error');
+    } catch (err) {
+      setWaResultado('error');
+    } finally {
+      setEnviandoWA(false);
+      setTimeout(() => setWaResultado(null), 4000);
+    }
   };
 
   const handleMarcarRecibido = async () => {
@@ -329,13 +323,17 @@ export default function ContenedorDetalle() {
                 <MapPin className="w-5 h-5 text-primary" /> Seguimiento
               </h2>
               <div className="flex items-center gap-2">
-                {(imp.mmsiBarco || imp.nombreBarco) && (
+                {imp.mmsiBarco && (
                   <button
-                    className="btn btn-sm btn-success gap-1"
+                    className={`btn btn-sm gap-1 ${waResultado === 'enviado' ? 'btn-success' : waResultado === 'error' ? 'btn-error' : 'btn-success'}`}
                     onClick={handleWhatsApp}
-                    title="Enviar resumen por WhatsApp"
+                    disabled={enviandoWA}
+                    title="Enviar posición por WhatsApp via CallMeBot"
                   >
-                    <MessageCircle className="w-4 h-4" /> WhatsApp
+                    {enviandoWA
+                      ? <span className="loading loading-spinner loading-xs" />
+                      : <MessageCircle className="w-4 h-4" />}
+                    {waResultado === 'enviado' ? '¡Enviado!' : waResultado === 'error' ? 'Error' : 'WhatsApp'}
                   </button>
                 )}
                 <button
