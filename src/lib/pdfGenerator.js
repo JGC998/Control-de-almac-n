@@ -651,27 +651,37 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                     qty.toString(),
                     `${fmtN(precio)} €`,
                     `${fmtN(importeLin)} €`,
+                    fmtN(peso),
                     fmtN(pesoLinea),
                 ]);
             } else {
-                tableRows.push([item.descripcion || '', qty.toString(), fmtN(pesoLinea)]);
+                tableRows.push([
+                    item.descripcion || '',
+                    item.detallesTecnicos || '',
+                    qty.toString(),
+                    fmtN(peso),
+                    fmtN(pesoLinea),
+                ]);
             }
         }
 
         const head = valorado
-            ? [["Descripción", "Cant.", "Precio/ud", "Total línea", "Peso (kg)"]]
-            : [["Descripción", "Cant.", "Peso (kg)"]];
+            ? [["Descripción", "Cant.", "Precio/ud", "Total línea", "Peso unit. (kg)", "Peso total (kg)"]]
+            : [["Descripción", "Detalles", "Cant.", "Peso unit. (kg)", "Peso total (kg)"]];
 
         const colStyles = valorado ? {
-            0: { cellWidth: 80 },
-            1: { halign: 'center', cellWidth: 15 },
-            2: { halign: 'right',  cellWidth: 30 },
-            3: { halign: 'right',  cellWidth: 33 },
-            4: { halign: 'right',  cellWidth: 28 },
-        } : {
-            0: { cellWidth: 140 },
-            1: { halign: 'center', cellWidth: 18 },
+            0: { cellWidth: 68 },
+            1: { halign: 'center', cellWidth: 13 },
             2: { halign: 'right',  cellWidth: 28 },
+            3: { halign: 'right',  cellWidth: 28 },
+            4: { halign: 'right',  cellWidth: 28 },
+            5: { halign: 'right',  cellWidth: 21 },
+        } : {
+            0: { cellWidth: 68 },
+            1: { cellWidth: 52, fontSize: 8 },
+            2: { halign: 'center', cellWidth: 13 },
+            3: { halign: 'right',  cellWidth: 28 },
+            4: { halign: 'right',  cellWidth: 25 },
         };
 
         autoTable(doc, {
