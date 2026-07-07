@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, buscarScheduleBarco, enviarWhatsApp } from '@/lib/tracking';
+import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, buscarScheduleBarco, enviarWhatsApp, reverseGeocode } from '@/lib/tracking';
 
 // POST /api/importaciones/[id]/whatsapp
 // Envía la posición actual del barco via CallMeBot WhatsApp
@@ -34,6 +34,10 @@ export async function POST(request, { params }) {
         ? buscarSchedulePorMmsi(imp.mmsiBarco, imp.nombreBarco)
         : (imp.nombreBarco ? buscarScheduleBarco(imp.nombreBarco) : Promise.resolve(null)),
     ]);
+
+    const zona = (posicion?.lat != null && posicion?.lon != null)
+      ? await reverseGeocode(posicion.lat, posicion.lon)
+      : null;
 
     const puertos = schedule?.puertos ?? [];
 
@@ -80,6 +84,7 @@ export async function POST(request, { params }) {
       posicion?.sog && posicion?.cog
         ? `⚡ ${posicion.sog} kn  ·  🧭 ${posicion.cog}°`
         : null,
+      zona ? `🌍 ${zona}` : null,
       posicion?.lat != null && posicion?.lon != null
         ? `📍 https://maps.google.com/?q=${posicion.lat},${posicion.lon}`
         : null,

@@ -537,6 +537,27 @@ export async function buscarTracking(trackingNumber, _uuid = null) {
 }
 
 /**
+ * Convierte coordenadas en nombre legible (mar/zona) vía OSM Nominatim.
+ */
+export async function reverseGeocode(lat, lon) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=6`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'CRM-Almacen/1.0' },
+      signal: AbortSignal.timeout(6_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.display_name) return null;
+    // Tomar las dos primeras partes (zona, país) y eliminar coordenadas al final
+    const partes = data.display_name.split(',').map(s => s.trim()).filter(Boolean);
+    return partes.slice(0, 2).join(', ') || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Envía un mensaje de WhatsApp via CallMeBot.
  */
 export async function enviarWhatsApp(mensaje) {

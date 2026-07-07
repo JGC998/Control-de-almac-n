@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
-import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, buscarScheduleBarco, enviarWhatsApp } from '@/lib/tracking';
+import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, buscarScheduleBarco, enviarWhatsApp, reverseGeocode } from '@/lib/tracking';
 
 // GET /api/cron/refresh-positions?secret=TU_CRON_SECRET
 // Actualiza posición AIS y detecta cambios de ETA para enviar WhatsApp.
@@ -100,6 +100,10 @@ export async function GET(request) {
               ? `${Math.round(cambioDias)} días`
               : `${Math.round(cambioDias * 24)} horas`;
 
+            const zona = (posicion?.lat != null && posicion?.lon != null)
+              ? await reverseGeocode(posicion.lat, posicion.lon)
+              : null;
+
             const lineas = [
               `⚠️ *Cambio de ETA detectado* (${difDias})`,
               `🚢 *${barco}*`,
@@ -109,6 +113,7 @@ export async function GET(request) {
               posicion?.sog && posicion?.cog
                 ? `⚡ ${posicion.sog} kn  ·  🧭 ${posicion.cog}°`
                 : null,
+              zona ? `🌍 ${zona}` : null,
               posicion?.lat != null && posicion?.lon != null
                 ? `📍 https://maps.google.com/?q=${posicion.lat},${posicion.lon}`
                 : null,
