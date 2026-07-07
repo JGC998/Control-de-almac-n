@@ -549,99 +549,209 @@ export async function generateOrderPDF(order, config = {}) {
 
 // PDF simplificado para dejar en el taller: cliente, artículos, peso y precio.
 // Sin márgenes, sin referencias internas, sin notas internas.
-export async function generateTallerPDF(order) {
+export async function generateTallerPDF(order, { valorado = false, pedidoUrl = null } = {}) {
     try {
-        const doc = new jsPDF();
+        const doc    = new jsPDF();
         const client = order.cliente;
+        const ML = 14;   // margin left
+        const MR = 196;  // margin right (text align right)
+        const PW = 210;  // page width
 
         const logoBase64 = await getLogoBase64();
+
+        // ── Banda oscura ──────────────────────────────────────────────
+        const BAND_H = 22;
+        doc.setFillColor(31, 45, 58);
+        doc.rect(0, 0, PW, BAND_H, 'F');
+
         if (logoBase64) {
-            doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 12, 50, 15);
+            doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 10, 5, 35, 12);
         }
 
-        // Título
-        doc.setFontSize(22);
+        const titleX = logoBase64 ? 52 : ML;
+        doc.setTextColor(232, 237, 245);
+        doc.setFontSize(15);
         doc.setFont("helvetica", "bold");
-        doc.text("NOTA DE TALLER", 14, 22);
+        doc.text("NOTA DE TALLER", titleX, 14);
 
-        // Número + fecha
-        doc.setFontSize(10);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(order.numero, MR, 11, { align: 'right' });
         doc.setFont("helvetica", "normal");
-        doc.text(`Pedido: ${order.numero}`, 14, 32);
-        doc.text(new Date(order.fechaCreacion).toLocaleDateString('es-ES'), 14, 38);
-
-        // Recuadro cliente
-        const clienteNombre = client?.nombre || 'Sin cliente';
-        const clienteTel = client?.telefono || '';
-        const boxH = clienteTel ? 24 : 18;
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.5);
-        doc.rect(14, 45, 182, boxH);
         doc.setFontSize(8);
+        doc.setTextColor(170, 190, 215);
+        doc.text(
+            new Date(order.fechaCreacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+            MR, 18, { align: 'right' },
+        );
+        doc.setTextColor(0, 0, 0);
+
+        // ── Bloque cliente ────────────────────────────────────────────
+        let y = BAND_H + 8;
+
+        const clienteNombre = client?.nombre    || 'Sin cliente';
+        const clienteNif    = client?.nif       || '';
+        const clienteDir    = client?.direccion || '';
+        const clienteTel    = client?.telefono  || '';
+        const clienteEmail  = client?.email     || '';
+
+        const clienteDetails = [
+            clienteNif  ? `NIF: ${clienteNif}` : null,
+            clienteDir  || null,
+            [clienteTel, clienteEmail].filter(Boolean).join(' · ') || null,
+        ].filter(Boolean);
+
+        // Dibujar etiqueta + nombre
+        doc.setFontSize(6);
         doc.setFont("helvetica", "bold");
-        doc.text("CLIENTE", 18, 52);
-        doc.setFontSize(14);
-        doc.text(clienteNombre, 18, 60);
-        if (clienteTel) {
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text(clienteTel, 18, 66);
+        doc.setTextColor(140, 140, 140);
+        doc.text("CLIENTE", ML + 3, y + 4);
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(26, 26, 26);
+        doc.text(clienteNombre, ML + 3, y + 10);
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        let detailY = y + 16;
+        for (const line of clienteDetails) {
+            doc.text(line, ML + 3, detailY);
+            detailY += 5;
         }
 
-        // Tabla de artículos
-        const tableStartY = 45 + boxH + 6;
+        // Línea vertical accent izquierda
+        doc.setDrawColor(31, 45, 58);
+        doc.setLineWidth(0.9);
+        doc.line(ML, y, ML, detailY - 1);
+        doc.setLineWidth(0.3);
+        doc.setDrawColor(200, 200, 200);
+
+        doc.setTextColor(0, 0, 0);
+        y = detailY + 6;
+
+        // ── Tabla ─────────────────────────────────────────────────────
         const tableRows = [];
-        let pesoTotal = 0;
+        let pesoTotal   = 0;
         let importeTotal = 0;
 
         for (const item of order.items || []) {
-            const qty   = item.quantity  || 0;
-            const precio = item.unitPrice || 0;
-            const peso   = item.pesoUnitario || 0;
-            const pesoLinea    = qty * peso;
-            const importeLinea = qty * precio;
+            const qty        = item.quantity      || 0;
+            const precio     = item.unitPrice     || 0;
+            const peso       = item.pesoUnitario  || 0;
+            const pesoLinea  = qty * peso;
+            const importeLin = qty * precio;
             pesoTotal    += pesoLinea;
-            importeTotal += importeLinea;
+            importeTotal += importeLin;
 
-            tableRows.push([
-                item.descripcion || '',
-                qty.toString(),
-                `${fmtN(precio)} €`,
-                `${fmtN(importeLinea)} €`,
-                fmtN(pesoLinea),
-            ]);
+            if (valorado) {
+                tableRows.push([
+                    item.descripcion || '',
+                    qty.toString(),
+                    `${fmtN(precio)} €`,
+                    `${fmtN(importeLin)} €`,
+                    fmtN(pesoLinea),
+                ]);
+            } else {
+                tableRows.push([item.descripcion || '', qty.toString(), fmtN(pesoLinea)]);
+            }
         }
 
+        const head = valorado
+            ? [["Descripción", "Cant.", "Precio/ud", "Total línea", "Peso (kg)"]]
+            : [["Descripción", "Cant.", "Peso (kg)"]];
+
+        const colStyles = valorado ? {
+            0: { cellWidth: 80 },
+            1: { halign: 'center', cellWidth: 15 },
+            2: { halign: 'right',  cellWidth: 30 },
+            3: { halign: 'right',  cellWidth: 33 },
+            4: { halign: 'right',  cellWidth: 28 },
+        } : {
+            0: { cellWidth: 140 },
+            1: { halign: 'center', cellWidth: 18 },
+            2: { halign: 'right',  cellWidth: 28 },
+        };
+
         autoTable(doc, {
-            head: [["Descripción", "Cant.", "Precio/ud", "Total línea", "Peso (kg)"]],
+            head,
             body: tableRows,
-            startY: tableStartY,
+            startY: y,
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 3 },
-            headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
-            columnStyles: {
-                0: { cellWidth: 80 },
-                1: { halign: 'center', cellWidth: 15 },
-                2: { halign: 'right',  cellWidth: 30 },
-                3: { halign: 'right',  cellWidth: 33 },
-                4: { halign: 'right',  cellWidth: 28 },
-            },
+            headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold' },
+            columnStyles: colStyles,
         });
 
-        let finalY = doc.lastAutoTable.finalY + 8;
+        let finalY = doc.lastAutoTable.finalY + 7;
 
-        // Totales destacados
-        doc.setFontSize(11);
+        // ── Peso total ────────────────────────────────────────────────
+        doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text("Peso total:", 120, finalY);
-        doc.text(`${fmtN(pesoTotal)} kg`, 198, finalY, { align: 'right' });
+        doc.setTextColor(90, 90, 90);
+        doc.text("Peso total:", 128, finalY);
+        doc.setTextColor(26, 26, 26);
+        doc.text(`${fmtN(pesoTotal)} kg`, MR, finalY, { align: 'right' });
+        finalY += 8;
 
-        finalY += 10;
-        doc.setLineWidth(0.8);
-        doc.rect(112, finalY - 8, 86, 14);
-        doc.setFontSize(15);
-        doc.text("TOTAL:", 116, finalY);
-        doc.text(`${fmtN(importeTotal)} €`, 196, finalY, { align: 'right' });
+        // ── Total importe (solo si valorado) ──────────────────────────
+        if (valorado) {
+            doc.setFillColor(31, 45, 58);
+            doc.rect(112, finalY - 7, 86, 12, 'F');
+            doc.setFontSize(13);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(255, 255, 255);
+            doc.text("TOTAL:", 116, finalY);
+            doc.text(`${fmtN(importeTotal)} €`, MR, finalY, { align: 'right' });
+            doc.setTextColor(0, 0, 0);
+            finalY += 14;
+        }
+
+        // ── Notas del pedido ──────────────────────────────────────────
+        if (order.notas) {
+            finalY += 2;
+            const notasLines = doc.splitTextToSize(order.notas, 172);
+            const notasH = 9 + notasLines.length * 5;
+
+            doc.setFillColor(242, 241, 238);
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.rect(ML, finalY, 182, notasH, 'FD');
+
+            doc.setFontSize(6);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(130, 130, 130);
+            doc.text("NOTAS", ML + 3, finalY + 5);
+
+            doc.setFontSize(8.5);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(26, 26, 26);
+            doc.text(notasLines, ML + 3, finalY + 10);
+            finalY += notasH + 8;
+        }
+
+        // ── QR ───────────────────────────────────────────────────────
+        if (pedidoUrl) {
+            try {
+                const qrDataUrl = await QRCode.toDataURL(pedidoUrl, {
+                    width: 100, margin: 1,
+                    color: { dark: '#1f2d3a', light: '#ffffff' },
+                });
+                const QR_SIZE = 26;
+                doc.addImage(qrDataUrl, 'PNG', ML, finalY, QR_SIZE, QR_SIZE);
+
+                doc.setFontSize(7);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(26, 26, 26);
+                doc.text("ACCESO AL PEDIDO", ML + QR_SIZE + 5, finalY + 8);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Escanea para abrir ${order.numero} en el sistema`, ML + QR_SIZE + 5, finalY + 14);
+            } catch (qrErr) {
+                logApiError(qrErr, 'QR en taller PDF');
+            }
+        }
 
         return Buffer.from(doc.output('arraybuffer'));
 

@@ -10,6 +10,10 @@ export async function GET(request, { params }) {
     const { id } = await params;
     if (!id || id === 'undefined') return new NextResponse('ID requerido', { status: 400 });
 
+    const valorado = request.nextUrl.searchParams.get('valorado') === '1';
+    const origin   = new URL(request.url).origin;
+    const pedidoUrl = `${origin}/pedidos/${id}`;
+
     const order = await db.pedido.findUnique({
       where: { id },
       include: {
@@ -20,7 +24,7 @@ export async function GET(request, { params }) {
 
     if (!order) return new NextResponse('Pedido no encontrado', { status: 404 });
 
-    const pdfBuffer = await generateTallerPDF(order);
+    const pdfBuffer = await generateTallerPDF(order, { valorado, pedidoUrl });
 
     return new NextResponse(pdfBuffer, {
       status: 200,
