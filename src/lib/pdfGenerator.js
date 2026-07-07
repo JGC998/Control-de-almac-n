@@ -636,6 +636,20 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         let pesoTotal   = 0;
         let importeTotal = 0;
 
+        const getDetalles = (item) => {
+            if (item.detallesTecnicos) {
+                try {
+                    const dt = JSON.parse(item.detallesTecnicos);
+                    if (dt.tipo === 'metraje') {
+                        const fmtMm = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
+                        return `${fmtMm(dt.ancho)}mm × ${fmtMm(dt.largo)}mm`;
+                    }
+                } catch { /* not JSON, use as-is */ }
+                return item.detallesTecnicos;
+            }
+            return item.producto?.nombre || '';
+        };
+
         for (const item of order.items || []) {
             const qty        = item.quantity      || 0;
             const precio     = item.unitPrice     || 0;
@@ -645,9 +659,12 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             pesoTotal    += pesoLinea;
             importeTotal += importeLin;
 
+            const detalles = getDetalles(item);
+
             if (valorado) {
                 tableRows.push([
                     item.descripcion || '',
+                    detalles,
                     qty.toString(),
                     `${fmtN(precio)} €`,
                     `${fmtN(importeLin)} €`,
@@ -657,7 +674,7 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             } else {
                 tableRows.push([
                     item.descripcion || '',
-                    item.detallesTecnicos || '',
+                    detalles,
                     qty.toString(),
                     fmtN(peso),
                     fmtN(pesoLinea),
@@ -666,16 +683,17 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         }
 
         const head = valorado
-            ? [["Descripción", "Cant.", "Precio/ud", "Total línea", "Peso unit. (kg)", "Peso total (kg)"]]
+            ? [["Descripción", "Detalles", "Cant.", "Precio/ud", "Total línea", "Peso unit. (kg)", "Peso total (kg)"]]
             : [["Descripción", "Detalles", "Cant.", "Peso unit. (kg)", "Peso total (kg)"]];
 
         const colStyles = valorado ? {
-            0: { cellWidth: 68 },
-            1: { halign: 'center', cellWidth: 13 },
-            2: { halign: 'right',  cellWidth: 28 },
-            3: { halign: 'right',  cellWidth: 28 },
-            4: { halign: 'right',  cellWidth: 28 },
+            0: { cellWidth: 55 },
+            1: { cellWidth: 42, fontSize: 8 },
+            2: { halign: 'center', cellWidth: 11 },
+            3: { halign: 'right',  cellWidth: 24 },
+            4: { halign: 'right',  cellWidth: 24 },
             5: { halign: 'right',  cellWidth: 21 },
+            6: { halign: 'right',  cellWidth: 21 },
         } : {
             0: { cellWidth: 68 },
             1: { cellWidth: 52, fontSize: 8 },
