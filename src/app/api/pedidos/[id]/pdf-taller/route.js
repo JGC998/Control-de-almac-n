@@ -11,8 +11,8 @@ export async function GET(request, { params }) {
     if (!id || id === 'undefined') return new NextResponse('ID requerido', { status: 400 });
 
     const valorado = request.nextUrl.searchParams.get('valorado') === '1';
-    const origin   = new URL(request.url).origin;
-    const pedidoUrl = `${origin}/pedidos/${id}`;
+    const host     = request.headers.get('host') || '192.168.1.250:3000';
+    const pedidoUrl = `http://${host}/pedidos/${id}`;
 
     const order = await db.pedido.findUnique({
       where: { id },
