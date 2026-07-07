@@ -236,19 +236,17 @@ export default function PedidoDetalle() {
       {error && <div className="alert alert-error shadow-lg mb-4">{error}</div>}
 
       <div className="flex flex-wrap gap-2 mb-6">
-        <button onClick={handleDownloadPDF} className="btn btn-outline btn-secondary" disabled={isDownloading}>
-          {isDownloading ? <span className="loading loading-spinner loading-xs" /> : <Download className="w-4 h-4" />}
-          Descargar PDF
-        </button>
-        <button onClick={handlePrintPDF} className="btn btn-outline gap-1">
-          <Printer className="w-4 h-4" /> Imprimir PDF
-        </button>
         <button
           onClick={() => window.open(`/api/pedidos/${id}/pdf-taller`, '_blank')}
-          className="btn btn-outline btn-warning gap-1"
-          title="PDF simplificado para dejar en el taller"
+          className="btn btn-outline gap-1"
         >
-          <ClipboardList className="w-4 h-4" /> PDF Taller
+          <ClipboardList className="w-4 h-4" /> Nota Taller
+        </button>
+        <button
+          onClick={() => window.open(`/api/pedidos/${id}/pdf-taller?valorado=1`, '_blank')}
+          className="btn btn-success gap-1"
+        >
+          <ClipboardList className="w-4 h-4" /> Nota Taller Valorada
         </button>
         {/*
           OCULTO — Botón Nota de trabajo
