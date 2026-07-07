@@ -686,26 +686,30 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             ? [["Descripción", "Detalles", "Cant.", "Precio/ud", "Total línea", "Peso unit. (kg)", "Peso total (kg)"]]
             : [["Descripción", "Detalles", "Cant.", "Peso unit. (kg)", "Peso total (kg)"]];
 
+        // Ancho útil: 210 - 14 (ML) - 14 (MR) = 182 mm
         const colStyles = valorado ? {
-            0: { cellWidth: 55 },
-            1: { cellWidth: 42, fontSize: 8 },
+            // 48+36+11+22+22+22+21 = 182
+            0: { cellWidth: 48 },
+            1: { cellWidth: 36, fontSize: 8 },
             2: { halign: 'center', cellWidth: 11 },
-            3: { halign: 'right',  cellWidth: 24 },
-            4: { halign: 'right',  cellWidth: 24 },
-            5: { halign: 'right',  cellWidth: 21 },
+            3: { halign: 'right',  cellWidth: 22 },
+            4: { halign: 'right',  cellWidth: 22 },
+            5: { halign: 'right',  cellWidth: 22 },
             6: { halign: 'right',  cellWidth: 21 },
         } : {
-            0: { cellWidth: 68 },
-            1: { cellWidth: 52, fontSize: 8 },
-            2: { halign: 'center', cellWidth: 13 },
+            // 66+48+12+28+28 = 182
+            0: { cellWidth: 66 },
+            1: { cellWidth: 48, fontSize: 8 },
+            2: { halign: 'center', cellWidth: 12 },
             3: { halign: 'right',  cellWidth: 28 },
-            4: { halign: 'right',  cellWidth: 25 },
+            4: { halign: 'right',  cellWidth: 28 },
         };
 
         autoTable(doc, {
             head,
             body: tableRows,
             startY: y,
+            margin: { left: ML, right: PW - MR },
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 3 },
             headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold' },
