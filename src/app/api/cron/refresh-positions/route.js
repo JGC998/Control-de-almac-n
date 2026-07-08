@@ -40,18 +40,6 @@ export async function GET(request) {
             : (c.nombreBarco ? buscarScheduleBarco(c.nombreBarco) : Promise.resolve(null)),
         ]);
 
-        // ── Comparar con posición anterior ────────────────────────────
-        let posicionAnterior = null;
-        try {
-          if (c.ultimaPosicionBarco) posicionAnterior = JSON.parse(c.ultimaPosicionBarco);
-        } catch { /* ignorar */ }
-
-        const posicionCambio = posicion?.lat != null && posicion?.lon != null && (
-          !posicionAnterior ||
-          Math.abs(posicion.lat - (posicionAnterior.lat ?? 0)) > 0.1 ||
-          Math.abs(posicion.lon - (posicionAnterior.lon ?? 0)) > 0.1
-        );
-
         // ── Actualizar posición en BD ──────────────────────────────────
         const dataUpdate = {};
         if (posicion) {
@@ -79,9 +67,9 @@ export async function GET(request) {
           await db.importacionContenedor.update({ where: { id: c.id }, data: dataUpdate });
         }
 
-        // ── Enviar WhatsApp solo si la posición cambió ─────────────────
+        // ── Enviar WhatsApp si hay posición AIS válida ────────────────
         let whatsappEnviado = false;
-        if (posicionCambio) {
+        if (posicion?.lat != null && posicion?.lon != null) {
           try {
             const contenedor = c.numContenedor || c.blNumber || '-';
             const barco      = c.nombreBarco || 'Barco';
@@ -147,9 +135,9 @@ export async function GET(request) {
         }
 
         resultados.push({
-          id:             c.id,
-          posicionOk:     !!posicion,
-          llegadaCambio,
+          id:              c.id,
+          posicionOk:      !!posicion,
+          llegadaCambio:   llegadaCambio ?? false,
           whatsappEnviado,
         });
 
