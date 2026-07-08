@@ -52,6 +52,8 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
               <th className="text-right">Total (Costo)</th>
               <th className="font-bold text-success text-right">P. Unit. (Venta)</th>
               <th className="font-bold text-success text-right">Total (Venta)</th>
+              <th className="text-right opacity-70">Peso Unit.</th>
+              <th className="text-right opacity-70">Peso Total</th>
             </tr>
           </thead>
           <tbody>
@@ -64,6 +66,10 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
               const margenItem = costoUnitario * (multiplicador - 1);
               const precioVentaUnitario = costoUnitario + margenItem + gastoFijoUnitario;
               const totalVenta = item.quantity * precioVentaUnitario;
+
+              // Peso
+              const pesoUnit = item.pesoUnitario || 0;
+              const pesoTotal = pesoUnit * item.quantity;
 
               // Intentamos recuperar info del producto si está disponible
               const nombreProducto = item.producto ? item.producto.nombre : null;
@@ -79,6 +85,8 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
                   <td className="text-right opacity-70">{totalCosto.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
                   <td className="font-bold text-success text-right">{precioVentaUnitario.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
                   <td className="font-bold text-success text-right">{totalVenta.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                  <td className="text-right opacity-70 text-sm">{pesoUnit > 0 ? `${pesoUnit.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg` : '—'}</td>
+                  <td className="text-right opacity-70 text-sm">{pesoTotal > 0 ? `${pesoTotal.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg` : '—'}</td>
                 </tr>
               );
             })}

@@ -559,17 +559,15 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
 
         const logoBase64 = await getLogoBase64();
 
-        // ── Banda oscura ──────────────────────────────────────────────
+        // ── Cabecera blanca ───────────────────────────────────────────
         const BAND_H = 22;
-        doc.setFillColor(31, 45, 58);
-        doc.rect(0, 0, PW, BAND_H, 'F');
 
         if (logoBase64) {
             doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 10, 5, 35, 12);
         }
 
         const titleX = logoBase64 ? 52 : ML;
-        doc.setTextColor(232, 237, 245);
+        doc.setTextColor(26, 26, 26);
         doc.setFontSize(15);
         doc.setFont("helvetica", "bold");
         doc.text("NOTA DE TALLER", titleX, 14);
@@ -579,11 +577,15 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         doc.text(order.numero, MR, 11, { align: 'right' });
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
-        doc.setTextColor(170, 190, 215);
+        doc.setTextColor(100, 100, 100);
         doc.text(
             new Date(order.fechaCreacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
             MR, 18, { align: 'right' },
         );
+        // Línea separadora bajo la cabecera
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.4);
+        doc.line(ML, BAND_H, PW - ML, BAND_H);
         doc.setTextColor(0, 0, 0);
 
         // ── Bloque cliente ────────────────────────────────────────────
@@ -636,6 +638,26 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         let pesoTotal   = 0;
         let importeTotal = 0;
 
+        // Columna Descripción: nombre + material + dimensiones del producto
+        const getDescripcion = (item) => {
+            const lines = [item.descripcion || item.producto?.nombre || ''];
+            const prod = item.producto;
+            if (prod) {
+                const meta = [];
+                if (prod.material?.nombre) meta.push(prod.material.nombre);
+                const dims = [
+                    prod.espesor != null ? `${prod.espesor}mm` : null,
+                    prod.ancho   != null ? `${prod.ancho}mm`   : null,
+                    prod.largo   != null ? `${prod.largo}mm`   : null,
+                ].filter(Boolean);
+                if (dims.length) meta.push(dims.join(' × '));
+                if (prod.color) meta.push(prod.color);
+                if (meta.length) lines.push(meta.join(' · '));
+            }
+            return lines.join('\n');
+        };
+
+        // Columna Detalles: medidas personalizadas del item (detallesTecnicos) o ref. fabricante
         const getDetalles = (item) => {
             if (item.detallesTecnicos) {
                 try {
@@ -647,23 +669,25 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                 } catch { /* not JSON, use as-is */ }
                 return item.detallesTecnicos;
             }
-            return item.producto?.nombre || '';
+            return item.producto?.referenciaFabricante || '';
         };
 
         for (const item of order.items || []) {
             const qty        = item.quantity      || 0;
             const precio     = item.unitPrice     || 0;
-            const peso       = item.pesoUnitario  || 0;
+            // Fallback al peso del producto si el item no tiene peso guardado
+            const peso       = item.pesoUnitario || item.producto?.pesoUnitario || 0;
             const pesoLinea  = qty * peso;
             const importeLin = qty * precio;
             pesoTotal    += pesoLinea;
             importeTotal += importeLin;
 
-            const detalles = getDetalles(item);
+            const descripcion = getDescripcion(item);
+            const detalles    = getDetalles(item);
 
             if (valorado) {
                 tableRows.push([
-                    item.descripcion || '',
+                    descripcion,
                     detalles,
                     qty.toString(),
                     `${fmtN(precio)} €`,
@@ -673,7 +697,7 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                 ]);
             } else {
                 tableRows.push([
-                    item.descripcion || '',
+                    descripcion,
                     detalles,
                     qty.toString(),
                     fmtN(peso),
@@ -688,19 +712,19 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
 
         // Ancho útil: 210 - 14 (ML) - 14 (MR) = 182 mm
         const colStyles = valorado ? {
-            // 48+36+11+22+22+22+21 = 182
-            0: { cellWidth: 48 },
-            1: { cellWidth: 36, fontSize: 8 },
-            2: { halign: 'center', cellWidth: 11 },
-            3: { halign: 'right',  cellWidth: 22 },
-            4: { halign: 'right',  cellWidth: 22 },
-            5: { halign: 'right',  cellWidth: 22 },
-            6: { halign: 'right',  cellWidth: 21 },
+            // 50+34+18+20+20+20+20 = 182
+            0: { cellWidth: 50 },
+            1: { cellWidth: 34, fontSize: 8 },
+            2: { halign: 'center', cellWidth: 18 },
+            3: { halign: 'right',  cellWidth: 20 },
+            4: { halign: 'right',  cellWidth: 20 },
+            5: { halign: 'right',  cellWidth: 20 },
+            6: { halign: 'right',  cellWidth: 20 },
         } : {
-            // 66+48+12+28+28 = 182
-            0: { cellWidth: 66 },
-            1: { cellWidth: 48, fontSize: 8 },
-            2: { halign: 'center', cellWidth: 12 },
+            // 62+46+18+28+28 = 182
+            0: { cellWidth: 62 },
+            1: { cellWidth: 46, fontSize: 8 },
+            2: { halign: 'center', cellWidth: 18 },
             3: { halign: 'right',  cellWidth: 28 },
             4: { halign: 'right',  cellWidth: 28 },
         };

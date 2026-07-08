@@ -18,7 +18,7 @@ export async function GET(request, { params }) {
       where: { id },
       include: {
         cliente: true,
-        items: { include: { producto: true } },
+        items: { include: { producto: { include: { material: true } } } },
       },
     });
 
