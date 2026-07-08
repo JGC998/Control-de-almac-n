@@ -393,7 +393,7 @@ export async function buscarSchedulePorMmsi(mmsi, vesselName = null) {
         puerto:           p.dp,
         portCode:         p.l  || null,
         pais:             p.c  || null,
-        eta:              null,
+        eta:              parseVFEta(p.e) || null,
         ata:              parseVFDate(p.a),
         etd:              parseVFDate(p.d),
         esPosicionActual: i === 0,

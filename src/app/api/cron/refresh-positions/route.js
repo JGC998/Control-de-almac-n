@@ -11,6 +11,8 @@ export async function GET(request) {
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
+  // ?force=1 → envía WhatsApp aunque la ETA no haya cambiado (útil para pruebas)
+  const forzarNotificacion = request.nextUrl.searchParams.get('force') === '1';
 
   try {
     const contenedores = await db.importacionContenedor.findMany({
@@ -68,9 +70,9 @@ export async function GET(request) {
           await db.importacionContenedor.update({ where: { id: c.id }, data: dataUpdate });
         }
 
-        // ── Notificar por WhatsApp si la ETA cambió más de 4 horas ────
+        // ── Notificar por WhatsApp si la ETA cambió más de 4 horas (o force=1) ──
         let whatsappEnviado = false;
-        if (etaCambioSignificativo && cambioDias !== null && cambioDias > 0.17) {
+        if (forzarNotificacion || (etaCambioSignificativo && cambioDias !== null && cambioDias > 0.17)) {
           try {
             const contenedor  = c.numContenedor || c.blNumber || '-';
             const barco       = c.nombreBarco || 'Barco';
@@ -104,8 +106,12 @@ export async function GET(request) {
               ? await reverseGeocode(posicion.lat, posicion.lon)
               : null;
 
+            const encabezado = forzarNotificacion && !etaCambioSignificativo
+              ? `📡 *Actualización de posición*`
+              : `⚠️ *Cambio de ETA detectado* (${difDias})`;
+
             const lineas = [
-              `⚠️ *Cambio de ETA detectado* (${difDias})`,
+              encabezado,
               `🚢 *${barco}*`,
               proveedor ? `📦 ${contenedor} — ${proveedor}` : `📦 ${contenedor}`,
               origenNombre ? `🗺 ${origenNombre} → Valencia` : null,
