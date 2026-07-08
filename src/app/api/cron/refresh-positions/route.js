@@ -70,9 +70,9 @@ export async function GET(request) {
           await db.importacionContenedor.update({ where: { id: c.id }, data: dataUpdate });
         }
 
-        // ── Notificar por WhatsApp si la ETA cambió más de 4 horas (o force=1) ──
+        // ── Notificar por WhatsApp si hay ETA nueva o cambió más de 4 horas ──
         let whatsappEnviado = false;
-        if (forzarNotificacion || (etaCambioSignificativo && cambioDias !== null && cambioDias > 0.17)) {
+        if (forzarNotificacion || etaCambioSignificativo) {
           try {
             const contenedor  = c.numContenedor || c.blNumber || '-';
             const barco       = c.nombreBarco || 'Barco';
@@ -108,7 +108,9 @@ export async function GET(request) {
 
             const encabezado = forzarNotificacion && !etaCambioSignificativo
               ? `📡 *Actualización de posición*`
-              : `⚠️ *Cambio de ETA detectado* (${difDias})`;
+              : !etaAnterior
+                ? `📅 *Nueva ETA registrada*`
+                : `⚠️ *Cambio de ETA detectado* (${difDias})`;
 
             const lineas = [
               encabezado,
