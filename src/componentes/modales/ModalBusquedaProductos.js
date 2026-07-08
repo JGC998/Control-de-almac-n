@@ -10,17 +10,25 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
     const [filtroAcabado, setFiltroAcabado]   = useState('');
     const [soloConPrecio, setSoloConPrecio]   = useState(false);
 
+    // T-81: solo materiales con al menos un producto con precio activo
     const materiales = useMemo(() => {
-        return [...new Set(items.map(p => p.material?.nombre ?? p.material ?? null).filter(Boolean))].sort();
+        const conPrecio = items.filter(p => parseFloat(p.precioUnitario) > 0);
+        return [...new Set(conPrecio.map(p => p.material?.nombre ?? p.material ?? null).filter(Boolean))].sort();
     }, [items]);
+
+    // T-82: espesores y acabados contextuales al material seleccionado
+    const itemsDelMaterial = useMemo(() => {
+        if (!filtroMaterial) return items;
+        return items.filter(p => (p.material?.nombre ?? p.material) === filtroMaterial);
+    }, [items, filtroMaterial]);
 
     const espesores = useMemo(() => {
-        return [...new Set(items.map(p => p.espesor).filter(v => v != null))].sort((a, b) => a - b);
-    }, [items]);
+        return [...new Set(itemsDelMaterial.map(p => p.espesor).filter(v => v != null))].sort((a, b) => a - b);
+    }, [itemsDelMaterial]);
 
     const acabados = useMemo(() => {
-        return [...new Set(items.map(p => p.acabado).filter(Boolean))].sort();
-    }, [items]);
+        return [...new Set(itemsDelMaterial.map(p => p.acabado).filter(Boolean))].sort();
+    }, [itemsDelMaterial]);
 
     const filtrados = useMemo(() => {
         const term = busqueda.toLowerCase().trim();
@@ -66,7 +74,7 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-3 items-center">
-                    <select className="select select-bordered select-sm" value={filtroMaterial} onChange={e => setFiltroMaterial(e.target.value)}>
+                    <select className="select select-bordered select-sm" value={filtroMaterial} onChange={e => { setFiltroMaterial(e.target.value); setFiltroAcabado(''); setFiltroEspesor(''); }}>
                         <option value="">Todos los materiales</option>
                         {materiales.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>

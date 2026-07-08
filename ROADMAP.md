@@ -1,322 +1,135 @@
 # ROADMAP — CRM Taller
 
-> Última actualización: 2026-06-26  
-> Generado desde `ideas.txt` + sesión de planificación  
+> Última actualización: 2026-07-08  
+> Generado desde `ideas.txt` + tareas pendientes en curso
 
 ---
 
 ## 🎯 Visión general
 
-El CRM tiene la operativa completa (pedidos, presupuestos, stock, importaciones, facturación, tracking de contenedores con WhatsApp) y la agilidad de almacén (recepción OCR offline desde tablet). La siguiente iteración añade una **nota de taller imprimible** para que cualquiera pueda cobrar un pedido, rediseña los **accesos directos del dashboard** para que sean los mismos tanto en escritorio como en tablet/móvil, y refina el vínculo entre referencias de proveedor y la tarifa de precios interna. A medio plazo: soporte multi-naviera, sistema de tarifas de coste en dos capas, dashboard ejecutivo y portal cliente.
+El CRM cubre ya el ciclo completo de ventas y compras. El foco actual es consolidar la calidad del dato (catálogo limpio, materiales sin duplicados, pesos correctos en pedidos) y extender el módulo de tracking marítimo a más navieras. A medio plazo, el objetivo es cerrar el ciclo fiscal con VeriFactu y mejorar la experiencia en tablet.
 
 ---
 
 ## 📋 Backlog completo
 
-| ID | Tarea | Tipo | Complejidad | Estado |
-|----|-------|------|-------------|--------|
-| T-80 | Vista tablet/móvil con los mismos accesos directos que el dashboard rediseñado | Frontend | Pequeña | ⏳ |
-| T-79 | Rediseñar accesos directos del dashboard (quitar 3, añadir 4 nuevos) | Frontend | Pequeña | ⏳ |
-| T-78 | PDF "nota de taller" para pedidos de cliente (cliente, peso, precio sin detalles de margen) | Backend + Frontend | Pequeña | ⏳ |
-| T-77 | Tracking de barco en paralelo al tracking de contenedor (Yang Ming vessel schedule) | Backend + Frontend | Media | ✅ |
-| T-76 | Añadir campos "Lonas" y "Acabado" por fila en calculadora de contenedor para vinculación exacta con TarifaMaterial | Frontend | Pequeña | ✅ |
-| T-75 | Longitud de taco editable en calculadora PVC con valor por defecto (ancho_banda − 10 mm) | Frontend | Pequeña | ✅ |
-| T-74 | Columna "material" en calculadora de contenedor + vinculación por tipo de material (no por espesor) | Frontend + Backend | Media | ✅ |
-| T-72 | Bug: cámara OCR falla con "NO SE PUDO PROCESAR LA IMAGEN" | Frontend | Pequeña | ⏳ |
-| T-73 | Soporte multi-naviera en tracking (MSC, CMA-CGM, Hapag-Lloyd…) | Backend | Media | ⏳ |
-| T-67 | Tarifa de coste interno por m² (material + espesor) | Full stack + DB | Media | ⏳ |
-| T-68 | Tarifa de venta base con margen mínimo configurable | Full stack + DB | Media | ⏳ |
-| T-69 | Propuesta de actualización de tarifa de coste post-importación | Full stack | Media | ⏳ |
-| T-70 | Informe anual de variación de costes + propuesta de ajuste de ventas | Full stack | Grande | ⏳ |
-| T-61 | Plantillas de contenedor reutilizables | Full stack + DB | Media | ⏳ |
-| T-65 | Vincular referencias OCR con materiales del catálogo | Full stack | Grande | ⏳ |
-| N-06 | Dashboard ejecutivo con KPIs reales | Frontend | Media | ⏳ |
-| N-07 | Portal público de cliente (link para ver presupuesto) | Full stack | Grande | ⏳ |
-| N-08 | Modo picking en tablet para preparar pedidos | Full stack | Grande | ⏳ |
+| ID | Tarea | Tipo | Complejidad | Depende de |
+|----|-------|------|-------------|------------|
+| T-72 | Bug cámara OCR en calculadora de contenedor | Bug | Pequeña | — |
+| T-61 | Plantillas de contenedor reutilizables | Frontend + Backend | Media | — |
+| T-65 | Vincular referencias OCR con catálogo de productos | Frontend + Backend | Media | T-61 |
+| T-73 | Soporte multi-naviera en tracking (CMA-CGM, Hapag-Lloyd, ONE, COSCO, Maersk, Evergreen) | Backend | Grande | — |
+| T-79 | Rediseñar accesos directos del dashboard | Frontend | Pequeña | — |
+| T-80 | Vista tablet con accesos directos equivalentes al dashboard | Frontend | Pequeña | T-79 |
+| T-81 | Limpiar desplegable de materiales en búsqueda de productos — solo mostrar materiales con artículos/tarifas activas | Frontend + Backend | Pequeña | — |
+| T-82 | Filtros contextuales en búsqueda de productos — acabados disponibles según material seleccionado | Frontend | Pequeña | T-81 |
+| T-67 | Sistema de tarifas de coste — capa 1: precio base por material/espesor | Backend + DB | Grande | — |
+| T-68 | Sistema de tarifas de coste — capa 2: ajuste por cliente/volumen | Backend + DB | Grande | T-67 |
+| T-69 | UI de gestión de tarifas de coste en dos capas | Frontend | Media | T-67, T-68 |
 
 ---
 
 ## 🗺️ Fases propuestas
 
-### Fase 0 — Mejoras operativas inmediatas *(prioridad inmediata)*
-> PDF de taller y rediseño de accesos directos: pequeñas pero de uso diario. Estimación: 1 día.
+### Fase 1 — Calidad del catálogo *(ahora)*
+> Limpiar los datos que el usuario ve a diario al crear pedidos. Estimación: 1–2 días.
 
----
+- [ ] **T-81** — Limpiar desplegable de materiales en búsqueda de productos  
+  _El modal "Buscar Producto" muestra materiales (VERDE, RS62-1200 MM, GOMA NEGRA4 AA…) que no tienen artículos con precio activo. Filtrar la query de materiales para devolver solo los que tienen al menos un `Producto` con `precioUnitario > 0` o con `TarifaRollo` asociada._
 
-#### T-78 — PDF "nota de taller" para pedidos de cliente
-**Tipo:** Backend + Frontend · **Complejidad:** Pequeña
+- [ ] **T-82** — Filtros contextuales: acabados según material  
+  _Si selecciono "GOMA", el dropdown de acabados solo debe mostrar los acabados que existen en productos de material GOMA. Actualmente "NEGRA" aparece como acabado de GOMA pero da 0 resultados. Resolver con query dinámica cuando cambia el material._
 
-**Problema actual:** el PDF de pedido tiene demasiada información (márgenes, referencias internas). Cuando alguien del taller necesita cobrar a un cliente que viene a recoger, no hay un documento limpio que puedan dejarle al lado.
+- [ ] **T-72** — Bug cámara OCR en calculadora de contenedor  
+  _La cámara no abre o falla en algún dispositivo. Diagnosticar y corregir._
 
-**Diseño propuesto:**
-- Nuevo botón "PDF Taller" en la página de detalle de pedido, junto al PDF normal
-- Nuevo endpoint `GET /api/pedidos/[id]/pdf-taller`
-- Contenido del PDF: nombre del cliente, fecha, lista de artículos con descripción + cantidad + peso unitario + precio total de línea, total kg y total €
-- **No incluye:** precios de coste, márgenes, referencias internas, notas internas
-- Formato: A4, cabecera con logo y datos de empresa, tabla limpia, pie con total grande y legible
+### Fase 2 — UX dashboard y tablet
+> Modernizar la entrada al sistema. Estimación: 1 día.
 
-**Archivos:**
-- `src/app/api/pedidos/[id]/pdf-taller/route.js` — nuevo endpoint
-- `src/app/gestion/pedidos/[id]/page.js` — añadir botón "PDF Taller"
+- [ ] **T-79** — Rediseñar accesos directos del dashboard  
+  _Los accesos actuales son genéricos. Proponer un diseño con accesos frecuentes (Nuevo Pedido, Buscar Producto, Ver Importaciones, etc.) y KPIs visibles._
 
----
+- [ ] **T-80** — Vista tablet con accesos equivalentes  
+  _La vista `/tablet` debe tener los mismos accesos directos rediseñados en T-79, adaptados a pantalla táctil (botones grandes, sin hover)._
 
-#### T-79 — Rediseñar accesos directos del dashboard
-**Tipo:** Frontend · **Complejidad:** Pequeña
+### Fase 3 — Tracking multi-naviera
+> Extender el seguimiento de contenedores más allá de Yang Ming. Estimación: 1–2 semanas.
 
-**Cambios respecto al dashboard actual:**
-- **Quitar:** Total presupuestos, Pedidos proveedores, Tablón de notas
-- **Dejar:** Pedidos de cliente
-- **Añadir:** Nuevo pedido (botón), Contenedores, Almacén, Tarifa de materiales, Calculadora de bandas PVC, Calculadora de metrajes
+- [ ] **T-73** — Soporte multi-naviera (CMA-CGM, Hapag-Lloyd, ONE, COSCO, Maersk, Evergreen)  
+  _Cada naviera tiene su propio portal/API. La arquitectura actual en `buscarTracking()` ya tiene el switch por `courierCode`. Investigar y añadir scrapers/adaptadores para cada naviera. Prioridad según clientes activos._
 
-**Diseño propuesto:** grid 2×4 o 3×3 de tarjetas con icono grande y etiqueta corta. Cada tarjeta navega a su ruta directamente.
+  _Subnivel sugerido:_
+  - T-73a: CMA-CGM (alta prioridad si hay contenedores activos)
+  - T-73b: Hapag-Lloyd
+  - T-73c: ONE / COSCO / Maersk / Evergreen
 
-**Archivo:** `src/app/page.js` (o el componente de dashboard)
+### Fase 4 — Plantillas y OCR avanzado en contenedor
+> Reducir la entrada manual en importaciones. Estimación: 3–5 días.
 
----
+- [ ] **T-61** — Plantillas de contenedor reutilizables  
+  _Guardar una importación como plantilla (sin datos de precio/TC) para reutilizar la lista de artículos en el siguiente pedido al mismo proveedor._
 
-#### T-80 — Vista tablet/móvil con los mismos accesos directos
-**Tipo:** Frontend · **Complejidad:** Pequeña
+- [ ] **T-65** — Vincular referencias OCR con catálogo  
+  _Cuando el OCR detecta una referencia, buscarla en el catálogo de productos y autorellenar espesor/ancho/material si coincide. Reduce correcciones manuales post-escaneo._
 
-**Contexto:** T-79 rediseña el dashboard de escritorio. El usuario quiere que cuando se accede desde tablet o móvil, la pantalla de inicio muestre exactamente los mismos 6-7 accesos directos en formato táctil (botones grandes, sin la tabla de datos del escritorio).
+### Fase 5 — Sistema de tarifas de coste *(futuro)*
+> Dos capas de precio: base por material + ajuste por cliente. Estimación: 1–2 semanas.
 
-**Diseño propuesto:**
-- Detección de pantalla con Tailwind (`md:hidden`, `hidden md:block`) o `useMediaQuery`
-- En pantallas pequeñas: grid de accesos directos a pantalla completa, sin KPIs ni tablas
-- En pantallas grandes: dashboard completo actual
+- [ ] **T-67** — Tarifas de coste — capa 1: precio base por material/espesor  
+  _Tabla `TarifaCoste` con (material, espesor, €/m lineal). Sirve como precio de referencia interno._
 
-**Nota:** T-79 debe hacerse primero para definir la lista definitiva de accesos.
+- [ ] **T-68** — Tarifas de coste — capa 2: ajuste por cliente/volumen  
+  _Multiplicador o descuento sobre la capa 1 según cliente o tramo de volumen._
 
-**Archivos:** mismos que T-79 + posible componente `AccesosDirectosMovil`
-
----
-
-### Fase 1 — Vinculación material-tarifa en calculadora de contenedor *(prioridad inmediata)*
-> Permitir que cada fila de la calculadora de contenedor indique el tipo de material y se vincule a la tarifa correcta aunque el espesor del proveedor no coincida exactamente. Estimación: 1-2 días.
-
----
-
-#### T-74 — Columna "material" + vinculación por tipo en la calculadora de contenedor
-**Tipo:** Frontend + Backend · **Complejidad:** Media
-
-**Problema actual:** la vinculación `Tarifa €/m² → vincular` filtra el dropdown por `espesor` de la fila. Pero el proveedor puede indicar 2.7 mm cuando el producto se vende como 3 mm, por lo que el dropdown no muestra la entrada correcta de la tarifa.
-
-**Diseño propuesto:**
-
-1. **Nueva columna "Material"** en la tabla de bobinas — dropdown con los valores distintos de `material` en `TarifaMaterial` (PVC, LONA, GOMA, etc.). Este campo se persiste en el JSON `bobinas` de la importación junto al resto.
-
-2. **Dropdown "Tarifa €/m²"** filtrado únicamente por `material` seleccionado (sin filtrar por espesor). Muestra todas las entradas de ese material: `PVC 2mm`, `PVC 3mm`, `PVC 5mm`… para que el usuario elija la correcta aunque el espesor del proveedor sea distinto.
-
-3. **`__nuevo__` sigue funcionando** — si el material/espesor no existe, crear entrada en `TarifaMaterial`.
-
-4. **`actualizarPrecioMateriales`** ya usa `tarifaMaterialId`, así que el backend no requiere cambios — solo el frontend para pasar el ID correcto.
-
-**Archivos afectados:**
-- `src/app/compras/calculadora-contenedor/page.js`
-
----
-
-#### T-76 — Campos "Lonas" y "Acabado" en cada fila de la calculadora de contenedor
-**Tipo:** Frontend · **Complejidad:** Pequeña
-
-Añadir dos columnas nuevas por fila: **Lonas** y **Acabado** para filtrado progresivo de tarifa: `material → lonas → acabado`. Auto-relleno al seleccionar tarifa concreta.
-
-**Archivos afectados:**
-- `src/app/compras/calculadora-contenedor/page.js`
-
----
-
-#### T-75 — Longitud de taco editable en calculadora PVC (valor por defecto: ancho − 10 mm)
-**Tipo:** Frontend · **Complejidad:** Pequeña
-
-El campo "Longitud taco" pasa de texto estático a `<input>` editable. Se prellena con `ancho − 10`. Si el usuario lo edita, prevalece su valor. Botón "Restaurar".
-
-**Archivos afectados:**
-- `src/componentes/calculadoras/CalculadoraBandas.js`
-
----
-
-### Fase 2 — Tracking mejorado y bugs *(prioridad alta)*
-> Añadir tracking paralelo de barco para ETAs más rápidas, corregir el fallo OCR de cámara y ampliar el tracking a otras navieras. Estimación: 2-3 días.
-
----
-
-#### T-72 — Bug: cámara OCR no procesa la imagen
-**Tipo:** Frontend · **Complejidad:** Pequeña
-
-Al pulsar "Escanear etiqueta", la cámara abre pero devuelve el mensaje **"NO SE PUDO PROCESAR LA IMAGEN"**.
-
-**Investigación:**
-1. Añadir log del error real del worker Tesseract antes de mostrar el mensaje genérico
-2. Comprobar que el canvas tiene píxeles reales en el momento de la captura
-3. Probar añadir un delay mínimo tras `getUserMedia` antes de capturar el frame
-
----
-
-#### T-77 — Tracking de barco en paralelo al tracking de contenedor
-**Tipo:** Backend + Frontend · **Complejidad:** Media
-
-Tracking paralelo via Yang Ming vessel schedule API. El nombre del barco se extrae del tracking del contenedor y se usa para consultar el itinerario completo con ETAs por puerto.
-
-**Requiere:** investigación previa con DevTools en `yangming.com/en/esolution/schedule/vessel_schedule?vessel=OSOL`
-
----
-
-#### T-73 — Soporte multi-naviera en tracking
-**Tipo:** Backend · **Complejidad:** Media
-
-Añadir MSC, CMA-CGM, Hapag-Lloyd al routing de `buscarTracking()`. Cada naviera requiere investigación con DevTools para localizar su API interna.
-
----
-
-### Fase 3 — Sistema de precios en dos capas *(prioridad alta)*
-> Saber exactamente cuánto cuesta cada material y garantizar que la tarifa de venta siempre cubre ese coste más un margen mínimo. Estimación: 3-4 días.
-
----
-
-#### T-67 — Tarifa de coste interno por m²
-**Tipo:** Full stack + DB · **Complejidad:** Media
-
-Nueva tabla `TarifaCoste` con el coste real más reciente en €/m² por `(material, espesor)`. Pantalla de gestión en `/configuracion/tarifas-coste`.
-
----
-
-#### T-68 — Tarifa de venta base con margen mínimo
-**Tipo:** Full stack + DB · **Complejidad:** Media
-
-Extensión de T-67: columna "Precio venta base" = `precioM2 × (1 + margenMinimo)`. Alerta visual si el precio actual está por debajo.
-
----
-
-#### T-69 — Propuesta de actualización de tarifa de coste post-importación
-**Tipo:** Full stack · **Complejidad:** Media
-
-Botón "Aplicar este coste" en el análisis N-01 cuando el coste de importación difiere de `TarifaCoste`. El usuario siempre aprueba manualmente.
-
-**Requiere T-67.**
-
----
-
-### Fase 4 — Calidad del PDF y plantillas de contenedor
-> Pequeñas mejoras de pulido operativo. Estimación: 1-2 días.
-
----
-
-#### T-61 — Plantillas de contenedor reutilizables
-**Tipo:** Full stack + DB · **Complejidad:** Media
-
-Botón "Guardar como plantilla" en la calculadora. Nueva tabla `PlantillaContenedor`. Al abrir una nueva importación, "Cargar plantilla" rellena la tabla sin precios.
-
----
-
-### Fase 5 — Análisis anual y propuestas de ajuste *(medio plazo)*
-> Herramienta de fin de año para revisar si los precios de venta siguen siendo rentables. Estimación: 3-4 días.
-
----
-
-#### T-70 — Informe anual de variación de costes + propuesta de ajuste de ventas
-**Tipo:** Full stack · **Complejidad:** Grande
-
-Nueva herramienta `/herramientas/revision-anual-precios`. Compara coste inicio de año vs. coste actual. Aprobación por material. **Requiere T-67.**
-
----
-
-#### T-65 — Vincular referencias OCR con materiales del catálogo
-**Tipo:** Full stack · **Complejidad:** Grande
-
-Cuando el texto OCR coincide con una referencia conocida, prellenar automáticamente `material` y `tarifaMaterialId`. **Requiere T-74.**
-
----
-
-### Fase 6 — Engagement y portal cliente *(futuro)*
-> Reducir fricción con el cliente y mejorar visibilidad del negocio.
-
----
-
-#### N-06 — Dashboard ejecutivo con KPIs reales
-**Tipo:** Frontend · **Complejidad:** Media
-
-Hoy, este mes, alertas (facturas vencidas, stock bajo, presupuestos sin respuesta), top 5 productos y clientes.
-
----
-
-#### N-07 — Portal público de cliente (link para ver presupuesto)
-**Tipo:** Full stack · **Complejidad:** Grande
-
-Link único `/p/[token]` donde el cliente ve el presupuesto, lo acepta y deja comentario. Sin auth.
-
----
-
-#### N-08 — Modo picking en tablet para preparar pedidos
-**Tipo:** Full stack · **Complejidad:** Grande
-
-Vista tablet para preparar pedidos: checkboxes táctiles por artículo. Al completar → albarán + descuento de stock.
+- [ ] **T-69** — UI de gestión de tarifas en dos capas  
+  _Pantalla en Configuración para editar ambas capas visualmente._
 
 ---
 
 ## ⚡ Quick wins
 
-- [ ] **T-78** — PDF nota de taller (cliente, peso, precio) para dejar en el mostrador (~2h)
-- [ ] **T-79** — Rediseñar accesos directos del dashboard (quitar 3, añadir 4) (~1h)
-- [ ] **T-80** — Vista tablet con los mismos accesos directos (~1h, depende de T-79)
-- [ ] **T-72** — Arreglar bug OCR cámara "NO SE PUDO PROCESAR LA IMAGEN" (~1-2h)
-- [ ] **T-73** — Añadir una naviera nueva al tracking una vez localizada su API con DevTools (~1h por naviera)
-- [ ] **T-61** — Plantillas de contenedor (~3h)
-- [ ] **T-67** — Tarifa de coste interna — solo la tabla y la pantalla CRUD (~4h)
+- [ ] **T-81** — Filtrar materiales sin artículos activos en el desplegable (~1 hora)
+- [ ] **T-82** — Acabados contextuales según material seleccionado (~1 hora)
+- [ ] **T-79** — Rediseñar accesos directos del dashboard (~2 horas)
+- [ ] **T-72** — Investigar y corregir bug cámara OCR (~1 hora)
 
 ---
 
 ## 🚧 Dependencias y bloqueos
 
-- **T-80** requiere **T-79** (lista definitiva de accesos directos)
-- **T-69** requiere **T-67** (la tarifa de coste tiene que existir para poder actualizarla)
-- **T-70** requiere **T-67** con campo de historial anual — diseñar snapshot de inicio de año (cron job o manual en enero)
-- **T-65** requiere **T-74** (columna material ya disponible) — la parte OCR es adicional
-- **T-77** requiere investigación previa con DevTools en `yangming.com/en/esolution/schedule/vessel_schedule?vessel=OSOL` para localizar el endpoint JSON interno
-- **T-73** requiere identificar qué navieras usa el usuario y encontrar sus APIs internas con DevTools
-- **N-07** (portal cliente) requiere decisión sobre política de expiración del token
-- **N-08** (picking tablet) necesita campo `preparado Boolean` en `PedidoItem`
+- **T-82** requiere que **T-81** esté en marcha (misma query de productos)
+- **T-80** requiere que **T-79** esté completada (copiar el diseño a tablet)
+- **T-68** requiere que **T-67** esté completada (capa 2 aplica sobre capa 1)
+- **T-69** requiere **T-67 + T-68** completadas
+- **T-65** requiere que **T-61** esté en marcha (flujo de importación establecido)
+- **T-73** no tiene bloqueos técnicos pero requiere conocer qué navieras usan los clientes activos antes de priorizar subtipos
 
 ---
 
 ## 💡 Ideas descartadas o pospuestas
 
-- **Actualización automática de tarifas de venta desde importación** — Descartada. El usuario quiere aprobación manual siempre. Reemplazada por T-69 y T-70.
-- **VeriFactu D2 — envío directo a AEAT** — Pospuesto a 2027, pendiente decisión sobre certificado FNMT.
-- **Cálculo de volumen del contenedor** — Baja prioridad, sin demanda activa.
+- **VesselFinder Container Tracking API** — $7/contenedor/mes. Demasiado caro para el volumen actual. Se mantiene el scraping del AIS público.
 
 ---
 
-## ❓ Pendiente de clarificación
+## ✅ Completado *(resumen reciente)*
 
-- **T-73 — Multi-naviera**: ¿qué navieras se usan además de Yang Ming? Identificar para priorizar cuáles añadir primero.
-
----
-
-## ✅ Completado
-
-- ✅ **Revisión completa de schema DB** — FK constraints (onDelete Restrict/SetNull/Cascade), 15 índices nuevos, unicidad Grapa/Producto, columna `categoria` eliminada de Cliente, `Stock.proveedor` renombrado a `proveedorId` con FK real, `ImportacionContenedor.estado` default corregido a BORRADOR. Migración aplicada a dev y prod (2026-06-26)
-- ✅ **Filtros Akinator para bandas PVC** — Modal de búsqueda y página `/almacen/bandas` con 7 niveles de filtrado en cascada (espesor→color→conf→tacos→tipo taco→ancho→largo) usando nomenclatura SF/GR/AB (2026-06-25)
-- ✅ **8 bugs corregidos (sesión anterior)** — IVA 2100% en PDFs, doble recepción de pedidos proveedor, isSubmittingRef sin reset, transacción borrador void, tracking sync, clientes/[id] categoria, from-presupuesto status codes, CSV select→include (2026-06-25)
-- ✅ **T-77** — Tracking de barco en paralelo al contenedor: nombre del barco extraído de `vesselVoyage`, schedule via API Yang Ming, campo `nombreBarco` en BD, sección "🛳 Barco" en modal de tracking (2026-06-17).
-- ✅ **T-76** — Campos "Lonas" y "Acabado" apilados en columna Material de calculadora de contenedor; filtrado progresivo; auto-relleno al seleccionar tarifa (2026-06-17)
-- ✅ **T-75** — Longitud de taco editable en modal de configuración de tacos; valor por defecto `ancho − 10 mm`, restaurable con un clic (2026-06-17)
-- ✅ **T-74** — Columna "Material" en calculadora de contenedor + vinculación tarifa por tipo de material (2026-06-17)
-- ✅ **Columna "Acabado" en TarifaMaterial** — Migración Prisma, constraint único actualizado, edición inline, PDF incluido (2026-06-17)
-- ✅ **Fix: proveedor se borraba al abrir modal guardar importación** (2026-06-17)
-- ✅ **17 bugs corregidos (revisión completa)** — IVA desde Config, subtotales, Decimal→Number, tier enum, anti-doble-submit, race conditions (2026-06-16)
-- ✅ **Columna lonas en TarifaMaterial** (2026-06-15/16)
-- ✅ **Auto-actualización TarifaMaterial desde contenedor** (2026-06-15)
-- ✅ **Grapa v2 — HistorialPrecioGrapa** (2026-06-15)
-- ✅ **Tracking Yang Ming sin coste** (2026-06-11)
-- ✅ **Página de detalle de contenedor** (2026-06-11)
-- ✅ **Cron horario de tracking con WhatsApp** (2026-06-11)
-- ✅ **T-71** — PDF del informe de importación simplificado (2026-06-08)
-- ✅ **Recepción offline en tablet** (2026-06-08)
-- ✅ **Escaneo de etiquetas con OCR (Tesseract.js)** (2026-06-08)
-- ✅ **N-01/02/03/04/05** — Semáforo rentabilidad, margen tiempo real, historial precios, reenvío presupuestos, alerta stock mínimo (2026-06-08)
-- ✅ **T-64/63/58/66/56/62/60/57/59/55/52/53/54** — Múltiples mejoras de contenedor y documentos (2026-06-01/04)
-- ✅ **Auditoría completa** — 20 hallazgos seguridad/bugs/API corregidos (2026-06-04)
+- ✅ **T-81 parcial** — Cabecera nota de taller en blanco (ahorro de tinta)
+- ✅ Peso unitario/total en vista de pedido de cliente
+- ✅ Nota de taller: descripción enriquecida con material + dimensiones
+- ✅ Fix falso transbordo cuando `nombreBarco` fue editado manualmente
+- ✅ Cron de posiciones AIS: reverse geocoding con OSM Nominatim
+- ✅ Fix ETA en `buscarSchedulePorMmsi` (no se leía `parseVFEta`)
+- ✅ Fix QR en nota de taller usando host header real
+- ✅ Historial de costes de producto
+- ✅ Stock mínimo con alertas
+- ✅ Búsqueda global Ctrl+K
+- ✅ Acciones en bloque en pedidos y presupuestos
+- ✅ Sistema de grapas inteligente (T-46→T-51)
+- ✅ Calculadora de metrajes
+- ✅ Análisis de rentabilidad post-importación
+- ✅ Tracking Yang Ming + WhatsApp automático
+- ✅ OCR de etiquetas con Tesseract.js
 
 ---
 
