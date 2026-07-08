@@ -3,31 +3,29 @@ import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
 import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, buscarScheduleBarco, enviarWhatsApp, reverseGeocode } from '@/lib/tracking';
 
-// GET /api/cron/refresh-positions?secret=TU_CRON_SECRET
-// Actualiza posición AIS y detecta cambios de ETA para enviar WhatsApp.
-// Crontab del servidor: 0 6,12,18,0 * * * curl -s "http://localhost:3000/api/cron/refresh-positions"
+// GET /api/cron/refresh-positions
+// Envía posición actual de cada contenedor en tránsito por WhatsApp.
+// Si la fecha de llegada cambia más de 4 horas, lo avisa también.
+// Crontab: 0 9,12,16,22 * * * curl -s "http://localhost:3000/api/cron/refresh-positions"
 export async function GET(request) {
   const secret = request.nextUrl.searchParams.get('secret');
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
-  // ?force=1 → envía WhatsApp aunque la ETA no haya cambiado (útil para pruebas)
-  const forzarNotificacion = request.nextUrl.searchParams.get('force') === '1';
 
   try {
     const contenedores = await db.importacionContenedor.findMany({
       where: { estado: { not: 'RECIBIDO' } },
       select: {
-        id:                  true,
-        numContenedor:       true,
-        blNumber:            true,
-        descripcion:         true,
-        mmsiBarco:           true,
-        nombreBarco:         true,
-        etaEstimada:         true,
+        id:                   true,
+        numContenedor:        true,
+        blNumber:             true,
+        mmsiBarco:            true,
+        nombreBarco:          true,
+        etaEstimada:          true,
         ultimoEstadoTracking: true,
-        ultimaPosicionBarco: true,
-        proveedor:           { select: { nombre: true } },
+        ultimaPosicionBarco:  true,
+        proveedor:            { select: { nombre: true } },
       },
     });
 
@@ -42,92 +40,97 @@ export async function GET(request) {
             : (c.nombreBarco ? buscarScheduleBarco(c.nombreBarco) : Promise.resolve(null)),
         ]);
 
-        // ── Actualizar posición AIS ────────────────────────────────────
+        // ── Comparar con posición anterior ────────────────────────────
+        let posicionAnterior = null;
+        try {
+          if (c.ultimaPosicionBarco) posicionAnterior = JSON.parse(c.ultimaPosicionBarco);
+        } catch { /* ignorar */ }
+
+        const posicionCambio = posicion?.lat != null && posicion?.lon != null && (
+          !posicionAnterior ||
+          Math.abs(posicion.lat - (posicionAnterior.lat ?? 0)) > 0.1 ||
+          Math.abs(posicion.lon - (posicionAnterior.lon ?? 0)) > 0.1
+        );
+
+        // ── Actualizar posición en BD ──────────────────────────────────
         const dataUpdate = {};
         if (posicion) {
           dataUpdate.ultimaPosicionBarco = JSON.stringify({ ...posicion, at: new Date().toISOString() });
         }
 
-        // ── Detectar cambio de ETA ─────────────────────────────────────
+        // ── Detectar cambio de fecha de llegada ────────────────────────
         const puertos = schedule?.puertos ?? [];
-        const etaValencia = puertos.find(p =>
+        const puertoValencia = puertos.find(p =>
           p.portCode === 'ESVLC' || p.puerto?.toLowerCase().includes('valencia'),
         );
-        const nuevaEta = etaValencia?.eta ?? null;
-        const etaAnterior = c.etaEstimada;
+        const nuevaLlegada = puertoValencia?.eta ?? null;
+        const llegadaAnterior = c.etaEstimada;
 
-        const cambioDias = nuevaEta && etaAnterior
-          ? Math.abs((new Date(nuevaEta) - new Date(etaAnterior)) / (1000 * 60 * 60 * 24))
+        const cambioDias = nuevaLlegada && llegadaAnterior
+          ? Math.abs((new Date(nuevaLlegada) - new Date(llegadaAnterior)) / (1000 * 60 * 60 * 24))
           : null;
 
-        // Guardamos la ETA si cambia más de 4 horas o no había ETA previa
-        const etaCambioSignificativo = nuevaEta && (!etaAnterior || (cambioDias !== null && cambioDias > 0.17));
-        if (etaCambioSignificativo) {
-          dataUpdate.etaEstimada = new Date(nuevaEta);
+        const llegadaCambio = nuevaLlegada && (!llegadaAnterior || (cambioDias !== null && cambioDias > 0.17));
+        if (llegadaCambio) {
+          dataUpdate.etaEstimada = new Date(nuevaLlegada);
         }
 
         if (Object.keys(dataUpdate).length > 0) {
           await db.importacionContenedor.update({ where: { id: c.id }, data: dataUpdate });
         }
 
-        // ── Notificar por WhatsApp si hay ETA nueva o cambió más de 4 horas ──
+        // ── Enviar WhatsApp solo si la posición cambió ─────────────────
         let whatsappEnviado = false;
-        if (forzarNotificacion || etaCambioSignificativo) {
+        if (posicionCambio) {
           try {
-            const contenedor  = c.numContenedor || c.blNumber || '-';
-            const barco       = c.nombreBarco || 'Barco';
-            const proveedor   = c.proveedor?.nombre ?? null;
+            const contenedor = c.numContenedor || c.blNumber || '-';
+            const barco      = c.nombreBarco || 'Barco';
+            const proveedor  = c.proveedor?.nombre ?? null;
+
+            const zona = await reverseGeocode(posicion.lat, posicion.lon);
 
             const fmtFecha = d => d
               ? new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
               : null;
 
-            const diasRestantes = nuevaEta
-              ? Math.ceil((new Date(nuevaEta) - new Date()) / (1000 * 60 * 60 * 24))
+            const llegadaFinal = nuevaLlegada ?? llegadaAnterior ?? null;
+            const diasRestantes = llegadaFinal
+              ? Math.ceil((new Date(llegadaFinal) - new Date()) / (1000 * 60 * 60 * 24))
               : null;
-            const etaDias = diasRestantes && diasRestantes > 0 ? ` (en ${diasRestantes} días)` : '';
 
             const ultimoPuerto = puertos
               .filter(p => p.ata)
               .sort((a, b) => new Date(b.ata) - new Date(a.ata))[0]
               ?? puertos.find(p => p.esPosicionActual)
               ?? null;
-            const origenNombre = ultimoPuerto?.puerto ?? null;
 
             const puertosLinea = puertos.length > 1
               ? '🛳 ' + puertos.map(p => (p.esPosicionActual ? '📍' : '') + p.puerto).join(' → ')
               : null;
 
-            const difDias = cambioDias >= 1
-              ? `${Math.round(cambioDias)} días`
-              : `${Math.round(cambioDias * 24)} horas`;
-
-            const zona = (posicion?.lat != null && posicion?.lon != null)
-              ? await reverseGeocode(posicion.lat, posicion.lon)
-              : null;
-
-            const encabezado = forzarNotificacion && !etaCambioSignificativo
-              ? `📡 *Actualización de posición*`
-              : !etaAnterior
-                ? `📅 *Nueva ETA registrada*`
-                : `⚠️ *Cambio de ETA detectado* (${difDias})`;
+            // Aviso de cambio de fecha de llegada (solo cuando cambia)
+            let avisoLlegada = null;
+            if (llegadaCambio && llegadaAnterior) {
+              const difDias = cambioDias >= 1
+                ? `${Math.round(cambioDias)} días`
+                : `${Math.round(cambioDias * 24)} horas`;
+              avisoLlegada = `⚠️ Fecha de llegada cambió ${difDias}: ${fmtFecha(llegadaAnterior)} → *${fmtFecha(nuevaLlegada)}*`;
+            }
 
             const lineas = [
-              encabezado,
+              `📡 *Actualización de posición*`,
               `🚢 *${barco}*`,
               proveedor ? `📦 ${contenedor} — ${proveedor}` : `📦 ${contenedor}`,
-              origenNombre ? `🗺 ${origenNombre} → Valencia` : null,
+              ultimoPuerto?.puerto ? `🗺 ${ultimoPuerto.puerto} → Valencia` : null,
               ``,
-              posicion?.sog && posicion?.cog
-                ? `⚡ ${posicion.sog} kn  ·  🧭 ${posicion.cog}°`
-                : null,
+              `⚡ ${posicion.sog} kn  ·  🧭 ${posicion.cog}°`,
               zona ? `🌍 ${zona}` : null,
-              posicion?.lat != null && posicion?.lon != null
-                ? `📍 https://maps.google.com/?q=${posicion.lat},${posicion.lon}`
-                : null,
+              `📍 https://maps.google.com/?q=${posicion.lat},${posicion.lon}`,
               ``,
-              etaAnterior ? `❌ ETA anterior: ${fmtFecha(etaAnterior)}` : null,
-              `✅ ETA nueva:     *${fmtFecha(nuevaEta)}*${etaDias}`,
+              llegadaFinal
+                ? `🗓 Llegada prevista: *${fmtFecha(llegadaFinal)}*${diasRestantes > 0 ? ` (en ${diasRestantes} días)` : ''}`
+                : null,
+              avisoLlegada,
               puertosLinea,
               ``,
               `──────────────────`,
@@ -144,16 +147,12 @@ export async function GET(request) {
         }
 
         resultados.push({
-          id:              c.id,
-          mmsi:            c.mmsiBarco,
-          posicionOk:      !!posicion,
-          etaAnterior:     etaAnterior,
-          etaNueva:        nuevaEta,
-          cambioDias:      cambioDias ? Math.round(cambioDias * 10) / 10 : null,
+          id:             c.id,
+          posicionOk:     !!posicion,
+          llegadaCambio,
           whatsappEnviado,
         });
 
-        // Pausa entre peticiones para no saturar VesselFinder
         await new Promise(r => setTimeout(r, 3000));
       } catch (e) {
         logApiError(e, `cron:contenedor:${c.id}`);
@@ -161,14 +160,11 @@ export async function GET(request) {
       }
     }
 
-    const notificados = resultados.filter(r => r.whatsappEnviado).length;
-
     return NextResponse.json({
-      ok:            true,
-      ejecutadoEn:   new Date().toISOString(),
-      total:         contenedores.length,
-      actualizados:  resultados.filter(r => r.posicionOk).length,
-      notificados,
+      ok:           true,
+      ejecutadoEn:  new Date().toISOString(),
+      total:        contenedores.length,
+      notificados:  resultados.filter(r => r.whatsappEnviado).length,
       resultados,
     });
   } catch (error) {
