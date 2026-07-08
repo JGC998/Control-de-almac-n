@@ -21,7 +21,7 @@ export async function GET(request, { params: paramsPromise }) {
         items: {
           orderBy: { descripcion: 'asc' },
           include: {
-            producto: { select: { id: true, nombre: true, referenciaFabricante: true } },
+            producto: { select: { id: true, nombre: true, referenciaFabricante: true, pesoUnitario: true } },
           },
         },
       },

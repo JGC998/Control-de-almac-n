@@ -67,8 +67,8 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
               const precioVentaUnitario = costoUnitario + margenItem + gastoFijoUnitario;
               const totalVenta = item.quantity * precioVentaUnitario;
 
-              // Peso
-              const pesoUnit = item.pesoUnitario || 0;
+              // Peso: item guardado o fallback al peso del producto
+              const pesoUnit = item.pesoUnitario || item.producto?.pesoUnitario || 0;
               const pesoTotal = pesoUnit * item.quantity;
 
               // Intentamos recuperar info del producto si está disponible
