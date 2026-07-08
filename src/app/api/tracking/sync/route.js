@@ -65,7 +65,10 @@ export async function POST(request) {
         const hayNuevoEvento  = claveNueva && claveNueva !== imp.ultimoEvento;
 
         const nombreBarcoNuevo = extraerNombreBarco(tracking.eventos);
-        const hayTransbordo    = nombreBarcoNuevo && imp.nombreBarco && nombreBarcoNuevo !== imp.nombreBarco;
+        // Si el nombre guardado en BD tiene espacios y > 6 chars, el usuario lo editó manualmente
+        // (ej: "ONE SOLIDARITY"). No comparar contra el código corto extraído (ej: "OSOL").
+        const esNombreManual = imp.nombreBarco && imp.nombreBarco.length > 6 && imp.nombreBarco.includes(' ');
+        const hayTransbordo  = nombreBarcoNuevo && imp.nombreBarco && !esNombreManual && nombreBarcoNuevo !== imp.nombreBarco;
 
         const scheduleBarco = nombreBarcoNuevo
           ? await buscarScheduleBarco(nombreBarcoNuevo).catch(() => null)
@@ -88,7 +91,8 @@ export async function POST(request) {
               ultimoEstadoTracking: tracking.ultimoEvento.status ?? null,
             }),
             ...(tracking.eta        && { etaEstimada: new Date(tracking.eta) }),
-            ...(nombreBarcoNuevo    && { nombreBarco: nombreBarcoNuevo }),
+            // No sobreescribir nombre manual del usuario con el código corto extraído
+            ...(nombreBarcoNuevo && !esNombreManual && { nombreBarco: nombreBarcoNuevo }),
             ...(clavePos            && { ultimaPosicionBarco: clavePos }),
           },
         });
