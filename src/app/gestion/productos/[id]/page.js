@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Tag, Info, List, Edit, QrCode, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Tag, Info, List, Edit, QrCode, TrendingUp, Trash2 } from 'lucide-react';
 import { toastError } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
@@ -91,7 +91,7 @@ export default function ProductoDetallePage() {
     }
   };
 
-  if (isLoading || docsLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg text-primary"></span></div>;
+  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg text-primary"></span></div>;
   if (error || !producto) {
     if (error?.status === 404) return notFound();
     return <div className="text-error text-center p-10">Error al cargar los detalles del producto.</div>;
