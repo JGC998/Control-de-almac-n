@@ -95,6 +95,20 @@ export async function PUT(request) {
       },
     });
     await logUpdate('TarifaMaterial', id, tarifaAnterior, updatedTarifa, 'Admin');
+
+    // Si cambió el precio base, recalcular precioBase de todos los rollos de ese material+espesor
+    const nuevoPrecio = getSafeFloat(data.precio);
+    if (nuevoPrecio != null && nuevoPrecio !== tarifaAnterior?.precio) {
+      const rollos = await db.tarifaRollo.findMany({
+        where: { material: data.material, espesor: getSafeFloat(data.espesor) },
+      });
+      await Promise.all(rollos.map(r => {
+        if (!r.ancho) return Promise.resolve();
+        const nuevoPrecioBase = nuevoPrecio * (r.ancho / 1000) * r.metrajeMinimo;
+        return db.tarifaRollo.update({ where: { id: r.id }, data: { precioBase: nuevoPrecioBase } });
+      }));
+    }
+
     revalidatePath('/tarifas');
     return NextResponse.json(updatedTarifa, { status: 200 });
   } catch (error) {

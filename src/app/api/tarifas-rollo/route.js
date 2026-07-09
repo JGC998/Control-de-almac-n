@@ -6,11 +6,19 @@ import { tarifaRolloSchema, validateData } from '@/lib/validations';
 
 export async function GET() {
   try {
-    const tarifas = await db.tarifaRollo.findMany({
-      orderBy: [{ material: 'asc' }, { espesor: 'asc' }],
-      take: 500,
+    const [tarifas, materiales] = await Promise.all([
+      db.tarifaRollo.findMany({ orderBy: [{ material: 'asc' }, { espesor: 'asc' }], take: 500 }),
+      db.tarifaMaterial.findMany({ select: { material: true, espesor: true, precio: true, acabado: true } }),
+    ]);
+
+    const result = tarifas.map(t => {
+      // Buscar TarifaMaterial coincidente por material+espesor; preferir sin acabado
+      const matches = materiales.filter(m => m.material === t.material && m.espesor === t.espesor);
+      const match = matches.find(m => m.acabado == null) ?? matches[0] ?? null;
+      return { ...t, precioM2: match?.precio ?? null };
     });
-    return NextResponse.json(tarifas);
+
+    return NextResponse.json(result);
   } catch (error) {
     logApiError(error, 'Error al obtener tarifas de rollo:');
     return NextResponse.json({ message: 'Error al obtener tarifas' }, { status: 500 });
