@@ -33,9 +33,7 @@ export async function GET(request, { params }) {
       },
     });
     if (!producto) return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
-    // SEC-09: excluir costoUnitario de la respuesta
-    const { costoUnitario: _omit, ...productoPublico } = producto;
-    return NextResponse.json(productoPublico);
+    return NextResponse.json(producto);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -78,8 +76,7 @@ export async function PUT(request, { params }) {
 
     revalidatePath('/gestion/productos');
     revalidatePath(`/gestion/productos/${id}`);
-    const { costoUnitario: _omit, ...productoPublico } = updatedProducto;
-    return NextResponse.json(productoPublico);
+    return NextResponse.json(updatedProducto);
   } catch (error) {
     logApiError(error, 'PUT /api/productos/[id]');
     return handlePrismaError(error, { notFound: 'Producto no encontrado' });

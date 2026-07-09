@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
 import { Download, Settings } from 'lucide-react';
@@ -8,9 +8,16 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toastError } from '@/lib/toast';
 
+const getPrecioM2 = (t) => {
+  if (!t.ancho || !t.metrajeMinimo) return null;
+  return t.precioBase / (t.metrajeMinimo * (t.ancho / 1000));
+};
+
 export default function TablaTarifasRollo() {
   const [selectedMarginId, setSelectedMarginId] = useState('');
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
+  const [editandoPrecioM2, setEditandoPrecioM2] = useState(null); // { id, value }
+  const [guardandoPrecioM2, setGuardandoPrecioM2] = useState(false);
 
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/tarifas-rollo');
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
@@ -96,6 +103,30 @@ export default function TablaTarifasRollo() {
     doc.save(name);
   };
 
+  const handleGuardarPrecioM2 = async (row) => {
+    if (guardandoPrecioM2) return;
+    const nuevoM2 = parseFloat(editandoPrecioM2.value);
+    if (isNaN(nuevoM2) || nuevoM2 <= 0) { setEditandoPrecioM2(null); return; }
+    const nuevoPrecioBase = nuevoM2 * row.metrajeMinimo * (row.ancho / 1000);
+    const anteriorM2 = getPrecioM2(row);
+    if (Math.abs(nuevoM2 - anteriorM2) < 0.001) { setEditandoPrecioM2(null); return; }
+    setGuardandoPrecioM2(true);
+    try {
+      const res = await fetch(`/api/tarifas-rollo/${row.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ precioBase: nuevoPrecioBase }),
+      });
+      if (!res.ok) throw new Error('Error al guardar');
+      mutate('/api/tarifas-rollo');
+    } catch {
+      toastError('Error al guardar el precio por m²');
+    } finally {
+      setGuardandoPrecioM2(false);
+      setEditandoPrecioM2(null);
+    }
+  };
+
   if (isLoading) return <div className="flex justify-center items-center h-64"><span className="loading loading-spinner loading-lg"></span></div>;
   if (tarifasError || margenesError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
 
@@ -158,6 +189,7 @@ export default function TablaTarifasRollo() {
                 <th>Ancho</th>
                 <th>Color</th>
                 <th>Metro por rollo</th>
+                <th title="Clic para editar">€/m² base</th>
                 <th>Precio base rollo</th>
                 <th className="font-bold">Precio final rollo</th>
                 <th>Kilos por rollo</th>
@@ -168,6 +200,8 @@ export default function TablaTarifasRollo() {
                 <tr><td colSpan={9} className="text-center py-8 text-base-content/40">Sin tarifas de rollo disponibles</td></tr>
               ) : filteredTarifas.map(t => {
                 const pf = t.precioBase * (selectedMargin?.multiplicador || 1);
+                const m2 = getPrecioM2(t);
+                const isEditingM2 = editandoPrecioM2?.id === t.id;
                 return (
                   <tr key={t.id} className="hover">
                     <td className="font-bold">{t.material}</td>
@@ -175,6 +209,27 @@ export default function TablaTarifasRollo() {
                     <td>{t.ancho ? `${t.ancho} mm` : <span className="opacity-40">—</span>}</td>
                     <td>{t.color || <span className="opacity-40">—</span>}</td>
                     <td>{t.metrajeMinimo} m</td>
+                    <td>
+                      {m2 == null ? <span className="opacity-40">—</span> : isEditingM2 ? (
+                        <input
+                          type="number" min="0" step="0.01"
+                          className="input input-xs input-bordered w-20 font-mono text-center"
+                          value={editandoPrecioM2.value}
+                          onChange={e => setEditandoPrecioM2(prev => ({ ...prev, value: e.target.value }))}
+                          onBlur={() => handleGuardarPrecioM2(t)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleGuardarPrecioM2(t); if (e.key === 'Escape') setEditandoPrecioM2(null); }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:text-primary font-mono text-sm"
+                          title="Clic para editar €/m²"
+                          onClick={() => setEditandoPrecioM2({ id: t.id, value: m2.toFixed(4) })}
+                        >
+                          {m2.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </span>
+                      )}
+                    </td>
                     <td className="opacity-70">
                       {formatCurrency(t.precioBase)}
                       <span className="text-xs text-base-content/50 ml-1">({t.metrajeMinimo}m)</span>

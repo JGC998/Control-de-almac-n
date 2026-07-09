@@ -16,6 +16,8 @@ export default function TablaTarifas() {
   const [guardandoLonas, setGuardandoLonas] = useState(false);
   const [editandoAcabado, setEditandoAcabado] = useState(null); // { id, value }
   const [guardandoAcabado, setGuardandoAcabado] = useState(false);
+  const [editandoPrecio, setEditandoPrecio] = useState(null); // { id, value }
+  const [guardandoPrecio, setGuardandoPrecio] = useState(false);
 
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
@@ -60,6 +62,24 @@ export default function TablaTarifas() {
     } finally {
       setGuardandoAcabado(false);
       setEditandoAcabado(null);
+    }
+  };
+
+  const handleGuardarPrecio = async (row) => {
+    if (guardandoPrecio) return;
+    const nuevoValor = parseFloat(editandoPrecio.value);
+    if (isNaN(nuevoValor) || nuevoValor === row.precio) { setEditandoPrecio(null); return; }
+    setGuardandoPrecio(true);
+    try {
+      await fetch('/api/precios', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, material: row.material, espesor: row.espesor, precio: nuevoValor, peso: row.peso, color: row.color, lonas: row.lonas, acabado: row.acabado }),
+      });
+      mutate('/api/precios');
+    } finally {
+      setGuardandoPrecio(false);
+      setEditandoPrecio(null);
     }
   };
 
@@ -265,7 +285,27 @@ export default function TablaTarifas() {
                       )}
                     </td>
                     <td className="text-center">{row.espesor}</td>
-                    <td className="text-center opacity-70">{formatCurrency(row.precio)}</td>
+                    <td className="text-center">
+                      {editandoPrecio?.id === row.id ? (
+                        <input
+                          type="number" min="0" step="0.01"
+                          className="input input-xs input-bordered w-20 font-mono text-center"
+                          value={editandoPrecio.value}
+                          onChange={e => setEditandoPrecio(prev => ({ ...prev, value: e.target.value }))}
+                          onBlur={() => handleGuardarPrecio(row)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleGuardarPrecio(row); if (e.key === 'Escape') setEditandoPrecio(null); }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:text-primary font-mono text-sm opacity-70"
+                          title="Clic para editar precio base"
+                          onClick={() => setEditandoPrecio({ id: row.id, value: String(row.precio) })}
+                        >
+                          {formatCurrency(row.precio)}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-center font-bold text-primary">{formatCurrency(finalPrice)}</td>
                     <td className="text-center">{row.peso.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg</td>
                   </tr>

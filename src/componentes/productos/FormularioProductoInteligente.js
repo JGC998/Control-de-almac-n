@@ -14,6 +14,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     ancho: '',
     largo: '',
     precioUnitario: '',
+    costoUnitario: '',
     pesoUnitario: '',
     referenciaFabricante: '',
   });
@@ -43,6 +44,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         ancho:                productoAEditar.ancho ?? '',
         largo:                productoAEditar.largo ?? '',
         precioUnitario:       productoAEditar.precioUnitario ?? '',
+        costoUnitario:        productoAEditar.costoUnitario ?? '',
         pesoUnitario:         productoAEditar.pesoUnitario ?? '',
         referenciaFabricante: productoAEditar.referenciaFabricante ?? '',
       });
@@ -205,6 +207,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       acabado:              form.acabado              || null,
       lonas:                opciones.tarifa?.lonas    ?? productoAEditar?.lonas ?? null,
       precioUnitario:       parseFloat(form.precioUnitario) || 0,
+      costoUnitario:        parseFloat(form.costoUnitario)  || 0,
       pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
       referenciaFabricante: form.referenciaFabricante || null,
     };
@@ -363,11 +366,11 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
       </div>
 
-      {/* Precio y Peso */}
+      {/* Precio, Costo y Peso */}
       <div className="grid grid-cols-2 gap-3">
         <div className="form-control">
           <label className="label">
-            <span className="label-text font-medium">Precio unitario (€)</span>
+            <span className="label-text font-medium">Precio venta (€)</span>
             {tieneTarifa && <span className="label-text-alt text-success text-xs">Auto ✓</span>}
           </label>
           <input
@@ -380,17 +383,29 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
         <div className="form-control">
           <label className="label">
-            <span className="label-text font-medium">Peso (kg)</span>
-            {tieneTarifa && <span className="label-text-alt text-success text-xs">Auto ✓</span>}
+            <span className="label-text font-medium">Costo unitario (€)</span>
           </label>
           <input
-            type="number" min="0" step="0.001"
-            value={form.pesoUnitario}
-            onChange={e => setForm(f => ({ ...f, pesoUnitario: e.target.value }))}
-            placeholder="0.000"
-            className={`input input-bordered ${tieneTarifa ? 'input-success' : ''}`}
+            type="number" min="0" step="0.01"
+            value={form.costoUnitario}
+            onChange={e => setForm(f => ({ ...f, costoUnitario: e.target.value }))}
+            placeholder="0.00"
+            className="input input-bordered"
           />
         </div>
+      </div>
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">Peso (kg)</span>
+          {tieneTarifa && <span className="label-text-alt text-success text-xs">Auto ✓</span>}
+        </label>
+        <input
+          type="number" min="0" step="0.001"
+          value={form.pesoUnitario}
+          onChange={e => setForm(f => ({ ...f, pesoUnitario: e.target.value }))}
+          placeholder="0.000"
+          className={`input input-bordered ${tieneTarifa ? 'input-success' : ''}`}
+        />
       </div>
 
       {/* Referencia fabricante */}
