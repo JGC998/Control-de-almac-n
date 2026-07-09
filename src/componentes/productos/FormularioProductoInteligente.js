@@ -49,6 +49,43 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     }
   }, [productoAEditar]);
 
+  // En modo edición: disparar la cascada una vez que los materiales estén cargados
+  useEffect(() => {
+    if (!productoAEditar || !opciones.materiales.length) return;
+    const mat = productoAEditar.material?.nombre ?? '';
+    const esp = productoAEditar.espesor;
+    if (!mat || esp == null) return;
+
+    (async () => {
+      try {
+        // Espesores del material
+        const r1 = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(mat)}`);
+        const d1 = await r1.json();
+        setOpciones(prev => ({ ...prev, espesores: d1.espesores ?? [] }));
+
+        // Tarifas + acabados + colores del material+espesor
+        const r2 = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(mat)}&espesor=${esp}`);
+        const d2 = await r2.json();
+        const tarifas = d2.tarifas ?? [];
+        const acabados = d2.acabados ?? [];
+        const colores  = d2.colores  ?? [];
+        setOpciones(prev => ({ ...prev, tarifas, acabados, colores }));
+
+        // Buscar la tarifa que coincide con acabado + color del producto
+        const acabadoProd = productoAEditar.acabado ?? '';
+        const colorProd   = productoAEditar.color   ?? '';
+        const tarifa = tarifas.find(t =>
+          (t.acabado ?? '') === acabadoProd && (t.color ?? '') === colorProd,
+        );
+        if (tarifa) {
+          setOpciones(prev => ({ ...prev, tarifa }));
+          setTarifaEncontrada(true);
+        }
+      } catch { /* silencioso — el usuario puede rellenar precio manualmente */ }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productoAEditar?.id, opciones.materiales.length]);
+
   // Material → espesores
   const handleMaterialChange = useCallback(async (material) => {
     setForm(f => ({ ...f, material, espesor: '', acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
@@ -166,7 +203,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       largo:                form.largo                ? parseFloat(form.largo)   : null,
       color:                form.color                || null,
       acabado:              form.acabado              || null,
-      lonas:                opciones.tarifa?.lonas    ?? null,
+      lonas:                opciones.tarifa?.lonas    ?? productoAEditar?.lonas ?? null,
       precioUnitario:       parseFloat(form.precioUnitario) || 0,
       pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
       referenciaFabricante: form.referenciaFabricante || null,
@@ -260,7 +297,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
       )}
 
-      {/* Acabado (si hay opciones) */}
+      {/* Acabado (solo si hay tarifas con acabado distinto para este material+espesor) */}
       {form.espesor && hayAcabados && (
         <div className="form-control">
           <label className="label"><span className="label-text font-medium">Acabado</span></label>
@@ -269,7 +306,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
             value={form.acabado}
             onChange={e => handleAcabadoChange(e.target.value)}
           >
-            <option value="">— Estándar (sin acabado) —</option>
+            {/* "Sin acabado" solo aparece si hay una tarifa sin acabado para este material+espesor */}
+            {opciones.acabados.includes('') && (
+              <option value="">— Sin acabado —</option>
+            )}
             {opciones.acabados.filter(a => a !== '').map(a => (
               <option key={a} value={a}>{a}</option>
             ))}
