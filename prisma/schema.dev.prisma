@@ -321,14 +321,15 @@ model ReglaMargen {
 }
 
 model TarifaMaterial {
-  id       String  @id @default(uuid())
-  material String
-  espesor  Float
-  precio   Float
-  peso     Float
-  color    String?
-  lonas    Int?
-  acabado  String?
+  id            String  @id @default(uuid())
+  material      String
+  espesor       Float
+  precio        Float
+  peso          Float
+  color         String?
+  lonas         Int?
+  acabado       String?
+  preciosVenta  Json?
 
   @@unique([material, espesor, color, lonas, acabado])
 }

@@ -10,83 +10,38 @@ import { toastError } from '@/lib/toast';
 
 
 export default function TablaTarifas() {
-  const [selectedMarginId, setSelectedMarginId] = useState('');
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
-  const [editandoLonas, setEditandoLonas] = useState(null); // { id, value }
-  const [guardandoLonas, setGuardandoLonas] = useState(false);
-  const [editandoAcabado, setEditandoAcabado] = useState(null); // { id, value }
-  const [guardandoAcabado, setGuardandoAcabado] = useState(false);
+
+  // Edición inline precio base
   const [editandoPrecio, setEditandoPrecio] = useState(null); // { id, value }
   const [guardandoPrecio, setGuardandoPrecio] = useState(false);
+
+  // Edición inline lonas
+  const [editandoLonas, setEditandoLonas] = useState(null); // { id, value }
+  const [guardandoLonas, setGuardandoLonas] = useState(false);
+
+  // Edición inline acabado
+  const [editandoAcabado, setEditandoAcabado] = useState(null); // { id, value }
+  const [guardandoAcabado, setGuardandoAcabado] = useState(false);
+
+  // Edición inline precio de venta por margen: { id, margenBase, value }
+  const [editandoVenta, setEditandoVenta] = useState(null);
+  const [guardandoVenta, setGuardandoVenta] = useState(false);
 
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
 
   const isLoading = tarifasLoading || margenesLoading;
 
-  const selectedMargin = useMemo(() => {
-    if (!margenes || !selectedMarginId) return null;
-    return margenes.find(m => m.id === selectedMarginId);
-  }, [margenes, selectedMarginId]);
-
-  const handleGuardarLonas = async (row) => {
-    if (guardandoLonas) return;
-    const nuevoValor = editandoLonas.value === '' ? null : parseInt(editandoLonas.value, 10);
-    if (nuevoValor === (row.lonas ?? null)) { setEditandoLonas(null); return; }
-    setGuardandoLonas(true);
-    try {
-      await fetch('/api/precios', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: row.id, material: row.material, espesor: row.espesor, precio: row.precio, peso: row.peso, color: row.color, lonas: nuevoValor, acabado: row.acabado }),
-      });
-      mutate('/api/precios');
-    } finally {
-      setGuardandoLonas(false);
-      setEditandoLonas(null);
-    }
-  };
-
-  const handleGuardarAcabado = async (row) => {
-    if (guardandoAcabado) return;
-    const nuevoValor = editandoAcabado.value.trim() || null;
-    if (nuevoValor === (row.acabado ?? null)) { setEditandoAcabado(null); return; }
-    setGuardandoAcabado(true);
-    try {
-      await fetch('/api/precios', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: row.id, material: row.material, espesor: row.espesor, precio: row.precio, peso: row.peso, color: row.color, lonas: row.lonas, acabado: nuevoValor }),
-      });
-      mutate('/api/precios');
-    } finally {
-      setGuardandoAcabado(false);
-      setEditandoAcabado(null);
-    }
-  };
-
-  const handleGuardarPrecio = async (row) => {
-    if (guardandoPrecio) return;
-    const nuevoValor = parseFloat(editandoPrecio.value);
-    if (isNaN(nuevoValor) || nuevoValor === row.precio) { setEditandoPrecio(null); return; }
-    setGuardandoPrecio(true);
-    try {
-      await fetch('/api/precios', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: row.id, material: row.material, espesor: row.espesor, precio: nuevoValor, peso: row.peso, color: row.color, lonas: row.lonas, acabado: row.acabado }),
-      });
-      mutate('/api/precios');
-    } finally {
-      setGuardandoPrecio(false);
-      setEditandoPrecio(null);
-    }
-  };
+  // Solo márgenes con multiplicador (no gastoFijo)
+  const margenesVenta = useMemo(() => {
+    if (!Array.isArray(margenes)) return [];
+    return margenes.filter(m => m.tipo !== 'gastoFijo' && m.multiplicador !== 1);
+  }, [margenes]);
 
   const uniqueMaterials = useMemo(() => {
     if (!Array.isArray(tarifas)) return [];
-    const materials = tarifas.map(t => t.material);
-    return ['Todos', ...new Set(materials)].sort();
+    return ['Todos', ...new Set(tarifas.map(t => t.material))].sort();
   }, [tarifas]);
 
   const filteredTarifas = useMemo(() => {
@@ -95,38 +50,103 @@ export default function TablaTarifas() {
     return tarifas.filter(t => t.material === selectedMaterial);
   }, [tarifas, selectedMaterial]);
 
+  // --- Handlers ---
+
+  const guardarCampo = async (row, campoData) => {
+    await fetch('/api/precios', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: row.id,
+        material: row.material,
+        espesor: row.espesor,
+        precio: row.precio,
+        peso: row.peso,
+        color: row.color,
+        lonas: row.lonas,
+        acabado: row.acabado,
+        preciosVenta: row.preciosVenta ?? null,
+        ...campoData,
+      }),
+    });
+    mutate('/api/precios');
+  };
+
+  const handleGuardarPrecio = async (row) => {
+    if (guardandoPrecio) return;
+    const nuevoValor = parseFloat(editandoPrecio.value);
+    if (isNaN(nuevoValor) || nuevoValor === row.precio) { setEditandoPrecio(null); return; }
+    setGuardandoPrecio(true);
+    try { await guardarCampo(row, { precio: nuevoValor }); }
+    finally { setGuardandoPrecio(false); setEditandoPrecio(null); }
+  };
+
+  const handleGuardarLonas = async (row) => {
+    if (guardandoLonas) return;
+    const nuevoValor = editandoLonas.value === '' ? null : parseInt(editandoLonas.value, 10);
+    if (nuevoValor === (row.lonas ?? null)) { setEditandoLonas(null); return; }
+    setGuardandoLonas(true);
+    try { await guardarCampo(row, { lonas: nuevoValor }); }
+    finally { setGuardandoLonas(false); setEditandoLonas(null); }
+  };
+
+  const handleGuardarAcabado = async (row) => {
+    if (guardandoAcabado) return;
+    const nuevoValor = editandoAcabado.value.trim() || null;
+    if (nuevoValor === (row.acabado ?? null)) { setEditandoAcabado(null); return; }
+    setGuardandoAcabado(true);
+    try { await guardarCampo(row, { acabado: nuevoValor }); }
+    finally { setGuardandoAcabado(false); setEditandoAcabado(null); }
+  };
+
+  const handleGuardarVenta = async (row) => {
+    if (guardandoVenta) return;
+    const nuevoValor = parseFloat(editandoVenta.value);
+    if (isNaN(nuevoValor) || nuevoValor <= 0) { setEditandoVenta(null); return; }
+    const preciosActuales = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
+    const calculado = row.precio * (margenesVenta.find(m => m.base === editandoVenta.margenBase)?.multiplicador ?? 1);
+    // Si el valor coincide con el calculado, borrar la sobreescritura
+    const nuevos = Math.abs(nuevoValor - calculado) < 0.001
+      ? { ...preciosActuales, [editandoVenta.margenBase]: undefined }
+      : { ...preciosActuales, [editandoVenta.margenBase]: nuevoValor };
+    // Limpiar undefined
+    Object.keys(nuevos).forEach(k => nuevos[k] === undefined && delete nuevos[k]);
+    setGuardandoVenta(true);
+    try { await guardarCampo(row, { preciosVenta: Object.keys(nuevos).length ? nuevos : null }); }
+    finally { setGuardandoVenta(false); setEditandoVenta(null); }
+  };
+
   const handleExportPDF = () => {
     if (filteredTarifas.length === 0) {
       toastError('No hay tarifas para exportar.');
       return;
     }
-
     const doc = new jsPDF({ orientation: 'landscape' });
     const fecha = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     doc.setFontSize(15);
     doc.setFont("helvetica", "bold");
     doc.text("Tabla de Tarifas de Materiales (por m²)", 14, 16);
-
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    const margenText = selectedMargin
-      ? `Margen: ${selectedMargin.descripcion} (×${selectedMargin.multiplicador})`
-      : 'Sin margen (precio base)';
-    doc.text(`Filtro: ${selectedMaterial}   ·   ${margenText}   ·   Impreso el ${fecha}`, 14, 23);
+    doc.text(`Filtro: ${selectedMaterial}   ·   Impreso el ${fecha}`, 14, 23);
 
-    const tableColumn = ["Material", "Lonas", "Acabado", "Espesor (mm)", "Color", "Precio Base (€/m²)", "Precio Final (€/m²)", "Peso (kg/m²)"];
+    const ventaCols = margenesVenta.map(m => `${m.descripcion} (€/m²)`);
+    const tableColumn = ["Material", "Lonas", "Acabado", "Espesor (mm)", "Precio Base (€/m²)", ...ventaCols, "Peso (kg/m²)"];
     const tableRows = filteredTarifas.map(row => {
-      const finalPrice = row.precio * (selectedMargin?.multiplicador || 1);
+      const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
+      const ventaVals = margenesVenta.map(m => {
+        const v = preciosMap[m.base] ?? (row.precio * m.multiplicador);
+        return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      });
       return [
         row.material,
         row.lonas != null ? String(row.lonas) : '—',
         row.acabado || '—',
-        row.espesor.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-        row.color || '—',
-        row.precio.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €',
-        finalPrice.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €',
-        row.peso.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' kg',
+        row.espesor.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        row.precio.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €',
+        ...ventaVals,
+        row.peso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kg',
       ];
     });
 
@@ -135,18 +155,10 @@ export default function TablaTarifas() {
       body: tableRows,
       startY: 28,
       theme: 'grid',
-      styles: { fontSize: 10, cellPadding: 4 },
+      styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [245, 245, 245] },
       margin: { left: 14, right: 14 },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 30, halign: 'center' },
-        2: { cellWidth: 30, halign: 'center' },
-        3: { cellWidth: 'auto', halign: 'right' },
-        4: { cellWidth: 'auto', halign: 'right', fontStyle: 'bold' },
-        5: { cellWidth: 35, halign: 'right' },
-      },
     });
 
     const fileName = selectedMaterial === 'Todos'
@@ -154,7 +166,6 @@ export default function TablaTarifas() {
       : `tarifa-m2-${selectedMaterial.toLowerCase().replace(/\s/g, '-')}-${new Date().toISOString().slice(0, 10)}.pdf`;
     doc.save(fileName);
   };
-
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
   if (tarifasError || margenesError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
@@ -165,13 +176,11 @@ export default function TablaTarifas() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="card-title">Tabla de Tarifas por Material</h2>
           <div className="flex gap-2">
-            {/* NUEVO: Botón de gestión */}
             <Link href="/configuracion">
               <button className="btn btn-neutral btn-sm">
                 <Settings className="w-4 h-4" /> Gestionar Precios Base
               </button>
             </Link>
-            {/* Existente: Botón de Imprimir */}
             <button
               onClick={handleExportPDF}
               className="btn btn-secondary btn-sm"
@@ -182,43 +191,17 @@ export default function TablaTarifas() {
           </div>
         </div>
 
-        {/* Agrupamos los dos selectores */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Selector de Margen */}
-          <div className="form-control w-full">
-            <label className="label"><span className="label-text font-bold">Simular Precio con Margen:</span></label>
-            <select
-              className="select select-bordered"
-              value={selectedMarginId}
-              onChange={(e) => setSelectedMarginId(e.target.value)}
-            >
-              <option value="">Precio Base (Sin Margen)</option>
-              {margenes?.map(margen => {
-                const tierText = margen.tierCliente ? ` (${margen.tierCliente})` : '';
-                return (
-                  <option key={margen.id} value={margen.id}>
-                    {margen.descripcion}{tierText} (x{margen.multiplicador})
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          {/* Selector de Material */}
-          <div className="form-control w-full">
-            <label className="label"><span className="label-text font-bold">Filtrar por Material:</span></label>
-            <select
-              className="select select-bordered"
-              value={selectedMaterial}
-              onChange={(e) => setSelectedMaterial(e.target.value)}
-            >
-              {uniqueMaterials.map(material => (
-                <option key={material} value={material}>
-                  {material}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="form-control w-full max-w-xs mb-4">
+          <label className="label"><span className="label-text font-bold">Filtrar por Material:</span></label>
+          <select
+            className="select select-bordered"
+            value={selectedMaterial}
+            onChange={(e) => setSelectedMaterial(e.target.value)}
+          >
+            {uniqueMaterials.map(material => (
+              <option key={material} value={material}>{material}</option>
+            ))}
+          </select>
         </div>
 
         <div className="overflow-x-auto max-h-[70vh]">
@@ -229,20 +212,26 @@ export default function TablaTarifas() {
                 <th className="text-center">Lonas</th>
                 <th className="text-center">Acabado</th>
                 <th className="text-center">Espesor (mm)</th>
-                <th className="text-center">Precio Base (€/m²)</th>
-                <th className="text-center font-bold">Precio Final (€/m²)</th>
+                <th className="text-center" title="Clic para editar">Precio Base (€/m²)</th>
+                {margenesVenta.map(m => (
+                  <th key={m.base} className="text-center">
+                    <span className="block text-xs font-bold">{m.descripcion}</span>
+                    <span className="block text-xs font-normal opacity-60">×{m.multiplicador}</span>
+                  </th>
+                ))}
                 <th className="text-center">Peso (kg/m²)</th>
               </tr>
             </thead>
             <tbody>
               {filteredTarifas?.map(row => {
-                const finalPrice = row.precio * (selectedMargin?.multiplicador || 1);
-                const isEditing = editandoLonas?.id === row.id;
+                const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
                 return (
                   <tr key={row.id} className="hover">
                     <td className="font-bold text-center">{row.material}</td>
+
+                    {/* Lonas */}
                     <td className="text-center">
-                      {isEditing ? (
+                      {editandoLonas?.id === row.id ? (
                         <input
                           type="number" min="1" step="1"
                           className="input input-xs input-bordered w-16 font-mono text-center"
@@ -262,6 +251,8 @@ export default function TablaTarifas() {
                         </span>
                       )}
                     </td>
+
+                    {/* Acabado */}
                     <td className="text-center">
                       {editandoAcabado?.id === row.id ? (
                         <input
@@ -284,7 +275,10 @@ export default function TablaTarifas() {
                         </span>
                       )}
                     </td>
+
                     <td className="text-center">{row.espesor}</td>
+
+                    {/* Precio base editable */}
                     <td className="text-center">
                       {editandoPrecio?.id === row.id ? (
                         <input
@@ -306,8 +300,41 @@ export default function TablaTarifas() {
                         </span>
                       )}
                     </td>
-                    <td className="text-center font-bold text-primary">{formatCurrency(finalPrice)}</td>
-                    <td className="text-center">{row.peso.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg</td>
+
+                    {/* Columnas de precio de venta por margen */}
+                    {margenesVenta.map(m => {
+                      const calculado = row.precio * m.multiplicador;
+                      const manual = preciosMap[m.base];
+                      const esManual = manual != null;
+                      const valorMostrado = esManual ? manual : calculado;
+                      const isEditing = editandoVenta?.id === row.id && editandoVenta?.margenBase === m.base;
+                      return (
+                        <td key={m.base} className="text-center">
+                          {isEditing ? (
+                            <input
+                              type="number" min="0" step="0.01"
+                              className="input input-xs input-bordered w-20 font-mono text-center"
+                              value={editandoVenta.value}
+                              onChange={e => setEditandoVenta(prev => ({ ...prev, value: e.target.value }))}
+                              onBlur={() => handleGuardarVenta(row)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleGuardarVenta(row); if (e.key === 'Escape') setEditandoVenta(null); }}
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              className={`cursor-pointer hover:text-primary font-mono text-sm ${esManual ? 'font-bold text-primary' : ''}`}
+                              title={esManual ? 'Precio manual (clic para editar)' : `Calculado: ${calculado.toFixed(2)} € (clic para fijar manualmente)`}
+                              onClick={() => setEditandoVenta({ id: row.id, margenBase: m.base, value: valorMostrado.toFixed(2) })}
+                            >
+                              {formatCurrency(valorMostrado)}
+                              {esManual && <span className="text-xs ml-1 opacity-60">✎</span>}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+
+                    <td className="text-center">{row.peso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
                   </tr>
                 );
               })}
@@ -317,6 +344,10 @@ export default function TablaTarifas() {
             <div className="text-center py-4 text-gray-500">No hay tarifas para el material seleccionado.</div>
           )}
         </div>
+
+        <p className="text-xs text-base-content/40 mt-2">
+          Los precios en <span className="text-primary font-bold">azul negrita</span> están fijados manualmente. El resto se calculan automáticamente (precio base × multiplicador de margen). Clic en cualquier precio para editarlo.
+        </p>
       </div>
     </div>
   );
