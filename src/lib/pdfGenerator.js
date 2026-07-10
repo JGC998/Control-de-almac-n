@@ -549,7 +549,7 @@ export async function generateOrderPDF(order, config = {}) {
 
 // PDF simplificado para dejar en el taller: cliente, artículos, peso y precio.
 // Sin márgenes, sin referencias internas, sin notas internas.
-export async function generateTallerPDF(order, { valorado = false, pedidoUrl = null, margenRule = null } = {}) {
+export async function generateTallerPDF(order, { valorado = false, pedidoUrl = null, margenRule = null, ivaRate = 0.21 } = {}) {
     try {
         const doc    = new jsPDF();
         const client = order.cliente;
@@ -762,15 +762,40 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         doc.text(`${fmtN(pesoTotal)} kg`, MR, finalY, { align: 'right' });
         finalY += 8;
 
-        // ── Total importe (solo si valorado) ──────────────────────────
+        // ── Desglose económico (solo si valorado) ─────────────────────
         if (valorado) {
+            const tax = importeTotal * ivaRate;
+            const totalConIva = importeTotal + tax;
+            const margenLabel = margenRule && margenRule.multiplicador > 1
+                ? ` (×${margenRule.multiplicador})`
+                : '';
+
+            // Subtotal
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(90, 90, 90);
+            doc.text(`Subtotal${margenLabel}:`, 128, finalY);
+            doc.setTextColor(26, 26, 26);
+            doc.text(`${fmtN(importeTotal)} €`, MR, finalY, { align: 'right' });
+            finalY += 6;
+
+            // IVA
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(90, 90, 90);
+            doc.text(`Impuestos (${fmtN(ivaRate * 100, 0)}%):`, 128, finalY);
+            doc.setTextColor(26, 26, 26);
+            doc.text(`${fmtN(tax)} €`, MR, finalY, { align: 'right' });
+            finalY += 7;
+
+            // TOTAL con IVA
             doc.setFillColor(31, 45, 58);
             doc.rect(112, finalY - 7, 86, 12, 'F');
             doc.setFontSize(13);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(255, 255, 255);
             doc.text("TOTAL:", 116, finalY);
-            doc.text(`${fmtN(importeTotal)} €`, MR, finalY, { align: 'right' });
+            doc.text(`${fmtN(totalConIva)} €`, MR, finalY, { align: 'right' });
             doc.setTextColor(0, 0, 0);
             finalY += 14;
         }

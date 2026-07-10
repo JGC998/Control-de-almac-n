@@ -25,11 +25,17 @@ export async function GET(request, { params }) {
     if (!order) return new NextResponse('Pedido no encontrado', { status: 404 });
 
     let margenRule = null;
-    if (valorado && order.marginId) {
-      margenRule = await db.reglaMargen.findUnique({ where: { id: order.marginId } });
+    let ivaRate = 0.21;
+    if (valorado) {
+      const [regla, ivaConfig] = await Promise.all([
+        order.marginId ? db.reglaMargen.findUnique({ where: { id: order.marginId } }) : Promise.resolve(null),
+        db.config.findUnique({ where: { key: 'iva_rate' } }),
+      ]);
+      margenRule = regla;
+      if (ivaConfig) ivaRate = parseFloat(ivaConfig.value) / 100;
     }
 
-    const pdfBuffer = await generateTallerPDF(order, { valorado, pedidoUrl, margenRule });
+    const pdfBuffer = await generateTallerPDF(order, { valorado, pedidoUrl, margenRule, ivaRate });
 
     return new NextResponse(pdfBuffer, {
       status: 200,
