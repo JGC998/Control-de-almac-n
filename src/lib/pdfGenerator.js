@@ -549,7 +549,7 @@ export async function generateOrderPDF(order, config = {}) {
 
 // PDF simplificado para dejar en el taller: cliente, artículos, peso y precio.
 // Sin márgenes, sin referencias internas, sin notas internas.
-export async function generateTallerPDF(order, { valorado = false, pedidoUrl = null } = {}) {
+export async function generateTallerPDF(order, { valorado = false, pedidoUrl = null, margenRule = null } = {}) {
     try {
         const doc    = new jsPDF();
         const client = order.cliente;
@@ -638,6 +638,12 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         let pesoTotal   = 0;
         let importeTotal = 0;
 
+        // Pre-cálculo del margen para la versión valorada
+        const multiplicador = margenRule?.multiplicador ?? 1;
+        const gastoFijoTotal = margenRule?.gastoFijo ?? 0;
+        const totalUnidades = (order.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+        const gastoFijoUnitario = totalUnidades > 0 ? gastoFijoTotal / totalUnidades : 0;
+
         // Columna Descripción: nombre + material + dimensiones del producto
         const getDescripcion = (item) => {
             const lines = [item.descripcion || item.producto?.nombre || ''];
@@ -673,13 +679,18 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         };
 
         for (const item of order.items || []) {
-            const qty        = item.quantity      || 0;
-            const precio     = item.unitPrice     || 0;
+            const qty           = item.quantity || 0;
+            const costoUnitario = item.unitPrice || 0;
             // Fallback al peso del producto si el item no tiene peso guardado
             const peso       = item.pesoUnitario || item.producto?.pesoUnitario || 0;
             const pesoLinea  = qty * peso;
-            const importeLin = qty * precio;
-            pesoTotal    += pesoLinea;
+            pesoTotal += pesoLinea;
+
+            // Precio de venta: aplicar margen si es valorado y hay regla definida
+            const precioVenta = (valorado && margenRule)
+                ? costoUnitario * multiplicador + gastoFijoUnitario
+                : costoUnitario;
+            const importeLin = qty * precioVenta;
             importeTotal += importeLin;
 
             const descripcion = getDescripcion(item);
@@ -690,7 +701,7 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                     descripcion,
                     detalles,
                     qty.toString(),
-                    `${fmtN(precio)} €`,
+                    `${fmtN(precioVenta)} €`,
                     `${fmtN(importeLin)} €`,
                     fmtN(peso),
                     fmtN(pesoLinea),

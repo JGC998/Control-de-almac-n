@@ -24,7 +24,12 @@ export async function GET(request, { params }) {
 
     if (!order) return new NextResponse('Pedido no encontrado', { status: 404 });
 
-    const pdfBuffer = await generateTallerPDF(order, { valorado, pedidoUrl });
+    let margenRule = null;
+    if (valorado && order.marginId) {
+      margenRule = await db.reglaMargen.findUnique({ where: { id: order.marginId } });
+    }
+
+    const pdfBuffer = await generateTallerPDF(order, { valorado, pedidoUrl, margenRule });
 
     return new NextResponse(pdfBuffer, {
       status: 200,
