@@ -22,22 +22,12 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
   const totalQuantity = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
   const gastoFijoUnitario = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
 
-  // Totales calculados para visualización (Similar a Presupuestos)
   const subtotalCostoBase = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
 
-  // Si tenemos totales guardados en el pedido, intentamos usarlos para el resumen final, 
-  // pero calculamos el desglose para la tabla.
-  const subtotalVentaCalculado = (subtotalCostoBase * multiplicador) + gastoFijoTotal;
-  const taxCalculado = subtotalVentaCalculado * ivaRate;
-  const totalCalculado = subtotalVentaCalculado + taxCalculado;
-
-  // Preferimos los valores guardados si existen, sino los calculados
-  const subtotalDisplay = order.subtotal || subtotalVentaCalculado;
-  const taxDisplay = order.tax || taxCalculado;
-  const totalDisplay = order.total || totalCalculado;
-
-  // Para identificar discrepancias visuales si las reglas cambiaron
-  const isHistoricalAccurate = Math.abs(totalDisplay - totalCalculado) < 0.1;
+  // Totales de venta siempre calculados (order.subtotal almacena coste base, no precio venta)
+  const subtotalVenta = (subtotalCostoBase * multiplicador) + gastoFijoTotal;
+  const taxVenta = subtotalVenta * ivaRate;
+  const totalVentaFinal = subtotalVenta + taxVenta;
 
   return (
     <div className="flex flex-col md:flex-row justify-between gap-6">
@@ -99,33 +89,21 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
         <h3 className="font-bold text-lg">Resumen Económico</h3>
 
         <div className="flex justify-between">
-          <span>Subtotal</span>
-          <span>{subtotalDisplay.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
+          <span>Subtotal{multiplicador > 1 ? ` (×${multiplicador})` : ''}</span>
+          <span>{subtotalVenta.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
         </div>
-
-        {multiplicador > 1 && (
-          <div className="text-xs text-right text-gray-500">
-            (Incluye Margen x{multiplicador})
-          </div>
-        )}
 
         <div className="flex justify-between">
           <span>Impuestos ({(ivaRate * 100).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}%)</span>
-          <span>{taxDisplay.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
+          <span>{taxVenta.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
         </div>
 
         <div className="divider my-1"></div>
 
         <div className="flex justify-between font-bold text-2xl text-primary">
           <span>TOTAL</span>
-          <span>{totalDisplay.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
+          <span>{totalVentaFinal.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
         </div>
-
-        {!isHistoricalAccurate && (
-          <div className="alert alert-warning text-xs mt-2 py-2">
-            <span>Nota: Las reglas de margen actuales difieren de las guardadas. Se muestran los totales históricos.</span>
-          </div>
-        )}
       </div>
     </div>
   );
