@@ -209,7 +209,8 @@ export default function PresupuestoDetalle() {
       }
 
       const newOrder = await res.json();
-      router.refresh();
+      mutate('/api/pedidos');
+      mutate(`/api/presupuestos/${id}`);
       router.push(`/pedidos/${newOrder.id}`);
 
     } catch (err) {

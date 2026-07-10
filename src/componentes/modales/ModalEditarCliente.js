@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { mutate } from 'swr';
 import FormularioEntidad from '@/componentes/compuestos/FormularioEntidad';
 
 const camposCliente = [
@@ -56,6 +57,7 @@ const ClientEditModal = ({ cliente, isOpen, onClose, onUpdate }) => {
       }
 
       const updatedCliente = await res.json();
+      mutate(key => typeof key === 'string' && key.startsWith('/api/clientes'));
       onUpdate(updatedCliente);
       onClose();
     } catch (err) {

@@ -219,7 +219,7 @@ function DocumentoModal({ isOpen, onClose, initialData, productos, fabricantes, 
                 throw new Error(errorMessage);
             }
 
-            mutate('/api/documentos');
+            mutate(key => typeof key === 'string' && key.startsWith('/api/documentos'));
             onClose();
 
         } catch (err) {
