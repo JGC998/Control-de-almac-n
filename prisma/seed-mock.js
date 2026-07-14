@@ -35,7 +35,6 @@ async function main() {
     console.log(`Creados ${clientes.length} clientes.`);
 
     // 3. Generar Productos (100)
-    const categorias = ['PVC', 'Lonas', 'Vinilos', 'Rígidos'];
     const productos = [];
     for (let i = 0; i < 100; i++) {
         const precioBase = parseFloat(faker.commerce.price({ min: 10, max: 500, dec: 2 }));
@@ -43,10 +42,11 @@ async function main() {
             await prisma.producto.create({
                 data: {
                     nombre: faker.commerce.productName(),
-                    descripcion: faker.commerce.productDescription(),
-                    precio: precioBase,
-                    stock: faker.number.int({ min: 0, max: 500 }),
-                    categoria: faker.helpers.arrayElement(categorias),
+                    referenciaFabricante: `MOCK-${String(i + 1).padStart(3, '0')}`,
+                    precioUnitario: precioBase,
+                    pesoUnitario: parseFloat(faker.number.float({ min: 0.1, max: 10, fractionDigits: 2 })),
+                    espesor: faker.helpers.arrayElement([3, 5, 8, 10, 12, null]),
+                    ancho: faker.helpers.arrayElement([500, 1000, 1200, null]),
                 },
             })
         );
@@ -76,7 +76,7 @@ async function main() {
             for (let k = 0; k < numItems; k++) {
                 const producto = faker.helpers.arrayElement(productos);
                 const cantidad = faker.number.int({ min: 1, max: 10 });
-                const precioUnitario = parseFloat(producto.precio); // Usamos precio base por ahora
+                const precioUnitario = parseFloat(producto.precioUnitario);
 
                 const totalItem = precioUnitario * cantidad;
                 subtotal += totalItem;

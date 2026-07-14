@@ -159,6 +159,21 @@ export default function ProductoDetallePage() {
                 <Info className="w-5 h-5" /> Detalles técnicos
               </h3>
               <div className="space-y-2 text-base-content/80 text-sm">
+                {producto.subfamilia && (
+                  <p>
+                    <span className="font-semibold">Clasificación:</span>{' '}
+                    <span
+                      className="badge badge-sm font-medium"
+                      style={producto.subfamilia.familia?.color ? {
+                        backgroundColor: producto.subfamilia.familia.color + '22',
+                        color: producto.subfamilia.familia.color,
+                        borderColor: producto.subfamilia.familia.color + '55',
+                      } : {}}
+                    >
+                      {producto.subfamilia.familia?.nombre} / {producto.subfamilia.nombre}
+                    </span>
+                  </p>
+                )}
                 {producto.referenciaFabricante && <p><span className="font-semibold">Ref. Fabricante:</span> {producto.referenciaFabricante}</p>}
                 {producto.fabricante?.nombre && <p><span className="font-semibold">Fabricante:</span> {producto.fabricante.nombre}</p>}
                 {producto.material?.nombre && <p><span className="font-semibold">Material:</span> {producto.material.nombre}</p>}

@@ -1,5 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
+  output        = "../src/generated/prisma"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
@@ -36,6 +37,26 @@ model Material {
   id        String     @id @default(uuid())
   nombre    String     @unique
   productos Producto[]
+}
+
+model Familia {
+  id          String       @id @default(uuid())
+  nombre      String       @unique
+  color       String?
+  descripcion String?
+  subfamilias Subfamilia[]
+}
+
+model Subfamilia {
+  id        String           @id @default(uuid())
+  nombre    String
+  familiaId String
+  familia   Familia          @relation(fields: [familiaId], references: [id])
+  productos Producto[]
+  articulos ArticuloSimple[]
+
+  @@unique([nombre, familiaId])
+  @@index([familiaId])
 }
 
 model Pedido {
@@ -417,6 +438,7 @@ model Producto {
   lonas                Int?
   fabricanteId         String?
   materialId           String?
+  subfamiliaId         String?
 
   precioVentaFab Float? @default(0)
   precioVentaInt Float? @default(0)
@@ -425,8 +447,9 @@ model Producto {
   creadoEn     DateTime @default(now())
   actualizado  DateTime @default(now()) @updatedAt
 
-  fabricante Fabricante? @relation(fields: [fabricanteId], references: [id])
-  material   Material?   @relation(fields: [materialId], references: [id])
+  fabricante  Fabricante?  @relation(fields: [fabricanteId], references: [id])
+  material    Material?    @relation(fields: [materialId], references: [id])
+  subfamilia  Subfamilia?  @relation(fields: [subfamiliaId], references: [id])
 
   itemsPedido      PedidoItem[]
   itemsPresup      PresupuestoItem[]
@@ -437,6 +460,7 @@ model Producto {
   historialCostos  HistorialPrecioCosto[]
 
   @@index([nombre])
+  @@index([subfamiliaId])
   @@unique([nombre, referenciaFabricante])
 }
 
@@ -546,19 +570,22 @@ model Notificacion {
 }
 
 model ArticuloSimple {
-  id             String   @id @default(uuid())
+  id             String      @id @default(uuid())
   nombre         String
-  categoria      String   @default("OTRO")
-  unidad         String   @default("UDS")
-  precioUnitario Float    @default(0)
+  categoria      String      @default("OTRO")
+  unidad         String      @default("UDS")
+  precioUnitario Float       @default(0)
   costoUnitario  Float?
   fabricante     String?
   descripcion    String?
-  activo         Boolean  @default(true)
-  creadoEn       DateTime @default(now())
+  activo         Boolean     @default(true)
+  creadoEn       DateTime    @default(now())
+  subfamiliaId   String?
+  subfamilia     Subfamilia? @relation(fields: [subfamiliaId], references: [id])
 
   @@index([categoria])
   @@index([activo])
+  @@index([subfamiliaId])
 }
 
 model TarifaCliente {

@@ -8,18 +8,20 @@ import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { ContenedorCargando } from '@/componentes/ui';
 
 const COLUMNAS = [
-  { key: 'nombre',        label: 'Nombre',   tipo: 'string' },
-  { key: 'material',      label: 'Material', tipo: 'string' },
-  { key: 'acabado',       label: 'Acabado',  tipo: 'string' },
-  { key: 'espesor',       label: 'Espesor',  tipo: 'number' },
-  { key: 'ancho',         label: 'Ancho',    tipo: 'number' },
-  { key: 'largo',         label: 'Largo',    tipo: 'number' },
-  { key: 'precioUnitario',label: 'Precio',   tipo: 'number' },
-  { key: 'pesoUnitario',  label: 'Peso',     tipo: 'number' },
+  { key: 'nombre',        label: 'Nombre',     tipo: 'string' },
+  { key: 'subfamilia',    label: 'Subfamilia', tipo: 'string' },
+  { key: 'material',      label: 'Material',   tipo: 'string' },
+  { key: 'acabado',       label: 'Acabado',    tipo: 'string' },
+  { key: 'espesor',       label: 'Espesor',    tipo: 'number' },
+  { key: 'ancho',         label: 'Ancho',      tipo: 'number' },
+  { key: 'largo',         label: 'Largo',      tipo: 'number' },
+  { key: 'precioUnitario',label: 'Precio',     tipo: 'number' },
+  { key: 'pesoUnitario',  label: 'Peso',       tipo: 'number' },
 ];
 
 function valorOrden(p, key) {
   if (key === 'material') return p.material?.nombre ?? '';
+  if (key === 'subfamilia') return p.subfamilia?.nombre ?? '';
   return p[key];
 }
 
@@ -126,14 +128,16 @@ function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar })
 export default function GestionProductosPage() {
   const { data, isLoading, error } = useSWR('/api/productos?page=1&limit=500');
   const { data: materiales = [] }  = useSWR('/api/materiales');
+  const { data: familias = [] }    = useSWR('/api/familias');
   const productos = data?.data ?? [];
 
-  const [modalAbierto, setModalAbierto]     = useState(false);
+  const [modalAbierto, setModalAbierto]       = useState(false);
   const [productoEditando, setProductoEditando] = useState(null);
-  const [busqueda, setBusqueda]             = useState('');
-  const [sort, setSort]                     = useState({ campo: null, dir: 'asc' });
-  const [seleccion, setSeleccion]           = useState(new Set());
-  const { confirmar, ModalConfirmacion }    = useConfirmacion();
+  const [busqueda, setBusqueda]               = useState('');
+  const [filtroFamilia, setFiltroFamilia]     = useState('');
+  const [sort, setSort]                       = useState({ campo: null, dir: 'asc' });
+  const [seleccion, setSeleccion]             = useState(new Set());
+  const { confirmar, ModalConfirmacion }      = useConfirmacion();
 
   function toggleSort(key, tipo) {
     setSort(prev =>
@@ -145,18 +149,20 @@ export default function GestionProductosPage() {
 
   const filtrados = useMemo(() => {
     const q = busqueda.toLowerCase();
-    let lista = productos.filter(p =>
-      !q ||
-      p.nombre?.toLowerCase().includes(q) ||
-      (p.material?.nombre ?? '').toLowerCase().includes(q) ||
-      (p.acabado ?? '').toLowerCase().includes(q)
-    );
+    let lista = productos.filter(p => {
+      if (q && !p.nombre?.toLowerCase().includes(q) &&
+          !(p.material?.nombre ?? '').toLowerCase().includes(q) &&
+          !(p.acabado ?? '').toLowerCase().includes(q) &&
+          !(p.subfamilia?.nombre ?? '').toLowerCase().includes(q)) return false;
+      if (filtroFamilia && p.subfamilia?.familia?.id !== filtroFamilia) return false;
+      return true;
+    });
     if (sort.campo) {
       const col = COLUMNAS.find(c => c.key === sort.campo);
       lista = [...lista].sort((a, b) => comparar(a, b, sort.campo, col?.tipo, sort.dir));
     }
     return lista;
-  }, [productos, busqueda, sort]);
+  }, [productos, busqueda, filtroFamilia, sort]);
 
   function toggleSeleccion(id) {
     setSeleccion(prev => {
@@ -210,11 +216,21 @@ export default function GestionProductosPage() {
           <Package className="w-8 h-8" /> Gestión de Productos
         </h1>
         <div className="flex gap-2 items-center">
+          <select
+            className="select select-bordered select-sm"
+            value={filtroFamilia}
+            onChange={e => setFiltroFamilia(e.target.value)}
+          >
+            <option value="">Todas las familias</option>
+            {familias.map(f => (
+              <option key={f.id} value={f.id}>{f.nombre}</option>
+            ))}
+          </select>
           <input
             type="text"
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre, material, acabado..."
+            placeholder="Buscar por nombre, material, subfamilia..."
             className="input input-bordered input-sm w-64"
           />
           <button onClick={abrirNuevo} className="btn btn-primary btn-sm">
@@ -283,6 +299,20 @@ export default function GestionProductosPage() {
                         {p.nombre}
                       </Link>
                       {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
+                    </td>
+                    <td className="text-sm">
+                      {p.subfamilia ? (
+                        <span
+                          className="badge badge-sm font-medium"
+                          style={p.subfamilia.familia?.color ? {
+                            backgroundColor: p.subfamilia.familia.color + '22',
+                            color: p.subfamilia.familia.color,
+                            borderColor: p.subfamilia.familia.color + '55',
+                          } : {}}
+                        >
+                          {p.subfamilia.nombre}
+                        </span>
+                      ) : <span className="text-base-content/30">—</span>}
                     </td>
                     <td className="text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
                     <td className="text-sm">{p.acabado ?? <span className="text-base-content/30">—</span>}</td>

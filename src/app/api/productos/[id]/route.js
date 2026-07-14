@@ -20,6 +20,7 @@ const productoUpdateSchema = z.object({
   tieneTroquel:         z.boolean().optional(),
   fabricanteId:         z.string().optional().nullable(),
   materialId:           z.string().optional().nullable(),
+  subfamiliaId:         z.string().uuid().optional().nullable(),
 });
 
 export async function GET(request, { params }) {
@@ -30,6 +31,7 @@ export async function GET(request, { params }) {
       include: {
         fabricante: { select: { nombre: true } },
         material: { select: { nombre: true } },
+        subfamilia: { include: { familia: true } },
       },
     });
     if (!producto) return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });

@@ -8,12 +8,23 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
     const [filtroMaterial, setFiltroMaterial] = useState('');
     const [filtroEspesor, setFiltroEspesor]   = useState('');
     const [filtroAcabado, setFiltroAcabado]   = useState('');
+    const [filtroFamilia, setFiltroFamilia]   = useState('');
     const [soloConPrecio, setSoloConPrecio]   = useState(false);
 
     // T-81: solo materiales con al menos un producto con precio activo
     const materiales = useMemo(() => {
         const conPrecio = items.filter(p => parseFloat(p.precioUnitario) > 0);
         return [...new Set(conPrecio.map(p => p.material?.nombre ?? p.material ?? null).filter(Boolean))].sort();
+    }, [items]);
+
+    // Familias únicas presentes en los items
+    const familias = useMemo(() => {
+        const mapa = new Map();
+        items.forEach(p => {
+            const f = p.subfamilia?.familia;
+            if (f) mapa.set(f.id, f);
+        });
+        return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     }, [items]);
 
     // T-82: espesores y acabados contextuales al material seleccionado
@@ -44,10 +55,11 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
             const matchMaterial = !filtroMaterial || (p.material?.nombre ?? p.material) === filtroMaterial;
             const matchEspesor  = !filtroEspesor  || String(p.espesor) === filtroEspesor;
             const matchAcabado  = !filtroAcabado  || p.acabado === filtroAcabado;
+            const matchFamilia  = !filtroFamilia  || p.subfamilia?.familia?.id === filtroFamilia;
             const matchPrecio   = !soloConPrecio  || (parseFloat(p.precioUnitario) > 0);
-            return matchTexto && matchMaterial && matchEspesor && matchAcabado && matchPrecio;
+            return matchTexto && matchMaterial && matchEspesor && matchAcabado && matchFamilia && matchPrecio;
         });
-    }, [items, busqueda, filtroMaterial, filtroEspesor, filtroAcabado, soloConPrecio]);
+    }, [items, busqueda, filtroMaterial, filtroEspesor, filtroAcabado, filtroFamilia, soloConPrecio]);
 
     if (!abierto) return null;
 
@@ -74,6 +86,12 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-3 items-center">
+                    {familias.length > 0 && (
+                        <select className="select select-bordered select-sm" value={filtroFamilia} onChange={e => setFiltroFamilia(e.target.value)}>
+                            <option value="">Todas las familias</option>
+                            {familias.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+                        </select>
+                    )}
                     <select className="select select-bordered select-sm" value={filtroMaterial} onChange={e => { setFiltroMaterial(e.target.value); setFiltroAcabado(''); setFiltroEspesor(''); }}>
                         <option value="">Todos los materiales</option>
                         {materiales.map(m => <option key={m} value={m}>{m}</option>)}
@@ -120,7 +138,19 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
                                     <td>
                                         <div className="flex flex-col gap-0.5">
                                             <span className="font-medium text-xs">{formatarProducto(p)}</span>
-                                            {p.color && <span className="badge badge-ghost badge-xs">{p.color}</span>}
+                                            <div className="flex gap-1 flex-wrap">
+                                                {p.color && <span className="badge badge-ghost badge-xs">{p.color}</span>}
+                                                {p.subfamilia && (
+                                                    <span className="badge badge-xs font-medium"
+                                                        style={p.subfamilia.familia?.color ? {
+                                                            backgroundColor: p.subfamilia.familia.color + '22',
+                                                            color: p.subfamilia.familia.color,
+                                                            borderColor: p.subfamilia.familia.color + '55',
+                                                        } : {}}>
+                                                        {p.subfamilia.nombre}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="text-sm">{p.espesor != null ? `${p.espesor} mm` : '—'}</td>

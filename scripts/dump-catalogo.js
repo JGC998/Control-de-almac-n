@@ -35,7 +35,7 @@ async function main() {
     console.log(`Total: ${artSimples.length}`);
     artSimples.forEach(a => {
       console.log(`  [${String(a.id).padStart(4)}] ${a.nombre}`);
-      console.log(`         precio:${a.precio ?? '—'}  unidad:${a.unidad || '—'}  ref:${a.referencia || '—'}`);
+      console.log(`         precio:${a.precioUnitario ?? '—'}  unidad:${a.unidad || '—'}  cat:${a.categoria || '—'}`);
       if (a.descripcion) console.log(`         desc:${a.descripcion}`);
     });
   } catch (e) {
@@ -46,7 +46,7 @@ async function main() {
   sep('FABRICANTES');
   const fabricantes = await db.fabricante.findMany({ orderBy: { nombre: 'asc' } });
   console.log(`Total: ${fabricantes.length}`);
-  fabricantes.forEach(f => console.log(`  [${f.id}] ${f.nombre}  (${f.pais || '—'})`));
+  fabricantes.forEach(f => console.log(`  [${f.id}] ${f.nombre}`));
 
   // ── Productos por material ────────────────────────────────────
   sep('PRODUCTOS POR MATERIAL');

@@ -14,9 +14,18 @@ export async function GET(request) {
     const pageParam = searchParams.get('page');
     const limitParam = searchParams.get('limit');
 
+    const subfamiliaId = searchParams.get('subfamiliaId');
+    const familiaId = searchParams.get('familiaId');
+
     const whereClause = {};
     if (nombre) {
       whereClause.nombre = { contains: nombre };
+    }
+    if (subfamiliaId) {
+      whereClause.subfamiliaId = subfamiliaId;
+    }
+    if (familiaId) {
+      whereClause.subfamilia = { familiaId };
     }
 
     // Búsqueda general
@@ -42,6 +51,7 @@ export async function GET(request) {
           include: {
             fabricante: true,
             material: true,
+            subfamilia: { include: { familia: true } },
           },
         }),
         db.producto.count({ where: whereClause })
@@ -127,6 +137,7 @@ export async function POST(request) {
         lonas: d.lonas ?? null,
         fabricanteId: d.fabricanteId ?? null,
         materialId: d.materialId ?? null,
+        subfamiliaId: d.subfamiliaId ?? null,
         precioVentaFab: d.precioVentaFab ?? 0,
         precioVentaInt: d.precioVentaInt ?? 0,
         precioVentaFin: d.precioVentaFin ?? 0,

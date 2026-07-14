@@ -9,13 +9,19 @@ export async function GET(request) {
     const categoria = searchParams.get('categoria');
     const incluirInactivos = searchParams.get('inactivos') === 'true';
 
+    const subfamiliaId = searchParams.get('subfamiliaId');
+    const familiaId = searchParams.get('familiaId');
+
     const articulos = await db.articuloSimple.findMany({
       where: {
         ...(categoria && { categoria }),
         ...(!incluirInactivos && { activo: true }),
+        ...(subfamiliaId && { subfamiliaId }),
+        ...(familiaId && { subfamilia: { familiaId } }),
       },
       orderBy: [{ categoria: 'asc' }, { nombre: 'asc' }],
       take: 500,
+      include: { subfamilia: { include: { familia: true } } },
     });
     return NextResponse.json(articulos);
   } catch (error) {
@@ -30,7 +36,7 @@ export async function POST(request) {
     if (!validation.success) {
       return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-    const { nombre, categoria, unidad, precioUnitario, costoUnitario, fabricante, descripcion } = validation.data;
+    const { nombre, categoria, unidad, precioUnitario, costoUnitario, fabricante, descripcion, activo, subfamiliaId } = validation.data;
     const articulo = await db.articuloSimple.create({
       data: {
         nombre: nombre.trim(),
@@ -40,6 +46,8 @@ export async function POST(request) {
         costoUnitario: costoUnitario ?? null,
         fabricante: fabricante?.trim() || null,
         descripcion: descripcion?.trim() || null,
+        activo: activo ?? true,
+        subfamiliaId: subfamiliaId ?? null,
       },
     });
     return NextResponse.json(articulo, { status: 201 });

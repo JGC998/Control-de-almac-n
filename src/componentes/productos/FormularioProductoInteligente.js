@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { Package, Loader2 } from 'lucide-react';
+import SelectorFamiliaSubfamilia from './SelectorFamiliaSubfamilia';
 
 const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] };
 
@@ -17,6 +18,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     costoUnitario: '',
     pesoUnitario: '',
     referenciaFabricante: '',
+    subfamiliaId: null,
   });
 
   const [opciones, setOpciones] = useState(VACIO);
@@ -47,6 +49,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         costoUnitario:        productoAEditar.costoUnitario ?? '',
         pesoUnitario:         productoAEditar.pesoUnitario ?? '',
         referenciaFabricante: productoAEditar.referenciaFabricante ?? '',
+        subfamiliaId:         productoAEditar.subfamiliaId ?? null,
       });
     }
   }, [productoAEditar]);
@@ -210,6 +213,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       costoUnitario:        parseFloat(form.costoUnitario)  || 0,
       pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
       referenciaFabricante: form.referenciaFabricante || null,
+      subfamiliaId:         form.subfamiliaId ?? null,
     };
 
     const url    = productoAEditar ? `/api/productos/${productoAEditar.id}` : '/api/productos';
@@ -405,6 +409,15 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
           onChange={e => setForm(f => ({ ...f, pesoUnitario: e.target.value }))}
           placeholder="0.000"
           className={`input input-bordered ${tieneTarifa ? 'input-success' : ''}`}
+        />
+      </div>
+
+      {/* Familia / Subfamilia */}
+      <div className="form-control">
+        <label className="label"><span className="label-text font-medium">Familia / Subfamilia</span></label>
+        <SelectorFamiliaSubfamilia
+          value={form.subfamiliaId}
+          onChange={id => setForm(f => ({ ...f, subfamiliaId: id }))}
         />
       </div>
 

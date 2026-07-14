@@ -181,9 +181,25 @@ export const productoSchema = z.object({
     lonas: z.number().int().nonnegative().optional().nullable(),
     fabricanteId: z.string().uuid().optional().nullable(),
     materialId: z.string().uuid().optional().nullable(),
+    subfamiliaId: z.string().uuid().optional().nullable(),
     precioVentaFab: z.number().nonnegative().optional().nullable(),
     precioVentaInt: z.number().nonnegative().optional().nullable(),
     precioVentaFin: z.number().nonnegative().optional().nullable()
+});
+
+// ============================================
+// VALIDACIONES PARA FAMILIA / SUBFAMILIA
+// ============================================
+
+export const familiaSchema = z.object({
+    nombre: z.string().min(1, 'Nombre requerido').max(100),
+    color: z.string().max(20).optional().nullable(),
+    descripcion: z.string().max(300).optional().nullable(),
+});
+
+export const subfamiliaSchema = z.object({
+    nombre: z.string().min(1, 'Nombre requerido').max(100),
+    familiaId: z.string().uuid('familiaId debe ser UUID'),
 });
 
 // ============================================
@@ -283,6 +299,7 @@ export const articuloSimpleSchema = z.object({
   fabricante: z.string().max(200).optional().nullable(),
   descripcion: z.string().max(500).optional().nullable(),
   activo: z.boolean().optional().default(true),
+  subfamiliaId: z.string().uuid().optional().nullable(),
 });
 
 export const articuloSimplePatchSchema = z.object({
@@ -294,6 +311,7 @@ export const articuloSimplePatchSchema = z.object({
   fabricante: z.string().max(200).optional().nullable(),
   descripcion: z.string().max(500).optional().nullable(),
   activo: z.boolean().optional(),
+  subfamiliaId: z.string().uuid().optional().nullable(),
 });
 
 // ============================================

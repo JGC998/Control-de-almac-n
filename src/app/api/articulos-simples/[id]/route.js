@@ -6,7 +6,10 @@ import { articuloSimplePatchSchema, validateData } from '@/lib/validations';
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
-    const articulo = await db.articuloSimple.findUnique({ where: { id } });
+    const articulo = await db.articuloSimple.findUnique({
+      where: { id },
+      include: { subfamilia: { include: { familia: true } } },
+    });
     if (!articulo) return NextResponse.json({ message: 'Artículo no encontrado' }, { status: 404 });
     return NextResponse.json(articulo);
   } catch (error) {
