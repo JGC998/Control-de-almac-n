@@ -11,7 +11,7 @@ export async function GET() {
       include: {
         subfamilias: {
           orderBy: { nombre: 'asc' },
-          include: { _count: { select: { productos: true, articulosSimples: true } } },
+          include: { _count: { select: { productos: true, articulos: true } } },
         },
       },
     });

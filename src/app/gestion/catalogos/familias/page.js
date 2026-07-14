@@ -149,7 +149,7 @@ function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onTo
           {(() => {
             const numSubs = fam.subfamilias?.length ?? 0;
             const numProds = (fam.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.productos ?? 0), 0);
-            const numArts  = (fam.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.articulosSimples ?? 0), 0);
+            const numArts  = (fam.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.articulos ?? 0), 0);
             return (
               <div className="flex flex-col gap-0.5">
                 <span><Package className="w-3 h-3 inline mr-0.5" />{numSubs} subfamilia{numSubs !== 1 ? 's' : ''}</span>
@@ -283,7 +283,7 @@ export default function GestionFamiliasPage() {
   const totalProds = familias.reduce((acc, f) =>
     acc + (f.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.productos ?? 0), 0), 0);
   const totalArts  = familias.reduce((acc, f) =>
-    acc + (f.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.articulosSimples ?? 0), 0), 0);
+    acc + (f.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.articulos ?? 0), 0), 0);
 
   return (
     <div className="container mx-auto p-6 max-w-3xl">
