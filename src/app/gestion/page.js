@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Users, DollarSign } from 'lucide-react';
+import { Users, DollarSign, Tag } from 'lucide-react';
 
 export const metadata = { title: 'Gestión — CRM Taller' };
 
@@ -7,7 +7,7 @@ export default function GestionHub() {
   return (
     <HubPage
       title="Gestión"
-      descripcion="Clientes y tarifas de materiales."
+      descripcion="Clientes, catálogos y tarifas de materiales."
       icon={Users}
       color="accent"
       items={[
@@ -17,6 +17,13 @@ export default function GestionHub() {
           titulo: 'Clientes',
           descripcion: 'Ficha de cada cliente con historial de pedidos, presupuestos y condiciones especiales de precio.',
           accion: 'Ver clientes',
+        },
+        {
+          href: '/gestion/catalogos/familias',
+          icon: Tag,
+          titulo: 'Familias y subfamilias',
+          descripcion: 'Organiza el catálogo de productos por familia (GOMA, PVC, ACCESORIO…) y subfamilia.',
+          accion: 'Gestionar familias',
         },
         {
           href: '/tarifas',
