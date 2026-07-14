@@ -20,7 +20,7 @@ const productoUpdateSchema = z.object({
   tieneTroquel:         z.boolean().optional(),
   fabricanteId:         z.string().optional().nullable(),
   materialId:           z.string().optional().nullable(),
-  subfamiliaId:         z.string().uuid().optional().nullable(),
+  subfamiliaId:         z.string().optional().nullable(),
 });
 
 export async function GET(request, { params }) {
