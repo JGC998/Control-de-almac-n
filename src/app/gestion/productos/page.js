@@ -4,6 +4,7 @@ import Link from 'next/link';
 import useSWR, { mutate } from 'swr';
 import { Package, PlusCircle, Edit, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, CheckSquare, X, Layers } from 'lucide-react';
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
+import SelectorFamiliaSubfamilia from '@/componentes/productos/SelectorFamiliaSubfamilia';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { ContenedorCargando } from '@/componentes/ui';
 
@@ -49,24 +50,25 @@ function IconoOrden({ campo, sort }) {
 function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar }) {
   const [materialNombre, setMaterialNombre] = useState('');
   const [acabado, setAcabado]               = useState('');
+  const [subfamiliaId, setSubfamiliaId]     = useState(null);
   const [aplicando, setAplicando]           = useState(false);
   const [error, setError]                   = useState(null);
 
   async function aplicar() {
-    if (!materialNombre) { setError('Selecciona un material'); return; }
+    if (!materialNombre && !subfamiliaId) { setError('Selecciona al menos un material o una subfamilia'); return; }
     setAplicando(true); setError(null);
     try {
-      // Buscar el materialId a partir del nombre
       const mat = materiales.find(m => m.nombre === materialNombre);
+      const payload = {};
+      if (materialNombre) { payload.materialId = mat?.id ?? null; payload.acabado = acabado.trim() || null; }
+      if (subfamiliaId !== null) payload.subfamiliaId = subfamiliaId;
+
       const resultados = await Promise.all(
         [...seleccion].map(id =>
           fetch(`/api/productos/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              materialId: mat?.id ?? null,
-              acabado:    acabado.trim() || null,
-            }),
+            body: JSON.stringify(payload),
           })
         )
       );
@@ -79,8 +81,8 @@ function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar })
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-base-100 border-t-2 border-primary shadow-2xl px-6 py-4">
-      <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2 font-medium text-primary">
+      <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2 font-medium text-primary shrink-0">
           <CheckSquare className="w-5 h-5" />
           <span>{seleccion.size} producto{seleccion.size !== 1 ? 's' : ''} seleccionado{seleccion.size !== 1 ? 's' : ''}</span>
         </div>
@@ -97,27 +99,36 @@ function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar })
 
           <input
             type="text"
-            className="input input-bordered input-sm w-36"
-            placeholder="Acabado (opcional)"
+            className="input input-bordered input-sm w-32"
+            placeholder="Acabado"
             value={acabado}
             onChange={e => setAcabado(e.target.value)}
+            disabled={!materialNombre}
+          />
+
+          <div className="w-px h-6 bg-base-300 hidden sm:block" />
+
+          <SelectorFamiliaSubfamilia
+            value={subfamiliaId}
+            onChange={setSubfamiliaId}
+            compact
           />
 
           <button
             className="btn btn-primary btn-sm gap-1"
             onClick={aplicar}
-            disabled={aplicando || !materialNombre}
+            disabled={aplicando || (!materialNombre && !subfamiliaId)}
           >
             {aplicando
               ? <span className="loading loading-spinner loading-xs" />
               : <Layers className="w-4 h-4" />}
-            Aplicar a {seleccion.size} producto{seleccion.size !== 1 ? 's' : ''}
+            Aplicar a {seleccion.size}
           </button>
 
           {error && <span className="text-error text-sm">{error}</span>}
         </div>
 
-        <button onClick={onCancelar} className="btn btn-ghost btn-sm btn-square" title="Cancelar selección">
+        <button onClick={onCancelar} className="btn btn-ghost btn-sm btn-square shrink-0" title="Cancelar selección">
           <X className="w-4 h-4" />
         </button>
       </div>

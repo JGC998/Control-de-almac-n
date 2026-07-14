@@ -10,7 +10,7 @@ import useSWR from 'swr';
  *   required   — boolean
  *   className  — clases adicionales para el wrapper
  */
-export default function SelectorFamiliaSubfamilia({ value, onChange, required = false, className = '' }) {
+export default function SelectorFamiliaSubfamilia({ value, onChange, onFamiliaChange, required = false, className = '', compact = false }) {
   const { data: familias = [], isLoading } = useSWR('/api/familias');
 
   // familia seleccionada en el primer select (puede ser diferente a la de value si el usuario
@@ -20,11 +20,11 @@ export default function SelectorFamiliaSubfamilia({ value, onChange, required = 
   // Sincronizar familiaId cuando llega el value externo (modo edición)
   useEffect(() => {
     if (!value || !familias.length) {
-      if (!value) setFamiliaId('');
+      if (!value) { setFamiliaId(''); onFamiliaChange?.(null); }
       return;
     }
     const fam = familias.find(f => f.subfamilias?.some(s => s.id === value));
-    if (fam) setFamiliaId(fam.id);
+    if (fam) { setFamiliaId(fam.id); onFamiliaChange?.(fam); }
   }, [value, familias]);
 
   const subfamilias = familias.find(f => f.id === familiaId)?.subfamilias ?? [];
@@ -32,11 +32,15 @@ export default function SelectorFamiliaSubfamilia({ value, onChange, required = 
   function handleFamiliaChange(id) {
     setFamiliaId(id);
     onChange(null); // limpiar subfamilia al cambiar familia
+    const fam = familias.find(f => f.id === id) ?? null;
+    onFamiliaChange?.(fam);
   }
 
   function handleSubfamiliaChange(id) {
     onChange(id || null);
   }
+
+  const sizeClass = compact ? 'select-sm' : '';
 
   if (isLoading) {
     return <div className={`flex gap-2 ${className}`}><span className="loading loading-spinner loading-sm" /></div>;
@@ -46,7 +50,7 @@ export default function SelectorFamiliaSubfamilia({ value, onChange, required = 
     <div className={`flex gap-2 ${className}`}>
       {/* Select familia */}
       <select
-        className="select select-bordered flex-1"
+        className={`select select-bordered flex-1 ${sizeClass}`}
         value={familiaId}
         onChange={e => handleFamiliaChange(e.target.value)}
       >
@@ -59,7 +63,7 @@ export default function SelectorFamiliaSubfamilia({ value, onChange, required = 
       {/* Select subfamilia (solo visible cuando hay familia seleccionada) */}
       {familiaId && (
         <select
-          className="select select-bordered flex-1"
+          className={`select select-bordered flex-1 ${sizeClass}`}
           value={value ?? ''}
           onChange={e => handleSubfamiliaChange(e.target.value)}
           required={required}

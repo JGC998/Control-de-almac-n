@@ -26,6 +26,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+  const [familiaActual, setFamiliaActual] = useState(null);
 
   // Cargar materiales al montar
   useEffect(() => {
@@ -255,6 +256,11 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   const tieneTarifa  = tarifaEncontrada && opciones.tarifa;
   // Mostrar acabado si hay múltiples opciones distintas (incluyendo la opción vacía = estándar)
   const hayAcabados  = opciones.acabados.length > 1 || (opciones.acabados.length === 1 && opciones.acabados[0] !== '');
+  // Familia ACCESORIO: sin material ni dimensiones
+  const esAccesorio  = familiaActual?.nombre?.toUpperCase() === 'ACCESORIO';
+  // GOMA no usa acabado (ya lo controla la tarifa, pero podemos ocultar el campo de color libre)
+  const mostrarMaterial   = !esAccesorio;
+  const mostrarDimensiones = !esAccesorio;
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -271,8 +277,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         />
       </div>
 
-      {/* Material */}
-      <div className="form-control">
+      {/* Material (oculto para ACCESORIO) */}
+      {mostrarMaterial && <div className="form-control">
         <label className="label"><span className="label-text font-medium">Material *</span></label>
         <div className="join">
           <select
@@ -286,10 +292,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
           </select>
           {cargando && <span className="join-item btn btn-outline btn-disabled"><Loader2 className="w-4 h-4 animate-spin" /></span>}
         </div>
-      </div>
+      </div>}
 
       {/* Espesor */}
-      {form.material && (
+      {mostrarMaterial && form.material && (
         <div className="form-control">
           <label className="label"><span className="label-text font-medium">Espesor (mm) *</span></label>
           <select
@@ -305,7 +311,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       )}
 
       {/* Acabado (solo si hay tarifas con acabado distinto para este material+espesor) */}
-      {form.espesor && hayAcabados && (
+      {mostrarMaterial && form.espesor && hayAcabados && (
         <div className="form-control">
           <label className="label"><span className="label-text font-medium">Acabado</span></label>
           <select
@@ -325,7 +331,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       )}
 
       {/* Color (solo si hay opciones, generalmente PVC) */}
-      {opciones.colores.length > 0 && (
+      {mostrarMaterial && opciones.colores.length > 0 && (
         <div className="form-control">
           <label className="label"><span className="label-text font-medium">Color</span></label>
           <select
@@ -340,14 +346,14 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       )}
 
       {/* Lonas — info de solo lectura de la tarifa */}
-      {opciones.tarifa?.lonas && (
+      {mostrarMaterial && opciones.tarifa?.lonas && (
         <div className="alert alert-info py-2 text-sm">
           Lonas: <strong>{opciones.tarifa.lonas}</strong> — obtenido de la tarifa de {form.material} {form.espesor}mm
         </div>
       )}
 
-      {/* Ancho y Largo */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Ancho y Largo (oculto para ACCESORIO) */}
+      {mostrarDimensiones && <div className="grid grid-cols-2 gap-3">
         <div className="form-control">
           <label className="label"><span className="label-text font-medium">Ancho (mm)</span></label>
           <input
@@ -368,7 +374,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
             className="input input-bordered"
           />
         </div>
-      </div>
+      </div>}
 
       {/* Precio, Costo y Peso */}
       <div className="grid grid-cols-2 gap-3">
@@ -414,10 +420,14 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
 
       {/* Familia / Subfamilia */}
       <div className="form-control">
-        <label className="label"><span className="label-text font-medium">Familia / Subfamilia</span></label>
+        <label className="label">
+          <span className="label-text font-medium">Familia / Subfamilia</span>
+          {esAccesorio && <span className="label-text-alt text-info text-xs">Accesorio — sin dimensiones</span>}
+        </label>
         <SelectorFamiliaSubfamilia
           value={form.subfamiliaId}
           onChange={id => setForm(f => ({ ...f, subfamiliaId: id }))}
+          onFamiliaChange={setFamiliaActual}
         />
       </div>
 
@@ -434,7 +444,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       </div>
 
       {/* Aviso si no hay tarifa */}
-      {form.material && form.espesor && !tieneTarifa && !cargando && (
+      {mostrarMaterial && form.material && form.espesor && !tieneTarifa && !cargando && (
         <div className="alert alert-warning text-sm">
           No hay tarifa para <strong>{form.material}{form.acabado ? ' ' + form.acabado : ''} {form.espesor}mm</strong>. El precio se pondrá manualmente.
         </div>

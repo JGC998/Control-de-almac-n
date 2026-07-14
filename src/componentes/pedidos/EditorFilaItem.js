@@ -76,17 +76,28 @@ export default function EditorFilaItem({
                     </div>
 
                     {/* Badges informativos */}
-                    <div className="flex items-center gap-1 pl-1">
+                    <div className="flex items-center gap-1 pl-1 flex-wrap">
                         {isPVC && (
                             <span className="badge badge-xs badge-secondary gap-1">
                                 <Ruler className="w-2.5 h-2.5" /> Banda PVC
                             </span>
                         )}
-                        {isCatalog && item.producto && (
-                            <span className="text-xs text-base-content/40">
-                                Stock: {item.producto.stock ?? '—'}
-                            </span>
-                        )}
+                        {isCatalog && item.producto?.subfamilia && (() => {
+                            const sub = item.producto.subfamilia;
+                            const color = sub.familia?.color;
+                            return (
+                                <span
+                                    className="badge badge-xs font-medium"
+                                    style={color ? {
+                                        backgroundColor: color + '22',
+                                        color,
+                                        borderColor: color + '55',
+                                    } : {}}
+                                >
+                                    {sub.nombre}
+                                </span>
+                            );
+                        })()}
                     </div>
                 </div>
             </td>

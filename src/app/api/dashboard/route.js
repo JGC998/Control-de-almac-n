@@ -12,6 +12,7 @@ export async function GET() {
       pedidosProveedorPorLlegarCount,
       productosBajoStock,
       movimientosRecientes,
+      familias,
     ] = await Promise.all([
       db.pedido.count(),
       db.presupuesto.count(),
@@ -26,6 +27,13 @@ export async function GET() {
         orderBy: { fecha: 'desc' },
         include: { stockItem: { select: { material: true } } },
         take: 10,
+      }),
+      db.familia.findMany({
+        orderBy: { nombre: 'asc' },
+        select: {
+          id: true, nombre: true, color: true,
+          subfamilias: { select: { _count: { select: { productos: true } } } },
+        },
       }),
     ]);
 
@@ -51,6 +59,12 @@ export async function GET() {
         materialNombre: mov.stockItem?.material,
       })),
       facturasPendientes: null,
+      familiaStats: familias.map(f => ({
+        id: f.id,
+        nombre: f.nombre,
+        color: f.color,
+        totalProductos: f.subfamilias.reduce((s, sub) => s + sub._count.productos, 0),
+      })),
     });
 
   } catch (error) {

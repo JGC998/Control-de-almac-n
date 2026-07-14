@@ -146,8 +146,21 @@ function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onTo
           )}
         </td>
         <td className="text-sm text-base-content/60">
-          <Package className="w-3.5 h-3.5 inline mr-1" />
-          {fam.subfamilias?.length ?? 0} subfamilias
+          {(() => {
+            const numSubs = fam.subfamilias?.length ?? 0;
+            const numProds = (fam.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.productos ?? 0), 0);
+            const numArts  = (fam.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.articulosSimples ?? 0), 0);
+            return (
+              <div className="flex flex-col gap-0.5">
+                <span><Package className="w-3 h-3 inline mr-0.5" />{numSubs} subfamilia{numSubs !== 1 ? 's' : ''}</span>
+                {(numProds > 0 || numArts > 0) && (
+                  <span className="text-xs text-base-content/40">
+                    {numProds > 0 && `${numProds} prod.`}{numProds > 0 && numArts > 0 && ' · '}{numArts > 0 && `${numArts} art.`}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
         </td>
         <td onClick={e => e.stopPropagation()}>
           <div className="flex gap-1">
@@ -266,7 +279,11 @@ export default function GestionFamiliasPage() {
     } catch (e) { toastError(e.message); }
   };
 
-  const totalSubs = familias.reduce((acc, f) => acc + (f.subfamilias?.length ?? 0), 0);
+  const totalSubs  = familias.reduce((acc, f) => acc + (f.subfamilias?.length ?? 0), 0);
+  const totalProds = familias.reduce((acc, f) =>
+    acc + (f.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.productos ?? 0), 0), 0);
+  const totalArts  = familias.reduce((acc, f) =>
+    acc + (f.subfamilias ?? []).reduce((s, sub) => s + (sub._count?.articulosSimples ?? 0), 0), 0);
 
   return (
     <div className="container mx-auto p-6 max-w-3xl">
@@ -337,7 +354,7 @@ export default function GestionFamiliasPage() {
       </div>
 
       <p className="text-xs text-base-content/40 mt-3">
-        {familias.length} familias · {totalSubs} subfamilias · Haz clic en una fila para expandir y gestionar sus subfamilias
+        {familias.length} familias · {totalSubs} subfamilias · {totalProds} productos · {totalArts} artículos · Haz clic en una fila para expandir
       </p>
     </div>
   );

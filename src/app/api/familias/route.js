@@ -9,7 +9,10 @@ export async function GET() {
     const familias = await db.familia.findMany({
       orderBy: { nombre: 'asc' },
       include: {
-        subfamilias: { orderBy: { nombre: 'asc' } },
+        subfamilias: {
+          orderBy: { nombre: 'asc' },
+          include: { _count: { select: { productos: true, articulosSimples: true } } },
+        },
       },
     });
     return NextResponse.json(familias);

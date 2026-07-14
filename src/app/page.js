@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Package, Receipt, AlertCircle, Clock,
   PlusCircle, Ship, Warehouse, Table2,
-  Calculator, Ruler,
+  Calculator, Ruler, Tag,
 } from 'lucide-react';
 
 const ACCESOS = [
@@ -139,6 +139,45 @@ function PanelFacturasPendientes({ datos }) {
   );
 }
 
+function PanelFamilias({ stats }) {
+  if (!stats?.length) return null;
+  const max = Math.max(...stats.map(f => f.totalProductos), 1);
+  return (
+    <div className="card bg-base-100 shadow border border-base-200">
+      <div className="card-body p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-bold text-base flex items-center gap-2">
+            <Tag className="w-4 h-4 text-primary" />
+            Catálogo por familia
+          </h2>
+          <Link href="/gestion/catalogos/familias" className="text-xs text-primary hover:underline">Gestionar</Link>
+        </div>
+        <div className="space-y-2">
+          {stats.map(f => (
+            <div key={f.id} className="flex items-center gap-2">
+              <div className="w-24 text-xs font-medium truncate text-right text-base-content/70 shrink-0">{f.nombre}</div>
+              <div className="flex-1 bg-base-200 rounded-full h-4 overflow-hidden">
+                <div
+                  className="h-4 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${(f.totalProductos / max) * 100}%`,
+                    backgroundColor: f.color ?? 'oklch(var(--p))',
+                    opacity: 0.75,
+                  }}
+                />
+              </div>
+              <div className="w-8 text-xs text-right tabular-nums text-base-content/50 shrink-0">{f.totalProductos}</div>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-base-content/30 mt-2">
+          {stats.reduce((s, f) => s + f.totalProductos, 0)} productos clasificados en {stats.length} familias
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data, error, isLoading } = useSWR('/api/dashboard', {
     refreshInterval: 60000,
@@ -159,7 +198,7 @@ export default function Dashboard() {
     </div>
   );
 
-  const { facturasPendientes } = data;
+  const { facturasPendientes, familiaStats } = data;
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -168,10 +207,11 @@ export default function Dashboard() {
       {/* Accesos directos — misma grid en escritorio y tablet/móvil */}
       <AccesosDirectos />
 
-      {/* Panel facturas pendientes */}
-      {facturasPendientes && (
-        <div className="mt-6">
-          <PanelFacturasPendientes datos={facturasPendientes} />
+      {/* Grid de widgets secundarios */}
+      {(facturasPendientes || familiaStats?.length > 0) && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {familiaStats?.length > 0 && <PanelFamilias stats={familiaStats} />}
+          {facturasPendientes && <PanelFacturasPendientes datos={facturasPendientes} />}
         </div>
       )}
     </div>
