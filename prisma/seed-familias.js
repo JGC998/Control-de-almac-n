@@ -2,7 +2,7 @@
 // Siembra las 6 familias y sus ~17 subfamilias en la base de datos.
 // Seguro de ejecutar varias veces (upsert).
 
-const { PrismaClient } = require('../src/generated/prisma');
+const { PrismaClient } = require('@prisma/client');
 const db = new PrismaClient();
 
 const FAMILIAS = [
