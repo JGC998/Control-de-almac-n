@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import { Printer, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import PreviewBandaPVC from '@/componentes/calculadoras/PreviewBandaPVC';
 
 export default function NotaTrabajo() {
   const { id } = useParams();
@@ -51,6 +52,9 @@ export default function NotaTrabajo() {
         <button onClick={() => window.print()} className="btn btn-primary gap-1">
           <Printer className="w-4 h-4" /> Imprimir nota de trabajo
         </button>
+        <Link href="/pedidos/notas-taller" className="btn btn-ghost btn-sm gap-1">
+          <Printer className="w-3 h-3" /> Imprimir varias (2 por hoja)
+        </Link>
       </div>
 
       <div className="nota-contenido bg-white p-8 shadow-sm rounded-lg">
@@ -112,22 +116,49 @@ export default function NotaTrabajo() {
                 </td>
               </tr>
             ) : (
-              items.map((item, idx) => (
-                <tr key={idx} className="border border-gray-300">
-                  <td className="border border-gray-300 px-3 py-3">
-                    <p className="font-medium">{item.descripcion}</p>
-                    {item.producto?.nombre && (
-                      <p className="text-xs text-gray-500 mt-0.5">{item.producto.nombre}</p>
-                    )}
-                  </td>
-                  <td className="border border-gray-300 px-3 py-3 text-center font-bold text-lg">
-                    {item.quantity}
-                  </td>
-                  <td className="border border-gray-300 px-3 py-3 text-center">
-                    {/* Celda para que el operario marque */}
-                  </td>
-                </tr>
-              ))
+              items.map((item, idx) => {
+                let detalles = null;
+                try { detalles = item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; } catch {}
+                const esBanda = !!detalles?.dimensiones;
+                return (
+                  <tr key={idx} className="border border-gray-300">
+                    <td className="border border-gray-300 px-3 py-3">
+                      <div className="flex items-start gap-3">
+                        {esBanda && (
+                          <div className="shrink-0">
+                            <PreviewBandaPVC
+                              ancho={detalles.dimensiones?.ancho}
+                              largo={detalles.dimensiones?.largo}
+                              tipoConfeccion={detalles.tipoConfeccion}
+                              configuracionTacos={detalles.tacos}
+                              color={detalles.color}
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium">{item.descripcion}</p>
+                          {item.producto?.nombre && (
+                            <p className="text-xs text-gray-500 mt-0.5">{item.producto.nombre}</p>
+                          )}
+                          {esBanda && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              {detalles.dimensiones?.ancho} × {detalles.dimensiones?.largo} mm · {detalles.tipoConfeccion}
+                              {detalles.color ? ` · ${detalles.color}` : ''}
+                              {detalles.tacos ? ` · Tacos ${detalles.tacos.tipo} ${detalles.tacos.altura}mm` : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="border border-gray-300 px-3 py-3 text-center font-bold text-lg">
+                      {item.quantity}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-3 text-center">
+                      {/* Celda para que el operario marque */}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

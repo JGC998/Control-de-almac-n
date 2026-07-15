@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Package, PlusCircle, Download, Ban } from 'lucide-react';
+import { Package, PlusCircle, Download, Ban, Printer } from 'lucide-react';
 import { db } from '@/lib/db';
 import TablaConSeleccion from '@/componentes/compuestos/TablaConSeleccion';
 import { PaginacionServidor, FiltroEstado } from '@/componentes/ui';
@@ -85,6 +85,9 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
           <Package className="w-8 h-8" /> Pedidos
         </h1>
         <div className="flex gap-2 items-center">
+          <Link href="/pedidos/notas-taller" className="btn btn-outline gap-2">
+            <Printer className="w-4 h-4" /> Imprimir notas
+          </Link>
           <a href="/api/pedidos/export" target="_blank" className="btn btn-outline btn-success gap-2">
             <Download className="w-4 h-4" /> Exportar Excel
           </a>

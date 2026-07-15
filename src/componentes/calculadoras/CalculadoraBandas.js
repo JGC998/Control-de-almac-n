@@ -5,6 +5,7 @@ import { Plus, Info, Layers, Link2, BookmarkPlus, Check, Calculator } from 'luci
 import { toastError } from '@/lib/toast';
 import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
+import PreviewBandaPVC from './PreviewBandaPVC';
 
 
 export default function CalculadoraBandas({ onAddItem, className = "" }) {
@@ -431,6 +432,18 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                             Quitar Tacos
                         </button>
                     )}
+                </div>
+
+                {/* Previsualización de la banda */}
+                <div className="mt-3 border border-base-300 rounded-lg p-2 bg-base-200/30">
+                    <p className="text-xs text-base-content/40 uppercase font-semibold tracking-wide mb-1 text-center">Previsualización</p>
+                    <PreviewBandaPVC
+                        ancho={ancho}
+                        largo={largo}
+                        tipoConfeccion={tipoConfeccion}
+                        configuracionTacos={configuracionTacos}
+                        color={selectedColor}
+                    />
                 </div>
 
                 {/* Cantidad y Resultado */}
