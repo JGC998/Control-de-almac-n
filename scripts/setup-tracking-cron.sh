@@ -4,8 +4,8 @@
 # Ejecuta: bash scripts/setup-tracking-cron.sh
 # =============================================================================
 #
-# Añade una tarea cron que consulta el estado de los contenedores 3 veces al día
-# (8:00, 14:00, 20:00) y envía WhatsApp si ha habido cambios.
+# Añade una tarea cron que consulta el estado de los contenedores 1 vez al día
+# (9:00) y envía WhatsApp si ha habido cambios.
 #
 # REQUISITOS PREVIOS:
 #   1. App corriendo en el servidor (npm run start o pm2)
@@ -22,7 +22,7 @@
 
 APP_URL="${APP_URL:-http://localhost:3000}"
 LOG_FILE="/var/log/crm-tracking.log"
-CRON_JOB="0 8,14,20 * * * curl -s -X POST ${APP_URL}/api/tracking/sync >> ${LOG_FILE} 2>&1"
+CRON_JOB="0 9 * * * curl -s -X POST ${APP_URL}/api/tracking/sync >> ${LOG_FILE} 2>&1"
 
 echo "=== Configurando cron de tracking de contenedores ==="
 echo "URL de la app: ${APP_URL}"
