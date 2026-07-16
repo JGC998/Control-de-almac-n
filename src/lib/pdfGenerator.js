@@ -672,6 +672,15 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                         const fmtMm = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
                         return `${fmtMm(dt.ancho)}mm × ${fmtMm(dt.largo)}mm`;
                     }
+                    if (dt.dimensiones) {
+                        // Banda PVC
+                        const dim = dt.dimensiones;
+                        const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin' : dt.tipoConfeccion === 'GRAPA' ? 'Grapa' : 'Abierta';
+                        let lines = `${dim.ancho} × ${dim.largo} mm · ${confLabel}`;
+                        if (dt.color) lines += ` · ${dt.color}`;
+                        if (dt.tacos) lines += `\nTacos ${dt.tacos.tipo} ${dt.tacos.altura}mm (paso: ${dt.tacos.paso}mm)`;
+                        return lines;
+                    }
                 } catch { /* not JSON, use as-is */ }
                 return item.detallesTecnicos;
             }
@@ -843,6 +852,117 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             } catch (qrErr) {
                 logApiError(qrErr, 'QR en taller PDF');
             }
+        }
+
+        // ── Ficha Técnica PVC (segunda página) ───────────────────────
+        const bandasPVC = (order.items || [])
+            .map(item => {
+                if (!item.detallesTecnicos) return null;
+                try {
+                    const dt = JSON.parse(item.detallesTecnicos);
+                    if (!dt.dimensiones) return null;
+                    return { descripcion: item.descripcion, quantity: item.quantity, dt };
+                } catch { return null; }
+            })
+            .filter(Boolean);
+
+        if (bandasPVC.length > 0) {
+            let longitudBarra = 2;
+            try {
+                const cfg = await db.config.findUnique({ where: { key: 'longitud_barra_tacos' } });
+                if (cfg) longitudBarra = parseFloat(cfg.value) || 2;
+            } catch { /* usa el default */ }
+
+            doc.addPage();
+
+            if (logoBase64) {
+                doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
+            }
+
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text("DETALLES TÉCNICOS PVC", ML, 22);
+
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Pedido Nº: ${order.numero}`, ML, 30);
+            doc.text(new Date(order.fechaCreacion).toLocaleDateString('es-ES'), ML, 36);
+            if (order.cliente) doc.text(`Cliente: ${order.cliente.nombre}`, ML, 42);
+
+            let yp = 52;
+
+            bandasPVC.forEach((item, idx) => {
+                const { dt } = item;
+                const dim = dt.dimensiones || {};
+                const tacos = dt.tacos || null;
+                const grapa = dt.grapa || null;
+                const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin (Vulcanizado)' : dt.tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta (sin vulcanizado)';
+                const headerTitle = `Banda ${idx + 1}  ×${item.quantity} ud.`;
+
+                doc.setFillColor(31, 45, 58);
+                doc.rect(ML, yp, 182, 9, 'F');
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(255, 255, 255);
+                doc.text(headerTitle, ML + 3, yp + 6);
+                doc.setTextColor(0, 0, 0);
+                yp += 13;
+
+                const bandaRows = [
+                    ['Descripción', item.descripcion || '—'],
+                    ['Material', 'PVC'],
+                    ['Espesor', dim.espesor ? `${dim.espesor} mm` : '—'],
+                    ['Color', dt.color || '—'],
+                    ['Ancho', dim.ancho ? formatMm(dim.ancho) : '—'],
+                    ['Largo', dim.largo ? formatMm(dim.largo) : '—'],
+                    ['Tipo confección', confLabel],
+                ];
+                if (grapa) {
+                    bandaRows.push(['Grapa', `${grapa.nombre}${grapa.tipo === 'UNA' ? ' (Uña)' : ''}`]);
+                }
+
+                autoTable(doc, {
+                    startY: yp,
+                    head: [['Parámetro', 'Valor']],
+                    body: bandaRows,
+                    theme: 'grid',
+                    styles: { fontSize: 9 },
+                    headStyles: { fillColor: [80, 80, 80], textColor: 255, fontStyle: 'bold' },
+                    columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+                    margin: { left: ML, right: PW - MR },
+                });
+                yp = doc.lastAutoTable.finalY + 6;
+
+                if (tacos) {
+                    const numBarras = Math.ceil(tacos.metrosLineales / longitudBarra);
+                    autoTable(doc, {
+                        startY: yp,
+                        head: [['Configuración de Tacos', '']],
+                        body: [
+                            ['Tipo de taco', tacos.tipo],
+                            ['Altura del taco', formatMm(tacos.altura)],
+                            ['Paso entre tacos', formatMm(tacos.paso)],
+                            ['Longitud del taco', formatMm(tacos.longitudTaco)],
+                            ['Cantidad de tacos', `${tacos.cantidadTacos} uds`],
+                            ['Metros lineales totales', `${fmtN(tacos.metrosLineales)} m`],
+                            ['Barras necesarias', `${numBarras} barra${numBarras !== 1 ? 's' : ''} de ${longitudBarra} m`],
+                        ],
+                        theme: 'grid',
+                        styles: { fontSize: 9 },
+                        headStyles: { fillColor: [40, 100, 160], textColor: 255, fontStyle: 'bold' },
+                        columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+                        margin: { left: ML, right: PW - MR },
+                    });
+                    yp = doc.lastAutoTable.finalY + 6;
+                }
+
+                yp += 8;
+                if (idx < bandasPVC.length - 1) {
+                    doc.setDrawColor(180, 180, 180);
+                    doc.line(ML, yp - 4, MR, yp - 4);
+                }
+            });
         }
 
         return Buffer.from(doc.output('arraybuffer'));
