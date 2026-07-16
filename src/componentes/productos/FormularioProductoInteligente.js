@@ -1,14 +1,17 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Package, Loader2 } from 'lucide-react';
 import SelectorFamiliaSubfamilia from './SelectorFamiliaSubfamilia';
 
 const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] };
 
 export default function FormularioProductoInteligente({ productoAEditar, onGuardado, onCancelar, initialNombre = '' }) {
+  const materialesDBRef = useRef([]);  // [{id, nombre}] para lookup de IDs
+
   const [form, setForm] = useState({
     nombre: initialNombre,
     material: '',
+    materialId: null,
     espesor: '',
     acabado: '',
     color: '',
@@ -28,11 +31,14 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   const [error, setError] = useState(null);
   const [familiaActual, setFamiliaActual] = useState(null);
 
-  // Cargar materiales al montar
+  // Cargar materiales al montar (nombres para dropdown + registros con ID para guardar)
   useEffect(() => {
     fetch('/api/tarifas-material-opciones')
       .then(r => r.json())
       .then(d => setOpciones(prev => ({ ...prev, materiales: d.materiales ?? [] })));
+    fetch('/api/materiales')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) materialesDBRef.current = d; });
   }, []);
 
   // Precargar si es edición
@@ -41,6 +47,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       setForm({
         nombre:               productoAEditar.nombre ?? '',
         material:             productoAEditar.material?.nombre ?? '',
+        materialId:           productoAEditar.materialId ?? null,
         espesor:              productoAEditar.espesor ?? '',
         acabado:              productoAEditar.acabado ?? '',
         color:                productoAEditar.color ?? '',
@@ -94,7 +101,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
 
   // Material → espesores
   const handleMaterialChange = useCallback(async (material) => {
-    setForm(f => ({ ...f, material, espesor: '', acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
+    const registro = materialesDBRef.current.find(m => m.nombre === material);
+    setForm(f => ({ ...f, material, materialId: registro?.id ?? null, espesor: '', acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
     setOpciones(prev => ({ ...prev, espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] }));
     setTarifaEncontrada(false);
     if (!material) return;
@@ -204,6 +212,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
 
     const payload = {
       nombre:               form.nombre.trim(),
+      materialId:           form.materialId ?? null,
       espesor:              form.espesor              ? parseFloat(form.espesor) : null,
       ancho:                form.ancho                ? parseFloat(form.ancho)   : null,
       largo:                form.largo                ? parseFloat(form.largo)   : null,
