@@ -47,28 +47,21 @@ function IconoOrden({ campo, sort }) {
     : <ChevronDown className="w-3 h-3 text-primary" />;
 }
 
-function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar }) {
-  const [materialNombre, setMaterialNombre] = useState('');
-  const [acabado, setAcabado]               = useState('');
-  const [subfamiliaId, setSubfamiliaId]     = useState(null);
-  const [aplicando, setAplicando]           = useState(false);
-  const [error, setError]                   = useState(null);
+function PanelAsignacionMasiva({ seleccion, onAplicar, onCancelar }) {
+  const [subfamiliaId, setSubfamiliaId] = useState(null);
+  const [aplicando, setAplicando]       = useState(false);
+  const [error, setError]               = useState(null);
 
   async function aplicar() {
-    if (!materialNombre && !subfamiliaId) { setError('Selecciona al menos un material o una subfamilia'); return; }
+    if (!subfamiliaId) { setError('Selecciona una subfamilia'); return; }
     setAplicando(true); setError(null);
     try {
-      const mat = materiales.find(m => m.nombre === materialNombre);
-      const payload = {};
-      if (materialNombre) { payload.materialId = mat?.id ?? null; payload.acabado = acabado.trim() || null; }
-      if (subfamiliaId !== null) payload.subfamiliaId = subfamiliaId;
-
       const resultados = await Promise.all(
         [...seleccion].map(id =>
           fetch(`/api/productos/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ subfamiliaId }),
           })
         )
       );
@@ -88,26 +81,6 @@ function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar })
         </div>
 
         <div className="flex items-center gap-2 flex-1 flex-wrap">
-          <select
-            className="select select-bordered select-sm"
-            value={materialNombre}
-            onChange={e => setMaterialNombre(e.target.value)}
-          >
-            <option value="">— Material —</option>
-            {materiales.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
-          </select>
-
-          <input
-            type="text"
-            className="input input-bordered input-sm w-32"
-            placeholder="Acabado"
-            value={acabado}
-            onChange={e => setAcabado(e.target.value)}
-            disabled={!materialNombre}
-          />
-
-          <div className="w-px h-6 bg-base-300 hidden sm:block" />
-
           <SelectorFamiliaSubfamilia
             value={subfamiliaId}
             onChange={setSubfamiliaId}
@@ -117,7 +90,7 @@ function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar })
           <button
             className="btn btn-primary btn-sm gap-1"
             onClick={aplicar}
-            disabled={aplicando || (!materialNombre && !subfamiliaId)}
+            disabled={aplicando || !subfamiliaId}
           >
             {aplicando
               ? <span className="loading loading-spinner loading-xs" />
@@ -138,7 +111,6 @@ function PanelAsignacionMasiva({ seleccion, materiales, onAplicar, onCancelar })
 
 export default function GestionProductosPage() {
   const { data, isLoading, error } = useSWR('/api/productos?page=1&limit=500');
-  const { data: materiales = [] }  = useSWR('/api/materiales');
   const { data: familias = [] }    = useSWR('/api/familias');
   const productos = data?.data ?? [];
 
@@ -146,6 +118,7 @@ export default function GestionProductosPage() {
   const [productoEditando, setProductoEditando] = useState(null);
   const [busqueda, setBusqueda]               = useState('');
   const [filtroFamilia, setFiltroFamilia]     = useState('');
+  const [soloSinClasificar, setSoloSinClasificar] = useState(false);
   const [sort, setSort]                       = useState({ campo: null, dir: 'asc' });
   const [seleccion, setSeleccion]             = useState(new Set());
   const { confirmar, ModalConfirmacion }      = useConfirmacion();
@@ -166,6 +139,7 @@ export default function GestionProductosPage() {
           !(p.acabado ?? '').toLowerCase().includes(q) &&
           !(p.subfamilia?.nombre ?? '').toLowerCase().includes(q)) return false;
       if (filtroFamilia && p.subfamilia?.familia?.id !== filtroFamilia) return false;
+      if (soloSinClasificar && p.subfamilia != null) return false;
       return true;
     });
     if (sort.campo) {
@@ -230,13 +204,20 @@ export default function GestionProductosPage() {
           <select
             className="select select-bordered select-sm"
             value={filtroFamilia}
-            onChange={e => setFiltroFamilia(e.target.value)}
+            onChange={e => { setFiltroFamilia(e.target.value); setSoloSinClasificar(false); }}
           >
             <option value="">Todas las familias</option>
             {familias.map(f => (
               <option key={f.id} value={f.id}>{f.nombre}</option>
             ))}
           </select>
+          <button
+            className={`btn btn-sm ${soloSinClasificar ? 'btn-warning' : 'btn-outline btn-warning'}`}
+            onClick={() => { setSoloSinClasificar(v => !v); setFiltroFamilia(''); }}
+            title="Mostrar solo productos sin subfamilia asignada"
+          >
+            Sin clasificar
+          </button>
           <input
             type="text"
             value={busqueda}
@@ -357,7 +338,6 @@ export default function GestionProductosPage() {
       {seleccion.size > 0 && (
         <PanelAsignacionMasiva
           seleccion={seleccion}
-          materiales={materiales}
           onAplicar={onAplicarMasivo}
           onCancelar={() => setSeleccion(new Set())}
         />
