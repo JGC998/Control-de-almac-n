@@ -185,7 +185,6 @@ export default function ProductoDetallePage() {
 
             <div className="grid grid-cols-1 gap-4 content-start">
               <InfoCard title="Precio Unitario" value={formatValue(parseFloat(producto.precioUnitario))} unit="€" icon={DollarSign} />
-              <InfoCard title="Costo Unitario" value={formatValue(parseFloat(producto.costoUnitario ?? 0))} unit="€" icon={DollarSign} />
               <InfoCard title="Peso Unitario" value={formatValue(parseFloat(producto.pesoUnitario ?? 0))} unit="kg" icon={List} />
             </div>
           </div>
