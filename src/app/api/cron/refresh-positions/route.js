@@ -9,7 +9,7 @@ import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, buscarScheduleBarco,
 // Crontab: 0 9,12,16,22 * * * curl -s "http://localhost:3000/api/cron/refresh-positions"
 export async function GET(request) {
   const secret = request.nextUrl.searchParams.get('secret');
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 

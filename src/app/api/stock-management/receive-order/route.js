@@ -30,7 +30,13 @@ export async function POST(request) {
     }, 0);
 
     const bobinaData = pedido.bobinas.map((bobina) => {
-      const metrosPorBobina = parseFloat(bobina.largo) || 0;
+      const metrosPorBobina = parseFloat(bobina.largo);
+      if (isNaN(metrosPorBobina) || metrosPorBobina <= 0) {
+        throw Object.assign(
+          new Error(`Bobina sin largo válido (ref: ${bobina.referencia?.codigo ?? bobina.id}). Completa los datos antes de recibir.`),
+          { badData: true }
+        );
+      }
       const cantidadBobinas = parseInt(bobina.cantidad, 10) || 1;
       const metrosTotales = metrosPorBobina * cantidadBobinas;
       const precioBaseEUR = (parseFloat(bobina.precioMetro) || 0) * (esImportacion ? tasa : 1);
@@ -77,6 +83,9 @@ export async function POST(request) {
   } catch (error) {
     if (error.alreadyReceived) {
       return NextResponse.json({ message: error.message }, { status: 409 });
+    }
+    if (error.badData) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
     }
     logApiError(error, 'Error al recibir pedido:');
     return NextResponse.json({ message: 'Error interno' }, { status: 500 });

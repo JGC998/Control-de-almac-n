@@ -147,7 +147,7 @@ export default function GestionProductosPage() {
       lista = [...lista].sort((a, b) => comparar(a, b, sort.campo, col?.tipo, sort.dir));
     }
     return lista;
-  }, [productos, busqueda, filtroFamilia, sort]);
+  }, [productos, busqueda, filtroFamilia, soloSinClasificar, sort]);
 
   function toggleSeleccion(id) {
     setSeleccion(prev => {
@@ -225,6 +225,9 @@ export default function GestionProductosPage() {
             placeholder="Buscar por nombre, material, subfamilia..."
             className="input input-bordered input-sm w-64"
           />
+          <Link href="/gestion/productos/clasificar" className="btn btn-outline btn-sm gap-1">
+            <Layers className="w-4 h-4" /> Clasificar
+          </Link>
           <button onClick={abrirNuevo} className="btn btn-primary btn-sm">
             <PlusCircle className="w-4 h-4" /> Nuevo
           </button>

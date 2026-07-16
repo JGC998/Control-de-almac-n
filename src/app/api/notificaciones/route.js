@@ -28,8 +28,8 @@ export async function POST(request) {
       );
     }
     const { titulo, mensaje, tipo = 'PENDIENTE', url } = await request.json();
-    if (!titulo || !mensaje) {
-      return NextResponse.json({ message: 'titulo y mensaje requeridos' }, { status: 400 });
+    if (!titulo || titulo.length > 200 || !mensaje || mensaje.length > 1000) {
+      return NextResponse.json({ message: 'titulo (max 200) y mensaje (max 1000) requeridos' }, { status: 400 });
     }
     const TIPOS_VALIDOS = ['INFO', 'PENDIENTE', 'ALERTA'];
     if (!TIPOS_VALIDOS.includes(tipo)) {

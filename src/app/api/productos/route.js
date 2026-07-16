@@ -84,6 +84,7 @@ export async function GET(request) {
       include: {
         fabricante: true,
         material: true,
+        subfamilia: { include: { familia: true } },
       },
     });
 

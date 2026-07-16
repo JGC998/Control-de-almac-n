@@ -66,6 +66,7 @@ export async function POST(request) {
               unitPrice: item.unitPrice,
               pesoUnitario: item.pesoUnitario,
               productoId: item.productoId,
+              detallesTecnicos: item.detallesTecnicos ?? null,
             })),
           },
         },
