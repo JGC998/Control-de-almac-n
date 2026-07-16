@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo, useCallback } from 'react';
 import useSWR from 'swr';
-import { Printer, ArrowLeft, CheckSquare, Square, Search, Loader2 } from 'lucide-react';
+import { Printer, ArrowLeft, CheckSquare, Square, Search, Loader2, FileDown } from 'lucide-react';
 import Link from 'next/link';
 import PreviewBandaPVC from '@/componentes/calculadoras/PreviewBandaPVC';
 
@@ -134,6 +134,7 @@ export default function NotasTaller() {
   const [search, setSearch] = useState('');
   const [printDetails, setPrintDetails] = useState(null);
   const [loadingPrint, setLoadingPrint] = useState(false);
+  const [loadingPDF, setLoadingPDF] = useState(false);
 
   const empresa = {
     nombre: config?.empresa_nombre || 'Taller',
@@ -184,6 +185,30 @@ export default function NotasTaller() {
       alert('Error al cargar los detalles de los pedidos');
     } finally {
       setLoadingPrint(false);
+    }
+  };
+
+  const handleDescargarPDF = async () => {
+    if (selectedIds.size === 0) return;
+    setLoadingPDF(true);
+    try {
+      const res = await fetch('/api/pedidos/pdf-taller-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selectedIds] }),
+      });
+      if (!res.ok) throw new Error('Error del servidor');
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `notas-taller.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Error al generar el PDF');
+    } finally {
+      setLoadingPDF(false);
     }
   };
 
@@ -296,13 +321,23 @@ export default function NotasTaller() {
           />
         </label>
         <button
-          className="btn btn-primary gap-1"
+          className="btn btn-outline gap-1"
           disabled={selectedIds.size === 0 || loadingPrint}
           onClick={handlePrint}
         >
           {loadingPrint
             ? <><Loader2 className="w-4 h-4 animate-spin" /> Cargando...</>
             : <><Printer className="w-4 h-4" /> Imprimir {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</>
+          }
+        </button>
+        <button
+          className="btn btn-primary gap-1"
+          disabled={selectedIds.size === 0 || loadingPDF}
+          onClick={handleDescargarPDF}
+        >
+          {loadingPDF
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Generando...</>
+            : <><FileDown className="w-4 h-4" /> PDF {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</>
           }
         </button>
       </div>
@@ -366,18 +401,28 @@ export default function NotasTaller() {
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="mt-4 flex justify-end">
-          <p className="text-sm text-base-content/50 mr-3 self-center">
-            {selectedIds.size} pedido{selectedIds.size !== 1 ? 's' : ''} · {Math.ceil(selectedIds.size / 2)} hoja{Math.ceil(selectedIds.size / 2) !== 1 ? 's' : ''}
+        <div className="mt-4 flex justify-end items-center gap-2">
+          <p className="text-sm text-base-content/50">
+            {selectedIds.size} pedido{selectedIds.size !== 1 ? 's' : ''}
           </p>
           <button
-            className="btn btn-primary gap-1"
+            className="btn btn-outline gap-1"
             disabled={loadingPrint}
             onClick={handlePrint}
           >
             {loadingPrint
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Cargando...</>
-              : <><Printer className="w-4 h-4" /> Imprimir {selectedIds.size} notas</>
+              : <><Printer className="w-4 h-4" /> Imprimir en navegador</>
+            }
+          </button>
+          <button
+            className="btn btn-primary gap-1"
+            disabled={loadingPDF}
+            onClick={handleDescargarPDF}
+          >
+            {loadingPDF
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Generando PDF...</>
+              : <><FileDown className="w-4 h-4" /> Descargar PDF</>
             }
           </button>
         </div>

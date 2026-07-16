@@ -284,6 +284,27 @@ function formatMm(value) {
     return Math.round(parseFloat(value) || 0).toLocaleString('de-DE') + ' mm';
 }
 
+// Formatea la columna "Detalles" de un item (metrajes, bandas PVC, ref. fabricante)
+function formatDetallesTecnicos(item) {
+    if (!item.detallesTecnicos) return item.producto?.referenciaFabricante || '';
+    try {
+        const dt = JSON.parse(item.detallesTecnicos);
+        if (dt.tipo === 'metraje') {
+            const fmtMm = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
+            return `${fmtMm(dt.ancho)}mm × ${fmtMm(dt.largo)}mm`;
+        }
+        if (dt.dimensiones) {
+            const dim = dt.dimensiones;
+            const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin' : dt.tipoConfeccion === 'GRAPA' ? 'Grapa' : 'Abierta';
+            let lines = `${dim.ancho} × ${dim.largo} mm · ${confLabel}`;
+            if (dt.color) lines += ` · ${dt.color}`;
+            if (dt.tacos) lines += `\nTacos ${dt.tacos.tipo} ${dt.tacos.altura}mm (paso: ${dt.tacos.paso}mm)`;
+            return lines;
+        }
+    } catch { /* not JSON */ }
+    return item.detallesTecnicos;
+}
+
 export async function generateOrderPDF(order, config = {}) {
     try {
         const doc = new jsPDF();
@@ -663,29 +684,8 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             return lines.join('\n');
         };
 
-        // Columna Detalles: medidas personalizadas del item (detallesTecnicos) o ref. fabricante
-        const getDetalles = (item) => {
-            if (item.detallesTecnicos) {
-                try {
-                    const dt = JSON.parse(item.detallesTecnicos);
-                    if (dt.tipo === 'metraje') {
-                        const fmtMm = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
-                        return `${fmtMm(dt.ancho)}mm × ${fmtMm(dt.largo)}mm`;
-                    }
-                    if (dt.dimensiones) {
-                        // Banda PVC
-                        const dim = dt.dimensiones;
-                        const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin' : dt.tipoConfeccion === 'GRAPA' ? 'Grapa' : 'Abierta';
-                        let lines = `${dim.ancho} × ${dim.largo} mm · ${confLabel}`;
-                        if (dt.color) lines += ` · ${dt.color}`;
-                        if (dt.tacos) lines += `\nTacos ${dt.tacos.tipo} ${dt.tacos.altura}mm (paso: ${dt.tacos.paso}mm)`;
-                        return lines;
-                    }
-                } catch { /* not JSON, use as-is */ }
-                return item.detallesTecnicos;
-            }
-            return item.producto?.referenciaFabricante || '';
-        };
+        // Columna Detalles: usa el helper de módulo
+        const getDetalles = (item) => formatDetallesTecnicos(item);
 
         for (const item of order.items || []) {
             const qty           = item.quantity || 0;
@@ -969,6 +969,313 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
 
     } catch (error) {
         logApiError(error, "Error generating Taller PDF");
+        throw error;
+    }
+}
+
+// PDF que agrupa múltiples pedidos en un único documento continuo (ahorra papel)
+export async function generateBatchTallerPDF(orders) {
+    try {
+        const doc      = new jsPDF();
+        const ML       = 14;
+        const MR       = 196;
+        const PW       = 210;
+        const PAGE_H   = 297;
+        const BOT_MAR  = 14; // reserva inferior por si autoTable quiere más margen
+
+        const logoBase64 = await getLogoBase64();
+
+        // ── Cabecera única del documento ─────────────────────────────
+        const HEADER_H = 23;
+        if (logoBase64) {
+            doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 10, 5, 35, 12);
+        }
+        const titleX = logoBase64 ? 52 : ML;
+        doc.setFontSize(15);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(26, 26, 26);
+        doc.text("NOTAS DE TALLER", titleX, 14);
+
+        const fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text(fechaHoy, MR, 11, { align: 'right' });
+        doc.text(`${orders.length} pedido${orders.length !== 1 ? 's' : ''}`, MR, 17, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.4);
+        doc.line(ML, HEADER_H, PW - ML, HEADER_H);
+
+        let y = HEADER_H + 5;
+
+        // ── Un bloque por pedido ──────────────────────────────────────
+        for (let idx = 0; idx < orders.length; idx++) {
+            const order  = orders[idx];
+            const client = order.cliente;
+
+            // Si quedan menos de 50 mm, nueva página
+            if (y > PAGE_H - BOT_MAR - 50) {
+                doc.addPage();
+                y = 12;
+            }
+
+            // Número + fecha del pedido (esquina derecha, pequeño)
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(31, 45, 58);
+            doc.text(order.numero, MR, y + 5, { align: 'right' });
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(140, 140, 140);
+            const fechaPedido = order.fechaCreacion
+                ? new Date(order.fechaCreacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '';
+            doc.text(fechaPedido, MR, y + 10, { align: 'right' });
+            doc.setTextColor(0, 0, 0);
+
+            // Bloque cliente
+            const clienteNombre  = client?.nombre   || 'Sin cliente';
+            const clienteTel     = client?.telefono || '';
+            const clienteEmail   = client?.email    || '';
+            const contactLine    = [clienteTel, clienteEmail].filter(Boolean).join(' · ');
+
+            doc.setFontSize(6);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(140, 140, 140);
+            doc.text("CLIENTE", ML + 3, y + 5);
+
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(26, 26, 26);
+            doc.text(clienteNombre, ML + 3, y + 11);
+
+            let detailY = y + 16;
+            if (contactLine) {
+                doc.setFontSize(7.5);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(80, 80, 80);
+                doc.text(contactLine, ML + 3, detailY);
+                detailY += 4;
+            }
+
+            // Línea vertical de acento
+            doc.setDrawColor(31, 45, 58);
+            doc.setLineWidth(0.9);
+            doc.line(ML, y, ML, detailY);
+            doc.setLineWidth(0.3);
+            doc.setDrawColor(200, 200, 200);
+            doc.setTextColor(0, 0, 0);
+
+            y = detailY + 4;
+
+            // Tabla de ítems
+            const tableRows = [];
+            let pesoTotal   = 0;
+
+            for (const item of order.items || []) {
+                const qty       = Number(item.quantity) || 0;
+                const peso      = Number(item.pesoUnitario) || Number(item.producto?.pesoUnitario) || 0;
+                const pesoLinea = qty * peso;
+                pesoTotal      += pesoLinea;
+
+                const descripcion = item.descripcion || item.producto?.nombre || '';
+                const detalles    = formatDetallesTecnicos(item);
+                tableRows.push([descripcion, detalles, qty.toString(), fmtN(peso), fmtN(pesoLinea)]);
+            }
+
+            autoTable(doc, {
+                startY: y,
+                head: [["Descripción", "Detalles", "Cant.", "Peso unit. (kg)", "Peso total (kg)"]],
+                body: tableRows.length > 0 ? tableRows : [["Sin líneas", "", "", "", ""]],
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+                columnStyles: {
+                    0: { cellWidth: 62 },
+                    1: { cellWidth: 46, fontSize: 7 },
+                    2: { halign: 'center', cellWidth: 14 },
+                    3: { halign: 'right',  cellWidth: 28 },
+                    4: { halign: 'right',  cellWidth: 28 },
+                },
+                margin: { left: ML, right: PW - MR },
+            });
+
+            y = doc.lastAutoTable.finalY + 3;
+
+            // Peso total
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(90, 90, 90);
+            doc.text("Peso total:", 130, y + 4);
+            doc.setTextColor(26, 26, 26);
+            doc.text(`${fmtN(pesoTotal)} kg`, MR, y + 4, { align: 'right' });
+            y += 10;
+
+            // Notas
+            if (order.notas) {
+                const notasLines = doc.splitTextToSize(order.notas, 170);
+                const notasH     = 9 + notasLines.length * 4;
+
+                if (y + notasH > PAGE_H - BOT_MAR) {
+                    doc.addPage();
+                    y = 12;
+                }
+
+                doc.setFillColor(242, 241, 238);
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.3);
+                doc.rect(ML, y, 182, notasH, 'FD');
+                doc.setFontSize(6);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(130, 130, 130);
+                doc.text("NOTAS", ML + 2, y + 4);
+                doc.setFontSize(7.5);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(26, 26, 26);
+                doc.text(notasLines, ML + 2, y + 9);
+                y += notasH + 5;
+            }
+
+            // Separador (excepto tras el último pedido)
+            if (idx < orders.length - 1) {
+                if (y + 5 > PAGE_H - BOT_MAR) {
+                    doc.addPage();
+                    y = 12;
+                } else {
+                    doc.setDrawColor(160, 160, 160);
+                    doc.setLineWidth(0.5);
+                    doc.line(ML, y, MR, y);
+                    y += 7;
+                }
+            }
+        }
+
+        // ── Fichas técnicas PVC al final (una sección por orden) ─────
+        const ordenesPVC = orders
+            .map(order => ({
+                order,
+                bandas: (order.items || []).map(item => {
+                    if (!item.detallesTecnicos) return null;
+                    try {
+                        const dt = JSON.parse(item.detallesTecnicos);
+                        if (!dt.dimensiones) return null;
+                        return { descripcion: item.descripcion, quantity: item.quantity, dt };
+                    } catch { return null; }
+                }).filter(Boolean),
+            }))
+            .filter(o => o.bandas.length > 0);
+
+        if (ordenesPVC.length > 0) {
+            let longitudBarra = 2;
+            try {
+                const cfg = await db.config.findUnique({ where: { key: 'longitud_barra_tacos' } });
+                if (cfg) longitudBarra = parseFloat(cfg.value) || 2;
+            } catch { /* default */ }
+
+            doc.addPage();
+            if (logoBase64) {
+                doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
+            }
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text("DETALLES TÉCNICOS PVC", ML, 22);
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 100, 100);
+            doc.text(fechaHoy, ML, 29);
+            doc.setTextColor(0, 0, 0);
+
+            let yp = 36;
+
+            for (const { order, bandas } of ordenesPVC) {
+                // Subheader de pedido
+                doc.setFillColor(60, 60, 60);
+                doc.rect(ML, yp, 182, 8, 'F');
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(255, 255, 255);
+                doc.text(`${order.numero}  —  ${order.cliente?.nombre || ''}`, ML + 3, yp + 5.5);
+                doc.setTextColor(0, 0, 0);
+                yp += 12;
+
+                bandas.forEach((item, bandaIdx) => {
+                    if (yp > PAGE_H - BOT_MAR - 50) {
+                        doc.addPage();
+                        yp = 14;
+                    }
+
+                    const { dt } = item;
+                    const dim   = dt.dimensiones || {};
+                    const tacos = dt.tacos || null;
+                    const grapa = dt.grapa || null;
+                    const confLabel = dt.tipoConfeccion === 'VULCANIZADA' ? 'Sin Fin (Vulcanizado)' : dt.tipoConfeccion === 'GRAPA' ? 'Con Grapa' : 'Abierta';
+
+                    doc.setFillColor(31, 45, 58);
+                    doc.rect(ML, yp, 182, 8, 'F');
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(255, 255, 255);
+                    doc.text(`Banda ${bandaIdx + 1}  ×${item.quantity} ud.`, ML + 3, yp + 5.5);
+                    doc.setTextColor(0, 0, 0);
+                    yp += 11;
+
+                    const bandaRows = [
+                        ['Descripción', item.descripcion || '—'],
+                        ['Material', 'PVC'],
+                        ['Espesor', dim.espesor ? `${dim.espesor} mm` : '—'],
+                        ['Color', dt.color || '—'],
+                        ['Ancho', dim.ancho ? formatMm(dim.ancho) : '—'],
+                        ['Largo', dim.largo ? formatMm(dim.largo) : '—'],
+                        ['Tipo confección', confLabel],
+                    ];
+                    if (grapa) bandaRows.push(['Grapa', `${grapa.nombre}${grapa.tipo === 'UNA' ? ' (Uña)' : ''}`]);
+
+                    autoTable(doc, {
+                        startY: yp,
+                        head: [['Parámetro', 'Valor']],
+                        body: bandaRows,
+                        theme: 'grid',
+                        styles: { fontSize: 9 },
+                        headStyles: { fillColor: [80, 80, 80], textColor: 255, fontStyle: 'bold' },
+                        columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+                        margin: { left: ML, right: PW - MR },
+                    });
+                    yp = doc.lastAutoTable.finalY + 5;
+
+                    if (tacos) {
+                        const numBarras = Math.ceil(tacos.metrosLineales / longitudBarra);
+                        autoTable(doc, {
+                            startY: yp,
+                            head: [['Configuración de Tacos', '']],
+                            body: [
+                                ['Tipo de taco', tacos.tipo],
+                                ['Altura del taco', formatMm(tacos.altura)],
+                                ['Paso entre tacos', formatMm(tacos.paso)],
+                                ['Longitud del taco', formatMm(tacos.longitudTaco)],
+                                ['Cantidad de tacos', `${tacos.cantidadTacos} uds`],
+                                ['Metros lineales totales', `${fmtN(tacos.metrosLineales)} m`],
+                                ['Barras necesarias', `${numBarras} barra${numBarras !== 1 ? 's' : ''} de ${longitudBarra} m`],
+                            ],
+                            theme: 'grid',
+                            styles: { fontSize: 9 },
+                            headStyles: { fillColor: [40, 100, 160], textColor: 255, fontStyle: 'bold' },
+                            columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+                            margin: { left: ML, right: PW - MR },
+                        });
+                        yp = doc.lastAutoTable.finalY + 5;
+                    }
+                    yp += 6;
+                });
+            }
+        }
+
+        return Buffer.from(doc.output('arraybuffer'));
+
+    } catch (error) {
+        logApiError(error, "Error generating batch taller PDF");
         throw error;
     }
 }
