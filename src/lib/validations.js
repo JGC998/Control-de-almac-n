@@ -199,7 +199,7 @@ export const familiaSchema = z.object({
 
 export const subfamiliaSchema = z.object({
     nombre: z.string().min(1, 'Nombre requerido').max(100),
-    familiaId: z.string().uuid('familiaId debe ser UUID'),
+    familiaId: z.string().min(1),
 });
 
 // ============================================
