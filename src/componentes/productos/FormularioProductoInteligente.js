@@ -10,6 +10,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
 
   const [form, setForm] = useState({
     nombre: initialNombre,
+    tipo: 'BANDA',
+    unidad: 'M2',
+    activo: true,
+    descripcion: '',
     material: '',
     materialId: null,
     espesor: '',
@@ -29,7 +33,6 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
-  const [familiaActual, setFamiliaActual] = useState(null);
 
   // Cargar materiales al montar (nombres para dropdown + registros con ID para guardar)
   useEffect(() => {
@@ -46,6 +49,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     if (productoAEditar) {
       setForm({
         nombre:               productoAEditar.nombre ?? '',
+        tipo:                 productoAEditar.tipo ?? 'BANDA',
+        unidad:               productoAEditar.unidad ?? 'M2',
+        activo:               productoAEditar.activo ?? true,
+        descripcion:          productoAEditar.descripcion ?? '',
         material:             productoAEditar.material?.nombre ?? '',
         materialId:           productoAEditar.materialId ?? null,
         espesor:              productoAEditar.espesor ?? '',
@@ -212,6 +219,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
 
     const payload = {
       nombre:               form.nombre.trim(),
+      tipo:                 form.tipo,
+      unidad:               form.unidad,
+      activo:               form.activo,
+      descripcion:          form.descripcion || null,
       materialId:           form.materialId ?? null,
       espesor:              form.espesor              ? parseFloat(form.espesor) : null,
       ancho:                form.ancho                ? parseFloat(form.ancho)   : null,
@@ -265,9 +276,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   const tieneTarifa  = tarifaEncontrada && opciones.tarifa;
   // Mostrar acabado si hay múltiples opciones distintas (incluyendo la opción vacía = estándar)
   const hayAcabados  = opciones.acabados.length > 1 || (opciones.acabados.length === 1 && opciones.acabados[0] !== '');
-  // Familia ACCESORIO: sin material ni dimensiones
-  const esAccesorio  = familiaActual?.nombre?.toUpperCase() === 'ACCESORIO';
-  // GOMA no usa acabado (ya lo controla la tarifa, pero podemos ocultar el campo de color libre)
+  // BANDA: producto clásico con material y dimensiones
+  const esAccesorio  = form.tipo !== 'BANDA';
   const mostrarMaterial   = !esAccesorio;
   const mostrarDimensiones = !esAccesorio;
 
@@ -284,6 +294,64 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
           className="input input-bordered"
           required
         />
+      </div>
+
+      {/* Tipo y Unidad */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="form-control">
+          <label className="label"><span className="label-text font-medium">Tipo</span></label>
+          <select
+            className="select select-bordered"
+            value={form.tipo}
+            onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
+          >
+            <option value="BANDA">Banda PVC</option>
+            <option value="CORDON">Cordón</option>
+            <option value="BORDE_ONDULADO">Borde ondulado</option>
+            <option value="ACCESORIO">Accesorio</option>
+          </select>
+        </div>
+        <div className="form-control">
+          <label className="label"><span className="label-text font-medium">Unidad</span></label>
+          <select
+            className="select select-bordered"
+            value={form.unidad}
+            onChange={e => setForm(f => ({ ...f, unidad: e.target.value }))}
+          >
+            <option value="M2">m²</option>
+            <option value="M">m</option>
+            <option value="ML">ml</option>
+            <option value="UDS">Uds.</option>
+            <option value="KG">kg</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Descripción (para accesorios / cordones) */}
+      {esAccesorio && (
+        <div className="form-control">
+          <label className="label"><span className="label-text">Descripción</span></label>
+          <textarea
+            className="textarea textarea-bordered"
+            rows={2}
+            value={form.descripcion}
+            onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+            placeholder="Descripción opcional del producto"
+          />
+        </div>
+      )}
+
+      {/* Activo */}
+      <div className="form-control">
+        <label className="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            className="toggle toggle-success toggle-sm"
+            checked={form.activo}
+            onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))}
+          />
+          <span className="label-text">Producto activo</span>
+        </label>
       </div>
 
       {/* Material (oculto para ACCESORIO) */}
@@ -431,12 +499,11 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       <div className="form-control">
         <label className="label">
           <span className="label-text font-medium">Familia / Subfamilia</span>
-          {esAccesorio && <span className="label-text-alt text-info text-xs">Accesorio — sin dimensiones</span>}
+          {esAccesorio && <span className="label-text-alt text-info text-xs">Sin material ni dimensiones</span>}
         </label>
         <SelectorFamiliaSubfamilia
           value={form.subfamiliaId}
           onChange={id => setForm(f => ({ ...f, subfamiliaId: id }))}
-          onFamiliaChange={setFamiliaActual}
         />
       </div>
 

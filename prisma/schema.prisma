@@ -47,12 +47,11 @@ model Familia {
 }
 
 model Subfamilia {
-  id        String           @id @default(uuid())
+  id        String     @id @default(uuid())
   nombre    String
   familiaId String
-  familia   Familia          @relation(fields: [familiaId], references: [id])
+  familia   Familia    @relation(fields: [familiaId], references: [id])
   productos Producto[]
-  articulos ArticuloSimple[]
 
   @@unique([nombre, familiaId])
   @@index([familiaId])
@@ -340,10 +339,10 @@ model Producto {
   fabricanteId         String?
   materialId           String?
   subfamiliaId         String?
-
-  precioVentaFab Float? @default(0)
-  precioVentaInt Float? @default(0)
-  precioVentaFin Float? @default(0)
+  tipo                 String  @default("BANDA")
+  unidad               String  @default("M2")
+  activo               Boolean @default(true)
+  descripcion          String? @db.Text
 
   creadoEn     DateTime @default(now())
   actualizado  DateTime @default(now()) @updatedAt
@@ -362,6 +361,8 @@ model Producto {
 
   @@index([nombre])
   @@index([subfamiliaId])
+  @@index([tipo])
+  @@index([activo])
   @@unique([nombre, referenciaFabricante])
   @@fulltext([nombre], map: "Producto_nombre_fulltext")
 }
@@ -516,24 +517,6 @@ model Notificacion {
   @@index([creadaEn])
 }
 
-model ArticuloSimple {
-  id             String      @id @default(uuid())
-  nombre         String
-  categoria      String      @default("OTRO")
-  unidad         String      @default("UDS")
-  precioUnitario Float       @default(0)
-  costoUnitario  Float?
-  fabricante     String?
-  descripcion    String?
-  activo         Boolean     @default(true)
-  creadoEn       DateTime    @default(now())
-  subfamiliaId   String?
-  subfamilia     Subfamilia? @relation(fields: [subfamiliaId], references: [id])
-
-  @@index([categoria])
-  @@index([activo])
-  @@index([subfamiliaId])
-}
 
 model TarifaCliente {
   id             String    @id @default(uuid())

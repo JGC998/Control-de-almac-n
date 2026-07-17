@@ -11,6 +11,7 @@ import { ContenedorCargando } from '@/componentes/ui';
 const COLUMNAS = [
   { key: 'nombre',        label: 'Nombre',     tipo: 'string' },
   { key: 'subfamilia',    label: 'Subfamilia', tipo: 'string' },
+  { key: 'tipo',          label: 'Tipo',       tipo: 'string' },
   { key: 'material',      label: 'Material',   tipo: 'string' },
   { key: 'acabado',       label: 'Acabado',    tipo: 'string' },
   { key: 'espesor',       label: 'Espesor',    tipo: 'number' },
@@ -19,6 +20,9 @@ const COLUMNAS = [
   { key: 'precioUnitario',label: 'Precio',     tipo: 'number' },
   { key: 'pesoUnitario',  label: 'Peso',       tipo: 'number' },
 ];
+
+const TIPO_LABELS = { BANDA: 'Banda', CORDON: 'Cordón', BORDE_ONDULADO: 'Borde', ACCESORIO: 'Accesorio' };
+const TIPO_BADGE  = { BANDA: 'badge-primary', CORDON: 'badge-secondary', BORDE_ONDULADO: 'badge-accent', ACCESORIO: 'badge-neutral' };
 
 function valorOrden(p, key) {
   if (key === 'material') return p.material?.nombre ?? '';
@@ -266,7 +270,7 @@ export default function GestionProductosPage() {
             </thead>
             <tbody>
               {filtrados.length === 0 && (
-                <tr><td colSpan={10} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
               )}
               {filtrados.map(p => {
                 const incompleto = p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario;
@@ -308,6 +312,13 @@ export default function GestionProductosPage() {
                           {p.subfamilia.nombre}
                         </span>
                       ) : <span className="text-base-content/30">—</span>}
+                    </td>
+                    <td className="text-sm">
+                      {p.tipo && p.tipo !== 'BANDA' ? (
+                        <span className={`badge badge-xs ${TIPO_BADGE[p.tipo] ?? 'badge-neutral'}`}>
+                          {TIPO_LABELS[p.tipo] ?? p.tipo}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
                     <td className="text-sm">{p.acabado ?? <span className="text-base-content/30">—</span>}</td>

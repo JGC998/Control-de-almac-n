@@ -182,9 +182,10 @@ export const productoSchema = z.object({
     fabricanteId: z.string().uuid().optional().nullable(),
     materialId: z.string().uuid().optional().nullable(),
     subfamiliaId: z.string().optional().nullable(),
-    precioVentaFab: z.number().nonnegative().optional().nullable(),
-    precioVentaInt: z.number().nonnegative().optional().nullable(),
-    precioVentaFin: z.number().nonnegative().optional().nullable()
+    tipo: z.enum(['BANDA', 'CORDON', 'BORDE_ONDULADO', 'ACCESORIO']).optional().default('BANDA'),
+    unidad: z.enum(['M2', 'M', 'ML', 'UDS', 'KG']).optional().default('M2'),
+    activo: z.boolean().optional().default(true),
+    descripcion: z.string().max(1000).optional().nullable(),
 });
 
 // ============================================
@@ -282,37 +283,6 @@ export const tacoBatchUpdateSchema = z.object({
     })).min(1, 'Debe haber al menos un update'),
 });
 
-// ============================================
-// VALIDACIONES PARA ARTÍCULOS SIMPLES
-// ============================================
-
-export const articuloSimpleSchema = z.object({
-  nombre: z.string().min(1, 'Nombre requerido').max(200),
-  categoria: z.enum(['CORDON', 'BORDE_ONDULADO', 'OTRO'], {
-    errorMap: () => ({ message: 'Categoría inválida' }),
-  }).default('OTRO'),
-  unidad: z.enum(['M', 'UDS', 'KG', 'ML'], {
-    errorMap: () => ({ message: 'Unidad inválida' }),
-  }).default('UDS'),
-  precioUnitario: z.coerce.number().nonnegative('Precio no puede ser negativo').default(0),
-  costoUnitario: z.coerce.number().nonnegative().optional().nullable(),
-  fabricante: z.string().max(200).optional().nullable(),
-  descripcion: z.string().max(500).optional().nullable(),
-  activo: z.boolean().optional().default(true),
-  subfamiliaId: z.string().optional().nullable(),
-});
-
-export const articuloSimplePatchSchema = z.object({
-  nombre: z.string().min(1).max(200).optional(),
-  categoria: z.enum(['CORDON', 'BORDE_ONDULADO', 'OTRO']).optional(),
-  unidad: z.enum(['M', 'UDS', 'KG', 'ML']).optional(),
-  precioUnitario: z.coerce.number().nonnegative().optional(),
-  costoUnitario: z.coerce.number().nonnegative().optional().nullable(),
-  fabricante: z.string().max(200).optional().nullable(),
-  descripcion: z.string().max(500).optional().nullable(),
-  activo: z.boolean().optional(),
-  subfamiliaId: z.string().optional().nullable(),
-});
 
 // ============================================
 // VALIDACIONES PARA DESCUENTOS

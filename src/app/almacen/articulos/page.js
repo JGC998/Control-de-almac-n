@@ -1,15 +1,15 @@
 "use client";
 import { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Box, PlusCircle, Edit2, Trash2, Check, X } from 'lucide-react';
+import { Box, PlusCircle, Edit2, Trash2, Check } from 'lucide-react';
 import SelectorFamiliaSubfamilia from '@/componentes/productos/SelectorFamiliaSubfamilia';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { toastError } from '@/lib/toast';
 
-const CATEGORIAS = [
+const TIPOS = [
   { valor: 'CORDON',         etiqueta: 'Cordón' },
   { valor: 'BORDE_ONDULADO', etiqueta: 'Borde ondulado' },
-  { valor: 'OTRO',           etiqueta: 'Otro' },
+  { valor: 'ACCESORIO',      etiqueta: 'Accesorio' },
 ];
 
 const UNIDADES = [
@@ -19,16 +19,18 @@ const UNIDADES = [
   { valor: 'KG',  etiqueta: 'Kilogramos (kg)' },
 ];
 
-const etiquetaCategoria = v => CATEGORIAS.find(c => c.valor === v)?.etiqueta ?? v;
-const etiquetaUnidad    = v => UNIDADES.find(u => u.valor === v)?.etiqueta ?? v;
+const etiquetaTipo   = v => TIPOS.find(t => t.valor === v)?.etiqueta ?? v;
+const etiquetaUnidad = v => UNIDADES.find(u => u.valor === v)?.etiqueta ?? v;
+
+const API_KEY = '/api/productos?soloAccesorios=true&limit=500';
 
 const INICIAL = {
-  nombre: '', categoria: 'OTRO', unidad: 'UDS',
-  precioUnitario: '', costoUnitario: '', fabricante: '',
+  nombre: '', tipo: 'ACCESORIO', unidad: 'UDS',
+  precioUnitario: '', costoUnitario: '', referenciaFabricante: '',
   descripcion: '', activo: true, subfamiliaId: null,
 };
 
-function FormularioArticulo({ datos, onChange, guardando, error }) {
+function FormularioArticulo({ datos, onChange, error }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="form-control">
@@ -44,10 +46,10 @@ function FormularioArticulo({ datos, onChange, guardando, error }) {
 
       <div className="grid grid-cols-2 gap-3">
         <div className="form-control">
-          <label className="label"><span className="label-text font-medium">Categoría *</span></label>
-          <select className="select select-bordered" value={datos.categoria}
-            onChange={e => onChange('categoria', e.target.value)}>
-            {CATEGORIAS.map(c => <option key={c.valor} value={c.valor}>{c.etiqueta}</option>)}
+          <label className="label"><span className="label-text font-medium">Tipo *</span></label>
+          <select className="select select-bordered" value={datos.tipo}
+            onChange={e => onChange('tipo', e.target.value)}>
+            {TIPOS.map(t => <option key={t.valor} value={t.valor}>{t.etiqueta}</option>)}
           </select>
         </div>
         <div className="form-control">
@@ -74,8 +76,8 @@ function FormularioArticulo({ datos, onChange, guardando, error }) {
 
       <div className="form-control">
         <label className="label"><span className="label-text">Fabricante / Proveedor</span></label>
-        <input className="input input-bordered" value={datos.fabricante}
-          onChange={e => onChange('fabricante', e.target.value)} placeholder="Opcional" />
+        <input className="input input-bordered" value={datos.referenciaFabricante}
+          onChange={e => onChange('referenciaFabricante', e.target.value)} placeholder="Opcional" />
       </div>
 
       <div className="form-control">
@@ -98,26 +100,28 @@ function FormularioArticulo({ datos, onChange, guardando, error }) {
 }
 
 export default function ArticulosPage() {
-  const { data: articulos = [], isLoading } = useSWR('/api/articulos-simples?inactivos=true');
-  const { data: familias = [] }              = useSWR('/api/familias');
-  const { confirmar, ModalConfirmacion }     = useConfirmacion();
+  const { data: raw = [], isLoading } = useSWR(API_KEY);
+  const articulos = raw?.data ?? raw;
+  const { data: familias = [] }          = useSWR('/api/familias');
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
 
-  const [busqueda, setBusqueda]         = useState('');
+  const [busqueda, setBusqueda]           = useState('');
   const [filtroFamilia, setFiltroFamilia] = useState('');
-  const [modal, setModal]               = useState(null); // null | 'nuevo' | { ...articulo }
-  const [form, setForm]                 = useState(INICIAL);
-  const [guardando, setGuardando]       = useState(false);
-  const [error, setError]               = useState(null);
+  const [modal, setModal]                 = useState(null);
+  const [form, setForm]                   = useState(INICIAL);
+  const [guardando, setGuardando]         = useState(false);
+  const [error, setError]                 = useState(null);
 
   function setField(key, val) { setForm(f => ({ ...f, [key]: val })); }
 
   function abrirNuevo() { setForm(INICIAL); setError(null); setModal('nuevo'); }
   function abrirEditar(a) {
     setForm({
-      nombre: a.nombre, categoria: a.categoria, unidad: a.unidad,
+      nombre: a.nombre, tipo: a.tipo ?? 'ACCESORIO', unidad: a.unidad ?? 'UDS',
       precioUnitario: a.precioUnitario ?? '', costoUnitario: a.costoUnitario ?? '',
-      fabricante: a.fabricante ?? '', descripcion: a.descripcion ?? '',
-      activo: a.activo ?? true, subfamiliaId: a.subfamiliaId ?? null,
+      referenciaFabricante: a.referenciaFabricante ?? '',
+      descripcion: a.descripcion ?? '', activo: a.activo ?? true,
+      subfamiliaId: a.subfamiliaId ?? null,
     });
     setError(null);
     setModal(a);
@@ -129,26 +133,26 @@ export default function ArticulosPage() {
     if (!form.nombre.trim()) return;
     setGuardando(true); setError(null);
     const esEdicion = modal && modal !== 'nuevo';
-    const url    = esEdicion ? `/api/articulos-simples/${modal.id}` : '/api/articulos-simples';
-    const method = esEdicion ? 'PATCH' : 'POST';
+    const url    = esEdicion ? `/api/productos/${modal.id}` : '/api/productos';
+    const method = esEdicion ? 'PUT' : 'POST';
     try {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nombre: form.nombre.trim(),
-          categoria: form.categoria,
+          tipo: form.tipo,
           unidad: form.unidad,
           precioUnitario: parseFloat(form.precioUnitario) || 0,
           costoUnitario: form.costoUnitario !== '' ? parseFloat(form.costoUnitario) : null,
-          fabricante: form.fabricante.trim() || null,
+          referenciaFabricante: form.referenciaFabricante.trim() || null,
           descripcion: form.descripcion.trim() || null,
           activo: form.activo,
           subfamiliaId: form.subfamiliaId ?? null,
         }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Error'); }
-      mutate('/api/articulos-simples?inactivos=true');
+      mutate(API_KEY);
       cerrar();
     } catch (e) { setError(e.message); }
     finally { setGuardando(false); }
@@ -158,9 +162,9 @@ export default function ArticulosPage() {
     const ok = await confirmar({ titulo: `Eliminar "${a.nombre}"`, mensaje: 'Esta acción no se puede deshacer.' });
     if (!ok) return;
     try {
-      const res = await fetch(`/api/articulos-simples/${a.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/productos/${a.id}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Error'); }
-      mutate('/api/articulos-simples?inactivos=true');
+      mutate(API_KEY);
     } catch (e) { toastError(e.message); }
   }
 
@@ -169,7 +173,7 @@ export default function ArticulosPage() {
     return articulos.filter(a => {
       if (q && !a.nombre?.toLowerCase().includes(q) &&
           !(a.subfamilia?.nombre ?? '').toLowerCase().includes(q) &&
-          !(a.categoria ?? '').toLowerCase().includes(q)) return false;
+          !(a.tipo ?? '').toLowerCase().includes(q)) return false;
       if (filtroFamilia && a.subfamilia?.familia?.id !== filtroFamilia) return false;
       return true;
     });
@@ -179,7 +183,6 @@ export default function ArticulosPage() {
     <div className="container mx-auto p-4">
       <ModalConfirmacion />
 
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Box className="w-8 h-8" /> Artículos varios
@@ -199,14 +202,13 @@ export default function ArticulosPage() {
         </div>
       </div>
 
-      {/* Tabla */}
       <div className="card bg-base-100 shadow-xl overflow-x-auto">
         <table className="table table-sm table-zebra w-full">
           <thead>
             <tr className="text-xs uppercase tracking-wider text-base-content/50">
               <th>Nombre</th>
               <th>Subfamilia</th>
-              <th>Categoría</th>
+              <th>Tipo</th>
               <th>Unidad</th>
               <th>Precio</th>
               <th>Fabricante</th>
@@ -236,10 +238,10 @@ export default function ArticulosPage() {
                     </span>
                   ) : <span className="text-base-content/30">—</span>}
                 </td>
-                <td className="text-sm">{etiquetaCategoria(a.categoria)}</td>
+                <td className="text-sm">{etiquetaTipo(a.tipo)}</td>
                 <td className="text-sm">{etiquetaUnidad(a.unidad)}</td>
                 <td className="font-mono text-sm">{Number(a.precioUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
-                <td className="text-sm">{a.fabricante ?? <span className="text-base-content/30">—</span>}</td>
+                <td className="text-sm">{a.referenciaFabricante ?? <span className="text-base-content/30">—</span>}</td>
                 <td>
                   <span className={`badge badge-sm ${a.activo ? 'badge-success' : 'badge-ghost'}`}>
                     {a.activo ? 'Activo' : 'Inactivo'}
@@ -260,7 +262,6 @@ export default function ArticulosPage() {
         <p className="text-xs text-base-content/40 mt-2 text-right">{filtrados.length} artículos</p>
       )}
 
-      {/* Modal crear/editar */}
       {modal && (
         <div className="modal modal-open">
           <div className="modal-box w-11/12 max-w-lg">
@@ -269,7 +270,7 @@ export default function ArticulosPage() {
               {modal === 'nuevo' ? 'Nuevo artículo' : `Editar: ${modal.nombre}`}
             </h3>
             <form onSubmit={guardar}>
-              <FormularioArticulo datos={form} onChange={setField} guardando={guardando} error={error} />
+              <FormularioArticulo datos={form} onChange={setField} error={error} />
               <div className="modal-action mt-4">
                 <button type="button" onClick={cerrar} className="btn">Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={guardando || !form.nombre.trim()}>

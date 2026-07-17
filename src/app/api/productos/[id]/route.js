@@ -7,6 +7,10 @@ import { logApiError } from '@/lib/logger';
 
 const productoUpdateSchema = z.object({
   nombre:               z.string().min(1).max(200).optional(),
+  tipo:                 z.enum(['BANDA','CORDON','BORDE_ONDULADO','ACCESORIO']).optional(),
+  unidad:               z.enum(['M2','M','ML','UDS','KG']).optional(),
+  activo:               z.boolean().optional(),
+  descripcion:          z.string().max(1000).optional().nullable(),
   precioUnitario:       z.number().nonnegative().max(1_000_000).optional(),
   costoUnitario:        z.number().nonnegative().max(1_000_000).optional(),
   pesoUnitario:         z.number().nonnegative().optional(),

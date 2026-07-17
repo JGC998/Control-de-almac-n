@@ -16,8 +16,12 @@ export async function GET(request) {
 
     const subfamiliaId = searchParams.get('subfamiliaId');
     const familiaId = searchParams.get('familiaId');
+    const soloAccesorios = searchParams.get('soloAccesorios') === 'true';
 
     const whereClause = {};
+    if (soloAccesorios) {
+      whereClause.tipo = { not: 'BANDA' };
+    }
     if (nombre) {
       whereClause.nombre = { contains: nombre };
     }
@@ -62,9 +66,6 @@ export async function GET(request) {
         ...p,
         precioUnitario: p.precioUnitario ? Number(p.precioUnitario) : 0,
         pesoUnitario: p.pesoUnitario ? Number(p.pesoUnitario) : 0,
-        precioVentaFab: p.precioVentaFab ? Number(p.precioVentaFab) : 0,
-        precioVentaInt: p.precioVentaInt ? Number(p.precioVentaInt) : 0,
-        precioVentaFin: p.precioVentaFin ? Number(p.precioVentaFin) : 0,
         espesor: p.espesor ? Number(p.espesor) : null,
         largo: p.largo ? Number(p.largo) : null,
         ancho: p.ancho ? Number(p.ancho) : null,
@@ -125,6 +126,10 @@ export async function POST(request) {
     const nuevoProducto = await db.producto.create({
       data: {
         nombre: d.nombre,
+        tipo: d.tipo ?? 'BANDA',
+        unidad: d.unidad ?? 'M2',
+        activo: d.activo ?? true,
+        descripcion: d.descripcion ?? null,
         referenciaFabricante: d.referenciaFabricante ?? null,
         espesor: d.espesor ?? null,
         largo: d.largo ?? null,
@@ -139,9 +144,6 @@ export async function POST(request) {
         fabricanteId: d.fabricanteId ?? null,
         materialId: d.materialId ?? null,
         subfamiliaId: d.subfamiliaId ?? null,
-        precioVentaFab: d.precioVentaFab ?? 0,
-        precioVentaInt: d.precioVentaInt ?? 0,
-        precioVentaFin: d.precioVentaFin ?? 0,
       },
     });
 
