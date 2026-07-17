@@ -11,6 +11,8 @@ import PreviewBandaPVC from './PreviewBandaPVC';
 export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [selectedMaterial] = useState('PVC');
     const [selectedEspesor, setSelectedEspesor] = useState('');
+    const [selectedLonas, setSelectedLonas] = useState('');
+    const [selectedAcabado, setSelectedAcabado] = useState('');
     const [selectedColor, setSelectedColor] = useState('');
     const [tipoConfeccion, setTipoConfeccion] = useState('VULCANIZADA');
     const [tipoGrapa, setTipoGrapa] = useState('NORMAL'); // 'NORMAL' | 'UNA'
@@ -27,26 +29,10 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
 
     const COLOR_ABR = { AZUL: 'AZ', BLANCO: 'BL', NEGRO: 'NG', VERDE: 'VD' };
 
-    // Nomenclatura automática: PVC-[espesor]mm-[CONF]-[COLOR]-[ancho]x[largo][-T[R/I][altura]]
-    const nomenclatura = useMemo(() => {
-        if (!selectedEspesor || !selectedColor || !ancho || !largo) return null;
-        const conf = tipoConfeccion === 'VULCANIZADA' ? 'SF' : tipoConfeccion === 'GRAPA' ? 'GR' : 'AB';
-        const col = COLOR_ABR[selectedColor] ?? selectedColor.slice(0, 2);
-        let code = `PVC-${selectedEspesor}mm-${conf}-${col}-${ancho}x${largo}`;
-        if (configuracionTacos) {
-            code += `-T${configuracionTacos.tipo === 'RECTO' ? 'R' : 'I'}${configuracionTacos.altura}`;
-        }
-        return code;
-    }, [selectedEspesor, selectedColor, ancho, largo, tipoConfeccion, configuracionTacos]);
-
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
     const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
     const { data: configData } = useSWR('/api/config');
     const costeVulcanizadoMetro = configData?.costeVulcanizadoMetro ?? 0;
-
-    const isPVC = selectedMaterial === 'PVC';
-
-    const PVC_COLORS = ['AZUL', 'BLANCO', 'NEGRO', 'VERDE'];
 
     const availableEspesores = useMemo(() => {
         if (!tarifas || !selectedMaterial) return [];
@@ -55,6 +41,63 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             .map(t => String(t.espesor));
         return [...new Set(espesores)].sort((a, b) => parseFloat(a) - parseFloat(b));
     }, [tarifas, selectedMaterial]);
+
+    // Tarifas matching current espesor
+    const tarifasEspesor = useMemo(() => {
+        if (!tarifas || !selectedEspesor) return [];
+        return tarifas.filter(t =>
+            t.material === selectedMaterial &&
+            Math.abs(Number(t.espesor) - Number(selectedEspesor)) < 0.001
+        );
+    }, [tarifas, selectedMaterial, selectedEspesor]);
+
+    // Cascading dimension selectors — only shown when multiple variants exist at this espesor
+    const lOptions = useMemo(() => [...new Set(tarifasEspesor.map(t => t.lonas == null ? '__std' : String(t.lonas)))], [tarifasEspesor]);
+    const needsLonas = lOptions.length > 1;
+
+    const tarifasL = useMemo(() => {
+        if (!needsLonas || !selectedLonas) return tarifasEspesor;
+        return tarifasEspesor.filter(t => selectedLonas === '__std' ? t.lonas == null : String(t.lonas) === selectedLonas);
+    }, [tarifasEspesor, needsLonas, selectedLonas]);
+
+    const aOptions = useMemo(() => [...new Set(tarifasL.map(t => t.acabado == null ? '__std' : t.acabado))], [tarifasL]);
+    const needsAcabado = aOptions.length > 1;
+
+    const tarifasA = useMemo(() => {
+        if (!needsAcabado || !selectedAcabado) return tarifasL;
+        return tarifasL.filter(t => selectedAcabado === '__std' ? !t.acabado : t.acabado === selectedAcabado);
+    }, [tarifasL, needsAcabado, selectedAcabado]);
+
+    const cOptions = useMemo(() => [...new Set(tarifasA.map(t => t.color == null ? '__std' : t.color))], [tarifasA]);
+    const needsColor = cOptions.length > 1;
+
+    // Resolved tarifa: unique once all ambiguous dimensions are selected
+    const tarifaSeleccionada = useMemo(() => {
+        if (tarifasEspesor.length === 0) return null;
+        if (tarifasEspesor.length === 1) return tarifasEspesor[0];
+        if (needsLonas && !selectedLonas) return null;
+        if (needsAcabado && !selectedAcabado) return null;
+        if (needsColor && !selectedColor) return null;
+        let candidates = [...tarifasEspesor];
+        if (needsLonas) candidates = candidates.filter(t => selectedLonas === '__std' ? t.lonas == null : String(t.lonas) === selectedLonas);
+        if (needsAcabado) candidates = candidates.filter(t => selectedAcabado === '__std' ? !t.acabado : t.acabado === selectedAcabado);
+        if (needsColor) candidates = candidates.filter(t => selectedColor === '__std' ? !t.color : t.color === selectedColor);
+        return candidates[0] ?? null;
+    }, [tarifasEspesor, needsLonas, needsAcabado, needsColor, selectedLonas, selectedAcabado, selectedColor]);
+
+    // Nomenclatura: PVC-[espesor]mm-[CONF]-[ACABADO/COLOR]-[ancho]x[largo][-T...]
+    const nomenclatura = useMemo(() => {
+        if (!selectedEspesor || !ancho || !largo) return null;
+        const conf = tipoConfeccion === 'VULCANIZADA' ? 'SF' : tipoConfeccion === 'GRAPA' ? 'GR' : 'AB';
+        const ac = (selectedAcabado && selectedAcabado !== '__std') ? selectedAcabado : (tarifaSeleccionada?.acabado ?? null);
+        const co = (selectedColor && selectedColor !== '__std') ? selectedColor : (tarifaSeleccionada?.color ?? null);
+        const variant = ac ? `-${ac}` : co ? `-${COLOR_ABR[co] ?? co.slice(0, 2)}` : '';
+        let code = `PVC-${selectedEspesor}mm-${conf}${variant}-${ancho}x${largo}`;
+        if (configuracionTacos) {
+            code += `-T${configuracionTacos.tipo === 'RECTO' ? 'R' : 'I'}${configuracionTacos.altura}`;
+        }
+        return code;
+    }, [selectedEspesor, selectedAcabado, selectedColor, tarifaSeleccionada, ancho, largo, tipoConfeccion, configuracionTacos]);
 
     const todosModelosGrapa = modelosGrapaData?.modelos ?? [];
     const mermaGrapaPct = modelosGrapaData?.mermaGrapaPct ?? 20;
@@ -125,18 +168,15 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
         if (!tarifas || !selectedEspesor || unas <= 0 || ancMm <= 0 || larMm <= 0) {
             return { isValid: false };
         }
-        if (isPVC && !selectedColor) {
-            return { isValid: false, errorMessage: 'Selecciona un color para PVC' };
-        }
         if (tipoConfeccion === 'GRAPA' && !modeloGrapaSeleccionado) {
             return { isValid: false, errorMessage: 'No hay modelo de grapa compatible con ese espesor. Configura los modelos en Configuración → Grapas.' };
         }
 
-        const tarifa = tarifas.find(t =>
-            t.material === selectedMaterial &&
-            Math.abs(Number(t.espesor) - Number(selectedEspesor)) < 0.001
-        );
-        if (!tarifa) return { isValid: false, errorMessage: 'Tarifa no encontrada para esa combinación' };
+        const tarifa = tarifaSeleccionada;
+        if (!tarifa) {
+            const pendiente = (needsLonas && !selectedLonas) || (needsAcabado && !selectedAcabado) || (needsColor && !selectedColor);
+            return { isValid: false, errorMessage: pendiente ? 'Selecciona la variante de tarifa' : 'Tarifa no encontrada para esa combinación' };
+        }
 
         const ancM = ancMm / 1000;
         const larM = larMm / 1000;
@@ -170,7 +210,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             tarifaPrecio: tarifa.precio,
             area,
         };
-    }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, tipoConfeccion, unidades, ancho, largo, costeVulcanizadoMetro, configuracionTacos, isPVC, modeloGrapaSeleccionado, calculoGrapa]);
+    }, [tarifaSeleccionada, needsLonas, needsAcabado, needsColor, selectedLonas, selectedAcabado, selectedColor, tipoConfeccion, unidades, ancho, largo, costeVulcanizadoMetro, configuracionTacos, modeloGrapaSeleccionado, calculoGrapa]);
 
     const handleAdd = () => {
         if (!currentCalculation.isValid) return;
@@ -214,7 +254,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 body: JSON.stringify({
                     nombre,
                     referenciaFabricante: 'BANDA_PVC',
-                    color: selectedColor || null,
+                    color: (selectedColor && selectedColor !== '__std') ? selectedColor : (tarifaSeleccionada?.color ?? null),
                     espesor: parseFloat(selectedEspesor),
                     ancho: parseFloat(ancho),
                     largo: parseFloat(largo),
@@ -247,19 +287,46 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                 {/* Espesor */}
                 <div className="form-control w-full">
                     <label className="label"><span className="label-text">Espesor (PVC)</span></label>
-                    <select className="select select-bordered w-full" value={selectedEspesor} onChange={e => { setSelectedEspesor(e.target.value); setModeloGrapaId(''); }}>
+                    <select className="select select-bordered w-full" value={selectedEspesor} onChange={e => { setSelectedEspesor(e.target.value); setSelectedLonas(''); setSelectedAcabado(''); setSelectedColor(''); setModeloGrapaId(''); }}>
                         <option value="">Seleccionar espesor...</option>
                         {availableEspesores.map(e => <option key={e} value={e}>{e} mm</option>)}
                     </select>
                 </div>
 
-                {/* Color */}
-                {isPVC && (
+                {/* Selectores en cascada: Lonas → Acabado → Color (solo cuando hay variantes) */}
+                {needsLonas && (
+                    <div className="form-control w-full mt-2">
+                        <label className="label"><span className="label-text">Lonas</span></label>
+                        <select className="select select-bordered w-full" value={selectedLonas}
+                            onChange={e => { setSelectedLonas(e.target.value); setSelectedAcabado(''); setSelectedColor(''); }}>
+                            <option value="">Seleccionar lonas...</option>
+                            {lOptions.map(v => (
+                                <option key={v} value={v}>{v === '__std' ? '— Sin especificar' : `${v} lona${v !== '1' ? 's' : ''}`}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+                {needsAcabado && (
+                    <div className="form-control w-full mt-2">
+                        <label className="label"><span className="label-text">Acabado</span></label>
+                        <select className="select select-bordered w-full" value={selectedAcabado}
+                            onChange={e => { setSelectedAcabado(e.target.value); setSelectedColor(''); }}>
+                            <option value="">Seleccionar acabado...</option>
+                            {aOptions.map(v => (
+                                <option key={v} value={v}>{v === '__std' ? '— Estándar' : v}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+                {needsColor && (
                     <div className="form-control w-full mt-2">
                         <label className="label"><span className="label-text">Color</span></label>
-                        <select className="select select-bordered w-full" value={selectedColor} onChange={e => setSelectedColor(e.target.value)}>
+                        <select className="select select-bordered w-full" value={selectedColor}
+                            onChange={e => setSelectedColor(e.target.value)}>
                             <option value="">Seleccionar color...</option>
-                            {PVC_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                            {cOptions.map(v => (
+                                <option key={v} value={v}>{v === '__std' ? '— Estándar' : v}</option>
+                            ))}
                         </select>
                     </div>
                 )}
@@ -442,7 +509,7 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                         largo={largo}
                         tipoConfeccion={tipoConfeccion}
                         configuracionTacos={configuracionTacos}
-                        color={selectedColor}
+                        color={selectedColor && selectedColor !== '__std' ? selectedColor : (tarifaSeleccionada?.color ?? '')}
                     />
                 </div>
 
@@ -527,7 +594,9 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                                     <table className="w-full">
                                         <tbody>
                                             <tr>
-                                                <td className="text-base-content/60 py-0.5">Tarifa {selectedMaterial} {selectedEspesor}mm{selectedColor ? ` ${selectedColor}` : ''}</td>
+                                                <td className="text-base-content/60 py-0.5">
+                                                    Tarifa {selectedMaterial} {selectedEspesor}mm{tarifaSeleccionada?.lonas != null ? ` ${tarifaSeleccionada.lonas}L` : ''}{tarifaSeleccionada?.acabado ? ` ${tarifaSeleccionada.acabado}` : ''}{tarifaSeleccionada?.color ? ` ${tarifaSeleccionada.color}` : ''}
+                                                </td>
                                                 <td className="text-right font-mono">{formatCurrency(currentCalculation.tarifaPrecio)}/m²</td>
                                             </tr>
                                             <tr className="font-semibold border-t border-base-300">
