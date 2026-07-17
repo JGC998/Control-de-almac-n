@@ -11,7 +11,7 @@ import { logApiError } from '@/lib/logger';
 export async function actualizarPrecioGrapas(bovinasRaw, totalBobinasEUR, gastosRepercutibles, tasaCambio, importacionId) {
   const bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
   const grapas = (bobinas ?? []).filter(b =>
-    b.tipo === 'GRAPA' && b.referencia && parseFloat(b.paresPorCaja) > 0 && parseFloat(b.ancho) > 0
+    b.tipo === 'GRAPA' && (b.referencia || b.modeloGrapaId) && parseFloat(b.paresPorCaja) > 0 && parseFloat(b.ancho) > 0
   );
   if (grapas.length === 0) return;
 
@@ -38,10 +38,13 @@ export async function actualizarPrecioGrapas(bovinasRaw, totalBobinasEUR, gastos
       const unidades100mm  = paresPorCaja * anchoPar / 100;
       const nuevoPrecio    = Math.round((costePorCaja / unidades100mm) * 100000) / 100000;
 
-      const modelo = await db.modeloGrapa.findFirst({
-        where: { nombre: { equals: b.referencia.trim(), mode: 'insensitive' }, activo: true },
-        select: { id: true, precioPor100mm: true },
-      });
+      const modeloId = b.modeloGrapaId ? parseInt(b.modeloGrapaId, 10) : null;
+      const modelo = modeloId
+        ? await db.modeloGrapa.findUnique({ where: { id: modeloId }, select: { id: true, precioPor100mm: true } })
+        : await db.modeloGrapa.findFirst({
+            where: { nombre: { equals: b.referencia.trim(), mode: 'insensitive' }, activo: true },
+            select: { id: true, precioPor100mm: true },
+          });
       if (!modelo) continue;
 
       const precioAnterior = modelo.precioPor100mm;

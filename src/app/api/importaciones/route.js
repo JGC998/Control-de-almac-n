@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { importacionContenedorSchema } from '@/lib/validations';
 import { actualizarPrecioGrapas } from '@/lib/importacion-grapas';
 import { actualizarPrecioMateriales } from '@/lib/importacion-materiales';
+import { actualizarPrecioTacos } from '@/lib/importacion-tacos';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +61,7 @@ export async function POST(request) {
 
     actualizarPrecioGrapas(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio, registro.id).catch(err => logApiError(err, 'actualizarPrecioGrapas'));
     actualizarPrecioMateriales(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio).catch(err => logApiError(err, 'actualizarPrecioMateriales'));
+    actualizarPrecioTacos(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio).catch(err => logApiError(err, 'actualizarPrecioTacos'));
     return NextResponse.json(registro, { status: 201 });
   } catch (error) {
     logApiError(error, 'POST /api/importaciones');

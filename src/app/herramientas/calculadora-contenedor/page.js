@@ -26,6 +26,8 @@ const nuevaBobina = (id) => ({
   unidadPrecio: 'M', // 'M' = USD/metro lineal | 'SQM' = USD/m² (solo BOBINA)
   notas: '',
   tarifaMaterialId: '', // ID de TarifaMaterial a actualizar al guardar, o '__nuevo__' para crear
+  tacoId: '',           // ID de Taco a actualizar al guardar
+  modeloGrapaId: '',    // ID de ModeloGrapa a actualizar al guardar
 });
 
 const n = (v) => parseFloat(v) || 0;
@@ -504,6 +506,10 @@ function CalculadoraContenedorPage() {
   const { data: importacionesHistorial } = useSWR('/api/importaciones', fetcher);
   // Tarifas de material para vincular y auto-actualizar precio €/m²
   const { data: tarifasMaterial } = useSWR('/api/precios', fetcher);
+  // Tacos y modelos de grapa para vincular y auto-actualizar precios
+  const { data: tacosLista = [] } = useSWR('/api/tacos', fetcher);
+  const { data: modelosGrapaRaw } = useSWR('/api/modelos-grapa', fetcher);
+  const modelosGrapa = modelosGrapaRaw?.modelos ?? [];
   // Proveedores — pre-cargados aquí para que el modal los tenga listos al abrirse
   const { data: proveedoresLista } = useSWR('/api/proveedores', fetcher);
 
@@ -1343,7 +1349,7 @@ function CalculadoraContenedorPage() {
                   <th>Long. / Pares/caja<br/><span className="font-normal opacity-60">(m / uds)</span></th>
                   <th>Rollos/<br/><span className="font-normal opacity-60">Cajas/Ud.</span></th>
                   <th>Precio<br/><span className="font-normal opacity-60">USD/unidad</span></th>
-                  <th>Tarifa €/m²<br/><span className="font-normal opacity-60">vincular</span></th>
+                  <th>Auto-tarifa<br/><span className="font-normal opacity-60">vincular</span></th>
                   <th className="text-right">Total m</th>
                   <th className="text-right">Total $</th>
                   <th className="text-right">Total €</th>
@@ -1565,7 +1571,7 @@ function CalculadoraContenedorPage() {
                           })()}
                         </div>
                       </td>
-                      {/* Tarifa €/m² — solo BOBINA (T-74/T-76: filtra por material + lonas + acabado) */}
+                      {/* Auto-tarifa: BOBINA→TarifaMaterial, TACO→Taco, GRAPA→ModeloGrapa */}
                       <td>
                         {esBobina ? (
                           <div>
@@ -1611,6 +1617,63 @@ function CalculadoraContenedorPage() {
                               ) : null;
                             })()}
                           </div>
+                        ) : esTaco ? (
+                          <div>
+                            <select
+                              className="select select-xs select-bordered w-40 font-mono"
+                              value={b.tacoId || ''}
+                              onChange={e => handleBobinaChange(b.id, 'tacoId', e.target.value)}
+                            >
+                              <option value="">— no vincular —</option>
+                              {tacosLista.filter(t => t.activo !== false).map(t => (
+                                <option key={t.id} value={t.id}>
+                                  {t.tipo === 'RECTO' ? 'R' : 'I'} {t.altura}mm
+                                </option>
+                              ))}
+                            </select>
+                            {b.tacoId && fin?.costeFinalEUR > 0 && cal.totalMetrosBobina > 0 && (() => {
+                              const nuevoP = fin.costeFinalEUR / cal.totalMetrosBobina;
+                              return nuevoP > 0 ? (
+                                <p className="text-[10px] font-mono mt-0.5 text-info">
+                                  → {fmt(nuevoP, 4)} €/m
+                                </p>
+                              ) : null;
+                            })()}
+                          </div>
+                        ) : esGrapa ? (
+                          <div>
+                            <select
+                              className="select select-xs select-bordered w-40 font-mono"
+                              value={b.modeloGrapaId || ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                const modelo = modelosGrapa.find(m => String(m.id) === val);
+                                setBobinas(prev => prev.map(r => r.id === b.id ? {
+                                  ...r,
+                                  modeloGrapaId: val,
+                                  ...(modelo ? { referencia: modelo.nombre } : {}),
+                                } : r));
+                              }}
+                            >
+                              <option value="">— no vincular —</option>
+                              {modelosGrapa.filter(m => m.activo !== false).map(m => (
+                                <option key={m.id} value={m.id}>
+                                  {m.nombre} {m.espesorDesde}–{m.espesorHasta ?? '∞'}mm
+                                </option>
+                              ))}
+                            </select>
+                            {b.modeloGrapaId && fin?.costeFinalEUR > 0 && n(b.numRollos) > 0 && n(b.paresPorCaja) > 0 && n(b.ancho) > 0 && (() => {
+                              const numCajas = Math.max(n(b.numRollos), 1);
+                              const costePorCaja = fin.costeFinalEUR / numCajas;
+                              const unidades100mm = n(b.paresPorCaja) * n(b.ancho) / 100;
+                              const nuevoP = unidades100mm > 0 ? costePorCaja / unidades100mm : 0;
+                              return nuevoP > 0 ? (
+                                <p className="text-[10px] font-mono mt-0.5 text-info">
+                                  → {fmt(nuevoP, 4)} €/100mm
+                                </p>
+                              ) : null;
+                            })()}
+                          </div>
                         ) : (
                           <span className="text-base-content/20 text-xs px-2">—</span>
                         )}
@@ -1651,36 +1714,61 @@ function CalculadoraContenedorPage() {
             </table>
             {/* Aviso de actualizaciones de tarifa al guardar */}
             {(() => {
-              const actualizaciones = bobinas.map((b, idx) => {
-                if (b.tipo !== 'BOBINA' || !b.tarifaMaterialId) return null;
+              const actualizaciones = [];
+
+              bobinas.forEach((b, idx) => {
                 const fin = bobinasFinal[idx];
-                const anchoM = n(b.ancho) / 1000;
-                if (!fin || anchoM <= 0 || fin.totalMetrosBobina <= 0 || fin.costeFinalEUR <= 0) return null;
-                const totalM2 = fin.totalMetrosBobina * anchoM;
-                const nuevoPrecio = totalM2 > 0 ? fin.costeFinalEUR / totalM2 : 0;
-                if (nuevoPrecio <= 0) return null;
-                const tarifaActual = b.tarifaMaterialId === '__nuevo__'
-                  ? null
-                  : (tarifasMaterial || []).find(t => t.id === b.tarifaMaterialId);
-                const label = tarifaActual
-                  ? `${tarifaActual.material} ${tarifaActual.espesor}mm${tarifaActual.color ? ` (${tarifaActual.color})` : ''}`
-                  : `${b.material || b.referencia?.trim() || '?'} ${b.espesor || '?'}mm`;
-                return { label, precioActual: tarifaActual?.precio ?? null, nuevoPrecio, isNew: b.tarifaMaterialId === '__nuevo__' };
-              }).filter(Boolean);
+                const tipo = b.tipo || 'BOBINA';
+
+                if (tipo === 'BOBINA' && b.tarifaMaterialId) {
+                  const anchoM = n(b.ancho) / 1000;
+                  if (!fin || anchoM <= 0 || fin.totalMetrosBobina <= 0 || fin.costeFinalEUR <= 0) return;
+                  const totalM2 = fin.totalMetrosBobina * anchoM;
+                  const nuevoPrecio = totalM2 > 0 ? fin.costeFinalEUR / totalM2 : 0;
+                  if (nuevoPrecio <= 0) return;
+                  const tarifaActual = b.tarifaMaterialId === '__nuevo__'
+                    ? null
+                    : (tarifasMaterial || []).find(t => t.id === b.tarifaMaterialId);
+                  const label = tarifaActual
+                    ? `${tarifaActual.material} ${tarifaActual.espesor}mm${tarifaActual.color ? ` (${tarifaActual.color})` : ''}`
+                    : `${b.material || b.referencia?.trim() || '?'} ${b.espesor || '?'}mm`;
+                  actualizaciones.push({ label, precioActual: tarifaActual?.precio ?? null, nuevoPrecio, unidad: '€/m²', isNew: b.tarifaMaterialId === '__nuevo__' });
+                }
+
+                if (tipo === 'TACO' && b.tacoId && fin?.costeFinalEUR > 0 && fin.totalMetrosBobina > 0) {
+                  const nuevoPrecio = fin.costeFinalEUR / fin.totalMetrosBobina;
+                  if (nuevoPrecio <= 0) return;
+                  const taco = tacosLista.find(t => String(t.id) === String(b.tacoId));
+                  const label = taco ? `Taco ${taco.tipo === 'RECTO' ? 'recto' : 'inclinado'} ${taco.altura}mm` : `Taco ID ${b.tacoId}`;
+                  actualizaciones.push({ label, precioActual: taco?.precioMetro ?? null, nuevoPrecio, unidad: '€/m', isNew: false });
+                }
+
+                if (tipo === 'GRAPA' && b.modeloGrapaId && fin?.costeFinalEUR > 0 && n(b.numRollos) > 0 && n(b.paresPorCaja) > 0 && n(b.ancho) > 0) {
+                  const numCajas = Math.max(n(b.numRollos), 1);
+                  const costePorCaja = fin.costeFinalEUR / numCajas;
+                  const unidades100mm = n(b.paresPorCaja) * n(b.ancho) / 100;
+                  const nuevoPrecio = unidades100mm > 0 ? costePorCaja / unidades100mm : 0;
+                  if (nuevoPrecio <= 0) return;
+                  const modelo = modelosGrapa.find(m => String(m.id) === String(b.modeloGrapaId));
+                  const label = modelo ? `Grapa ${modelo.nombre}` : `Grapa ID ${b.modeloGrapaId}`;
+                  actualizaciones.push({ label, precioActual: modelo?.precioPor100mm ?? null, nuevoPrecio, unidad: '€/100mm', isNew: false });
+                }
+              });
+
               if (actualizaciones.length === 0) return null;
               return (
                 <div className="mt-3 mx-1 rounded-lg border border-info/40 bg-info/5 px-3 py-2.5">
-                  <p className="text-xs font-semibold text-info mb-1.5">Al guardar se actualizará automáticamente en Tarifa de materiales:</p>
+                  <p className="text-xs font-semibold text-info mb-1.5">Al guardar se actualizará automáticamente:</p>
                   <ul className="space-y-0.5">
                     {actualizaciones.map((a, i) => (
                       <li key={i} className="text-xs font-mono text-base-content/70 flex items-center gap-1.5 flex-wrap">
                         <span className="text-info shrink-0">→</span>
                         <span className="font-semibold">{a.label}</span>
                         {a.isNew
-                          ? <span className="text-success">nueva entrada → {fmt(a.nuevoPrecio, 4)} €/m²</span>
+                          ? <span className="text-success">nueva entrada → {fmt(a.nuevoPrecio, 4)} {a.unidad}</span>
                           : a.precioActual != null
-                            ? <span>{fmt(a.precioActual, 4)} → <span className="font-semibold text-success">{fmt(a.nuevoPrecio, 4)} €/m²</span></span>
-                            : <span className="text-success">→ {fmt(a.nuevoPrecio, 4)} €/m²</span>}
+                            ? <span>{fmt(a.precioActual, 4)} → <span className="font-semibold text-success">{fmt(a.nuevoPrecio, 4)} {a.unidad}</span></span>
+                            : <span className="text-success">→ {fmt(a.nuevoPrecio, 4)} {a.unidad}</span>}
                       </li>
                     ))}
                   </ul>

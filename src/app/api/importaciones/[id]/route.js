@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { importacionContenedorSchema } from '@/lib/validations';
 import { actualizarPrecioGrapas } from '@/lib/importacion-grapas';
 import { actualizarPrecioMateriales } from '@/lib/importacion-materiales';
+import { actualizarPrecioTacos } from '@/lib/importacion-tacos';
 
 // PATCH /api/importaciones/[id] — actualización parcial (estado, trackingActivo)
 export async function PATCH(request, { params }) {
@@ -87,6 +88,7 @@ export async function PUT(request, { params }) {
     });
     actualizarPrecioGrapas(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio, id).catch(() => {});
     actualizarPrecioMateriales(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio).catch(() => {});
+    actualizarPrecioTacos(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio).catch(() => {});
     return NextResponse.json(registro);
   } catch (error) {
     logApiError(error, 'PUT /api/importaciones/[id]');
