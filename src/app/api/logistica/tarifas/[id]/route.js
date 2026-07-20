@@ -1,16 +1,30 @@
 import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { logApiError } from '@/lib/logger';
-
 import { logUpdate } from '@/lib/audit';
 
-// PUT: Actualizar una tarifa específica
+const tarifaUpdateSchema = z.object({
+    parcel: z.coerce.number().nonnegative().optional().nullable(),
+    miniQuarter: z.coerce.number().nonnegative().optional().nullable(),
+    quarter: z.coerce.number().nonnegative().optional().nullable(),
+    miniLight: z.coerce.number().nonnegative().optional().nullable(),
+    half: z.coerce.number().nonnegative().optional().nullable(),
+    light: z.coerce.number().nonnegative().optional().nullable(),
+    megaLight: z.coerce.number().nonnegative().optional().nullable(),
+    full: z.coerce.number().nonnegative().optional().nullable(),
+    megaFull: z.coerce.number().nonnegative().optional().nullable(),
+});
+
 export async function PUT(request, { params }) {
     try {
         const { id } = await params;
-        const data = await request.json();
+        const body = await request.json();
+        const parsed = tarifaUpdateSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
+        }
 
-        // Obtener la tarifa anterior para el log
         const oldTarifa = await db.tarifaTransporte.findUnique({
             where: { id },
             select: {
@@ -20,37 +34,13 @@ export async function PUT(request, { params }) {
             }
         });
 
-        // Extraer solo los campos de tipología
-        const { parcel, miniQuarter, quarter, miniLight, half, light, megaLight, full, megaFull } = data;
-
-        const toDecimal = v => (v != null && v !== '' && !isNaN(parseFloat(v)) ? parseFloat(v) : null);
-
-        const updatedData = {
-            parcel: toDecimal(parcel),
-            miniQuarter: toDecimal(miniQuarter),
-            quarter: toDecimal(quarter),
-            miniLight: toDecimal(miniLight),
-            half: toDecimal(half),
-            light: toDecimal(light),
-            megaLight: toDecimal(megaLight),
-            full: toDecimal(full),
-            megaFull: toDecimal(megaFull),
-        };
-
         const updated = await db.tarifaTransporte.update({
             where: { id },
-            data: updatedData
+            data: parsed.data,
         });
 
-        // Registrar en Audit Log
         if (oldTarifa) {
-            await logUpdate(
-                'TarifaTransporte',
-                id,
-                oldTarifa,
-                updatedData,
-                'Admin' // TODO: Obtener usuario real cuando haya auth
-            );
+            await logUpdate('TarifaTransporte', id, oldTarifa, parsed.data, 'Admin');
         }
 
         return NextResponse.json(updated);

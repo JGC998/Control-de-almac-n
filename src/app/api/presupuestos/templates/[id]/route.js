@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
+
+const templateUpdateSchema = z.object({
+  nombre: z.string().min(1).max(200).optional(),
+  descripcion: z.string().max(1000).optional().nullable(),
+  items: z.array(z.any()).optional(),
+  marginId: z.string().uuid().optional().nullable(),
+});
 
 export async function GET(request, { params }) {
   try {
@@ -16,10 +24,14 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    const { nombre, descripcion, items, marginId } = await request.json();
+    const body = await request.json();
+    const parsed = templateUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
+    }
     const updated = await db.presupuestoTemplate.update({
       where: { id },
-      data: { nombre, descripcion, items, marginId },
+      data: parsed.data,
     });
     return NextResponse.json(updated);
   } catch (error) {

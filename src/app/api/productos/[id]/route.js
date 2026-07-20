@@ -39,7 +39,8 @@ export async function GET(request, { params }) {
       },
     });
     if (!producto) return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
-    return NextResponse.json(producto);
+    const { costoUnitario: _c, ...productoSafe } = producto;
+    return NextResponse.json(productoSafe);
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -82,7 +83,8 @@ export async function PUT(request, { params }) {
 
     revalidatePath('/gestion/productos');
     revalidatePath(`/gestion/productos/${id}`);
-    return NextResponse.json(updatedProducto);
+    const { costoUnitario: _c, ...updatedSafe } = updatedProducto;
+    return NextResponse.json(updatedSafe);
   } catch (error) {
     logApiError(error, 'PUT /api/productos/[id]');
     return handlePrismaError(error, { notFound: 'Producto no encontrado' });

@@ -11,7 +11,7 @@ export async function GET() {
       orderBy: { nombre: 'asc' },
       take: 500,
     });
-    return NextResponse.json(productos);
+    return NextResponse.json(productos.map(({ costoUnitario: _c, ...p }) => p));
   } catch (error) {
     logApiError(error);
     return NextResponse.json({ message: 'Error al obtener productos' }, { status: 500 });

@@ -9,7 +9,12 @@ export const dynamic = 'force-dynamic';
  * POST /api/tracking/test
  * Consulta el estado actual del último contenedor activo y lo envía por WhatsApp.
  */
-export async function POST() {
+export async function POST(request) {
+  const secret = request.nextUrl.searchParams.get('secret');
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
   try {
     const imp = await db.importacionContenedor.findFirst({
       where: { trackingActivo: true },

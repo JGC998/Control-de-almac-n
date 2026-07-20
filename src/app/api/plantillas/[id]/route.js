@@ -14,7 +14,8 @@ export async function GET(request, { params }) {
 
     const producto = await db.producto.findUnique({ where: { id } });
     if (!producto) return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
-    return NextResponse.json(producto);
+    const { costoUnitario: _c, ...productoSafe } = producto;
+    return NextResponse.json(productoSafe);
   } catch (error) {
     return handlePrismaError(error);
   }

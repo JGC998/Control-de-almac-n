@@ -13,6 +13,11 @@ export const dynamic = 'force-dynamic';
  * si hay evento nuevo actualiza DB y envia WhatsApp via CallMeBot.
  */
 export async function POST(request) {
+  const secret = request.nextUrl.searchParams.get('secret');
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
   const ip = getClientIp(request);
   const rl = checkRateLimit(`tracking-sync:${ip}`, 10);
   if (!rl.allowed) {
