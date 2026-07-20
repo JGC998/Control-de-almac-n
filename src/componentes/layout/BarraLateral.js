@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, Package, FileText, Truck, Warehouse, DollarSign, Calculator,
-  Users, Settings, Layers, Factory, ChevronDown, BarChart2, Scale, TrendingUp, Ship, Tag
+  Users, Settings, Layers, Factory, ChevronDown, BarChart2, Scale,
+  TrendingUp, TrendingDown, Ship, Tag, Wrench, Ruler, QrCode
 } from 'lucide-react';
 
 const menuStructure = [
@@ -21,7 +22,7 @@ const menuStructure = [
     icon: DollarSign,
     links: [
       { href: '/presupuestos', label: 'Presupuestos', icon: FileText },
-      { href: '/pedidos', label: 'Pedidos Cliente', icon: Package }
+      { href: '/pedidos', label: 'Pedidos cliente', icon: Package }
     ]
   },
   {
@@ -29,8 +30,7 @@ const menuStructure = [
     icon: Truck,
     links: [
       { href: '/compras/contenedores', label: 'Contenedores', icon: Ship },
-      { href: '/proveedores', label: 'Pedidos Proveedor', icon: Truck },
-      { href: '/gestion/catalogos/proveedores', label: 'Gestión Proveedores', icon: Factory }
+      { href: '/proveedores', label: 'Pedidos proveedor', icon: Truck },
     ]
   },
   {
@@ -45,12 +45,22 @@ const menuStructure = [
     category: 'Calculadoras',
     icon: Calculator,
     links: [
-      { href: '/calculadora', label: 'Calculadora', icon: Layers },
-      { href: '/calculadora/logistica', label: 'Calculadora Envíos', icon: Truck },
-      { href: '/calculadora/inversa', label: 'Calculadora Inversa', icon: DollarSign },
-      { href: '/herramientas/comparativa-reparto', label: 'Comparativa reparto gastos', icon: Scale },
+      { href: '/calculadora', label: 'Piezas (m²)', icon: Layers },
+      { href: '/calculadora/bandas', label: 'Bandas PVC', icon: Calculator },
+      { href: '/calculadora/metrajes', label: 'Metrajes', icon: Ruler },
+      { href: '/calculadora/logistica', label: 'Envíos', icon: Truck },
+      { href: '/calculadora/inversa', label: 'Inversa', icon: TrendingDown },
+    ]
+  },
+  {
+    category: 'Herramientas',
+    icon: Wrench,
+    links: [
+      { href: '/herramientas/carta-porte', label: 'Carta de porte', icon: FileText },
+      { href: '/herramientas/comparativa-reparto', label: 'Comparativa reparto', icon: Scale },
       { href: '/herramientas/analisis-rentabilidad', label: 'Semáforo rentabilidad', icon: TrendingUp },
-      { href: '/herramientas/comparativa-proveedores', label: 'Comparativa proveedores', icon: Factory }
+      { href: '/herramientas/comparativa-proveedores', label: 'Comparativa proveedores', icon: Factory },
+      { href: '/herramientas/accesos-qr', label: 'Accesos QR', icon: QrCode },
     ]
   },
   {
@@ -59,9 +69,10 @@ const menuStructure = [
     links: [
       { href: '/gestion/clientes', label: 'Clientes', icon: Users },
       { href: '/gestion/productos', label: 'Productos', icon: Package },
-      { href: '/gestion/catalogos/familias', label: 'Familias', icon: Tag },
+      { href: '/gestion/catalogos/proveedores', label: 'Proveedores', icon: Factory },
       { href: '/gestion/catalogos/materiales', label: 'Materiales', icon: Layers },
-      { href: '/gestion/catalogos/fabricantes', label: 'Fabricantes', icon: Factory }
+      { href: '/gestion/catalogos/familias', label: 'Familias', icon: Tag },
+      { href: '/gestion/catalogos/fabricantes', label: 'Fabricantes', icon: Factory },
     ]
   },
   {
@@ -92,9 +103,10 @@ const menuStructure = [
     category: 'Configuración',
     icon: Settings,
     links: [
-      { href: '/configuracion', label: 'Márgenes y Referencias', icon: Settings },
+      { href: '/configuracion/margenes', label: 'Márgenes', icon: DollarSign },
       { href: '/configuracion/logistica', label: 'Logística', icon: Truck },
       { href: '/configuracion/tacos', label: 'Tacos', icon: Layers },
+      { href: '/configuracion/grapas', label: 'Grapas', icon: Settings },
       { href: '/configuracion/audit-log', label: 'Audit Log', icon: FileText }
     ]
   }

@@ -4,28 +4,22 @@ import useSWR from 'swr';
 import Link from 'next/link';
 import {
   Package, Receipt, AlertCircle, Clock,
-  PlusCircle, Ship, Warehouse, Table2,
+  Ship, Warehouse, Table2,
   Calculator, Ruler, Tag,
 } from 'lucide-react';
 
 const ACCESOS = [
   {
-    label: 'Pedidos de cliente',
-    href: '/pedidos',
-    icon: Package,
+    label: 'Presupuestos',
+    href: '/presupuestos',
+    icon: Receipt,
     color: 'bg-primary text-primary-content',
   },
   {
-    label: 'Nuevo pedido',
-    href: '/pedidos/nuevo',
-    icon: PlusCircle,
+    label: 'Pedidos',
+    href: '/pedidos',
+    icon: Package,
     color: 'bg-success text-success-content',
-  },
-  {
-    label: 'Contenedores',
-    href: '/compras/contenedores',
-    icon: Ship,
-    color: 'bg-secondary text-secondary-content',
   },
   {
     label: 'Almacén',
@@ -34,13 +28,13 @@ const ACCESOS = [
     color: 'bg-accent text-accent-content',
   },
   {
-    label: 'Tarifa de materiales',
-    href: '/tarifas',
-    icon: Table2,
-    color: 'bg-info text-info-content',
+    label: 'Contenedores',
+    href: '/compras/contenedores',
+    icon: Ship,
+    color: 'bg-secondary text-secondary-content',
   },
   {
-    label: 'Calculadora bandas PVC',
+    label: 'Calculadora bandas',
     href: '/calculadora/bandas',
     icon: Calculator,
     color: 'bg-warning text-warning-content',
@@ -50,6 +44,12 @@ const ACCESOS = [
     href: '/calculadora/metrajes',
     icon: Ruler,
     color: 'bg-neutral text-neutral-content',
+  },
+  {
+    label: 'Tarifas',
+    href: '/tarifas',
+    icon: Table2,
+    color: 'bg-info text-info-content',
   },
 ];
 
