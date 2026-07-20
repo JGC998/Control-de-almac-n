@@ -67,7 +67,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         subfamiliaId:         productoAEditar.subfamiliaId ?? null,
       });
     }
-  }, [productoAEditar]);
+  }, [productoAEditar?.id]);
 
   // En modo edición: disparar la cascada una vez que los materiales estén cargados
   useEffect(() => {
@@ -305,7 +305,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
             value={form.tipo}
             onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
           >
-            <option value="BANDA">Banda PVC</option>
+            <option value="BANDA">Banda</option>
             <option value="CORDON">Cordón</option>
             <option value="BORDE_ONDULADO">Borde ondulado</option>
             <option value="ACCESORIO">Accesorio</option>
