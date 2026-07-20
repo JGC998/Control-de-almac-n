@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import useSWR, { mutate } from 'swr';
-import { Package, PlusCircle, Edit, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, CheckSquare, X, Layers } from 'lucide-react';
+import { Package, PlusCircle, Edit, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, CheckSquare, X, Layers, EyeOff, Eye, Download } from 'lucide-react';
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
 import SelectorFamiliaSubfamilia from '@/componentes/productos/SelectorFamiliaSubfamilia';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
@@ -114,7 +114,9 @@ function PanelAsignacionMasiva({ seleccion, onAplicar, onCancelar }) {
 }
 
 export default function GestionProductosPage() {
-  const { data, isLoading, error } = useSWR('/api/productos?page=1&limit=500');
+  const [filtroActivo, setFiltroActivo]       = useState('activos'); // 'activos' | 'inactivos' | 'todos'
+  const activoParam = filtroActivo === 'activos' ? '&activo=true' : filtroActivo === 'inactivos' ? '&activo=false' : '';
+  const { data, isLoading, error } = useSWR(`/api/productos?page=1&limit=500${activoParam}`);
   const { data: familias = [] }    = useSWR('/api/familias');
   const productos = data?.data ?? [];
 
@@ -173,14 +175,28 @@ export default function GestionProductosPage() {
   function abrirEditar(p) { setProductoEditando(p); setModalAbierto(true); }
   function cerrar() { setModalAbierto(false); setProductoEditando(null); }
 
+  function invalidarProductos() {
+    mutate(key => typeof key === 'string' && key.startsWith('/api/productos'));
+  }
+
   function onGuardado() {
-    mutate('/api/productos?page=1&limit=500');
+    invalidarProductos();
     cerrar();
   }
 
   async function onAplicarMasivo() {
     setSeleccion(new Set());
-    mutate('/api/productos?page=1&limit=500');
+    invalidarProductos();
+  }
+
+  async function toggleActivo(p, e) {
+    e.stopPropagation();
+    await fetch(`/api/productos/${p.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activo: !p.activo }),
+    });
+    invalidarProductos();
   }
 
   async function eliminar(id) {
@@ -204,7 +220,16 @@ export default function GestionProductosPage() {
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Package className="w-8 h-8" /> Gestión de Productos
         </h1>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
+          {/* Filtro activo / obsoleto */}
+          <div className="join">
+            <button className={`join-item btn btn-sm ${filtroActivo === 'activos' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setFiltroActivo('activos')}>Activos</button>
+            <button className={`join-item btn btn-sm ${filtroActivo === 'todos' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setFiltroActivo('todos')}>Todos</button>
+            <button className={`join-item btn btn-sm ${filtroActivo === 'inactivos' ? 'btn-error' : 'btn-outline btn-error'}`}
+              onClick={() => setFiltroActivo('inactivos')}>Obsoletos</button>
+          </div>
           <select
             className="select select-bordered select-sm"
             value={filtroFamilia}
@@ -229,6 +254,13 @@ export default function GestionProductosPage() {
             placeholder="Buscar por nombre, material, subfamilia..."
             className="input input-bordered input-sm w-64"
           />
+          <a
+            href={`/api/productos/export${activoParam ? `?activo=${filtroActivo === 'activos' ? 'true' : 'false'}` : ''}`}
+            className="btn btn-outline btn-sm gap-1"
+            title="Descargar CSV con los productos visibles"
+          >
+            <Download className="w-4 h-4" /> CSV
+          </a>
           <Link href="/gestion/productos/clasificar" className="btn btn-outline btn-sm gap-1">
             <Layers className="w-4 h-4" /> Clasificar
           </Link>
@@ -273,12 +305,13 @@ export default function GestionProductosPage() {
                 <tr><td colSpan={11} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
               )}
               {filtrados.map(p => {
-                const incompleto = p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario;
+                const obsoleto   = !p.activo;
+                const incompleto = !obsoleto && (p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario);
                 const marcado    = seleccion.has(p.id);
                 return (
                   <tr
                     key={p.id}
-                    className={`hover cursor-pointer${incompleto ? ' opacity-60' : ''}${marcado ? ' bg-primary/10' : ''}`}
+                    className={`hover cursor-pointer${obsoleto ? ' opacity-40' : incompleto ? ' opacity-60' : ''}${marcado ? ' bg-primary/10' : ''}`}
                     onClick={() => toggleSeleccion(p.id)}
                   >
                     <td onClick={e => e.stopPropagation()}>
@@ -293,10 +326,11 @@ export default function GestionProductosPage() {
                       <Link
                         href={`/gestion/productos/${p.id}`}
                         onClick={e => e.stopPropagation()}
-                        className="hover:text-primary hover:underline"
+                        className={`hover:text-primary hover:underline${obsoleto ? ' line-through' : ''}`}
                       >
                         {p.nombre}
                       </Link>
+                      {obsoleto   && <span className="badge badge-error badge-xs ml-2">obsoleto</span>}
                       {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
                     </td>
                     <td className="text-sm">
@@ -329,6 +363,13 @@ export default function GestionProductosPage() {
                     <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} kg` : '—'}</td>
                     <td onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1 justify-end">
+                        <button
+                          onClick={e => toggleActivo(p, e)}
+                          className={`btn btn-ghost btn-xs ${obsoleto ? 'text-success' : 'text-base-content/40'}`}
+                          title={obsoleto ? 'Reactivar producto' : 'Marcar como obsoleto'}
+                        >
+                          {obsoleto ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        </button>
                         <button onClick={() => abrirEditar(p)} className="btn btn-ghost btn-xs text-info">
                           <Edit className="w-3.5 h-3.5" />
                         </button>

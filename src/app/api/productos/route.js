@@ -17,11 +17,14 @@ export async function GET(request) {
     const subfamiliaId = searchParams.get('subfamiliaId');
     const familiaId = searchParams.get('familiaId');
     const soloAccesorios = searchParams.get('soloAccesorios') === 'true';
+    const activoParam    = searchParams.get('activo'); // 'true' | 'false' | null (todos)
 
     const whereClause = {};
     if (soloAccesorios) {
       whereClause.tipo = { not: 'BANDA' };
     }
+    if (activoParam === 'true')  whereClause.activo = true;
+    if (activoParam === 'false') whereClause.activo = false;
     if (nombre) {
       whereClause.nombre = { contains: nombre };
     }
