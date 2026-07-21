@@ -1,10 +1,14 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
-
-
-export async function GET() {
+export async function GET(request) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`dashboard:${ip}`, 30);
+  if (!rl.allowed) {
+    return NextResponse.json({ message: 'Demasiadas peticiones.' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+  }
   try {
     const [
       totalPedidos,

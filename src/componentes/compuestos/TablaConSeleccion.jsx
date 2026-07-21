@@ -39,7 +39,8 @@ function exportarCSV(datos, columnas, nombre) {
     columnas.map(col => {
       const v = obtenerValorAnidado(fila, col.clave);
       const str = v == null ? '' : String(v);
-      return str.includes(',') ? `"${str}"` : str;
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) return `"${str.replace(/"/g, '""')}"`;
+      return str;
     }).join(',')
   );
   const csv = [headers, ...rows].join('\n');

@@ -45,7 +45,6 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   );
 
   const [notes, setNotes] = useState(initialData?.notas || '');
-  const [sinFacturacion, setSinFacturacion] = useState(initialData?.sinFacturacion || false);
 
   // Solo re-sincroniza cuando initialData cambia DESPUÉS del montaje inicial
   // (evita el render extra en modo creación/edición al abrir el formulario)
@@ -344,7 +343,6 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       total: total,
       notas: notes,
       marginId: selectedMarginId,
-      ...(formType === 'PEDIDO' && !isEditMode ? { sinFacturacion } : {}),
     };
 
     const endpoint = formType === 'PRESUPUESTO'
@@ -439,18 +437,6 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                 )}
               </div>
 
-              {/* VeriFactu — deshabilitado temporalmente
-              {formType === 'PEDIDO' && !isEditMode && (
-                <div className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${sinFacturacion ? 'bg-warning/10 border-warning/40' : 'bg-base-200 border-base-300'}`}
-                  onClick={() => setSinFacturacion(v => !v)}>
-                  <input type="checkbox" className="checkbox checkbox-warning" checked={sinFacturacion} onChange={() => setSinFacturacion(v => !v)} onClick={e => e.stopPropagation()} />
-                  <div>
-                    <p className="font-medium text-sm">Pedido interno — no facturable</p>
-                    <p className="text-xs text-base-content/50">No generará albarán ni factura. No entra en la secuencia de AEAT.</p>
-                  </div>
-                </div>
-              )}
-              */}
             </div>
           </div>
         </div>

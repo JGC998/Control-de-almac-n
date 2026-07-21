@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 // GET /api/productos/export?format=csv&activo=true|false|(omitir=todos)
 export async function GET(request) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`productos-export:${ip}`, 10);
+  if (!rl.allowed) {
+    return NextResponse.json({ message: 'Demasiadas peticiones.' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const activoParam = searchParams.get('activo');

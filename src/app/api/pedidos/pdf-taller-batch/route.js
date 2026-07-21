@@ -10,8 +10,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request) {
   try {
     const { ids } = await request.json();
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json({ message: 'Se requiere al menos un ID de pedido' }, { status: 400 });
+    const MAX_IDS = 100;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_IDS) {
+      return NextResponse.json({ message: `Se permiten entre 1 y ${MAX_IDS} pedidos por lote` }, { status: 400 });
     }
 
     const orders = await db.pedido.findMany({

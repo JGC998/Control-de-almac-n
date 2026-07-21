@@ -3,10 +3,19 @@ import { z } from 'zod';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 
+const templateItemSchema = z.object({
+  descripcion: z.string().min(1).max(500),
+  quantity: z.number().positive(),
+  unitPrice: z.number().nonnegative(),
+  pesoUnitario: z.number().nonnegative().optional().default(0),
+  detallesTecnicos: z.string().max(1000).optional().nullable(),
+  productoId: z.string().uuid().optional().nullable(),
+});
+
 const templateSchema = z.object({
   nombre: z.string().min(1, 'Nombre requerido').max(200),
   descripcion: z.string().max(500).optional().nullable(),
-  items: z.array(z.any()).optional().default([]),
+  items: z.array(templateItemSchema).optional().default([]),
   marginId: z.string().uuid().optional().nullable(),
 });
 

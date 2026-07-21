@@ -28,8 +28,12 @@ export async function POST(request) {
     }
 
     const secret = process.env.SESSION_SECRET;
+    const authEnabled = !!process.env.AUTH_PIN;
     if (!secret && process.env.NODE_ENV === 'production') {
       return NextResponse.json({ message: 'Error de configuración del servidor' }, { status: 500 });
+    }
+    if (!secret && authEnabled && process.env.NODE_ENV !== 'production') {
+      console.warn('[AUTH] SESSION_SECRET no configurado; usando secret de desarrollo');
     }
     const effectiveSecret = secret || 'dev-secret-change-in-production';
     const token = crypto.createHmac('sha256', effectiveSecret).update(expected ?? 'no-pin').digest('hex');

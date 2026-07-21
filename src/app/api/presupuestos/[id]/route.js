@@ -94,7 +94,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(updatedQuote, { status: 200 });
   } catch (error) {
     logApiError(error, 'Error al actualizar el presupuesto');
-    return NextResponse.json({ message: 'Error interno al actualizar el presupuesto.' }, { status: 500 });
+    return handlePrismaError(error, { notFound: 'Presupuesto no encontrado' });
   }
 }
 

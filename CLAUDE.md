@@ -109,7 +109,7 @@ db.auditLog.create({ data: { action, entity, entityId, details } }).catch(() => 
 | `sequence.js` | Auto-incrementing document numbers with annual reset |
 | `validations.js` | All Zod schemas |
 | `pdfGenerator.js` | PDF for all document types (logo cached in memory) |
-| `verifactu.js` | VeriFactu hash chain + XML generation |
+| `verifactu.js` | VeriFactu hash chain + XML generation — **pendiente de implementar** (lógica descrita en la arquitectura pero el archivo aún no existe) |
 | `logger.js` | `logApiError` — safe structured error logging |
 | `rateLimiter.js` | Sliding-window rate limiter (60s window) |
 | `audit.js` | `logCreate/logUpdate/logDelete` helpers |

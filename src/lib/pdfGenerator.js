@@ -18,12 +18,14 @@ const fmtN = (v, dec = 2) => {
 const COMPANY_ADDRESS_FALLBACK = '';
 const COMPANY_PHONE_FALLBACK   = '';
 
-// Caché de info de emisor — datos de configuración que cambian raramente
+// Caché de info de emisor con TTL de 5 minutos
 let _emisorCache = null;
-export function clearEmisorCache() { _emisorCache = null; }
+let _emisorCacheAt = 0;
+const EMISOR_TTL_MS = 5 * 60 * 1000;
+export function clearEmisorCache() { _emisorCache = null; _emisorCacheAt = 0; }
 
 async function getEmisorInfo() {
-    if (_emisorCache) return _emisorCache;
+    if (_emisorCache && (Date.now() - _emisorCacheAt) < EMISOR_TTL_MS) return _emisorCache;
     try {
         const [emisor, phoneConfig] = await Promise.all([
             db.configuracionEmisor.findUnique({ where: { id: 1 } }),
@@ -33,6 +35,7 @@ async function getEmisorInfo() {
             address: emisor?.direccion || COMPANY_ADDRESS_FALLBACK,
             phone:   phoneConfig?.value || COMPANY_PHONE_FALLBACK,
         };
+        _emisorCacheAt = Date.now();
         return _emisorCache;
     } catch {
         return { address: COMPANY_ADDRESS_FALLBACK, phone: COMPANY_PHONE_FALLBACK };
@@ -1280,7 +1283,7 @@ export async function generateBatchTallerPDF(orders) {
     }
 }
 
-export async function generateFacturaPDF(factura) {
+export async function generateFacturaPDF(factura, ivaRate = 0.21) {
     try {
         const doc = new jsPDF();
         const client = factura.cliente;
@@ -1401,7 +1404,7 @@ export async function generateFacturaPDF(factura) {
         doc.text('Base imponible:', ivaBoxX + 4, ivaBoxY + 8);
         doc.text(`${fmtN(factura.subtotal || 0)} €`, ivaBoxX + 72, ivaBoxY + 8, { align: 'right' });
 
-        doc.text('IVA (21%):', ivaBoxX + 4, ivaBoxY + 15);
+        doc.text(`IVA (${Math.round(ivaRate * 100)}%):`, ivaBoxX + 4, ivaBoxY + 15);
         doc.text(`${fmtN(factura.tax || 0)} €`, ivaBoxX + 72, ivaBoxY + 15, { align: 'right' });
 
         doc.setDrawColor(100, 100, 100);

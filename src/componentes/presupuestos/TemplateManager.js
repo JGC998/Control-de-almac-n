@@ -4,6 +4,7 @@ import useSWR, { mutate } from 'swr';
 import { Save, Download, Trash2, Plus, FileText, X } from 'lucide-react';
 
 import { fetcher } from '@/lib/fetcher';
+import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 export default function TemplateManager({ onLoadTemplate, currentItems, currentMarginId }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -14,6 +15,7 @@ export default function TemplateManager({ onLoadTemplate, currentItems, currentM
     const [error, setError] = useState(null);
 
     const { data: templates, isLoading } = useSWR('/api/presupuestos/templates', fetcher);
+    const { confirmar, ModalConfirmacion } = useConfirmacion();
 
     const handleSave = async () => {
         if (!newTemplateName) return;
@@ -37,10 +39,10 @@ export default function TemplateManager({ onLoadTemplate, currentItems, currentM
                 throw new Error(data.message || 'Error al guardar');
             }
 
-            mutate('/api/presupuestos/templates'); // Recargar lista
+            mutate('/api/presupuestos/templates');
             setNewTemplateName('');
             setNewTemplateDesc('');
-            setMode('load'); // Volver a lista
+            setMode('load');
 
         } catch (err) {
             setError(err.message);
@@ -51,18 +53,32 @@ export default function TemplateManager({ onLoadTemplate, currentItems, currentM
 
     const handleDelete = async (id, e) => {
         e.stopPropagation();
-        if (!confirm('¿Seguro que quieres eliminar esta plantilla?')) return;
+        const ok = await confirmar({ titulo: '¿Seguro que quieres eliminar esta plantilla?' });
+        if (!ok) return;
 
         try {
-            await fetch(`/api/presupuestos/templates/${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/presupuestos/templates/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.message || 'Error al eliminar la plantilla');
+            }
             mutate('/api/presupuestos/templates');
         } catch (err) {
-            console.error(err);
+            setError(err.message);
+        }
+    };
+
+    const handleLoad = async (t) => {
+        const ok = await confirmar({ titulo: '¿Cargar esta plantilla? Reemplazará los items actuales.' });
+        if (ok) {
+            onLoadTemplate(t);
+            setIsOpen(false);
         }
     };
 
     return (
         <>
+            <ModalConfirmacion />
             <div className="dropdown dropdown-end">
                 <div tabIndex={0} role="button" className="btn btn-sm btn-outline gap-2" onClick={() => setIsOpen(true)}>
                     <FileText size={16} /> Plantillas
@@ -79,6 +95,13 @@ export default function TemplateManager({ onLoadTemplate, currentItems, currentM
                         <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                             <FileText className="text-primary" /> Gestión de Plantillas
                         </h3>
+
+                        {error && (
+                            <div className="alert alert-error mb-4 py-2 text-sm">
+                                <span>{error}</span>
+                                <button className="btn btn-xs btn-ghost" onClick={() => setError(null)}><X size={14} /></button>
+                            </div>
+                        )}
 
                         {/* Tabs */}
                         <div className="tabs tabs-boxed mb-4">
@@ -118,8 +141,6 @@ export default function TemplateManager({ onLoadTemplate, currentItems, currentM
                                     ></textarea>
                                 </div>
 
-                                {error && <div className="text-error text-sm">{error}</div>}
-
                                 <button
                                     className="btn btn-primary w-full"
                                     onClick={handleSave}
@@ -142,12 +163,7 @@ export default function TemplateManager({ onLoadTemplate, currentItems, currentM
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {(templates ?? []).map(t => (
                                             <div key={t.id} className="card bg-base-200 hover:bg-base-300 transition-colors border border-base-300 cursor-pointer group"
-                                                onClick={() => {
-                                                    if (confirm('¿Cargar esta plantilla reemplazará los items actuales. Continuar?')) {
-                                                        onLoadTemplate(t);
-                                                        setIsOpen(false);
-                                                    }
-                                                }}
+                                                onClick={() => handleLoad(t)}
                                             >
                                                 <div className="card-body p-4">
                                                     <div className="flex justify-between items-start">

@@ -124,6 +124,7 @@ export default function BusquedaGlobal({ open, onClose }) {
           <input
             ref={inputRef}
             type="text"
+            aria-label="Búsqueda global"
             className="flex-1 bg-transparent outline-none text-base placeholder:text-base-content/30"
             placeholder="Buscar clientes, pedidos, presupuestos, productos..."
             value={query}

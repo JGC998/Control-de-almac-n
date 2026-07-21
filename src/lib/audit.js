@@ -58,14 +58,16 @@ export async function logCreate(entity, entityId, newData, user) {
  * Helper para registrar actualización
  */
 export async function logUpdate(entity, entityId, oldData, newData, user) {
+    const safeOld = sanitizeForAudit(oldData);
+    const safeNew = sanitizeForAudit(newData);
     return logAction({
         action: 'UPDATE',
         entity,
         entityId,
         details: {
-            oldValue: oldData,
-            newValue: newData,
-            changes: getChanges(oldData, newData)
+            oldValue: safeOld,
+            newValue: safeNew,
+            changes: getChanges(safeOld, safeNew)
         },
         user
     });
@@ -79,7 +81,7 @@ export async function logDelete(entity, entityId, oldData, user) {
         action: 'DELETE',
         entity,
         entityId,
-        details: { oldValue: oldData },
+        details: { oldValue: sanitizeForAudit(oldData) },
         user
     });
 }

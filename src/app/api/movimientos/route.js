@@ -1,11 +1,15 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
-
-
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 // GET /api/movimientos - Obtiene los últimos movimientos
 export async function GET(request) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`movimientos:${ip}`, 60);
+  if (!rl.allowed) {
+    return NextResponse.json({ message: 'Demasiadas peticiones.' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const stockId = searchParams.get('stockId');
