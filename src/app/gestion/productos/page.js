@@ -2,23 +2,26 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import useSWR, { mutate } from 'swr';
-import { Package, PlusCircle, Edit, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, CheckSquare, X, Layers, EyeOff, Eye, Download } from 'lucide-react';
+import {
+  Package, PlusCircle, Edit, Trash2,
+  ChevronUp, ChevronDown, ChevronsUpDown,
+  CheckSquare, X, Layers, Archive, RotateCcw, Download,
+} from 'lucide-react';
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
 import SelectorFamiliaSubfamilia from '@/componentes/productos/SelectorFamiliaSubfamilia';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { ContenedorCargando } from '@/componentes/ui';
 
 const COLUMNAS = [
-  { key: 'nombre',        label: 'Nombre',     tipo: 'string' },
-  { key: 'subfamilia',    label: 'Subfamilia', tipo: 'string' },
-  { key: 'tipo',          label: 'Tipo',       tipo: 'string' },
-  { key: 'material',      label: 'Material',   tipo: 'string' },
-  { key: 'acabado',       label: 'Acabado',    tipo: 'string' },
-  { key: 'espesor',       label: 'Espesor',    tipo: 'number' },
-  { key: 'ancho',         label: 'Ancho',      tipo: 'number' },
-  { key: 'largo',         label: 'Largo',      tipo: 'number' },
-  { key: 'precioUnitario',label: 'Precio',     tipo: 'number' },
-  { key: 'pesoUnitario',  label: 'Peso',       tipo: 'number' },
+  { key: 'nombre',         label: 'Nombre',   tipo: 'string' },
+  { key: 'material',       label: 'Material', tipo: 'string' },
+  { key: 'acabado',        label: 'Acabado',  tipo: 'string' },
+  { key: 'tipo',           label: 'Tipo',     tipo: 'string' },
+  { key: 'espesor',        label: 'Espesor',  tipo: 'number' },
+  { key: 'ancho',          label: 'Ancho',    tipo: 'number' },
+  { key: 'largo',          label: 'Largo',    tipo: 'number' },
+  { key: 'precioUnitario', label: 'Precio',   tipo: 'number' },
+  { key: 'pesoUnitario',   label: 'Peso',     tipo: 'number' },
 ];
 
 const TIPO_LABELS = { BANDA: 'Banda', CORDON: 'Cordón', BORDE_ONDULADO: 'Borde', ACCESORIO: 'Accesorio' };
@@ -26,7 +29,6 @@ const TIPO_BADGE  = { BANDA: 'badge-primary', CORDON: 'badge-secondary', BORDE_O
 
 function valorOrden(p, key) {
   if (key === 'material') return p.material?.nombre ?? '';
-  if (key === 'subfamilia') return p.subfamilia?.nombre ?? '';
   return p[key];
 }
 
@@ -51,7 +53,7 @@ function IconoOrden({ campo, sort }) {
     : <ChevronDown className="w-3 h-3 text-primary" />;
 }
 
-function PanelAsignacionMasiva({ seleccion, onAplicar, onCancelar }) {
+function PanelClasificacionMasiva({ seleccion, onAplicar, onCancelar }) {
   const [subfamiliaId, setSubfamiliaId] = useState(null);
   const [aplicando, setAplicando]       = useState(false);
   const [error, setError]               = useState(null);
@@ -83,29 +85,19 @@ function PanelAsignacionMasiva({ seleccion, onAplicar, onCancelar }) {
           <CheckSquare className="w-5 h-5" />
           <span>{seleccion.size} producto{seleccion.size !== 1 ? 's' : ''} seleccionado{seleccion.size !== 1 ? 's' : ''}</span>
         </div>
-
         <div className="flex items-center gap-2 flex-1 flex-wrap">
-          <SelectorFamiliaSubfamilia
-            value={subfamiliaId}
-            onChange={setSubfamiliaId}
-            compact
-          />
-
+          <SelectorFamiliaSubfamilia value={subfamiliaId} onChange={setSubfamiliaId} compact />
           <button
             className="btn btn-primary btn-sm gap-1"
             onClick={aplicar}
             disabled={aplicando || !subfamiliaId}
           >
-            {aplicando
-              ? <span className="loading loading-spinner loading-xs" />
-              : <Layers className="w-4 h-4" />}
-            Aplicar a {seleccion.size}
+            {aplicando ? <span className="loading loading-spinner loading-xs" /> : <Layers className="w-4 h-4" />}
+            Clasificar {seleccion.size}
           </button>
-
           {error && <span className="text-error text-sm">{error}</span>}
         </div>
-
-        <button onClick={onCancelar} className="btn btn-ghost btn-sm btn-square shrink-0" title="Cancelar selección">
+        <button onClick={onCancelar} className="btn btn-ghost btn-sm btn-square shrink-0">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -114,20 +106,24 @@ function PanelAsignacionMasiva({ seleccion, onAplicar, onCancelar }) {
 }
 
 export default function GestionProductosPage() {
-  const [filtroActivo, setFiltroActivo]       = useState('activos'); // 'activos' | 'inactivos' | 'todos'
-  const activoParam = filtroActivo === 'activos' ? '&activo=true' : filtroActivo === 'inactivos' ? '&activo=false' : '';
-  const { data, isLoading, error } = useSWR(`/api/productos?page=1&limit=500${activoParam}`);
-  const { data: familias = [] }    = useSWR('/api/familias');
-  const productos = data?.data ?? [];
+  const [tab, setTab] = useState('activos'); // 'activos' | 'archivados'
 
-  const [modalAbierto, setModalAbierto]       = useState(false);
+  const { data: dataActivos,    isLoading: loadA, error: errA } = useSWR('/api/productos?page=1&limit=500&activo=true');
+  const { data: dataArchivados, isLoading: loadB, error: errB } = useSWR('/api/productos?page=1&limit=500&activo=false');
+
+  const productosActivos    = dataActivos?.data    ?? [];
+  const productosArchivados = dataArchivados?.data ?? [];
+  const productos = tab === 'activos' ? productosActivos : productosArchivados;
+
+  const [modalAbierto, setModalAbierto]         = useState(false);
   const [productoEditando, setProductoEditando] = useState(null);
-  const [busqueda, setBusqueda]               = useState('');
-  const [filtroFamilia, setFiltroFamilia]     = useState('');
-  const [soloSinClasificar, setSoloSinClasificar] = useState(false);
-  const [sort, setSort]                       = useState({ campo: null, dir: 'asc' });
-  const [seleccion, setSeleccion]             = useState(new Set());
-  const { confirmar, ModalConfirmacion }      = useConfirmacion();
+  const [busqueda, setBusqueda]                 = useState('');
+  const [sort, setSort]                         = useState({ campo: null, dir: 'asc' });
+  const [seleccion, setSeleccion]               = useState(new Set());
+  const { confirmar, ModalConfirmacion }         = useConfirmacion();
+
+  const isLoading = tab === 'activos' ? loadA : loadB;
+  const error     = tab === 'activos' ? errA  : errB;
 
   function toggleSort(key, tipo) {
     setSort(prev =>
@@ -138,22 +134,21 @@ export default function GestionProductosPage() {
   }
 
   const filtrados = useMemo(() => {
-    const q = busqueda.toLowerCase();
+    const q = busqueda.toLowerCase().trim();
     let lista = productos.filter(p => {
-      if (q && !p.nombre?.toLowerCase().includes(q) &&
-          !(p.material?.nombre ?? '').toLowerCase().includes(q) &&
-          !(p.acabado ?? '').toLowerCase().includes(q) &&
-          !(p.subfamilia?.nombre ?? '').toLowerCase().includes(q)) return false;
-      if (filtroFamilia && p.subfamilia?.familia?.id !== filtroFamilia) return false;
-      if (soloSinClasificar && p.subfamilia != null) return false;
-      return true;
+      if (!q) return true;
+      return (
+        p.nombre?.toLowerCase().includes(q) ||
+        (p.material?.nombre ?? '').toLowerCase().includes(q) ||
+        (p.acabado ?? '').toLowerCase().includes(q)
+      );
     });
     if (sort.campo) {
       const col = COLUMNAS.find(c => c.key === sort.campo);
       lista = [...lista].sort((a, b) => comparar(a, b, sort.campo, col?.tipo, sort.dir));
     }
     return lista;
-  }, [productos, busqueda, filtroFamilia, soloSinClasificar, sort]);
+  }, [productos, busqueda, sort]);
 
   function toggleSeleccion(id) {
     setSeleccion(prev => {
@@ -164,33 +159,33 @@ export default function GestionProductosPage() {
   }
 
   function toggleTodos() {
-    if (seleccion.size === filtrados.length) {
-      setSeleccion(new Set());
-    } else {
-      setSeleccion(new Set(filtrados.map(p => p.id)));
-    }
+    setSeleccion(seleccion.size === filtrados.length
+      ? new Set()
+      : new Set(filtrados.map(p => p.id))
+    );
   }
 
-  function abrirNuevo() { setProductoEditando(null); setModalAbierto(true); }
-  function abrirEditar(p) { setProductoEditando(p); setModalAbierto(true); }
-  function cerrar() { setModalAbierto(false); setProductoEditando(null); }
+  function abrirNuevo()    { setProductoEditando(null); setModalAbierto(true); }
+  function abrirEditar(p)  { setProductoEditando(p);    setModalAbierto(true); }
+  function cerrar()        { setModalAbierto(false); setProductoEditando(null); }
 
   function invalidarProductos() {
     mutate(key => typeof key === 'string' && key.startsWith('/api/productos'));
   }
 
-  function onGuardado() {
-    invalidarProductos();
-    cerrar();
-  }
-
-  async function onAplicarMasivo() {
-    setSeleccion(new Set());
-    invalidarProductos();
-  }
+  function onGuardado()      { invalidarProductos(); cerrar(); }
+  function onAplicarMasivo() { setSeleccion(new Set()); invalidarProductos(); }
 
   async function toggleActivo(p, e) {
     e.stopPropagation();
+    const archivando = p.activo;
+    if (archivando) {
+      const ok = await confirmar({
+        titulo: '¿Archivar producto?',
+        mensaje: 'El producto quedará oculto del listado activo pero seguirá disponible para pedidos anteriores y nuevos.',
+      });
+      if (!ok) return;
+    }
     await fetch(`/api/productos/${p.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -207,76 +202,66 @@ export default function GestionProductosPage() {
     });
     if (!ok) return;
     await fetch(`/api/productos/${id}`, { method: 'DELETE' });
-    mutate('/api/productos?page=1&limit=500');
+    invalidarProductos();
   }
 
-  const todosMarcados = filtrados.length > 0 && seleccion.size === filtrados.length;
-  const algunoMarcado = seleccion.size > 0 && seleccion.size < filtrados.length;
+  const todosMarcados  = filtrados.length > 0 && seleccion.size === filtrados.length;
+  const algunoMarcado  = seleccion.size > 0 && seleccion.size < filtrados.length;
 
   return (
     <div className={`container mx-auto p-4 ${seleccion.size > 0 ? 'pb-24' : ''}`}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Package className="w-8 h-8" /> Gestión de Productos
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Package className="w-6 h-6" /> Productos
         </h1>
-        <div className="flex gap-2 items-center flex-wrap">
-          {/* Filtro activo / obsoleto */}
-          <div className="join">
-            <button className={`join-item btn btn-sm ${filtroActivo === 'activos' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setFiltroActivo('activos')}>Activos</button>
-            <button className={`join-item btn btn-sm ${filtroActivo === 'todos' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setFiltroActivo('todos')}>Todos</button>
-            <button className={`join-item btn btn-sm ${filtroActivo === 'inactivos' ? 'btn-error' : 'btn-outline btn-error'}`}
-              onClick={() => setFiltroActivo('inactivos')}>Obsoletos</button>
-          </div>
-          <select
-            className="select select-bordered select-sm"
-            value={filtroFamilia}
-            onChange={e => { setFiltroFamilia(e.target.value); setSoloSinClasificar(false); }}
-          >
-            <option value="">Todas las familias</option>
-            {familias.map(f => (
-              <option key={f.id} value={f.id}>{f.nombre}</option>
-            ))}
-          </select>
-          <button
-            className={`btn btn-sm ${soloSinClasificar ? 'btn-warning' : 'btn-outline btn-warning'}`}
-            onClick={() => { setSoloSinClasificar(v => !v); setFiltroFamilia(''); }}
-            title="Mostrar solo productos sin subfamilia asignada"
-          >
-            Sin clasificar
-          </button>
+        <div className="flex gap-2 items-center">
           <input
             type="text"
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre, material, subfamilia..."
-            className="input input-bordered input-sm w-64"
+            placeholder="Buscar por nombre o material…"
+            className="input input-bordered input-sm w-56"
           />
           <a
-            href={`/api/productos/export${activoParam ? `?activo=${filtroActivo === 'activos' ? 'true' : 'false'}` : ''}`}
-            className="btn btn-outline btn-sm gap-1"
-            title="Descargar CSV con los productos visibles"
+            href={`/api/productos/export?activo=${tab === 'activos' ? 'true' : 'false'}`}
+            className="btn btn-ghost btn-sm btn-square"
+            title="Descargar CSV"
           >
-            <Download className="w-4 h-4" /> CSV
+            <Download className="w-4 h-4" />
           </a>
-          <Link href="/gestion/productos/clasificar" className="btn btn-outline btn-sm gap-1">
-            <Layers className="w-4 h-4" /> Clasificar
-          </Link>
-          <button onClick={abrirNuevo} className="btn btn-primary btn-sm">
+          <button onClick={abrirNuevo} className="btn btn-primary btn-sm gap-1">
             <PlusCircle className="w-4 h-4" /> Nuevo
           </button>
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="tabs tabs-boxed mb-4 w-fit">
+        <button
+          className={`tab gap-2 ${tab === 'activos' ? 'tab-active' : ''}`}
+          onClick={() => { setTab('activos'); setSeleccion(new Set()); setBusqueda(''); }}
+        >
+          Activos
+          {!loadA && <span className="badge badge-sm">{productosActivos.length}</span>}
+        </button>
+        <button
+          className={`tab gap-2 ${tab === 'archivados' ? 'tab-active' : ''}`}
+          onClick={() => { setTab('archivados'); setSeleccion(new Set()); setBusqueda(''); }}
+        >
+          <Archive className="w-3.5 h-3.5" /> Archivados
+          {!loadB && productosArchivados.length > 0 && (
+            <span className="badge badge-sm badge-neutral">{productosArchivados.length}</span>
+          )}
+        </button>
+      </div>
+
       {/* Tabla */}
       <ContenedorCargando isLoading={isLoading} error={error}>
-        <div className="card bg-base-100 shadow-xl overflow-x-auto">
+        <div className="card bg-base-100 shadow overflow-x-auto">
           <table className="table table-sm table-zebra w-full">
             <thead>
               <tr className="text-xs uppercase tracking-wider text-base-content/50">
-                {/* Checkbox "seleccionar todos" */}
                 <th className="w-8">
                   <input
                     type="checkbox"
@@ -302,16 +287,19 @@ export default function GestionProductosPage() {
             </thead>
             <tbody>
               {filtrados.length === 0 && (
-                <tr><td colSpan={11} className="text-center py-12 text-base-content/30">Sin productos</td></tr>
+                <tr>
+                  <td colSpan={11} className="text-center py-12 text-base-content/30">
+                    {busqueda ? 'Sin resultados para esa búsqueda' : tab === 'activos' ? 'No hay productos activos' : 'No hay productos archivados'}
+                  </td>
+                </tr>
               )}
               {filtrados.map(p => {
-                const obsoleto   = !p.activo;
-                const incompleto = !obsoleto && (p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario);
+                const incompleto = tab === 'activos' && (p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario);
                 const marcado    = seleccion.has(p.id);
                 return (
                   <tr
                     key={p.id}
-                    className={`hover cursor-pointer${obsoleto ? ' opacity-40' : incompleto ? ' opacity-60' : ''}${marcado ? ' bg-primary/10' : ''}`}
+                    className={`hover cursor-pointer${incompleto ? ' opacity-70' : ''}${marcado ? ' bg-primary/10' : ''}`}
                     onClick={() => toggleSeleccion(p.id)}
                   >
                     <td onClick={e => e.stopPropagation()}>
@@ -326,49 +314,36 @@ export default function GestionProductosPage() {
                       <Link
                         href={`/gestion/productos/${p.id}`}
                         onClick={e => e.stopPropagation()}
-                        className={`hover:text-primary hover:underline${obsoleto ? ' line-through' : ''}`}
+                        className="hover:text-primary hover:underline"
                       >
                         {p.nombre}
                       </Link>
-                      {obsoleto   && <span className="badge badge-error badge-xs ml-2">obsoleto</span>}
                       {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
-                    </td>
-                    <td className="text-sm">
-                      {p.subfamilia ? (
-                        <span
-                          className="badge badge-sm font-medium"
-                          style={p.subfamilia.familia?.color ? {
-                            backgroundColor: p.subfamilia.familia.color + '22',
-                            color: p.subfamilia.familia.color,
-                            borderColor: p.subfamilia.familia.color + '55',
-                          } : {}}
-                        >
-                          {p.subfamilia.nombre}
-                        </span>
-                      ) : <span className="text-base-content/30">—</span>}
-                    </td>
-                    <td className="text-sm">
-                      {p.tipo && p.tipo !== 'BANDA' ? (
-                        <span className={`badge badge-xs ${TIPO_BADGE[p.tipo] ?? 'badge-neutral'}`}>
-                          {TIPO_LABELS[p.tipo] ?? p.tipo}
-                        </span>
-                      ) : null}
                     </td>
                     <td className="text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
                     <td className="text-sm">{p.acabado ?? <span className="text-base-content/30">—</span>}</td>
-                    <td className={p.espesor == null ? 'text-warning font-bold' : ''}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
-                    <td className={p.ancho == null ? 'text-warning font-bold' : ''}>{p.ancho != null ? `${p.ancho} mm` : '—'}</td>
-                    <td className={p.largo == null ? 'text-warning font-bold' : ''}>{p.largo != null ? `${p.largo} mm` : '—'}</td>
-                    <td className={!p.precioUnitario ? 'text-warning font-bold' : ''}>{p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '—'}</td>
+                    <td className="text-sm">
+                      {p.tipo && (
+                        <span className={`badge badge-xs ${TIPO_BADGE[p.tipo] ?? 'badge-neutral'}`}>
+                          {TIPO_LABELS[p.tipo] ?? p.tipo}
+                        </span>
+                      )}
+                    </td>
+                    <td className={p.espesor == null ? 'text-warning' : ''}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
+                    <td className={p.ancho == null   ? 'text-warning' : ''}>{p.ancho   != null ? `${p.ancho} mm`   : '—'}</td>
+                    <td className={p.largo == null   ? 'text-warning' : ''}>{p.largo   != null ? `${p.largo} mm`   : '—'}</td>
+                    <td className={!p.precioUnitario ? 'text-warning' : ''}>
+                      {p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '—'}
+                    </td>
                     <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} kg` : '—'}</td>
                     <td onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1 justify-end">
                         <button
                           onClick={e => toggleActivo(p, e)}
-                          className={`btn btn-ghost btn-xs ${obsoleto ? 'text-success' : 'text-base-content/40'}`}
-                          title={obsoleto ? 'Reactivar producto' : 'Marcar como obsoleto'}
+                          className={`btn btn-ghost btn-xs ${tab === 'archivados' ? 'text-success' : 'text-base-content/40 hover:text-warning'}`}
+                          title={tab === 'archivados' ? 'Restaurar a activos' : 'Archivar producto'}
                         >
-                          {obsoleto ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          {tab === 'archivados' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                         </button>
                         <button onClick={() => abrirEditar(p)} className="btn btn-ghost btn-xs text-info">
                           <Edit className="w-3.5 h-3.5" />
@@ -389,9 +364,9 @@ export default function GestionProductosPage() {
         )}
       </ContenedorCargando>
 
-      {/* Panel asignación masiva */}
-      {seleccion.size > 0 && (
-        <PanelAsignacionMasiva
+      {/* Panel clasificación masiva (solo en tab activos) */}
+      {seleccion.size > 0 && tab === 'activos' && (
+        <PanelClasificacionMasiva
           seleccion={seleccion}
           onAplicar={onAplicarMasivo}
           onCancelar={() => setSeleccion(new Set())}
