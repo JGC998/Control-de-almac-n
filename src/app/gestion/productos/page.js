@@ -401,7 +401,12 @@ export default function GestionProductosPage() {
       {/* Modal editar/crear */}
       {modalAbierto && (
         <div className="modal modal-open">
-          <div className="modal-box w-11/12 max-w-lg">
+          <div className="modal-box w-11/12 max-w-lg overflow-y-auto max-h-[90vh]">
+            <button
+              type="button"
+              onClick={cerrar}
+              className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+            >✕</button>
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
               <Package className="w-5 h-5" />
               {productoEditando ? 'Editar producto' : 'Nuevo producto'}

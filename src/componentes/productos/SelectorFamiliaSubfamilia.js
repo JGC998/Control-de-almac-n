@@ -17,12 +17,12 @@ export default function SelectorFamiliaSubfamilia({ value, onChange, onFamiliaCh
   // acaba de cambiar de familia sin elegir subfamilia todavía)
   const [familiaId, setFamiliaId] = useState('');
 
-  // Sincronizar familiaId cuando llega el value externo (modo edición)
+  // Sincronizar familiaId cuando llega el value externo (modo edición).
+  // No resetear familiaId cuando value pasa a null: puede que el usuario esté
+  // eligiendo familia sin haber seleccionado subfamilia aún, y el reset
+  // haría desaparecer el select de subfamilia.
   useEffect(() => {
-    if (!value || !familias.length) {
-      if (!value) { setFamiliaId(''); onFamiliaChange?.(null); }
-      return;
-    }
+    if (!value || !familias.length) return;
     const fam = familias.find(f => f.subfamilias?.some(s => s.id === value));
     if (fam) { setFamiliaId(fam.id); onFamiliaChange?.(fam); }
   }, [value, familias]);
