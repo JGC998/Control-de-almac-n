@@ -36,6 +36,16 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
       const { searchParams } = new URL(request.url);
       const pageParam = searchParams.get('page');
       const limitParam = searchParams.get('limit');
+      const q = searchParams.get('q');
+
+      // Merge optional search filter when campoBusqueda is configured
+      let findOpts = { ...(options.findMany || {}) };
+      if (q && options.campoBusqueda) {
+        findOpts = {
+          ...findOpts,
+          where: { ...(findOpts.where || {}), [options.campoBusqueda]: { contains: q } },
+        };
+      }
 
       if (pageParam || limitParam) {
         const page  = Math.max(1, parseInt(pageParam  || '1',  10));
@@ -43,12 +53,8 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
         const skip = (page - 1) * limit;
 
         const [records, total] = await Promise.all([
-          model.findMany({
-            ...(options.findMany || {}),
-            take: limit,
-            skip: skip,
-          }),
-          model.count({ where: options.findMany?.where || {} })
+          model.findMany({ ...findOpts, take: limit, skip }),
+          model.count({ where: findOpts.where || {} })
         ]);
 
         return NextResponse.json({
@@ -57,8 +63,8 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
         });
       }
 
-      const records = await model.findMany({ take: 500, ...(options.findMany || {}) });
-      // BACK-02: Advertir al cliente cuando el resultado puede estar truncado a 500
+      const records = await model.findMany({ take: 500, ...findOpts });
+      // Advertir al cliente cuando el resultado puede estar truncado a 500
       const headers = records.length === 500 ? { 'X-Results-Truncated': 'true; max=500' } : {};
       return NextResponse.json(records, { headers });
     } catch (e) {

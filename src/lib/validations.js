@@ -129,9 +129,9 @@ export const pedidoSchema = z.object({
     clienteId: z.string().min(1, 'ID de cliente inválido').optional().nullable(),
     estado: z.enum(['Pendiente', 'Facturado', 'Cancelado']).optional(),
     items: z.array(pedidoItemSchema).min(1, 'Debe haber al menos un item'),
-    subtotal: z.number().nonnegative('Subtotal no puede ser negativo'),
-    tax: z.number().nonnegative('Tax no puede ser negativo'),
-    total: z.number().nonnegative('Total no puede ser negativo'),
+    subtotal: z.number().nonnegative('Subtotal no puede ser negativo').optional(),
+    tax: z.number().nonnegative('Tax no puede ser negativo').optional(),
+    total: z.number().nonnegative('Total no puede ser negativo').optional(),
     marginId: z.string().uuid().optional().nullable(),
     notas: z.string().optional().nullable(),
     sinFacturacion: z.boolean().optional(),
@@ -154,9 +154,9 @@ export const presupuestoSchema = z.object({
     clienteId: z.string().min(1, 'ID de cliente inválido').optional().nullable(),
     estado: z.enum(['Borrador', 'Enviado', 'Aprobado', 'Rechazado', 'Aceptado']).optional(),
     items: z.array(presupuestoItemSchema).min(1, 'Debe haber al menos un item'),
-    subtotal: z.number().nonnegative('Subtotal no puede ser negativo'),
-    tax: z.number().nonnegative('Tax no puede ser negativo'),
-    total: z.number().nonnegative('Total no puede ser negativo'),
+    subtotal: z.number().nonnegative('Subtotal no puede ser negativo').optional(),
+    tax: z.number().nonnegative('Tax no puede ser negativo').optional(),
+    total: z.number().nonnegative('Total no puede ser negativo').optional(),
     marginId: z.string().uuid().optional().nullable(),
     notas: z.string().optional().nullable(),
     ultimoRecordatorio: z.string().datetime().optional().nullable(),
@@ -283,24 +283,6 @@ export const tacoBatchUpdateSchema = z.object({
     })).min(1, 'Debe haber al menos un update'),
 });
 
-
-// ============================================
-// VALIDACIONES PARA DESCUENTOS
-// ============================================
-
-const descuentoTierSchema = z.object({
-    cantidadMinima: z.coerce.number().int().nonnegative().optional(),
-    descuento: z.coerce.number().nonnegative('Descuento no puede ser negativo'),
-});
-
-export const descuentoSchema = z.object({
-    descripcion: z.string().min(1, 'Descripción requerida'),
-    tipo: z.string().min(1, 'Tipo requerido'),
-    descuento: z.coerce.number().nonnegative().optional().nullable(),
-    fechaInicio: z.string().optional().nullable(),
-    fechaFin: z.string().optional().nullable(),
-    tiers: z.array(descuentoTierSchema).optional(),
-});
 
 // ============================================
 // VALIDACIONES PARA PEDIDOS A PROVEEDORES

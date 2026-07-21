@@ -37,7 +37,7 @@ function convertWebStreamToNodeStream(webStream) {
 async function parseForm(request) {
   return new Promise((resolve, reject) => {
     // Configuración de formidable: Guardar archivos en la carpeta temporal por defecto.
-    const form = Formidable({});
+    const form = Formidable({ maxFileSize: 20 * 1024 * 1024 }); // 20 MB
 
     const nodeStream = convertWebStreamToNodeStream(request.body);
 

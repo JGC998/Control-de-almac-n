@@ -20,6 +20,7 @@ export async function GET(request) {
 
     const productos = await db.producto.findMany({
       where,
+      take: 10000,
       orderBy: [{ tipo: 'asc' }, { nombre: 'asc' }],
       include: {
         material: true,

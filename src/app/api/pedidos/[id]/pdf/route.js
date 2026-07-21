@@ -23,7 +23,7 @@ export async function GET(request, { params }) {
       return new NextResponse('Pedido no encontrado', { status: 404 });
     }
 
-    const configList = await db.config.findMany();
+    const configList = await db.config.findMany({ take: 100 });
     const config = configList.reduce((acc, s) => {
       const n = parseFloat(s.value);
       acc[s.key] = isNaN(n) ? s.value : n;

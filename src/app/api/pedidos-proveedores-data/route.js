@@ -41,10 +41,10 @@ export async function GET(request) {
         const tasaCambio = pedido.tasaCambio || 1;
         const gastosTotales = pedido.gastosTotales || 0;
         
-        const costeTotalBobinas = pedido.bobinas.reduce((acc, b) => acc + (b.precioMetro * (b.largo || 0)), 0);
+        const costeTotalBobinas = pedido.bobinas.reduce((acc, b) => acc + (b.precioMetro * (b.largo || 0) * (b.cantidad || 1)), 0);
         const costeTotalDivisa = costeTotalBobinas + gastosTotales;
         const costeTotalEuros = costeTotalDivisa * tasaCambio;
-        const totalMetros = pedido.bobinas.reduce((acc, b) => acc + (b.largo || 0), 0);
+        const totalMetros = pedido.bobinas.reduce((acc, b) => acc + ((b.largo || 0) * (b.cantidad || 1)), 0);
 
         let costePorMetroProrrateado = 0;
         if (totalMetros > 0) {

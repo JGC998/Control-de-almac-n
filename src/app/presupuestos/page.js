@@ -31,8 +31,8 @@ export default async function PresupuestosPage({ searchParams: searchParamsPromi
   // Await searchParams before accessing properties
   const searchParams = await searchParamsPromise;
 
-  const page = parseInt(searchParams?.page || '1');
-  const limit = parseInt(searchParams?.limit || '20');
+  const page = parseInt(searchParams?.page || '1',  10);
+  const limit = parseInt(searchParams?.limit || '20', 10);
   const skip = (page - 1) * limit;
   const estado = searchParams?.estado;
   const busqueda = searchParams?.busqueda;

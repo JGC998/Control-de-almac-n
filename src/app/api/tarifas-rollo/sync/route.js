@@ -9,7 +9,7 @@ import { logApiError } from '@/lib/logger';
 export async function POST() {
   try {
     const [rollos, materiales] = await Promise.all([
-      db.tarifaRollo.findMany(),
+      db.tarifaRollo.findMany({ take: 2000 }),
       db.tarifaMaterial.findMany({ select: { material: true, espesor: true, precio: true, acabado: true } }),
     ]);
 

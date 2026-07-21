@@ -1,6 +1,14 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
-import { db } from '@/lib/db'; 
+import { db } from '@/lib/db';
+import { z } from 'zod';
+
+const refSchema = z.object({
+  referencia: z.string().min(1, 'Nombre requerido').max(200),
+  ancho: z.coerce.number().positive().optional().nullable(),
+  lonas: z.coerce.number().positive().optional().nullable(),
+  pesoPorMetroLineal: z.coerce.number().positive().optional().nullable(),
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -58,18 +66,23 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, ...data } = await request.json();
+    const { id, ...raw } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'ID de Referencia de Bobina requerido para actualizar.' }, { status: 400 });
     }
+    const parsed = refSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    }
+    const data = parsed.data;
 
     const updatedRef = await db.referenciaBobina.update({
       where: { id: id },
       data: {
-        referencia: data.referencia, 
-        ancho: getSafeNumber(data.ancho),
-        lonas: getSafeNumber(data.lonas),
-        pesoPorMetroLineal: getSafeNumber(data.pesoPorMetroLineal),
+        referencia: data.referencia,
+        ancho: data.ancho ?? null,
+        lonas: data.lonas ?? null,
+        pesoPorMetroLineal: data.pesoPorMetroLineal ?? null,
       },
     });
     return NextResponse.json(updatedRef);

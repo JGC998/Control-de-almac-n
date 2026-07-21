@@ -48,7 +48,7 @@ const DataManagerTable = ({ apiEndpoint, modelName, fields, idField = 'id' }) =>
 
     if (type === 'number') {
       // Manejar valores vacíos o no numéricos para evitar NaN, permitiendo el 0
-      finalValue = value === '' ? null : (value.includes('.') ? parseFloat(value) : parseInt(value));
+      finalValue = value === '' ? null : (value.includes('.') ? parseFloat(value) : parseInt(value, 10));
     } else if (type === 'checkbox') {
       finalValue = checked;
     }

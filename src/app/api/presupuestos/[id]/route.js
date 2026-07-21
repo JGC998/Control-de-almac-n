@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { handlePrismaError } from '@/lib/manejadores-api';
+import { handlePrismaError, serializeDecimals } from '@/lib/manejadores-api';
 import { presupuestoSchema } from '@/lib/validations';
 
 
@@ -22,7 +22,9 @@ export async function GET(request, { params }) {
     if (!quote) {
       return NextResponse.json({ message: 'Presupuesto no encontrado' }, { status: 404 });
     }
-    return NextResponse.json(quote);
+    const serialized = serializeDecimals(quote, ['subtotal', 'tax', 'total']);
+    serialized.items = serialized.items.map(item => serializeDecimals(item, ['unitPrice']));
+    return NextResponse.json(serialized);
   } catch (error) {
     logApiError(error, 'Error al leer el presupuesto');
     return NextResponse.json({ message: 'Error interno al leer los datos' }, { status: 500 });

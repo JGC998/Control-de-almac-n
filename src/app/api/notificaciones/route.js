@@ -3,7 +3,12 @@ import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
-export async function GET() {
+export async function GET(request) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`notificaciones-get:${ip}`, 30);
+  if (!rl.allowed) {
+    return NextResponse.json({ message: 'Demasiadas peticiones' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+  }
   try {
     const notificaciones = await db.notificacion.findMany({
       orderBy: [{ leida: 'asc' }, { creadaEn: 'desc' }],

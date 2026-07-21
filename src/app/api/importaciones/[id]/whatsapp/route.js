@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
 import { buscarPosicionVesselFinder, buscarSchedulePorMmsi, buscarScheduleBarco, enviarWhatsApp, reverseGeocode } from '@/lib/tracking';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 // POST /api/importaciones/[id]/whatsapp
 // Envía la posición actual del barco via CallMeBot WhatsApp
 export async function POST(request, { params }) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`whatsapp:${ip}`, 5);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Demasiadas peticiones' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+  }
   try {
     const { id } = await params;
     const imp = await db.importacionContenedor.findUnique({
