@@ -7,6 +7,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown,
   CheckSquare, X, Layers, Archive, RotateCcw, Download,
 } from 'lucide-react';
+
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
 import SelectorFamiliaSubfamilia from '@/componentes/productos/SelectorFamiliaSubfamilia';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
@@ -16,7 +17,6 @@ const COLUMNAS = [
   { key: 'nombre',         label: 'Nombre',   tipo: 'string' },
   { key: 'material',       label: 'Material', tipo: 'string' },
   { key: 'acabado',        label: 'Acabado',  tipo: 'string' },
-  { key: 'tipo',           label: 'Tipo',     tipo: 'string' },
   { key: 'espesor',        label: 'Espesor',  tipo: 'number' },
   { key: 'ancho',          label: 'Ancho',    tipo: 'number' },
   { key: 'largo',          label: 'Largo',    tipo: 'number' },
@@ -24,8 +24,6 @@ const COLUMNAS = [
   { key: 'pesoUnitario',   label: 'Peso',     tipo: 'number' },
 ];
 
-const TIPO_LABELS = { BANDA: 'Banda', CORDON: 'Cordón', BORDE_ONDULADO: 'Borde', ACCESORIO: 'Accesorio' };
-const TIPO_BADGE  = { BANDA: 'badge-primary', CORDON: 'badge-secondary', BORDE_ONDULADO: 'badge-accent', ACCESORIO: 'badge-neutral' };
 
 function valorOrden(p, key) {
   if (key === 'material') return p.material?.nombre ?? '';
@@ -322,13 +320,6 @@ export default function GestionProductosPage() {
                     </td>
                     <td className="text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
                     <td className="text-sm">{p.acabado ?? <span className="text-base-content/30">—</span>}</td>
-                    <td className="text-sm">
-                      {p.tipo && (
-                        <span className={`badge badge-xs ${TIPO_BADGE[p.tipo] ?? 'badge-neutral'}`}>
-                          {TIPO_LABELS[p.tipo] ?? p.tipo}
-                        </span>
-                      )}
-                    </td>
                     <td className={p.espesor == null ? 'text-warning' : ''}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
                     <td className={p.ancho == null   ? 'text-warning' : ''}>{p.ancho   != null ? `${p.ancho} mm`   : '—'}</td>
                     <td className={p.largo == null   ? 'text-warning' : ''}>{p.largo   != null ? `${p.largo} mm`   : '—'}</td>
