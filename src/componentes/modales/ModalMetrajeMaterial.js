@@ -1,6 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from 'react';
-import { X, Loader2, Scissors } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { X, Loader2, Scissors, BookmarkPlus, Check } from 'lucide-react';
 
 const VACIO = { espesores: [], acabados: [], tarifa: null, tarifas: [] };
 
@@ -19,17 +19,27 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
   const [materiales, setMateriales] = useState([]);
   const [cargando,   setCargando]   = useState(false);
   const [error,      setError]      = useState(null);
+  const [guardandoProducto, setGuardandoProducto] = useState(false);
+  const [productoGuardado,  setProductoGuardado]  = useState(false);
+  const materialesMapRef = useRef({}); // nombre → materialId
 
   useEffect(() => {
     if (!isOpen) return;
     fetch('/api/tarifas-material-opciones')
       .then(r => r.json())
       .then(d => setMateriales(d.materiales ?? []));
+    fetch('/api/materiales')
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) {
+          materialesMapRef.current = Object.fromEntries(d.map(m => [m.nombre, m.id]));
+        }
+      });
   }, [isOpen]);
 
   const resetCampos = () => {
     setEspesor(''); setAcabado(null); setAncho(''); setLargo('');
-    setOpciones(VACIO); setError(null);
+    setOpciones(VACIO); setError(null); setProductoGuardado(false);
   };
 
   const handleMaterial = useCallback(async (mat) => {
@@ -91,6 +101,42 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
     if (espesor) partes.push(`${espesor}mm`);
     partes.push(`— ${fmtMm(ancho)}mm × ${fmtMm(largo)}mm`);
     return partes.join(' ');
+  }
+
+  async function guardarComoProducto() {
+    if (!listo) return;
+    setGuardandoProducto(true);
+    setError(null);
+    try {
+      const materialId = materialesMapRef.current[material] ?? null;
+      const res = await fetch('/api/productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre:         buildDescripcion(),
+          tipo:           'BANDA',
+          unidad:         'M2',
+          activo:         true,
+          materialId,
+          espesor:        parseFloat(espesor),
+          ancho:          parseFloat(ancho),
+          largo:          parseFloat(largo),
+          acabado:        acabado || null,
+          precioUnitario: parseFloat(precioTotal.toFixed(2)),
+          pesoUnitario:   parseFloat(pesoTotal.toFixed(3)),
+          costoUnitario:  0,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Error al guardar en catálogo');
+      }
+      setProductoGuardado(true);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGuardandoProducto(false);
+    }
   }
 
   function confirmar() {
@@ -230,8 +276,24 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
           {error && <div className="alert alert-error text-sm py-2">{error}</div>}
         </div>
 
-        <div className="modal-action mt-5">
+        <div className="modal-action mt-5 flex-wrap gap-2">
           <button type="button" onClick={onClose} className="btn btn-ghost">Cancelar</button>
+          {listo && (
+            <button
+              type="button"
+              onClick={guardarComoProducto}
+              disabled={guardandoProducto || productoGuardado}
+              className="btn btn-outline btn-success gap-1"
+              title="Guardar este metraje como producto del catálogo"
+            >
+              {guardandoProducto
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : productoGuardado
+                  ? <Check className="w-4 h-4" />
+                  : <BookmarkPlus className="w-4 h-4" />}
+              {productoGuardado ? 'Guardado en catálogo' : 'Guardar en catálogo'}
+            </button>
+          )}
           <button type="button" onClick={confirmar} disabled={!listo} className="btn btn-accent gap-1">
             <Scissors className="w-4 h-4" /> Añadir al pedido
           </button>

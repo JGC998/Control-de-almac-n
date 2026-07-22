@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
-import { Download, Settings, RefreshCw } from 'lucide-react';
+import { Download, Settings, RefreshCw, Package } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toastError } from '@/lib/toast';
@@ -13,6 +13,8 @@ export default function TablaTarifasRollo() {
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
   const [sincronizando, setSincronizando] = useState(false);
   const [resultadoSync, setResultadoSync] = useState(null);
+  const [generando, setGenerando] = useState(false);
+  const [resultadoGen, setResultadoGen] = useState(null);
 
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/tarifas-rollo');
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
@@ -57,6 +59,20 @@ export default function TablaTarifasRollo() {
       toastError('Error al sincronizar precios');
     } finally {
       setSincronizando(false);
+    }
+  };
+
+  const handleGenerarProductos = async () => {
+    setGenerando(true);
+    setResultadoGen(null);
+    try {
+      const res = await fetch('/api/tarifas-rollo/generar-productos', { method: 'POST' });
+      const data = await res.json();
+      setResultadoGen(data);
+    } catch {
+      toastError('Error al generar productos');
+    } finally {
+      setGenerando(false);
     }
   };
 
@@ -114,6 +130,15 @@ export default function TablaTarifasRollo() {
               Actualizar precios
               {desincronizados > 0 && <span className="badge badge-error badge-xs">{desincronizados}</span>}
             </button>
+            <button
+              onClick={handleGenerarProductos}
+              disabled={generando}
+              className="btn btn-sm btn-outline btn-primary gap-1"
+              title="Genera o actualiza productos en el catálogo desde estas tarifas. Solo sube el precio, nunca lo baja."
+            >
+              <Package className={`w-4 h-4 ${generando ? 'animate-pulse' : ''}`} />
+              Generar productos
+            </button>
             <Link href="/configuracion">
               <button className="btn btn-neutral btn-sm gap-1">
                 <Settings className="w-4 h-4" /> Gestionar
@@ -131,6 +156,16 @@ export default function TablaTarifasRollo() {
               ? 'Todos los precios ya estaban actualizados.'
               : `${resultadoSync.actualizados} rollo(s) actualizados correctamente.`}
             <button className="btn btn-xs btn-ghost ml-auto" onClick={() => setResultadoSync(null)}>✕</button>
+          </div>
+        )}
+        {resultadoGen && (
+          <div className="alert alert-info py-2 text-sm mb-4">
+            <span>
+              Productos generados: <strong>{resultadoGen.creados} nuevos</strong>
+              {resultadoGen.actualizados > 0 && <>, <strong>{resultadoGen.actualizados} precio(s) subido(s)</strong></>}
+              {resultadoGen.sinPrecio > 0 && <> · {resultadoGen.sinPrecio} rollo(s) sin precio (omitidos)</>}
+            </span>
+            <button className="btn btn-xs btn-ghost ml-auto" onClick={() => setResultadoGen(null)}>✕</button>
           </div>
         )}
 
