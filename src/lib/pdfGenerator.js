@@ -926,6 +926,11 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                     bandaRows.push(['Grapa', `${grapa.nombre}${grapa.tipo === 'UNA' ? ' (Uña)' : ''}`]);
                 }
 
+                // Tabla parámetros (izquierda ~120mm) + diagrama visual (derecha ~58mm)
+                const DIAG_W     = 58;
+                const DIAG_X     = MR - DIAG_W; // 138
+                const tableStartY = yp;
+
                 autoTable(doc, {
                     startY: yp,
                     head: [['Parámetro', 'Valor']],
@@ -933,10 +938,16 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                     theme: 'grid',
                     styles: { fontSize: 9 },
                     headStyles: { fillColor: [80, 80, 80], textColor: 255, fontStyle: 'bold' },
-                    columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
-                    margin: { left: ML, right: PW - MR },
+                    columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' }, 1: { cellWidth: 65 } },
+                    margin: { left: ML, right: PW - DIAG_X + 4 },
                 });
-                yp = doc.lastAutoTable.finalY + 6;
+                const tableEndY = doc.lastAutoTable.finalY;
+
+                // Diagrama visual a la derecha de la tabla
+                const diagH = Math.max(tableEndY - tableStartY, 55);
+                _drawBandDiagramPDF(doc, dt, DIAG_X + 2, tableStartY, DIAG_W - 2, diagH);
+
+                yp = Math.max(tableEndY, tableStartY + diagH) + 6;
 
                 if (tacos) {
                     const numBarras = Math.ceil(tacos.metrosLineales / longitudBarra);
@@ -1747,6 +1758,157 @@ export async function generarCartaPortePDF(datos) {
         logApiError(error, 'Error generating Carta de Porte PDF');
         throw error;
     }
+}
+
+/**
+ * Dibuja un diagrama visual de banda PVC en el doc jsPDF, dentro del rectángulo
+ * (ox, oy, boxW, boxH). Replica la lógica de PreviewBandaPVC.js con primitivas jsPDF.
+ * @param {jsPDF} doc
+ * @param {object} dt - detallesTecnicos parseado (dimensiones, tipoConfeccion, color, tacos)
+ * @param {number} ox - Offset X en mm
+ * @param {number} oy - Offset Y en mm
+ * @param {number} boxW - Ancho del área disponible en mm
+ * @param {number} boxH - Alto del área disponible en mm
+ */
+function _drawBandDiagramPDF(doc, dt, ox, oy, boxW, boxH) {
+    const dim   = dt.dimensiones || {};
+    const ancho = parseFloat(dim.ancho) || 0;
+    const largo = parseFloat(dim.largo) || 0;
+    if (!ancho || !largo) return;
+
+    const PAD_LEFT   = 4;
+    const PAD_TOP    = 4;
+    const PAD_BOTTOM = 12; // space for ancho dimension label
+    const PAD_RIGHT  = 14; // space for largo dimension label
+
+    const drawW = boxW - PAD_LEFT - PAD_RIGHT;
+    const drawH = boxH - PAD_TOP  - PAD_BOTTOM;
+
+    const ratio = Math.min(largo / ancho, 6);
+    let bW, bH;
+    if (ratio > drawH / drawW) {
+        bH = drawH;
+        bW = bH / ratio;
+    } else {
+        bW = drawW;
+        bH = bW * ratio;
+    }
+    bW = Math.max(10, Math.min(bW, drawW));
+    bH = Math.max(18, Math.min(bH, drawH));
+
+    const bX = ox + PAD_LEFT  + (drawW - bW) / 2;
+    const bY = oy + PAD_TOP   + (drawH - bH) / 2;
+
+    // Fill color por color de PVC
+    const colorMap = {
+        AZUL:   [180, 210, 240],
+        BLANCO: [218, 218, 218],
+        NEGRO:  [100, 110, 120],
+        VERDE:  [155, 215, 155],
+    };
+    const [r, g, b] = colorMap[dt.color] || [175, 180, 195];
+
+    doc.setFillColor(r, g, b);
+    doc.setDrawColor(Math.max(0, r - 50), Math.max(0, g - 50), Math.max(0, b - 50));
+    doc.setLineWidth(0.6);
+    const isVulc = dt.tipoConfeccion === 'VULCANIZADA';
+    doc.roundedRect(bX, bY, bW, bH, isVulc ? 1 : 0, isVulc ? 1 : 0, 'FD');
+
+    // ── ABIERTA: líneas gruesas en ambos extremos ──────────────────────────
+    if (dt.tipoConfeccion === 'ABIERTA') {
+        doc.setDrawColor(70, 70, 70);
+        doc.setLineWidth(1.8);
+        doc.line(bX - 1, bY,      bX + bW + 1, bY);
+        doc.line(bX - 1, bY + bH, bX + bW + 1, bY + bH);
+        doc.setLineWidth(0.6);
+    }
+
+    // ── GRAPA: patrón en zigzag arriba y abajo ─────────────────────────────
+    if (dt.tipoConfeccion === 'GRAPA') {
+        doc.setDrawColor(55, 55, 55);
+        doc.setLineWidth(0.8);
+        const teeth = Math.max(4, Math.round(bW / 3));
+        const step  = bW / teeth;
+        const amp   = 1.8;
+        [bY, bY + bH].forEach(yBase => {
+            for (let i = 0; i < teeth; i++) {
+                const x1 = bX + i * step;
+                const x2 = bX + (i + 0.5) * step;
+                const x3 = bX + (i + 1) * step;
+                const ym = yBase + (i % 2 === 0 ? -amp : amp);
+                doc.line(x1, yBase, x2, ym);
+                doc.line(x2, ym, x3, yBase);
+            }
+        });
+        doc.setLineWidth(0.6);
+    }
+
+    // ── VULCANIZADA: onda sinusoidal (costura de calor) arriba y abajo ─────
+    if (dt.tipoConfeccion === 'VULCANIZADA') {
+        doc.setDrawColor(Math.max(0, r - 70), Math.max(0, g - 70), Math.max(0, b - 70));
+        doc.setLineWidth(0.9);
+        const steps  = 40;
+        const cycles = 4;
+        const amp    = 1.5;
+        [bY + 3, bY + bH - 3].forEach(yBase => {
+            for (let i = 0; i < steps; i++) {
+                const t1 = i / steps;
+                const t2 = (i + 1) / steps;
+                doc.line(
+                    bX + t1 * bW, yBase + Math.sin(t1 * cycles * 2 * Math.PI) * amp,
+                    bX + t2 * bW, yBase + Math.sin(t2 * cycles * 2 * Math.PI) * amp,
+                );
+            }
+        });
+        doc.setLineWidth(0.6);
+    }
+
+    // ── Líneas de tacos ────────────────────────────────────────────────────
+    if (dt.tacos && largo > 0 && dt.tacos.paso > 0) {
+        const { paso, longitudTaco, tipo: tipoTaco } = dt.tacos;
+        const tacoPct      = longitudTaco ? Math.min(longitudTaco / ancho, 0.95) : 0.88;
+        const tW           = bW * tacoPct;
+        const tX           = bX + (bW - tW) / 2;
+        const inclineOff   = tipoTaco === 'INCLINADO' ? tW * 0.1 : 0;
+        doc.setDrawColor(50, 50, 50);
+        doc.setLineWidth(1.2);
+        let pos = paso / 2;
+        while (pos < largo) {
+            const ty = bY + (pos / largo) * bH;
+            if (ty > bY + 2 && ty < bY + bH - 2) {
+                doc.line(tX, ty, tX + tW, ty + inclineOff);
+            }
+            pos += paso;
+        }
+        doc.setLineWidth(0.6);
+    }
+
+    // ── Cotas ──────────────────────────────────────────────────────────────
+    doc.setDrawColor(160, 160, 160);
+    doc.setLineWidth(0.25);
+    doc.setFontSize(5.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+
+    // Cota ancho (inferior)
+    const dimY = bY + bH + 4;
+    doc.line(bX,      dimY, bX + bW, dimY);
+    doc.line(bX,      dimY - 1.5, bX,      dimY + 1.5);
+    doc.line(bX + bW, dimY - 1.5, bX + bW, dimY + 1.5);
+    doc.text(`${ancho} mm`, bX + bW / 2, dimY + 4.5, { align: 'center' });
+
+    // Cota largo (derecha, texto vertical)
+    const dimX = bX + bW + 4;
+    doc.line(dimX, bY, dimX, bY + bH);
+    doc.line(dimX - 1.5, bY,      dimX + 1.5, bY);
+    doc.line(dimX - 1.5, bY + bH, dimX + 1.5, bY + bH);
+    doc.text(`${largo} mm`, dimX + 4, bY + bH / 2, { angle: 90, align: 'center' });
+
+    // Restaurar estado por defecto para el resto del PDF
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.4);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
 }
 
 /**
