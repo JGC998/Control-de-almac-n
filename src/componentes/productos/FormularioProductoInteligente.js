@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import { Package, Loader2 } from 'lucide-react';
 import SelectorFamiliaSubfamilia from './SelectorFamiliaSubfamilia';
+import SelectorFabricante from './SelectorFabricante';
 
 const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] };
 
@@ -487,14 +488,11 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       {/* Fabricante */}
       <div className="form-control">
         <label className="label"><span className="label-text">Fabricante</span></label>
-        <select
-          className="select select-bordered"
-          value={form.fabricanteId ?? ''}
-          onChange={e => setForm(f => ({ ...f, fabricanteId: e.target.value || null }))}
-        >
-          <option value="">— Sin fabricante —</option>
-          {fabricantes.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
-        </select>
+        <SelectorFabricante
+          fabricantes={fabricantes}
+          value={form.fabricanteId}
+          onChange={id => setForm(f => ({ ...f, fabricanteId: id }))}
+        />
       </div>
 
       {/* Referencia fabricante */}

@@ -13,7 +13,7 @@ export async function PUT(request, { params }) {
     if (!validation.success) {
       return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-    const updatedItem = await db.fabricante.update({ where: { id }, data: { nombre: validation.data.nombre } });
+    const updatedItem = await db.fabricante.update({ where: { id }, data: { nombre: validation.data.nombre.trim().toUpperCase() } });
     return NextResponse.json(updatedItem);
   } catch (error) {
     return handlePrismaError(error, {

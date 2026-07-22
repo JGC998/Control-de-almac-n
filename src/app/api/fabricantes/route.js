@@ -9,6 +9,7 @@ const manejadores = crearManejadoresCRUD('fabricante', {
     orderBy: { nombre: 'asc' },
   },
   zodSchema: fabricanteSchema,
+  mapearCrear: (data) => ({ ...data, nombre: data.nombre.trim().toUpperCase() }),
 }, '/configuracion');
 
 export const GET = manejadores.GET;
