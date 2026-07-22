@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from 'react';
+import useSWR from 'swr';
 import { Package, Loader2 } from 'lucide-react';
 import SelectorFamiliaSubfamilia from './SelectorFamiliaSubfamilia';
 
@@ -27,6 +28,9 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     referenciaFabricante: '',
     subfamiliaId: null,
   });
+
+  const { data: familias = [] } = useSWR('/api/familias');
+  const [familiaIdSugerida, setFamiliaIdSugerida] = useState(null);
 
   const [opciones, setOpciones] = useState(VACIO);
   const [tarifaEncontrada, setTarifaEncontrada] = useState(false);
@@ -112,6 +116,19 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     setForm(f => ({ ...f, material, materialId: registro?.id ?? null, espesor: '', acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
     setOpciones(prev => ({ ...prev, espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] }));
     setTarifaEncontrada(false);
+
+    // Autodetect familia por nombre de material
+    if (material && familias.length) {
+      const norm = material.toLowerCase().trim();
+      const fam = familias.find(f => {
+        const fn = f.nombre.toLowerCase().trim();
+        return fn === norm || norm.startsWith(fn) || fn.startsWith(norm);
+      });
+      setFamiliaIdSugerida(fam?.id ?? null);
+    } else {
+      setFamiliaIdSugerida(null);
+    }
+
     if (!material) return;
     setCargando(true);
     try {
@@ -123,7 +140,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [familias]);
 
   // Espesor → acabados (+ colores si no hay acabados)
   const handleEspesorChange = useCallback(async (espesor) => {
@@ -459,6 +476,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         <SelectorFamiliaSubfamilia
           value={form.subfamiliaId}
           onChange={id => setForm(f => ({ ...f, subfamiliaId: id }))}
+          sugerirFamiliaId={familiaIdSugerida}
         />
       </div>
 

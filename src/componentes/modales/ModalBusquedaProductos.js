@@ -8,26 +8,15 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
     const [filtroMaterial, setFiltroMaterial] = useState('');
     const [filtroEspesor, setFiltroEspesor]   = useState('');
     const [filtroAcabado, setFiltroAcabado]   = useState('');
-    const [filtroFamilia, setFiltroFamilia]   = useState('');
     const [soloConPrecio, setSoloConPrecio]   = useState(false);
 
-    // T-81: solo materiales con al menos un producto con precio activo
+    // Solo materiales con al menos un producto con precio activo
     const materiales = useMemo(() => {
         const conPrecio = items.filter(p => parseFloat(p.precioUnitario) > 0);
         return [...new Set(conPrecio.map(p => p.material?.nombre ?? p.material ?? null).filter(Boolean))].sort();
     }, [items]);
 
-    // Familias únicas presentes en los items
-    const familias = useMemo(() => {
-        const mapa = new Map();
-        items.forEach(p => {
-            const f = p.subfamilia?.familia;
-            if (f) mapa.set(f.id, f);
-        });
-        return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-    }, [items]);
-
-    // T-82: espesores y acabados contextuales al material seleccionado
+    // Espesores contextuales al material seleccionado
     const itemsDelMaterial = useMemo(() => {
         if (!filtroMaterial) return items;
         return items.filter(p => (p.material?.nombre ?? p.material) === filtroMaterial);
@@ -37,9 +26,13 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
         return [...new Set(itemsDelMaterial.map(p => p.espesor).filter(v => v != null))].sort((a, b) => a - b);
     }, [itemsDelMaterial]);
 
+    // Acabados contextuales al material + espesor seleccionado (cascada)
     const acabados = useMemo(() => {
-        return [...new Set(itemsDelMaterial.map(p => p.acabado).filter(Boolean))].sort();
-    }, [itemsDelMaterial]);
+        const base = !filtroEspesor
+            ? itemsDelMaterial
+            : itemsDelMaterial.filter(p => String(p.espesor) === filtroEspesor);
+        return [...new Set(base.map(p => p.acabado).filter(Boolean))].sort();
+    }, [itemsDelMaterial, filtroEspesor]);
 
     const filtrados = useMemo(() => {
         const term = busqueda.toLowerCase().trim();
@@ -55,11 +48,10 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
             const matchMaterial = !filtroMaterial || (p.material?.nombre ?? p.material) === filtroMaterial;
             const matchEspesor  = !filtroEspesor  || String(p.espesor) === filtroEspesor;
             const matchAcabado  = !filtroAcabado  || p.acabado === filtroAcabado;
-            const matchFamilia  = !filtroFamilia  || p.subfamilia?.familia?.id === filtroFamilia;
             const matchPrecio   = !soloConPrecio  || (parseFloat(p.precioUnitario) > 0);
-            return matchTexto && matchMaterial && matchEspesor && matchAcabado && matchFamilia && matchPrecio;
+            return matchTexto && matchMaterial && matchEspesor && matchAcabado && matchPrecio;
         });
-    }, [items, busqueda, filtroMaterial, filtroEspesor, filtroAcabado, filtroFamilia, soloConPrecio]);
+    }, [items, busqueda, filtroMaterial, filtroEspesor, filtroAcabado, soloConPrecio]);
 
     if (!abierto) return null;
 
@@ -86,26 +78,22 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-3 items-center">
-                    {familias.length > 0 && (
-                        <select className="select select-bordered select-sm" value={filtroFamilia} onChange={e => setFiltroFamilia(e.target.value)}>
-                            <option value="">Todas las familias</option>
-                            {familias.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
-                        </select>
-                    )}
-                    <select className="select select-bordered select-sm" value={filtroMaterial} onChange={e => { setFiltroMaterial(e.target.value); setFiltroAcabado(''); setFiltroEspesor(''); }}>
+                    <select className="select select-bordered select-sm" value={filtroMaterial} onChange={e => { setFiltroMaterial(e.target.value); setFiltroEspesor(''); setFiltroAcabado(''); }}>
                         <option value="">Todos los materiales</option>
                         {materiales.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
+                    {espesores.length > 0 && (
+                        <select className="select select-bordered select-sm" value={filtroEspesor} onChange={e => { setFiltroEspesor(e.target.value); setFiltroAcabado(''); }}>
+                            <option value="">Todos los espesores</option>
+                            {espesores.map(e => <option key={e} value={String(e)}>{e} mm</option>)}
+                        </select>
+                    )}
                     {acabados.length > 0 && (
                         <select className="select select-bordered select-sm" value={filtroAcabado} onChange={e => setFiltroAcabado(e.target.value)}>
                             <option value="">Todos los acabados</option>
                             {acabados.map(a => <option key={a} value={a}>{a}</option>)}
                         </select>
                     )}
-                    <select className="select select-bordered select-sm" value={filtroEspesor} onChange={e => setFiltroEspesor(e.target.value)}>
-                        <option value="">Todos los espesores</option>
-                        {espesores.map(e => <option key={e} value={String(e)}>{e} mm</option>)}
-                    </select>
                     <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
                         <input type="checkbox" className="checkbox checkbox-sm" checked={soloConPrecio} onChange={e => setSoloConPrecio(e.target.checked)} />
                         Solo con precio

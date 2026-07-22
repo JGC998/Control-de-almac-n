@@ -10,22 +10,25 @@ import useSWR from 'swr';
  *   required   — boolean
  *   className  — clases adicionales para el wrapper
  */
-export default function SelectorFamiliaSubfamilia({ value, onChange, onFamiliaChange, required = false, className = '', compact = false }) {
+export default function SelectorFamiliaSubfamilia({ value, onChange, onFamiliaChange, sugerirFamiliaId, required = false, className = '', compact = false }) {
   const { data: familias = [], isLoading } = useSWR('/api/familias');
 
-  // familia seleccionada en el primer select (puede ser diferente a la de value si el usuario
-  // acaba de cambiar de familia sin elegir subfamilia todavía)
   const [familiaId, setFamiliaId] = useState('');
 
   // Sincronizar familiaId cuando llega el value externo (modo edición).
-  // No resetear familiaId cuando value pasa a null: puede que el usuario esté
-  // eligiendo familia sin haber seleccionado subfamilia aún, y el reset
-  // haría desaparecer el select de subfamilia.
   useEffect(() => {
     if (!value || !familias.length) return;
     const fam = familias.find(f => f.subfamilias?.some(s => s.id === value));
     if (fam) { setFamiliaId(fam.id); onFamiliaChange?.(fam); }
   }, [value, familias]);
+
+  // Preseleccionar familia sugerida (autodetect desde material) cuando no hay subfamilia elegida
+  useEffect(() => {
+    if (!sugerirFamiliaId || !familias.length || value || familiaId === sugerirFamiliaId) return;
+    setFamiliaId(sugerirFamiliaId);
+    const fam = familias.find(f => f.id === sugerirFamiliaId) ?? null;
+    onFamiliaChange?.(fam);
+  }, [sugerirFamiliaId, familias.length]);
 
   const subfamilias = familias.find(f => f.id === familiaId)?.subfamilias ?? [];
 
