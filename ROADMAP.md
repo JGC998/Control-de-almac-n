@@ -7,55 +7,52 @@
 
 ## 🎯 Visión general
 
-El foco actual es pulir la interfaz y corregir inconsistencias acumuladas en el área de productos y formularios: campos obsoletos que siguen apareciendo, bugs de filtrado y ordenación, y automatizaciones pendientes que ahorrarán trabajo manual (sobre todo la sincronización tarifa → catálogo de productos).
+El foco ahora es la **identificación unívoca de productos**: evitar confusiones entre piezas similares (mismo nombre, distinto espesor) creando un código interno auto-generado a partir de los atributos del producto, mostrándolo en todos los puntos de contacto (lista, pedidos, búsqueda) y permitiendo imprimir etiquetas físicas para los troqueles. Como requisito previo, hay que exponer el campo **fabricante** en el formulario de producto, que existe en la base de datos pero nunca se ha mostrado en la interfaz.
 
 ---
 
 ## 📋 Backlog completo
 
-| ID | Tarea | Tipo | Estado |
-|----|-------|------|--------|
-| T-01 | Quitar campos Tipo y Unidad del formulario de producto | Limpieza | ✅ |
-| T-02 | Quitar campos Tipo y Unidad del formulario de edición | Limpieza | ✅ |
-| T-03 | Eliminar `costoUnitario` de formularios visibles | Limpieza | ✅ |
-| T-04 | Bug: tag "Banda PVC" fijo en líneas de metraje | Bug | ✅ |
-| T-05 | Bug: selector Familia/Subfamilia vacío en modal nuevo producto | Bug | ✅ |
-| T-06 | Bug: ordenación numérica incorrecta en lista de productos | Bug | ✅ |
-| T-07 | Autodetectar familia desde el material en formulario de producto | Mejora | ✅ |
-| T-08 | Modal búsqueda: quitar duplicidad Material/Familia | Limpieza | ✅ |
-| T-09 | Modal búsqueda: filtrado en cascada (material → espesor → acabado) | Mejora | ✅ |
-| T-10 | Guardar metraje de material como producto del catálogo | Feature | ✅ |
-| T-11 | Tarifa rollos → generar/actualizar producto en catálogo | Feature | ✅ |
-| T-12 | Verificar paridad presupuestos ↔ pedidos | Revisión | ✅ |
-| T-13 | Documentar inicio y ventas en DESIGN.md | Docs | ✅ |
+| ID | Tarea | Tipo | Complejidad | Depende de |
+|----|-------|------|-------------|------------|
+| T-01 | Añadir selector de fabricante al formulario de producto | Mejora UI | Pequeña | — |
+| T-02 | Función `generarCodigo(producto)` en `producto-utils.js` con reglas de abreviación | Feature | Pequeña | T-01 |
+| T-03 | Mostrar código interno en la lista de productos (`/gestion/productos`) | Mejora UI | Pequeña | T-02 |
+| T-04 | Mostrar código en `EditorFilaItem` al seleccionar un producto en un pedido | Mejora UI | Pequeña | T-02 |
+| T-05 | Incluir código interno como campo de búsqueda en `ModalBusquedaProductos` | Mejora UI | Pequeña | T-02 |
+| T-06 | Mejorar etiqueta PDF existente para incluir el código interno prominentemente | Mejora | Pequeña | T-02 |
+| T-07 | Imprimir etiquetas en lote desde la selección de la lista de productos | Feature | Media | T-06 |
 
 ---
 
 ## 🗺️ Fases propuestas
 
-### Fase 1 — Limpieza de formularios y bugs evidentes
-> Eliminar campos obsoletos y corregir los tres bugs reportados. Estimación: 2-3 horas.
+### Fase 1 — Fabricante + código interno visible en todos los puntos
+> Eliminar la confusión entre productos similares con un código auto-generado. Estimación: 2-3 horas.
 
-- [x] **T-01** — Quitar Tipo y Unidad del formulario de producto (`FormularioProductoInteligente.js`)
-- [x] **T-02** — Quitar Tipo y Unidad del formulario de edición de producto (mismo componente)
-- [x] **T-03** — Eliminar `costoUnitario` de todos los formularios visibles
-- [x] **T-04** — Bug: tag "Banda PVC" fijo en líneas de metraje material (`EditorFilaItem.js`)
-- [x] **T-05** — Bug: selector Familia/Subfamilia vacío — creado `GET /api/familias`
-- [x] **T-06** — Bug: ordenación numérica incorrecta en lista de productos (`localeCompare numeric:true`)
+- [ ] **T-01** — Añadir fabricante al formulario de producto  
+  _`FormularioProductoInteligente.js`: cargar `/api/fabricantes` con SWR y añadir un select debajo de Ref. fabricante. El campo `fabricanteId` ya existe en el payload — solo falta la UI._
 
-### Fase 2 — Mejoras de producto y búsqueda
-> UX más inteligente en los flujos de selección y clasificación de productos. Estimación: 3-4 horas.
+- [ ] **T-02** — Función `generarCodigo(producto)` con reglas de abreviación  
+  _Añadir a `src/lib/producto-utils.js`. Combina: Familia (3 letras) · Subfamilia (4 letras) · Fabricante (iniciales) · Acabado (3 letras si aplica) · Espesor (Xmm) · Ancho×Largo. Ejemplo: `GOm-CIER-MB-8mm-500×1200`. Documentar las reglas en DESIGN.md._
 
-- [x] **T-07** — Autodetectar familia desde el material en el formulario de producto  
-- [x] **T-08** — Modal búsqueda: quitar la duplicidad Material/Familia  
-- [x] **T-09** — Modal búsqueda: filtrado en cascada (material → espesor → acabado)  
-- [x] **T-12** — Verificado: presupuestos y pedidos comparten `FormularioPedidoCliente`; ModalHistorialCliente funciona en ambos sin cambios
+- [ ] **T-03** — Código visible en la lista de productos  
+  _`/gestion/productos/page.js`: añadir columna "Código" tras el nombre, generada al vuelo con `generarCodigo()`. Click en el código → copiar al portapapeles (tooltip "Copiado")._
 
-### Fase 3 — Features de automatización
-> Las dos features más grandes, que ahorran trabajo manual recurrente. Estimación: 1-2 días.
+- [ ] **T-04** — Código en `EditorFilaItem` al añadir una línea de pedido  
+  _Mostrar el código como badge extra debajo del nombre del producto cuando la línea es de tipo catálogo. Permite al operario verificar que seleccionó la pieza correcta._
 
-- [x] **T-10** — Guardar metraje como producto del catálogo  
-- [x] **T-11** — Tarifa rollos → generar/actualizar productos (solo sube precio, nunca baja)
+- [ ] **T-05** — Buscar por código en el modal de búsqueda de productos  
+  _`ModalBusquedaProductos.js`: añadir `generarCodigo(p)` al `matchTexto` del filtrado. El usuario podrá buscar "8mm 500" y encontrar la pieza concreta._
+
+### Fase 2 — Etiquetas físicas para troqueles
+> Cerrar el ciclo: el código interno imprimible y pegable en las piezas. Estimación: 2-3 horas.
+
+- [ ] **T-06** — Mejorar la etiqueta PDF existente con el código interno  
+  _`src/lib/pdfGenerator.js → generateEtiquetaPDF()`: el endpoint `GET /api/productos/[id]/etiqueta` ya genera un PDF 100×70mm con QR. Añadir el código auto-generado como texto grande y destacado. El botón de etiqueta ya existe en `/gestion/productos/[id]`._
+
+- [ ] **T-07** — Imprimir etiquetas en lote desde la lista  
+  _En `/gestion/productos`, el panel de selección masiva (bottom bar) ya existe. Añadir botón "Imprimir etiquetas (N)". Nuevo endpoint `POST /api/productos/etiquetas-lote` que acepta un array de IDs y devuelve un PDF multipágina (una etiqueta por página)._
 
 ---
 
@@ -63,35 +60,34 @@ El foco actual es pulir la interfaz y corregir inconsistencias acumuladas en el 
 
 Tareas pequeñas de impacto inmediato que se pueden resolver en minutos:
 
-- [x] **T-06** — Bug ordenación numérica: una línea de fix en `comparar()` (~10 min)
-- [x] **T-04** — Bug tag "Banda PVC": localizar y corregir la descripción que se construye (~15 min)
-- [x] **T-13** — Documentar inicio y ventas en DESIGN.md (~10 min)
+- [ ] **T-01** — Fabricante en formulario: un select con SWR, sin cambio de DB (~30 min)
+- [ ] **T-05** — Búsqueda por código: una línea en el `matchTexto` de `ModalBusquedaProductos` (~10 min, requiere T-02)
 
 ---
 
 ## 🚧 Dependencias y bloqueos
 
-- **T-07** requiere que **T-05** esté resuelto (si el selector no carga datos, la autodetección no tiene sentido)
-- **T-09** requiere **T-08** (primero simplificar, luego añadir filtrado en cascada)
-- **T-11** requiere decidir la convención de nombres de producto generado (propuesta arriba: `FIELTRO 10mm ROLLO 1200`)
+- **T-02 a T-07** dependen de T-01 solo parcialmente: T-02 puede empezar sin T-01 (el fabricante simplemente sale vacío en el código si no está asignado), pero lo ideal es hacer T-01 primero para que los productos nuevos ya lleven fabricante desde el principio.
+- **T-07** requiere T-06 (la lógica de generación de una etiqueta debe existir antes de hacer el lote).
+- **Reglas de abreviación** (T-02): los nombres exactos de las abreviaciones hay que decidirlos antes de implementar — se propone un sistema en el DESIGN.md pero el usuario puede ajustarlo.
 
 ---
 
 ## 💡 Ideas descartadas o pospuestas
 
-- **"Unidad" en productos** — ya prácticamente eliminado en versiones anteriores, se termina de quitar en T-01/T-02
-- **Separar activos/obsoletos en tabla nueva de BD** — descartado previamente por riesgo de FK (se usa `activo: Boolean` en su lugar)
+- **Código almacenado en BD** (campo `codigoInterno`): se descarta por ahora a favor de generarlo al vuelo desde los campos existentes. Ventaja: sin migración, siempre consistente con los datos reales. Si en el futuro se necesita indexar por código o filtrarlo server-side, se puede añadir el campo y rellenarlo con una migración de datos.
+- **QR o código de barras en etiqueta**: el QR ya existe en la etiqueta actual (apunta a la ficha del producto). No se añade código de barras por el momento.
 
 ---
 
-## ✅ Completado recientemente
+## ✅ Completado anteriormente
+- **T-13**: Documentar /inicio y /ventas en DESIGN.md — `a944c75`
 - **Fase 3**: Guardar metraje en catálogo + generar productos desde tarifas (T-10, T-11) — `ccce4af`
-- **Fase 2**: Filtrado cascada búsqueda (T-07, T-08, T-09) + paridad presupuestos (T-12) — `6befd55`
-- **Fase 1**: Limpieza formularios y 3 bugs (T-01 a T-06) — `e832c2b`
+- **Fase 2**: Filtrado cascada búsqueda (T-07→T-09) + paridad presupuestos (T-12) — `6befd55`
+- **Fase 1**: Limpieza formularios y 3 bugs (T-01→T-06) — `e832c2b`
 - Historial de cliente en formulario de pedido/presupuesto (reemplaza Plantillas) — `2aeceff`
 - Simplificación lista de productos (dos tabs, sin columna Tipo) — `8cfcaf0`
 - 15 fixes de la segunda revisión de código — `9618c67`
-- DESIGN.md con documentación visual de `/gestion/productos` y `/pedidos`
 
 ---
 
