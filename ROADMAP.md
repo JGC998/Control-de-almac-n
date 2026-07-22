@@ -60,10 +60,8 @@ El foco actual es pulir la interfaz y corregir inconsistencias acumuladas en el 
 ### Fase 3 — Features de automatización
 > Las dos features más grandes, que ahorran trabajo manual recurrente. Estimación: 1-2 días.
 
-- [ ] **T-10** — Guardar metraje como producto del catálogo  
-  _Desde el modal de metraje material, botón "Guardar como producto". Crea un producto con los datos del metraje (material, espesor, ancho, largo, precio). Luego aparece buscable en el catálogo como cualquier otro._
-- [ ] **T-11** — Tarifa rollos → generar/actualizar productos automáticamente  
-  _Desde la tabla de tarifas por rollo (`/tarifas`), botón "Sincronizar productos". Lee cada entrada de `TarifaRollo` y crea o actualiza el `Producto` correspondiente. Regla: **solo actualiza precio si el nuevo es mayor** (nunca cuando baje). Nombre generado como: `{MATERIAL} {ESPESOR}mm ROLLO {ANCHO}`._
+- [x] **T-10** — Guardar metraje como producto del catálogo  
+- [x] **T-11** — Tarifa rollos → generar/actualizar productos (solo sube precio, nunca baja)
 
 ---
 
@@ -93,6 +91,7 @@ Tareas pequeñas de impacto inmediato que se pueden resolver en minutos:
 ---
 
 ## ✅ Completado recientemente
+- **Fase 3**: Guardar metraje en catálogo + generar productos desde tarifas (T-10, T-11) — `ccce4af`
 - **Fase 2**: Filtrado cascada búsqueda (T-07, T-08, T-09) + paridad presupuestos (T-12) — `6befd55`
 - **Fase 1**: Limpieza formularios y 3 bugs (T-01 a T-06) — `e832c2b`
 - Historial de cliente en formulario de pedido/presupuesto (reemplaza Plantillas) — `2aeceff`
