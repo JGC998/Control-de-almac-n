@@ -27,7 +27,7 @@ El foco actual es pulir la interfaz y corregir inconsistencias acumuladas en el 
 | T-10 | Guardar metraje de material como producto del catálogo | Feature | ✅ |
 | T-11 | Tarifa rollos → generar/actualizar producto en catálogo | Feature | ✅ |
 | T-12 | Verificar paridad presupuestos ↔ pedidos | Revisión | ✅ |
-| T-13 | Documentar inicio y ventas en DESIGN.md | Docs | ⏳ |
+| T-13 | Documentar inicio y ventas en DESIGN.md | Docs | ✅ |
 
 ---
 
@@ -65,7 +65,7 @@ Tareas pequeñas de impacto inmediato que se pueden resolver en minutos:
 
 - [x] **T-06** — Bug ordenación numérica: una línea de fix en `comparar()` (~10 min)
 - [x] **T-04** — Bug tag "Banda PVC": localizar y corregir la descripción que se construye (~15 min)
-- [ ] **T-13** — Documentar inicio y ventas en DESIGN.md (~10 min)
+- [x] **T-13** — Documentar inicio y ventas en DESIGN.md (~10 min)
 
 ---
 

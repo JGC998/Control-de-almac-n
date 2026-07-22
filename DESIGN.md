@@ -8,8 +8,117 @@
 
 ## Índice
 
+- [/](#inicio-dashboard)
+- [/ventas](#ventas)
 - [/gestion/productos](#gestionproductos)
 - [/pedidos](#pedidos)
+
+---
+
+## / (Inicio — Dashboard)
+
+**Archivo:** `src/app/page.js`  
+**Estado:** ✅ Aprobado  
+**Renderizado:** Client Component — `useSWR('/api/dashboard', { refreshInterval: 60000 })`
+
+### Estructura visual (de arriba a abajo)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Inicio (h1 text-2xl font-bold)                             │
+├─────────────────────────────────────────────────────────────┤
+│  AccesosDirectos — grid 2 cols / sm:3 cols / lg:4 cols      │
+│  7 tarjetas con rounded-2xl, icono w-8 h-8 + label sm       │
+│  hover:scale-105 · active:scale-95 · transition-transform   │
+│                                                             │
+│  Presupuestos (primary) · Pedidos (success)                 │
+│  Almacén (accent) · Contenedores (secondary)                │
+│  Calculadora bandas (warning) · Calculadora metrajes (neutral)│
+│  Tarifas (info)                                             │
+├─────────────────────────────────────────────────────────────┤
+│  grid md:grid-cols-2 gap-4 — solo visible si hay datos:     │
+│  ┌──────────────────────┐  ┌──────────────────────────────┐ │
+│  │ PanelFamilias        │  │ PanelFacturasPendientes       │ │
+│  │ Barras horizontales  │  │ KPIs: emitidas / vencidas     │ │
+│  │ por familia (color + │  │ Total pendiente               │ │
+│  │ nº productos)        │  │ Lista de facturas (link cada) │ │
+│  └──────────────────────┘  └──────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Accesos directos — orden y colores fijos
+
+| # | Label | href | Color DaisyUI |
+|---|-------|------|---------------|
+| 1 | Presupuestos | `/presupuestos` | `bg-primary` |
+| 2 | Pedidos | `/pedidos` | `bg-success` |
+| 3 | Almacén | `/almacen` | `bg-accent` |
+| 4 | Contenedores | `/compras/contenedores` | `bg-secondary` |
+| 5 | Calculadora bandas | `/calculadora/bandas` | `bg-warning` |
+| 6 | Calculadora metrajes | `/calculadora/metrajes` | `bg-neutral` |
+| 7 | Tarifas | `/tarifas` | `bg-info` |
+
+### Widgets secundarios
+
+- **PanelFamilias** — barras horizontales proporcionales al nº de productos por familia, coloreadas con `familia.color`. Solo aparece si `familiaStats.length > 0`.
+- **PanelFacturasPendientes** — 2 KPIs (nº emitidas / nº vencidas en `bg-error/10`), total pendiente en €, lista de hasta N facturas con link a cada una. `AlertCircle text-error` si vencida, `Clock` si no. Solo aparece si hay facturas.
+- El grid de widgets no se renderiza si ambos paneles están vacíos.
+
+### 🚫 No cambiar sin confirmar
+
+1. **7 accesos directos** — ese conjunto y ese orden son deliberados. No añadir ni quitar sin aprobación.
+2. **Colores por sección** — cada tarjeta usa el color semántico de su área (primary = ventas, success = pedidos, etc.). No cambiar los colores.
+3. **refreshInterval: 60 000 ms** — el dashboard se refresca cada minuto. No bajar ese intervalo.
+4. **Widgets solo si hay datos** — los paneles no aparecen en pantalla vacía, no añadir placeholders ni estados vacíos en el grid.
+
+---
+
+---
+
+## /ventas
+
+**Archivo:** `src/app/ventas/page.js`  
+**Estado:** ✅ Aprobado  
+**Renderizado:** Server Component — delega en `<HubPage>`
+
+### Estructura visual
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  💲 Ventas (h1 con icono DollarSign, color primary)         │
+│  "Gestión del ciclo de venta: presupuestos y pedidos..."    │
+├─────────────────────────────────────────────────────────────┤
+│  Grupo: "Crear nuevo documento"                             │
+│  ┌────────────────────────┐  ┌────────────────────────────┐ │
+│  │ FilePlus  Nuevo         │  │ PackagePlus  Nuevo pedido  │ │
+│  │ presupuesto             │  │ [Crear pedido]             │ │
+│  │ [Crear presupuesto]     │  │                            │ │
+│  └────────────────────────┘  └────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│  Grupo: "Ver y gestionar"                                   │
+│  ┌────────────────────────┐  ┌────────────────────────────┐ │
+│  │ FileText  Presupuestos  │  │ Package  Pedidos de cliente│ │
+│  │ [Ver presupuestos]      │  │ [Ver pedidos]              │ │
+│  └────────────────────────┘  └────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Grupos y destinos — orden fijo
+
+| Grupo | Item | href |
+|-------|------|------|
+| Crear nuevo documento | Nuevo presupuesto | `/presupuestos/nuevo` |
+| Crear nuevo documento | Nuevo pedido | `/pedidos/nuevo` |
+| Ver y gestionar | Presupuestos | `/presupuestos` |
+| Ver y gestionar | Pedidos de cliente | `/pedidos` |
+
+### 🚫 No cambiar sin confirmar
+
+1. **Dos grupos, cuatro items** — estructura fija. No añadir albaranes, facturas ni otras secciones aquí sin aprobación.
+2. **Orden de items dentro de cada grupo** — presupuesto siempre antes que pedido (refleja el flujo natural del ciclo de venta).
+3. **Página de hub pura** — no añadir widgets de datos, KPIs ni tablas. Para eso está el Dashboard (`/`).
+
+---
 
 ---
 
