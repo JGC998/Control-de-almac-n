@@ -2223,23 +2223,46 @@ export async function generateEtiquetasLoteA4PDF(items, nomConfig = {}) {
             doc.rect(x, y, w, h, 'FD');
         }
 
-        // ── Sección 1: 15 mm — fabricante (grande) + nombre·dims (pequeño)
+        // Ajusta el tamaño de fuente para que text quepa en maxWidth.
+        // Devuelve el tamaño final usado. Trunca con "…" si no cabe ni a minSize.
+        function fitText(text, maxWidth, maxSize, minSize = 5) {
+            let size = maxSize;
+            doc.setFontSize(size);
+            while (size > minSize && doc.getTextWidth(text) > maxWidth) {
+                size -= 0.25;
+                doc.setFontSize(size);
+            }
+            if (doc.getTextWidth(text) > maxWidth) {
+                // Truncar con elipsis
+                let t = text;
+                while (t.length > 1 && doc.getTextWidth(t + '…') > maxWidth) t = t.slice(0, -1);
+                return t + '…';
+            }
+            return text;
+        }
+
+        const PAD    = 3.5;  // margen interno izquierdo/derecho
+        const TEXT_W = LABEL_W - PAD * 2;
+
+        // ── Sección 1: 15 mm — fabricante (bold, grande) + nombre·dims (normal)
         for (const item of flat) {
             ensureSpace(15);
             const x = MARGIN_X + currentCol * LABEL_W;
             const y = currentY;
             drawBox(x, y, LABEL_W, 15);
 
+            // Línea 1: fabricante — lo más grande posible
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
             doc.setTextColor(20, 20, 20);
-            doc.text(item.fab || '—', x + 4, y + 5.5);
+            const fabText = fitText(item.fab || '—', TEXT_W, 14, 5);
+            doc.text(fabText, x + PAD, y + 5.5);
 
+            // Línea 2: nombre · dims — ajustado para llenar
             const linea2 = [item.nombre, item.dims].filter(Boolean).join('  ·  ');
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7);
-            doc.setTextColor(70, 70, 70);
-            doc.text(linea2, x + 4, y + 11);
+            doc.setTextColor(60, 60, 60);
+            const ln2Text = fitText(linea2, TEXT_W, 9.5, 5);
+            doc.text(ln2Text, x + PAD, y + 11.5);
 
             advanceSlot(15, 1.5);
         }
@@ -2254,9 +2277,9 @@ export async function generateEtiquetasLoteA4PDF(items, nomConfig = {}) {
             drawBox(x, y, LABEL_W, 10);
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8.5);
             doc.setTextColor(20, 20, 20);
-            doc.text(item.codigo, x + 4, y + 6.5);
+            const codeText = fitText(item.codigo, TEXT_W, 11, 5);
+            doc.text(codeText, x + PAD, y + 6.5);
 
             advanceSlot(10, 1);
         }
