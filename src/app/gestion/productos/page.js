@@ -40,7 +40,7 @@ function comparar(a, b, key, tipo, dir) {
   if (bNulo) return dir === 'asc' ? 1 : -1;
   let cmp = tipo === 'number'
     ? Number(va) - Number(vb)
-    : String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' });
+    : String(va).localeCompare(String(vb), 'es', { sensitivity: 'base', numeric: true });
   return dir === 'asc' ? cmp : -cmp;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 import React, { useMemo } from 'react';
-import { Trash2, Copy, Search, X, Package, CheckCircle, XCircle, AlertTriangle, Ruler, Pencil } from 'lucide-react';
+import { Trash2, Copy, Search, X, Package, Ruler, Pencil, Scissors } from 'lucide-react';
 
 export default function EditorFilaItem({
     item,
@@ -12,29 +12,38 @@ export default function EditorFilaItem({
 }) {
     const total = (parseFloat(item.quantity || 0) * parseFloat(item.unitPrice || 0)).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-    const isPVC     = !!item.detallesTecnicos;
+    const detalles  = useMemo(() => {
+        if (!item.detallesTecnicos) return null;
+        try { return JSON.parse(item.detallesTecnicos); } catch { return null; }
+    }, [item.detallesTecnicos]);
+
+    const isMetraje = detalles?.tipo === 'metraje';
+    const isPVC     = !!item.detallesTecnicos && !isMetraje;
     const isCatalog = !!item.productoId;
 
     const stockStatus = useMemo(() => {
-        if (isPVC) return 'pvc';
+        if (isMetraje) return 'metraje';
+        if (isPVC)     return 'pvc';
         if (!isCatalog) return 'manual';
         return 'catalog';
-    }, [isPVC, isCatalog]);
+    }, [isMetraje, isPVC, isCatalog]);
 
     const statusIcon = {
-        pvc:     <Ruler        className="w-4 h-4 text-secondary" />,
-        manual:  <Pencil       className="w-4 h-4 text-base-content/30" />,
-        catalog: <Package      className="w-4 h-4 text-info/60" />,
+        metraje: <Scissors className="w-4 h-4 text-accent" />,
+        pvc:     <Ruler    className="w-4 h-4 text-secondary" />,
+        manual:  <Pencil   className="w-4 h-4 text-base-content/30" />,
+        catalog: <Package  className="w-4 h-4 text-info/60" />,
     }[stockStatus];
 
     const statusTip = {
+        metraje: 'Metraje de material',
         pvc:     'Banda PVC personalizada',
         manual:  'Línea manual',
         catalog: 'Producto de catálogo',
     }[stockStatus];
 
     return (
-        <tr className={`hover${isPVC ? ' bg-secondary/5' : ''}`}>
+        <tr className={`hover${isPVC ? ' bg-secondary/5' : ''}${isMetraje ? ' bg-accent/5' : ''}`}>
             {/* Indicador de tipo */}
             <td className="text-center w-10">
                 <div className="tooltip tooltip-right" data-tip={statusTip}>
@@ -77,6 +86,11 @@ export default function EditorFilaItem({
 
                     {/* Badges informativos */}
                     <div className="flex items-center gap-1 pl-1 flex-wrap">
+                        {isMetraje && (
+                            <span className="badge badge-xs badge-accent gap-1">
+                                <Scissors className="w-2.5 h-2.5" /> {detalles?.material ?? 'Metraje'}
+                            </span>
+                        )}
                         {isPVC && (
                             <span className="badge badge-xs badge-secondary gap-1">
                                 <Ruler className="w-2.5 h-2.5" /> Banda PVC

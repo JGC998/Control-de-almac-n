@@ -296,37 +296,6 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         />
       </div>
 
-      {/* Tipo y Unidad */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="form-control">
-          <label className="label"><span className="label-text font-medium">Tipo</span></label>
-          <select
-            className="select select-bordered"
-            value={form.tipo}
-            onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
-          >
-            <option value="BANDA">Banda</option>
-            <option value="CORDON">Cordón</option>
-            <option value="BORDE_ONDULADO">Borde ondulado</option>
-            <option value="ACCESORIO">Accesorio</option>
-          </select>
-        </div>
-        <div className="form-control">
-          <label className="label"><span className="label-text font-medium">Unidad</span></label>
-          <select
-            className="select select-bordered"
-            value={form.unidad}
-            onChange={e => setForm(f => ({ ...f, unidad: e.target.value }))}
-          >
-            <option value="M2">m²</option>
-            <option value="M">m</option>
-            <option value="ML">ml</option>
-            <option value="UDS">Uds.</option>
-            <option value="KG">kg</option>
-          </select>
-        </div>
-      </div>
-
       {/* Descripción (para accesorios / cordones) */}
       {esAccesorio && (
         <div className="form-control">
@@ -453,33 +422,19 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
       </div>}
 
-      {/* Precio, Costo y Peso */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">Precio venta (€)</span>
-            {tieneTarifa && <span className="label-text-alt text-success text-xs">Auto ✓</span>}
-          </label>
-          <input
-            type="number" min="0" step="0.01"
-            value={form.precioUnitario}
-            onChange={e => setForm(f => ({ ...f, precioUnitario: e.target.value }))}
-            placeholder="0.00"
-            className={`input input-bordered ${tieneTarifa ? 'input-success' : ''}`}
-          />
-        </div>
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">Costo unitario (€)</span>
-          </label>
-          <input
-            type="number" min="0" step="0.01"
-            value={form.costoUnitario}
-            onChange={e => setForm(f => ({ ...f, costoUnitario: e.target.value }))}
-            placeholder="0.00"
-            className="input input-bordered"
-          />
-        </div>
+      {/* Precio y Peso */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">Precio venta (€)</span>
+          {tieneTarifa && <span className="label-text-alt text-success text-xs">Auto ✓</span>}
+        </label>
+        <input
+          type="number" min="0" step="0.01"
+          value={form.precioUnitario}
+          onChange={e => setForm(f => ({ ...f, precioUnitario: e.target.value }))}
+          placeholder="0.00"
+          className={`input input-bordered ${tieneTarifa ? 'input-success' : ''}`}
+        />
       </div>
       <div className="form-control">
         <label className="label">

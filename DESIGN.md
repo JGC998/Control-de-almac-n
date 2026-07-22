@@ -145,4 +145,71 @@ En el código existe un bloque **comentado** con tabs para separar pedidos factu
 
 ---
 
+---
+
+## /pedidos/nuevo
+
+**Archivo:** `src/app/pedidos/nuevo/page.js` → `src/componentes/pedidos/FormularioPedidoCliente.js`  
+**Estado:** ✅ Aprobado  
+**Renderizado:** Client Component — SWR para clientes, márgenes y productos
+
+### Estructura visual (de arriba a abajo)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  📦 Crear Nuevo Pedido (h1 text-3xl font-bold)              │
+├─────────────────────────────────────────────────────────────┤
+│  card bg-base-100 shadow-xl                                  │
+│  Card title: "Información Principal"                         │
+│  [🕐 Historial de cliente] — top-right, desactivado sin cliente │
+│  Input: Cliente (Requerido) — readonly + btn buscar          │
+│  (Si cliente tiene tarifas: badges inline clickables)        │
+├─────────────────────────────────────────────────────────────┤
+│  card bg-base-100 shadow-xl                                  │
+│  Card title: "Líneas del pedido" + contador "N líneas"       │
+│  [+ Añadir producto] [✂ Metraje material] [📏 Buscar Banda PVC] │
+│  table w-full:                                               │
+│    Stock | Producto | Cantidad | Precio Unit. | Total | Acciones │
+│    (EditorFilaItem por fila — badge de tipo en cada línea)  │
+├─────────────────────────────────────────────────────────────┤
+│  grid grid-cols-1 md:grid-cols-2 gap-6:                     │
+│  | Card: Notas Adicionales (textarea h-24)                  │
+│  | Card: Resumen del Total                                   │
+│  |   Select: Regla de Margen / Tier (requerido)            │
+│  |   Subtotal (Costo Base)                                  │
+│  |   Subtotal (con Margen) + desglose margen si aplica     │
+│  |   IVA (N%)                                               │
+│  |   Total (font-bold text-lg text-primary)                │
+│  |   Indicador margen estimado (verde ≥20%, amarillo ≥10%, rojo <10%) │
+├─────────────────────────────────────────────────────────────┤
+│  [Cancelar]  [💾 Guardar] (disabled sin cliente ni margen)  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Botones de añadir línea
+
+| Botón | Clase | Acción |
+|-------|-------|--------|
+| + Añadir producto | `btn-outline btn-primary` | Añade fila vacía |
+| ✂ Metraje material | `btn-outline btn-accent` | Abre `ModalMetrajeMaterial` |
+| 📏 Buscar Banda PVC | `btn-outline btn-secondary` | Abre `ModalBusquedaBandasPVC` |
+
+### EditorFilaItem — badges por tipo de línea
+
+| Tipo | Icono | Badge | Color |
+|------|-------|-------|-------|
+| Metraje material | Scissors | Nombre del material | `badge-accent` |
+| Banda PVC calculada | Ruler | "Banda PVC" | `badge-secondary` |
+| Producto de catálogo | Package | Subfamilia (si tiene) | Color de la familia |
+| Línea manual | Pencil | — | — |
+
+### 🚫 No cambiar sin confirmar
+
+1. **Botón "Historial de cliente"** — reemplazó a "Plantillas" deliberadamente. No restaurar Plantillas.
+2. **Tres botones de añadir línea** — en ese orden y con esas clases. No añadir más al header de "Líneas del pedido".
+3. **Indicador de margen estimado** — los umbrales (20%/10%) son valores de negocio. No cambiar sin consultar.
+4. **Botón Guardar desactivado** sin cliente Y sin margen seleccionado — validación deliberada.
+
+---
+
 *Añadir nuevas secciones aquí conforme se aprueben más páginas.*
