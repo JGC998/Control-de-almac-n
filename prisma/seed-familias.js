@@ -57,8 +57,10 @@ const FAMILIAS = [
     color: '#065F46',
     descripcion: 'Planchas de goma negra o verde en metraje o faldeta',
     subfamilias: [
-      { id: 'sub-pla-negra', nombre: 'Plancha Negra' },
-      { id: 'sub-pla-verde', nombre: 'Plancha Verde' },
+      { id: 'sub-pla-negra',    nombre: 'Plancha Negra' },
+      { id: 'sub-pla-verde',    nombre: 'Plancha Verde' },
+      { id: 'sub-pla-faldeta',  nombre: 'Faldeta' },
+      { id: 'sub-pla-metraje',  nombre: 'Metraje' },
     ],
   },
   {

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 // POST /api/productos/etiquetas-lote
 // Body: { items: [{ id: string, cantidad: number }] }
-// Devuelve un PDF A4 con hasta 8 etiquetas por página (2×4).
+// Devuelve un PDF A4 con dos secciones: etiquetas de 15mm (32/pág) y de 10mm (50/pág).
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -46,11 +46,7 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Ningún producto encontrado' }, { status: 404 });
     }
 
-    const host  = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
-    const proto = request.headers.get('x-forwarded-proto') || 'http';
-    const baseUrl = `${proto}://${host}`;
-
-    const buffer = await generateEtiquetasLoteA4PDF(itemsConProducto, baseUrl);
+    const buffer = await generateEtiquetasLoteA4PDF(itemsConProducto);
     const total  = itemsConProducto.reduce((s, it) => s + it.cantidad, 0);
 
     return new NextResponse(buffer, {

@@ -16,7 +16,8 @@ export default function ModalImprimirEtiquetas({ productos, onCerrar }) {
   }
 
   const total = Object.values(cantidades).reduce((s, n) => s + n, 0);
-  const paginas = Math.ceil(total / 8);
+  const paginas15 = Math.ceil(total / 32);
+  const paginas10 = Math.ceil(total / 50);
 
   async function generar() {
     setGenerando(true);
@@ -55,7 +56,7 @@ export default function ModalImprimirEtiquetas({ productos, onCerrar }) {
         </h3>
 
         <p className="text-sm text-base-content/60 mb-4">
-          Selecciona cuántas copias quieres imprimir de cada referencia. El PDF se genera en A4 con 8 etiquetas por página (2 × 4).
+          Selecciona cuántas copias de cada código quieres imprimir. El PDF incluye dos secciones: etiquetas de <strong>15 mm</strong> de alto (para troqueles grandes) y de <strong>10 mm</strong> de alto (para troqueles pequeños).
         </p>
 
         <div className="overflow-y-auto max-h-80 mb-4 border border-base-200 rounded-lg">
@@ -117,7 +118,7 @@ export default function ModalImprimirEtiquetas({ productos, onCerrar }) {
 
         <div className="flex items-center justify-between">
           <p className="text-sm text-base-content/50">
-            {total} etiqueta{total !== 1 ? 's' : ''} · {paginas} página{paginas !== 1 ? 's' : ''} A4
+            {total} etiqueta{total !== 1 ? 's' : ''} · 15mm: {paginas15} pág · 10mm: {paginas10} pág
           </p>
           <div className="flex gap-2">
             <button onClick={onCerrar} className="btn btn-ghost btn-sm">Cancelar</button>

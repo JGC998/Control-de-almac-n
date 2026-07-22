@@ -2158,52 +2158,68 @@ export async function generateEtiquetasLotePDF(productos, baseUrl) {
 }
 
 /**
- * Genera un PDF en A4 con hasta 8 etiquetas 100×70mm por página (2 cols × 4 filas).
- * Los items incluyen el objeto producto y la cantidad de copias deseadas.
+ * Genera un PDF en A4 con etiquetas de texto para identificar troqueles y plantillas.
+ * Cada etiqueta muestra únicamente el código interno (ej: GOM-CIER-MB-8mm-500×1200).
+ * El PDF contiene DOS secciones consecutivas:
+ *   - Sección 1: etiquetas de 15 mm de alto (para troqueles grandes)
+ *   - Sección 2: etiquetas de 10 mm de alto (para troqueles pequeños)
  * @param {Array<{producto: object, cantidad: number}>} items
- * @param {string} baseUrl
  */
-export async function generateEtiquetasLoteA4PDF(items, baseUrl) {
+export async function generateEtiquetasLoteA4PDF(items) {
     try {
         const COLS     = 2;
-        const LABEL_W  = 100;
-        const LABEL_H  = 70;
-        const MARGIN_X = 5;   // margen izquierdo y derecho
-        const MARGIN_Y = 3.5; // margen superior e inferior
-        const GAP_Y    = 3;   // hueco vertical entre filas
-        const ROWS     = 4;
-        const PER_PAGE = COLS * ROWS; // 8
+        const LABEL_W  = 95;   // mm por etiqueta
+        const MARGIN_X = 10;   // mm margen lateral
+        const MARGIN_Y = 10;   // mm margen vertical
 
-        // Expandir items por cantidad → lista plana de objetos producto
-        const flat = items.flatMap(({ producto, cantidad }) =>
-            Array.from({ length: cantidad }, () => producto),
-        );
+        const flat = items.flatMap(({ producto, cantidad }) => {
+            const codigo = generarCodigo(producto);
+            if (!codigo) return [];
+            return Array.from({ length: cantidad }, () => codigo);
+        });
 
-        const logoBase64 = await getLogoBase64();
-
-        // Generar QR una sola vez por producto único
-        const qrCache = {};
-        for (const p of flat) {
-            if (!qrCache[p.id]) {
-                qrCache[p.id] = await QRCode.toDataURL(
-                    `${baseUrl}/gestion/productos/${p.id}`,
-                    { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } },
-                );
-            }
+        if (flat.length === 0) {
+            throw new Error('Ningún producto tiene código generado');
         }
 
         const doc = new jsPDF({ format: 'a4', unit: 'mm' });
 
-        for (let i = 0; i < flat.length; i++) {
-            const pos = i % PER_PAGE;
-            if (pos === 0 && i > 0) doc.addPage('a4');
-            const col = pos % COLS;
-            const row = Math.floor(pos / COLS);
-            const ox  = MARGIN_X + col * LABEL_W;
-            const oy  = MARGIN_Y + row * (LABEL_H + GAP_Y);
-            const p   = flat[i];
-            _drawLabelAt(doc, p, generarCodigo(p), logoBase64, qrCache[p.id], ox, oy);
+        function drawSection(labelH, fontSize, gapY, nuevaPagina) {
+            const rowsPerPage = Math.floor((297 - MARGIN_Y * 2) / (labelH + gapY));
+            const perPage     = COLS * rowsPerPage;
+            let firstPage     = true;
+
+            for (let i = 0; i < flat.length; i++) {
+                const pos = i % perPage;
+                if (pos === 0) {
+                    if (!firstPage || nuevaPagina) doc.addPage('a4');
+                    firstPage = false;
+                }
+                const col = pos % COLS;
+                const row = Math.floor(pos / COLS);
+                const x   = MARGIN_X + col * LABEL_W;
+                const y   = MARGIN_Y + row * (labelH + gapY);
+
+                doc.setFillColor(255, 255, 255);
+                doc.setDrawColor(185, 185, 185);
+                doc.setLineWidth(0.25);
+                doc.rect(x, y, LABEL_W, labelH, 'FD');
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(fontSize);
+                doc.setTextColor(20, 20, 20);
+                doc.text(flat[i], x + 4, y + labelH * 0.65);
+            }
         }
+
+        // Sección 1 — etiquetas de 15 mm (≈ 32 por página)
+        drawSection(15, 11, 1.5, false);
+        // Sección 2 — etiquetas de 10 mm (≈ 48 por página)
+        drawSection(10, 9, 1, true);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.4);
 
         return doc.output('arraybuffer');
     } catch (error) {
