@@ -295,7 +295,7 @@ model Nota {
 model Config {
   id    String @id @default(uuid())
   key   String @unique
-  value String
+  value String @db.Text
 }
 
 model Sequence {
