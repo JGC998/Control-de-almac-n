@@ -5,7 +5,7 @@ import { Package, Loader2 } from 'lucide-react';
 import SelectorFamiliaSubfamilia from './SelectorFamiliaSubfamilia';
 import SelectorFabricante from './SelectorFabricante';
 
-const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] };
+const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [], sinTarifas: null };
 
 export default function FormularioProductoInteligente({ productoAEditar, onGuardado, onCancelar, initialNombre = '' }) {
   const materialesDBRef = useRef([]);  // [{id, nombre}] para lookup de IDs
@@ -89,7 +89,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         // Espesores del material
         const r1 = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(mat)}`);
         const d1 = await r1.json();
-        setOpciones(prev => ({ ...prev, espesores: d1.espesores ?? [] }));
+        const espesores = d1.espesores ?? [];
+        setOpciones(prev => ({ ...prev, espesores, sinTarifas: espesores.length === 0 }));
 
         // Tarifas + acabados + colores del material+espesor
         const r2 = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(mat)}&espesor=${esp}`);
@@ -118,7 +119,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   const handleMaterialChange = useCallback(async (material) => {
     const registro = materialesDBRef.current.find(m => m.nombre === material);
     setForm(f => ({ ...f, material, materialId: registro?.id ?? null, espesor: '', acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
-    setOpciones(prev => ({ ...prev, espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [] }));
+    setOpciones(prev => ({ ...prev, espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [], sinTarifas: null }));
     setTarifaEncontrada(false);
 
     // Autodetect familia por nombre de material
@@ -138,7 +139,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     try {
       const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(material)}`);
       const d = await r.json();
-      setOpciones(prev => ({ ...prev, espesores: d.espesores ?? [] }));
+      const espesores = d.espesores ?? [];
+      setOpciones(prev => ({ ...prev, espesores, sinTarifas: espesores.length === 0 }));
     } catch {
       setError('No se pudieron cargar las opciones de espesor.');
     } finally {
@@ -162,13 +164,15 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
 
       setOpciones(prev => ({ ...prev, tarifas, acabados, colores, tarifa: null }));
 
-      // Si solo hay una tarifa y sin acabado ni color → auto-aplicar
-      if (tarifas.length === 1 && acabados.length <= 1 && colores.length === 0) {
+      // Auto-aplicar SOLO cuando no hay variantes (acabado vacío y sin colores).
+      // Si acabados contiene un valor real (ej: 'NEGRA') hay que mostrar el selector.
+      const sinVariantes = acabados.every(a => a === '') && colores.length === 0;
+      if (tarifas.length === 1 && sinVariantes) {
         aplicarTarifa(tarifas[0]);
-        setForm(f => ({ ...f, acabado: tarifas[0].acabado ?? '' }));
+        // form.acabado ya es '' desde el setForm del inicio de esta función
       }
-      // Si hay acabados múltiples → esperar selección
-      // Si no hay acabados distintos pero hay colores → mantener flujo color (PVC legacy)
+      // Si hay acabados → esperar selección del usuario
+      // Si hay colores sin acabados → mostrar selector de color (PVC)
     } catch {
       setError('No se pudieron cargar las tarifas para ese espesor.');
     } finally {
@@ -366,19 +370,31 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       {mostrarMaterial && form.material && (
         <div className="form-control">
           <label className="label"><span className="label-text font-medium">Espesor (mm) *</span></label>
-          <select
-            className="select select-bordered"
-            value={form.espesor}
-            onChange={e => handleEspesorChange(e.target.value)}
-            required
-          >
-            <option value="">— Selecciona espesor —</option>
-            {opciones.espesores.map(e => <option key={e} value={e}>{e} mm</option>)}
-          </select>
+          {opciones.sinTarifas === true ? (
+            <input
+              type="number"
+              min="0" step="0.5"
+              value={form.espesor}
+              onChange={e => setForm(f => ({ ...f, espesor: e.target.value }))}
+              placeholder="Ej: 10"
+              className="input input-bordered"
+              required
+            />
+          ) : (
+            <select
+              className="select select-bordered"
+              value={form.espesor}
+              onChange={e => handleEspesorChange(e.target.value)}
+              required
+            >
+              <option value="">— Selecciona espesor —</option>
+              {opciones.espesores.map(e => <option key={e} value={e}>{e} mm</option>)}
+            </select>
+          )}
         </div>
       )}
 
-      {/* Acabado (solo si hay tarifas con acabado distinto para este material+espesor) */}
+      {/* Acabado — dropdown si la tarifa tiene opciones */}
       {mostrarMaterial && form.espesor && hayAcabados && (
         <div className="form-control">
           <label className="label"><span className="label-text font-medium">Acabado</span></label>
@@ -387,7 +403,6 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
             value={form.acabado}
             onChange={e => handleAcabadoChange(e.target.value)}
           >
-            {/* "Sin acabado" solo aparece si hay una tarifa sin acabado para este material+espesor */}
             {opciones.acabados.includes('') && (
               <option value="">— Sin acabado —</option>
             )}
@@ -395,6 +410,20 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
               <option key={a} value={a}>{a}</option>
             ))}
           </select>
+        </div>
+      )}
+
+      {/* Acabado — texto libre cuando el material no tiene tarifas configuradas */}
+      {mostrarMaterial && form.espesor && opciones.sinTarifas === true && (
+        <div className="form-control">
+          <label className="label"><span className="label-text font-medium">Acabado</span></label>
+          <input
+            type="text"
+            value={form.acabado}
+            onChange={e => setForm(f => ({ ...f, acabado: e.target.value }))}
+            placeholder="Ej: NEGRA, VERDE, Estándar"
+            className="input input-bordered"
+          />
         </div>
       )}
 

@@ -139,9 +139,24 @@ export default function GestionProductosPage() {
     e.stopPropagation();
     const code = generarCodigo(p);
     if (!code) return;
-    navigator.clipboard.writeText(code).catch(() => {});
+    // navigator.clipboard requiere HTTPS; fallback para HTTP (red local)
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).catch(() => copiarFallback(code));
+    } else {
+      copiarFallback(code);
+    }
     setCopiado(p.id);
     setTimeout(() => setCopiado(null), 1500);
+  }
+
+  function copiarFallback(text) {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(el);
+    el.select();
+    try { document.execCommand('copy'); } catch { /* silencioso */ }
+    document.body.removeChild(el);
   }
 
   const isLoading = tab === 'activos' ? loadA : loadB;

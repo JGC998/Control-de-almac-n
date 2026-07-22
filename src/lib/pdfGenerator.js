@@ -2159,63 +2159,107 @@ export async function generateEtiquetasLotePDF(productos, baseUrl) {
 
 /**
  * Genera un PDF en A4 con etiquetas de texto para identificar troqueles y plantillas.
- * Cada etiqueta muestra únicamente el código interno (ej: GOM-CIER-MB-8mm-500×1200).
- * El PDF contiene DOS secciones consecutivas:
- *   - Sección 1: etiquetas de 15 mm de alto (para troqueles grandes)
- *   - Sección 2: etiquetas de 10 mm de alto (para troqueles pequeños)
+ * El PDF contiene DOS secciones consecutivas en el mismo flujo (sin salto de página forzado):
+ *   - Sección 1: etiquetas de 15 mm — fabricante (negrita) + nombre + dimensiones
+ *   - Sección 2: etiquetas de 10 mm — código interno (GOM-FALD-T-8mm-400×710)
  * @param {Array<{producto: object, cantidad: number}>} items
  */
 export async function generateEtiquetasLoteA4PDF(items) {
     try {
         const COLS     = 2;
-        const LABEL_W  = 95;   // mm por etiqueta
-        const MARGIN_X = 10;   // mm margen lateral
-        const MARGIN_Y = 10;   // mm margen vertical
+        const LABEL_W  = 95;
+        const MARGIN_X = 10;
+        const MARGIN_Y = 10;
+        const PAGE_H   = 297;
 
         const flat = items.flatMap(({ producto, cantidad }) => {
             const codigo = generarCodigo(producto);
             if (!codigo) return [];
-            return Array.from({ length: cantidad }, () => codigo);
+            const fab  = producto.fabricante?.nombre ?? '';
+            const dims = [producto.espesor, producto.ancho, producto.largo]
+                            .filter(v => v != null && v !== '').join('×');
+            return Array.from({ length: cantidad }, () => ({
+                codigo,
+                fab,
+                nombre: producto.nombre ?? '',
+                dims,
+            }));
         });
 
-        if (flat.length === 0) {
-            throw new Error('Ningún producto tiene código generado');
-        }
+        if (flat.length === 0) throw new Error('Ningún producto tiene código generado');
 
         const doc = new jsPDF({ format: 'a4', unit: 'mm' });
 
-        function drawSection(labelH, fontSize, gapY, nuevaPagina) {
-            const rowsPerPage = Math.floor((297 - MARGIN_Y * 2) / (labelH + gapY));
-            const perPage     = COLS * rowsPerPage;
-            let firstPage     = true;
+        let currentY   = MARGIN_Y;
+        let currentCol = 0;
 
-            for (let i = 0; i < flat.length; i++) {
-                const pos = i % perPage;
-                if (pos === 0) {
-                    if (!firstPage || nuevaPagina) doc.addPage('a4');
-                    firstPage = false;
-                }
-                const col = pos % COLS;
-                const row = Math.floor(pos / COLS);
-                const x   = MARGIN_X + col * LABEL_W;
-                const y   = MARGIN_Y + row * (labelH + gapY);
-
-                doc.setFillColor(255, 255, 255);
-                doc.setDrawColor(185, 185, 185);
-                doc.setLineWidth(0.25);
-                doc.rect(x, y, LABEL_W, labelH, 'FD');
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(fontSize);
-                doc.setTextColor(20, 20, 20);
-                doc.text(flat[i], x + 4, y + labelH * 0.65);
+        function ensureSpace(labelH) {
+            if (currentY + labelH > PAGE_H - MARGIN_Y) {
+                doc.addPage('a4');
+                currentY   = MARGIN_Y;
+                currentCol = 0;
             }
         }
 
-        // Sección 1 — etiquetas de 15 mm (≈ 32 por página)
-        drawSection(15, 11, 1.5, false);
-        // Sección 2 — etiquetas de 10 mm (≈ 48 por página)
-        drawSection(10, 9, 1, true);
+        function advanceSlot(labelH, gapY) {
+            currentCol++;
+            if (currentCol >= COLS) {
+                currentCol  = 0;
+                currentY   += labelH + gapY;
+            }
+        }
+
+        function flushRow(labelH, gapY) {
+            if (currentCol > 0) {
+                currentCol  = 0;
+                currentY   += labelH + gapY;
+            }
+        }
+
+        function drawBox(x, y, w, h) {
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(185, 185, 185);
+            doc.setLineWidth(0.25);
+            doc.rect(x, y, w, h, 'FD');
+        }
+
+        // ── Sección 1: 15 mm — fabricante (grande) + nombre·dims (pequeño)
+        for (const item of flat) {
+            ensureSpace(15);
+            const x = MARGIN_X + currentCol * LABEL_W;
+            const y = currentY;
+            drawBox(x, y, LABEL_W, 15);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(20, 20, 20);
+            doc.text(item.fab || '—', x + 4, y + 5.5);
+
+            const linea2 = [item.nombre, item.dims].filter(Boolean).join('  ·  ');
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(70, 70, 70);
+            doc.text(linea2, x + 4, y + 11);
+
+            advanceSlot(15, 1.5);
+        }
+
+        flushRow(15, 1.5);
+
+        // ── Sección 2: 10 mm — código interno (nomenclatura automática)
+        for (const item of flat) {
+            ensureSpace(10);
+            const x = MARGIN_X + currentCol * LABEL_W;
+            const y = currentY;
+            drawBox(x, y, LABEL_W, 10);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(20, 20, 20);
+            doc.text(item.codigo, x + 4, y + 6.5);
+
+            advanceSlot(10, 1);
+        }
 
         doc.setTextColor(0, 0, 0);
         doc.setDrawColor(0, 0, 0);
