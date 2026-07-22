@@ -11,7 +11,7 @@ import ModalMetrajeMaterial from "@/componentes/modales/ModalMetrajeMaterial";
 import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
 import ModalBusquedaProductos from "@/componentes/modales/ModalBusquedaProductos";
 import EditorFilaItem from './EditorFilaItem';
-import TemplateManager from '@/componentes/presupuestos/TemplateManager';
+import ModalHistorialCliente from './ModalHistorialCliente';
 
 // --- COMPONENTE PRINCIPAL ---
 export default function FormularioPedidoCliente({ initialData = null, formType = "PRESUPUESTO", onSuccess, onCancel }) {
@@ -252,20 +252,10 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     setIsBandaCatalogoOpen(false);
   };
 
-  const handleLoadTemplate = (template) => {
-    if (!template.items || !Array.isArray(template.items)) return;
-
-    // Regenerar IDs para evitar conflictos
-    const newItems = template.items.map(item => ({
-      ...item,
-      id: Date.now() + Math.random(),
-    }));
-
-    setItems(newItems);
-    if (template.marginId) {
-      setSelectedMarginId(template.marginId);
-    }
-  };
+  function handleCargarHistorial(nuevosItems, marginId) {
+    setItems(nuevosItems);
+    if (marginId) setSelectedMarginId(marginId);
+  }
 
   // --- TOTALES ---
   const { subtotalBase, subtotalConMargen, tax, total, ivaRate, margenAplicado, totalCosteBase, margenEstimadoPct, articulosSinCoste } = useMemo(() => {
@@ -391,10 +381,10 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
               </div>
 
               <div className="flex gap-2 items-center">
-                <TemplateManager
-                  onLoadTemplate={handleLoadTemplate}
-                  currentItems={items}
-                  currentMarginId={selectedMarginId}
+                <ModalHistorialCliente
+                  clienteId={clienteId}
+                  clienteNombre={clienteNombre}
+                  onCargar={handleCargarHistorial}
                 />
               </div>
             </div>
