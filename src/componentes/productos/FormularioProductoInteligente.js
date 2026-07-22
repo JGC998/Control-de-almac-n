@@ -27,9 +27,11 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     pesoUnitario: '',
     referenciaFabricante: '',
     subfamiliaId: null,
+    fabricanteId: null,
   });
 
   const { data: familias = [] } = useSWR('/api/familias');
+  const { data: fabricantes = [] } = useSWR('/api/fabricantes');
   const [familiaIdSugerida, setFamiliaIdSugerida] = useState(null);
 
   const [opciones, setOpciones] = useState(VACIO);
@@ -69,6 +71,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         pesoUnitario:         productoAEditar.pesoUnitario ?? '',
         referenciaFabricante: productoAEditar.referenciaFabricante ?? '',
         subfamiliaId:         productoAEditar.subfamiliaId ?? null,
+        fabricanteId:         productoAEditar.fabricanteId ?? null,
       });
     }
   }, [productoAEditar?.id]);
@@ -252,6 +255,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
       referenciaFabricante: form.referenciaFabricante || null,
       subfamiliaId:         form.subfamiliaId ?? null,
+      fabricanteId:         form.fabricanteId ?? null,
     };
 
     const url    = productoAEditar ? `/api/productos/${productoAEditar.id}` : '/api/productos';
@@ -478,6 +482,19 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
           onChange={id => setForm(f => ({ ...f, subfamiliaId: id }))}
           sugerirFamiliaId={familiaIdSugerida}
         />
+      </div>
+
+      {/* Fabricante */}
+      <div className="form-control">
+        <label className="label"><span className="label-text">Fabricante</span></label>
+        <select
+          className="select select-bordered"
+          value={form.fabricanteId ?? ''}
+          onChange={e => setForm(f => ({ ...f, fabricanteId: e.target.value || null }))}
+        >
+          <option value="">— Sin fabricante —</option>
+          {fabricantes.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+        </select>
       </div>
 
       {/* Referencia fabricante */}

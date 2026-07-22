@@ -30,29 +30,29 @@ El foco ahora es la **identificación unívoca de productos**: evitar confusione
 ### Fase 1 — Fabricante + código interno visible en todos los puntos
 > Eliminar la confusión entre productos similares con un código auto-generado. Estimación: 2-3 horas.
 
-- [ ] **T-01** — Añadir fabricante al formulario de producto  
+- [x] **T-01** — Añadir fabricante al formulario de producto  
   _`FormularioProductoInteligente.js`: cargar `/api/fabricantes` con SWR y añadir un select debajo de Ref. fabricante. El campo `fabricanteId` ya existe en el payload — solo falta la UI._
 
-- [ ] **T-02** — Función `generarCodigo(producto)` con reglas de abreviación  
-  _Añadir a `src/lib/producto-utils.js`. Combina: Familia (3 letras) · Subfamilia (4 letras) · Fabricante (iniciales) · Acabado (3 letras si aplica) · Espesor (Xmm) · Ancho×Largo. Ejemplo: `GOm-CIER-MB-8mm-500×1200`. Documentar las reglas en DESIGN.md._
+- [x] **T-02** — Función `generarCodigo(producto)` con reglas de abreviación  
+  _Añadida a `src/lib/producto-utils.js`. Formato: `FAM3-SUB4-[FABi|ACBi]-[ESP]mm-[ANCHO×LARGO]`. Ejemplo: `GOm-CIER-MB-8mm-500×1200`._
 
-- [ ] **T-03** — Código visible en la lista de productos  
-  _`/gestion/productos/page.js`: añadir columna "Código" tras el nombre, generada al vuelo con `generarCodigo()`. Click en el código → copiar al portapapeles (tooltip "Copiado")._
+- [x] **T-03** — Código visible en la lista de productos  
+  _`/gestion/productos/page.js`: columna "Código" tras el nombre, generada al vuelo con `generarCodigo()`. Click → copia al portapapeles (icono Check 1.5s)._
 
-- [ ] **T-04** — Código en `EditorFilaItem` al añadir una línea de pedido  
-  _Mostrar el código como badge extra debajo del nombre del producto cuando la línea es de tipo catálogo. Permite al operario verificar que seleccionó la pieza correcta._
+- [x] **T-04** — Código en `EditorFilaItem` al añadir una línea de pedido  
+  _Badge mono debajo del nombre del producto cuando la línea es de catálogo. API de pedidos y presupuestos ampliada para incluir subfamilia.familia y fabricante en items._
 
-- [ ] **T-05** — Buscar por código en el modal de búsqueda de productos  
-  _`ModalBusquedaProductos.js`: añadir `generarCodigo(p)` al `matchTexto` del filtrado. El usuario podrá buscar "8mm 500" y encontrar la pieza concreta._
+- [x] **T-05** — Buscar por código en el modal de búsqueda de productos  
+  _`ModalBusquedaProductos.js`: `generarCodigo(p)` añadido al `matchTexto`. Buscar "8mm 500" ya encuentra la pieza concreta._
 
 ### Fase 2 — Etiquetas físicas para troqueles
 > Cerrar el ciclo: el código interno imprimible y pegable en las piezas. Estimación: 2-3 horas.
 
-- [ ] **T-06** — Mejorar la etiqueta PDF existente con el código interno  
-  _`src/lib/pdfGenerator.js → generateEtiquetaPDF()`: el endpoint `GET /api/productos/[id]/etiqueta` ya genera un PDF 100×70mm con QR. Añadir el código auto-generado como texto grande y destacado. El botón de etiqueta ya existe en `/gestion/productos/[id]`._
+- [x] **T-06** — Mejorar la etiqueta PDF existente con el código interno  
+  _`generateEtiquetaPDF()` en `pdfGenerator.js`: la barra superior de la etiqueta ahora muestra el código en negrita (7.5pt) en lugar del UUID. El endpoint de etiqueta también incluye subfamilia.familia para que el código sea completo._
 
-- [ ] **T-07** — Imprimir etiquetas en lote desde la lista  
-  _En `/gestion/productos`, el panel de selección masiva (bottom bar) ya existe. Añadir botón "Imprimir etiquetas (N)". Nuevo endpoint `POST /api/productos/etiquetas-lote` que acepta un array de IDs y devuelve un PDF multipágina (una etiqueta por página)._
+- [x] **T-07** — Imprimir etiquetas en lote desde la lista  
+  _`POST /api/productos/etiquetas-lote` acepta hasta 100 IDs y devuelve un PDF multipágina (100×70mm/página). Botón "Etiquetas (N)" añadido al panel de selección masiva de `/gestion/productos`._
 
 ---
 

@@ -5,16 +5,20 @@ import useSWR, { mutate } from 'swr';
 import {
   Package, PlusCircle, Edit, Trash2,
   ChevronUp, ChevronDown, ChevronsUpDown,
-  CheckSquare, X, Layers, Archive, RotateCcw, Download,
+  CheckSquare, X, Layers, Archive, RotateCcw, Download, Copy, Check, Printer,
 } from 'lucide-react';
+import { generarCodigo } from '@/lib/producto-utils';
+import { toastError } from '@/lib/toast';
 
 import FormularioProductoInteligente from '@/componentes/productos/FormularioProductoInteligente';
 import SelectorFamiliaSubfamilia from '@/componentes/productos/SelectorFamiliaSubfamilia';
+import ModalImprimirEtiquetas from '@/componentes/modales/ModalImprimirEtiquetas';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { ContenedorCargando } from '@/componentes/ui';
 
 const COLUMNAS = [
   { key: 'nombre',         label: 'Nombre',   tipo: 'string' },
+  { key: '_codigo',        label: 'Código',   tipo: 'string' },
   { key: 'material',       label: 'Material', tipo: 'string' },
   { key: 'acabado',        label: 'Acabado',  tipo: 'string' },
   { key: 'espesor',        label: 'Espesor',  tipo: 'number' },
@@ -27,6 +31,7 @@ const COLUMNAS = [
 
 function valorOrden(p, key) {
   if (key === 'material') return p.material?.nombre ?? '';
+  if (key === '_codigo')  return generarCodigo(p);
   return p[key];
 }
 
@@ -51,7 +56,7 @@ function IconoOrden({ campo, sort }) {
     : <ChevronDown className="w-3 h-3 text-primary" />;
 }
 
-function PanelClasificacionMasiva({ seleccion, onAplicar, onCancelar }) {
+function PanelClasificacionMasiva({ seleccion, onAplicar, onCancelar, onImprimirEtiquetas }) {
   const [subfamiliaId, setSubfamiliaId] = useState(null);
   const [aplicando, setAplicando]       = useState(false);
   const [error, setError]               = useState(null);
@@ -93,6 +98,14 @@ function PanelClasificacionMasiva({ seleccion, onAplicar, onCancelar }) {
             {aplicando ? <span className="loading loading-spinner loading-xs" /> : <Layers className="w-4 h-4" />}
             Clasificar {seleccion.size}
           </button>
+          <button
+            className="btn btn-outline btn-sm gap-1"
+            onClick={onImprimirEtiquetas}
+            title="Imprimir etiquetas en A4 — elige cuántas copias de cada referencia"
+          >
+            <Printer className="w-4 h-4" />
+            Etiquetas ({seleccion.size})
+          </button>
           {error && <span className="text-error text-sm">{error}</span>}
         </div>
         <button onClick={onCancelar} className="btn btn-ghost btn-sm btn-square shrink-0">
@@ -118,7 +131,18 @@ export default function GestionProductosPage() {
   const [busqueda, setBusqueda]                 = useState('');
   const [sort, setSort]                         = useState({ campo: null, dir: 'asc' });
   const [seleccion, setSeleccion]               = useState(new Set());
+  const [copiado, setCopiado]                   = useState(null);
+  const [modalEtiquetasAbierto, setModalEtiquetasAbierto] = useState(false);
   const { confirmar, ModalConfirmacion }         = useConfirmacion();
+
+  function copiarCodigo(e, p) {
+    e.stopPropagation();
+    const code = generarCodigo(p);
+    if (!code) return;
+    navigator.clipboard.writeText(code).catch(() => {});
+    setCopiado(p.id);
+    setTimeout(() => setCopiado(null), 1500);
+  }
 
   const isLoading = tab === 'activos' ? loadA : loadB;
   const error     = tab === 'activos' ? errA  : errB;
@@ -318,6 +342,21 @@ export default function GestionProductosPage() {
                       </Link>
                       {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
                     </td>
+                    <td onClick={e => copiarCodigo(e, p)} title={copiado === p.id ? 'Copiado ✓' : 'Copiar código'}>
+                      {(() => {
+                        const code = generarCodigo(p);
+                        if (!code) return <span className="text-base-content/30">—</span>;
+                        return (
+                          <span className="inline-flex items-center gap-1 font-mono text-xs bg-base-200 px-1.5 py-0.5 rounded cursor-copy hover:bg-primary/10 hover:text-primary transition-colors">
+                            {copiado === p.id
+                              ? <Check className="w-3 h-3 text-success shrink-0" />
+                              : <Copy className="w-3 h-3 opacity-40 shrink-0" />
+                            }
+                            {code}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
                     <td className="text-sm">{p.acabado ?? <span className="text-base-content/30">—</span>}</td>
                     <td className={p.espesor == null ? 'text-warning' : ''}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
@@ -361,6 +400,7 @@ export default function GestionProductosPage() {
           seleccion={seleccion}
           onAplicar={onAplicarMasivo}
           onCancelar={() => setSeleccion(new Set())}
+          onImprimirEtiquetas={() => setModalEtiquetasAbierto(true)}
         />
       )}
 
@@ -385,6 +425,13 @@ export default function GestionProductosPage() {
           </div>
           <div className="modal-backdrop" onClick={cerrar} />
         </div>
+      )}
+
+      {modalEtiquetasAbierto && (
+        <ModalImprimirEtiquetas
+          productos={filtrados.filter(p => seleccion.has(p.id))}
+          onCerrar={() => setModalEtiquetasAbierto(false)}
+        />
       )}
 
       <ModalConfirmacion />

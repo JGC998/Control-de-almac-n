@@ -21,7 +21,14 @@ export async function GET(request, { params: paramsPromise }) {
         items: {
           orderBy: { descripcion: 'asc' },
           include: {
-            producto: { select: { id: true, nombre: true, referenciaFabricante: true, pesoUnitario: true } },
+            producto: {
+              select: {
+                id: true, nombre: true, referenciaFabricante: true, pesoUnitario: true,
+                espesor: true, ancho: true, largo: true, acabado: true,
+                subfamilia: { select: { nombre: true, familia: { select: { nombre: true, color: true } } } },
+                fabricante: { select: { nombre: true } },
+              },
+            },
           },
         },
       },
@@ -109,7 +116,16 @@ export async function PUT(request, { params: paramsPromise }) {
           cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, tier: true } },
           presupuesto: { select: { id: true, numero: true, estado: true, total: true } },
           items: {
-            include: { producto: { select: { id: true, nombre: true, referenciaFabricante: true } } },
+            include: {
+              producto: {
+                select: {
+                  id: true, nombre: true, referenciaFabricante: true, pesoUnitario: true,
+                  espesor: true, ancho: true, largo: true, acabado: true,
+                  subfamilia: { select: { nombre: true, familia: { select: { nombre: true, color: true } } } },
+                  fabricante: { select: { nombre: true } },
+                },
+              },
+            },
           },
         },
       });

@@ -5,6 +5,7 @@ import path from 'path';
 import QRCode from 'qrcode';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { generarCodigo } from './producto-utils';
 
 // Formato español: 34.080,64
 const fmtN = (v, dec = 2) => {
@@ -1749,6 +1750,89 @@ export async function generarCartaPortePDF(datos) {
 }
 
 /**
+ * Dibuja una etiqueta 100×70mm en el doc jsPDF actual usando el offset ox,oy.
+ * Todas las posiciones absolutas de la etiqueta se desplazan por ese offset,
+ * lo que permite colocar varias etiquetas en una misma página A4.
+ */
+function _drawLabelAt(doc, p, codigo, logoBase64, qrDataUrl, ox, oy) {
+    if (logoBase64) {
+        doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', ox+67, oy+3, 30, 9);
+    }
+
+    doc.addImage(qrDataUrl, 'PNG', ox+4, oy+16, 28, 28);
+    doc.setFontSize(5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 120, 120);
+    doc.text('Escanear', ox+18, oy+47, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(ox+36, oy+14, ox+36, oy+66);
+
+    const x = ox+39;
+    let y = oy+15;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    const nombreLines = doc.splitTextToSize(p.nombre, 57);
+    doc.text(nombreLines.slice(0, 2), x, y);
+    y += nombreLines.slice(0, 2).length * 4.5 + 1;
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+
+    if (p.referenciaFabricante) {
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Ref: ${p.referenciaFabricante}`, x, y);
+        doc.setTextColor(0, 0, 0);
+        y += 4;
+    }
+
+    const matParts = [p.material?.nombre, p.color].filter(Boolean);
+    if (matParts.length > 0) { doc.text(matParts.join(' · '), x, y); y += 4; }
+
+    const dims = [
+        p.espesor && `${p.espesor} mm`,
+        p.ancho   && `${p.ancho} mm`,
+        p.largo   && `${p.largo} m`,
+    ].filter(Boolean);
+    if (dims.length > 0) { doc.text(dims.join(' × '), x, y); y += 4; }
+
+    if (p.fabricante?.nombre) {
+        doc.setTextColor(100, 100, 100);
+        doc.text(p.fabricante.nombre, x, y);
+        doc.setTextColor(0, 0, 0);
+        y += 4;
+    }
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(ox+39, y, ox+97, y);
+    y += 3;
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${fmtN(parseFloat(p.precioUnitario) || 0)} €/u`, x, y);
+
+    doc.setDrawColor(180, 180, 180);
+    doc.rect(ox+1, oy+1, 98, 68);
+
+    doc.setFillColor(240, 240, 240);
+    doc.rect(ox+1, oy+1, 98, 12, 'F');
+    if (codigo) {
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 30, 30);
+        doc.text(codigo, ox+4, oy+8.5);
+    } else {
+        doc.setFontSize(5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(120, 120, 120);
+        doc.text(`ID: ${p.id}`, ox+4, oy+9);
+    }
+    doc.setTextColor(0, 0, 0);
+}
+
+/**
  * Genera una etiqueta PDF (100x70mm) con QR para un producto.
  * El QR apunta a la ficha del producto en la app.
  * @param {object} producto - Datos del producto (id, nombre, referenciaFabricante, material, color, espesor, ancho, largo, precioUnitario, pesoUnitario, costoUnitario, fabricante)
@@ -1860,18 +1944,108 @@ export async function generateEtiquetaPDF(producto, baseUrl, opciones = {}) {
         doc.setDrawColor(180, 180, 180);
         doc.rect(1, 1, 98, 68);
 
-        // Línea superior con fondo gris
-        doc.setFillColor(245, 245, 245);
+        // Barra superior: código interno prominente
+        const codigo = generarCodigo(producto);
+        doc.setFillColor(240, 240, 240);
         doc.rect(1, 1, 98, 12, 'F');
-        doc.setFontSize(5.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(120, 120, 120);
-        doc.text(`ID: ${producto.id}`, 4, 9);
+        if (codigo) {
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(30, 30, 30);
+            doc.text(codigo, 4, 8.5);
+        } else {
+            doc.setFontSize(5.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(120, 120, 120);
+            doc.text(`ID: ${producto.id}`, 4, 9);
+        }
         doc.setTextColor(0, 0, 0);
 
         return doc.output('arraybuffer');
     } catch (error) {
         logApiError(error, 'Error generating etiqueta PDF');
+        throw error;
+    }
+}
+
+/**
+ * Genera un PDF multipágina con una etiqueta 100×70mm por producto.
+ * @param {object[]} productos - Con fabricante, material y subfamilia.familia cargados
+ * @param {string} baseUrl - URL base de la app
+ */
+export async function generateEtiquetasLotePDF(productos, baseUrl) {
+    try {
+        const logoBase64 = await getLogoBase64();
+        const doc = new jsPDF({ format: [100, 70], unit: 'mm' });
+
+        for (let i = 0; i < productos.length; i++) {
+            const p = productos[i];
+            if (i > 0) doc.addPage([100, 70]);
+            const qrDataUrl = await QRCode.toDataURL(
+                `${baseUrl}/gestion/productos/${p.id}`,
+                { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } },
+            );
+            _drawLabelAt(doc, p, generarCodigo(p), logoBase64, qrDataUrl, 0, 0);
+        }
+
+        return doc.output('arraybuffer');
+    } catch (error) {
+        logApiError(error, 'Error generating etiquetas lote PDF');
+        throw error;
+    }
+}
+
+/**
+ * Genera un PDF en A4 con hasta 8 etiquetas 100×70mm por página (2 cols × 4 filas).
+ * Los items incluyen el objeto producto y la cantidad de copias deseadas.
+ * @param {Array<{producto: object, cantidad: number}>} items
+ * @param {string} baseUrl
+ */
+export async function generateEtiquetasLoteA4PDF(items, baseUrl) {
+    try {
+        const COLS     = 2;
+        const LABEL_W  = 100;
+        const LABEL_H  = 70;
+        const MARGIN_X = 5;   // margen izquierdo y derecho
+        const MARGIN_Y = 3.5; // margen superior e inferior
+        const GAP_Y    = 3;   // hueco vertical entre filas
+        const ROWS     = 4;
+        const PER_PAGE = COLS * ROWS; // 8
+
+        // Expandir items por cantidad → lista plana de objetos producto
+        const flat = items.flatMap(({ producto, cantidad }) =>
+            Array.from({ length: cantidad }, () => producto),
+        );
+
+        const logoBase64 = await getLogoBase64();
+
+        // Generar QR una sola vez por producto único
+        const qrCache = {};
+        for (const p of flat) {
+            if (!qrCache[p.id]) {
+                qrCache[p.id] = await QRCode.toDataURL(
+                    `${baseUrl}/gestion/productos/${p.id}`,
+                    { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } },
+                );
+            }
+        }
+
+        const doc = new jsPDF({ format: 'a4', unit: 'mm' });
+
+        for (let i = 0; i < flat.length; i++) {
+            const pos = i % PER_PAGE;
+            if (pos === 0 && i > 0) doc.addPage('a4');
+            const col = pos % COLS;
+            const row = Math.floor(pos / COLS);
+            const ox  = MARGIN_X + col * LABEL_W;
+            const oy  = MARGIN_Y + row * (LABEL_H + GAP_Y);
+            const p   = flat[i];
+            _drawLabelAt(doc, p, generarCodigo(p), logoBase64, qrCache[p.id], ox, oy);
+        }
+
+        return doc.output('arraybuffer');
+    } catch (error) {
+        logApiError(error, 'Error generating etiquetas lote A4 PDF');
         throw error;
     }
 }

@@ -18,6 +18,7 @@ export async function GET(request, { params }) {
       include: {
         fabricante: { select: { nombre: true } },
         material:   { select: { nombre: true } },
+        subfamilia: { select: { nombre: true, familia: { select: { nombre: true } } } },
       },
     });
     if (!producto) {

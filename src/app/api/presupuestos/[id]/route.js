@@ -15,7 +15,19 @@ export async function GET(request, { params }) {
       where: { id: id },
       include: {
         cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, nif: true } },
-        items: { select: { id: true, descripcion: true, quantity: true, unitPrice: true, pesoUnitario: true, detallesTecnicos: true, productoId: true } },
+        items: {
+          select: {
+            id: true, descripcion: true, quantity: true, unitPrice: true, pesoUnitario: true, detallesTecnicos: true, productoId: true,
+            producto: {
+              select: {
+                id: true, nombre: true, referenciaFabricante: true,
+                espesor: true, ancho: true, largo: true, acabado: true,
+                subfamilia: { select: { nombre: true, familia: { select: { nombre: true, color: true } } } },
+                fabricante: { select: { nombre: true } },
+              },
+            },
+          },
+        },
       },
     });
 

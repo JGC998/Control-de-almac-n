@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { X, Search, Plus, ArrowRight } from 'lucide-react';
-import { formatarProducto } from '@/lib/producto-utils';
+import { formatarProducto, generarCodigo } from '@/lib/producto-utils';
 
 export default function ModalBusquedaProductos({ abierto, alCerrar, alSeleccionar, alCrearNuevo, items = [], busquedaInicial = '' }) {
     const [busqueda, setBusqueda] = useState(busquedaInicial);
@@ -44,7 +44,8 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
                 p.acabado?.toLowerCase().includes(term) ||
                 (p.material?.nombre ?? p.material ?? '').toLowerCase().includes(term) ||
                 String(p.espesor ?? '').includes(term) ||
-                String(p.ancho ?? '').includes(term);
+                String(p.ancho ?? '').includes(term) ||
+                generarCodigo(p).toLowerCase().includes(term);
             const matchMaterial = !filtroMaterial || (p.material?.nombre ?? p.material) === filtroMaterial;
             const matchEspesor  = !filtroEspesor  || String(p.espesor) === filtroEspesor;
             const matchAcabado  = !filtroAcabado  || p.acabado === filtroAcabado;

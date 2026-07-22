@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo } from 'react';
 import { Trash2, Copy, Search, X, Package, Ruler, Pencil, Scissors } from 'lucide-react';
+import { generarCodigo } from '@/lib/producto-utils';
 
 export default function EditorFilaItem({
     item,
@@ -109,6 +110,15 @@ export default function EditorFilaItem({
                                     } : {}}
                                 >
                                     {sub.nombre}
+                                </span>
+                            );
+                        })()}
+                        {isCatalog && (() => {
+                            const code = item.producto ? generarCodigo(item.producto) : '';
+                            if (!code) return null;
+                            return (
+                                <span className="font-mono text-xs text-base-content/50 bg-base-200 px-1.5 rounded tracking-tight">
+                                    {code}
                                 </span>
                             );
                         })()}
