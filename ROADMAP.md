@@ -13,21 +13,21 @@ El foco actual es pulir la interfaz y corregir inconsistencias acumuladas en el 
 
 ## 📋 Backlog completo
 
-| ID | Tarea | Tipo | Complejidad | Depende de |
-|----|-------|------|-------------|------------|
-| T-01 | Quitar campos Tipo y Unidad del modal "Nuevo Producto" (desde pedido) | Limpieza | Pequeña | — |
-| T-02 | Quitar campos Tipo y Unidad del formulario de edición de producto | Limpieza | Pequeña | T-01 (mismo componente) |
-| T-03 | Eliminar `costoUnitario` de todos los formularios visibles al usuario | Limpieza | Pequeña | — |
-| T-04 | Bug: el tag de línea en "Metraje material" siempre dice "Banda PVC" | Bug | Pequeña | — |
-| T-05 | Bug: el selector Familia/Subfamilia en modal de nuevo producto no carga datos | Bug | Pequeña | — |
-| T-06 | Bug: ordenación por nombre en lista de productos no respeta orden numérico | Bug | Pequeña | — |
-| T-07 | Autodetectar familia desde el material seleccionado en formulario de producto | Mejora | Media | T-05 |
-| T-08 | Modal búsqueda de productos: quitar duplicidad Material/Familia (dejar solo uno) | Limpieza | Pequeña | — |
-| T-09 | Modal búsqueda de productos: filtrado en cascada (material → espesor → acabado) | Mejora | Media | T-08 |
-| T-10 | Poder guardar un metraje de material como producto del catálogo | Feature | Media | — |
-| T-11 | Tarifa de rollos → generar/actualizar producto automáticamente en el catálogo | Feature | Grande | — |
-| T-12 | Verificar que la página de presupuestos y su formulario funcionan igual que pedidos | Revisión | Media | — |
-| T-13 | Documentar en DESIGN.md: página inicio y página ventas (aprobadas tal como están) | Docs | Pequeña | — |
+| ID | Tarea | Tipo | Estado |
+|----|-------|------|--------|
+| T-01 | Quitar campos Tipo y Unidad del formulario de producto | Limpieza | ✅ |
+| T-02 | Quitar campos Tipo y Unidad del formulario de edición | Limpieza | ✅ |
+| T-03 | Eliminar `costoUnitario` de formularios visibles | Limpieza | ✅ |
+| T-04 | Bug: tag "Banda PVC" fijo en líneas de metraje | Bug | ✅ |
+| T-05 | Bug: selector Familia/Subfamilia vacío en modal nuevo producto | Bug | ✅ |
+| T-06 | Bug: ordenación numérica incorrecta en lista de productos | Bug | ✅ |
+| T-07 | Autodetectar familia desde el material en formulario de producto | Mejora | ✅ |
+| T-08 | Modal búsqueda: quitar duplicidad Material/Familia | Limpieza | ✅ |
+| T-09 | Modal búsqueda: filtrado en cascada (material → espesor → acabado) | Mejora | ✅ |
+| T-10 | Guardar metraje de material como producto del catálogo | Feature | ✅ |
+| T-11 | Tarifa rollos → generar/actualizar producto en catálogo | Feature | ✅ |
+| T-12 | Verificar paridad presupuestos ↔ pedidos | Revisión | ✅ |
+| T-13 | Documentar inicio y ventas en DESIGN.md | Docs | ⏳ |
 
 ---
 
@@ -36,18 +36,12 @@ El foco actual es pulir la interfaz y corregir inconsistencias acumuladas en el 
 ### Fase 1 — Limpieza de formularios y bugs evidentes
 > Eliminar campos obsoletos y corregir los tres bugs reportados. Estimación: 2-3 horas.
 
-- [ ] **T-01** — Quitar Tipo y Unidad del modal "Nuevo Producto" (modal de creación rápida desde pedido/presupuesto)  
-  _`FormularioProductoRapido.js` o `BaseQuickCreateModal` — eliminar los fields de tipo y unidad_
-- [ ] **T-02** — Quitar Tipo y Unidad del formulario de edición de producto  
-  _`FormularioProductoInteligente.js` — ya están parcialmente deshabilitados, terminar de quitar_
-- [ ] **T-03** — Eliminar `costoUnitario` de todos los formularios visibles  
-  _Buscar todos los inputs/campos de costoUnitario en componentes de producto_
-- [ ] **T-04** — Bug: tag "Banda PVC" fijo en líneas de metraje material  
-  _`ModalMetrajeMaterial.js` — revisar cómo construye `descripcion` al añadir la línea_
-- [ ] **T-05** — Bug: selector Familia/Subfamilia vacío en modal nuevo producto  
-  _El `SelectorFamiliaSubfamilia` no está recibiendo datos o no está montado correctamente en ese contexto_
-- [ ] **T-06** — Bug: ordenación numérica incorrecta en lista de productos  
-  _La función `comparar` en `page.js` hace `localeCompare` puro — añadir opción `numeric: true` para ordenar "F10 ROLLO 500" antes que "F10 ROLLO 1800"_
+- [x] **T-01** — Quitar Tipo y Unidad del formulario de producto (`FormularioProductoInteligente.js`)
+- [x] **T-02** — Quitar Tipo y Unidad del formulario de edición de producto (mismo componente)
+- [x] **T-03** — Eliminar `costoUnitario` de todos los formularios visibles
+- [x] **T-04** — Bug: tag "Banda PVC" fijo en líneas de metraje material (`EditorFilaItem.js`)
+- [x] **T-05** — Bug: selector Familia/Subfamilia vacío — creado `GET /api/familias`
+- [x] **T-06** — Bug: ordenación numérica incorrecta en lista de productos (`localeCompare numeric:true`)
 
 ### Fase 2 — Mejoras de producto y búsqueda
 > UX más inteligente en los flujos de selección y clasificación de productos. Estimación: 3-4 horas.
@@ -69,8 +63,8 @@ El foco actual es pulir la interfaz y corregir inconsistencias acumuladas en el 
 
 Tareas pequeñas de impacto inmediato que se pueden resolver en minutos:
 
-- [ ] **T-06** — Bug ordenación numérica: una línea de fix en `comparar()` (~10 min)
-- [ ] **T-04** — Bug tag "Banda PVC": localizar y corregir la descripción que se construye (~15 min)
+- [x] **T-06** — Bug ordenación numérica: una línea de fix en `comparar()` (~10 min)
+- [x] **T-04** — Bug tag "Banda PVC": localizar y corregir la descripción que se construye (~15 min)
 - [ ] **T-13** — Documentar inicio y ventas en DESIGN.md (~10 min)
 
 ---
