@@ -52,14 +52,10 @@ El foco actual es pulir la interfaz y corregir inconsistencias acumuladas en el 
 ### Fase 2 — Mejoras de producto y búsqueda
 > UX más inteligente en los flujos de selección y clasificación de productos. Estimación: 3-4 horas.
 
-- [ ] **T-07** — Autodetectar familia desde el material en el formulario de producto  
-  _Cuando se selecciona un material, preseleccionar automáticamente la Familia que corresponde (FIELTRO → Familia Fieltro, etc.)_
-- [ ] **T-08** — Modal búsqueda: quitar la duplicidad Material/Familia  
-  _`ModalBusquedaProductos.js` — conservar solo el filtro de Material (más intuitivo para el usuario)_
-- [ ] **T-09** — Modal búsqueda: filtrado en cascada  
-  _Al seleccionar Material, mostrar solo los espesores que existen para ese material; al seleccionar espesor, filtrar acabados disponibles_
-- [ ] **T-12** — Verificar paridad presupuestos ↔ pedidos  
-  _Revisar `FormularioPedidoCliente` con `formType="PRESUPUESTO"`, la página `/presupuestos`, y los endpoints `/api/presupuestos/*`. Confirmar que el historial de cliente también funciona en presupuestos._
+- [x] **T-07** — Autodetectar familia desde el material en el formulario de producto  
+- [x] **T-08** — Modal búsqueda: quitar la duplicidad Material/Familia  
+- [x] **T-09** — Modal búsqueda: filtrado en cascada (material → espesor → acabado)  
+- [x] **T-12** — Verificado: presupuestos y pedidos comparten `FormularioPedidoCliente`; ModalHistorialCliente funciona en ambos sin cambios
 
 ### Fase 3 — Features de automatización
 > Las dos features más grandes, que ahorran trabajo manual recurrente. Estimación: 1-2 días.
@@ -97,6 +93,8 @@ Tareas pequeñas de impacto inmediato que se pueden resolver en minutos:
 ---
 
 ## ✅ Completado recientemente
+- **Fase 2**: Filtrado cascada búsqueda (T-07, T-08, T-09) + paridad presupuestos (T-12) — `6befd55`
+- **Fase 1**: Limpieza formularios y 3 bugs (T-01 a T-06) — `e832c2b`
 - Historial de cliente en formulario de pedido/presupuesto (reemplaza Plantillas) — `2aeceff`
 - Simplificación lista de productos (dos tabs, sin columna Tipo) — `8cfcaf0`
 - 15 fixes de la segunda revisión de código — `9618c67`
