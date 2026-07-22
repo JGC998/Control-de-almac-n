@@ -29,15 +29,15 @@ const COLUMNAS = [
 ];
 
 
-function valorOrden(p, key) {
+function valorOrden(p, key, nomConfig = {}) {
   if (key === 'material') return p.material?.nombre ?? '';
-  if (key === '_codigo')  return generarCodigo(p);
+  if (key === '_codigo')  return generarCodigo(p, nomConfig);
   return p[key];
 }
 
-function comparar(a, b, key, tipo, dir) {
-  const va = valorOrden(a, key);
-  const vb = valorOrden(b, key);
+function comparar(a, b, key, tipo, dir, nomConfig = {}) {
+  const va = valorOrden(a, key, nomConfig);
+  const vb = valorOrden(b, key, nomConfig);
   const aNulo = va == null || va === '';
   const bNulo = vb == null || vb === '';
   if (aNulo && bNulo) return 0;
@@ -121,6 +121,8 @@ export default function GestionProductosPage() {
 
   const { data: dataActivos,    isLoading: loadA, error: errA } = useSWR('/api/productos?page=1&limit=500&activo=true');
   const { data: dataArchivados, isLoading: loadB, error: errB } = useSWR('/api/productos?page=1&limit=500&activo=false');
+  const { data: nomenclatura } = useSWR('/api/configuracion/nomenclatura');
+  const nomConfig = nomenclatura ?? {};
 
   const productosActivos    = dataActivos?.data    ?? [];
   const productosArchivados = dataArchivados?.data ?? [];
@@ -137,7 +139,7 @@ export default function GestionProductosPage() {
 
   function copiarCodigo(e, p) {
     e.stopPropagation();
-    const code = generarCodigo(p);
+    const code = generarCodigo(p, nomConfig);
     if (!code) return;
     // navigator.clipboard requiere HTTPS; fallback para HTTP (red local)
     if (navigator.clipboard) {
@@ -182,7 +184,7 @@ export default function GestionProductosPage() {
     });
     if (sort.campo) {
       const col = COLUMNAS.find(c => c.key === sort.campo);
-      lista = [...lista].sort((a, b) => comparar(a, b, sort.campo, col?.tipo, sort.dir));
+      lista = [...lista].sort((a, b) => comparar(a, b, sort.campo, col?.tipo, sort.dir, nomConfig));
     }
     return lista;
   }, [productos, busqueda, sort]);
@@ -359,7 +361,7 @@ export default function GestionProductosPage() {
                     </td>
                     <td onClick={e => copiarCodigo(e, p)} title={copiado === p.id ? 'Copiado ✓' : 'Copiar código'}>
                       {(() => {
-                        const code = generarCodigo(p);
+                        const code = generarCodigo(p, nomConfig);
                         if (!code) return <span className="text-base-content/30">—</span>;
                         return (
                           <span className="inline-flex items-center gap-1 font-mono text-xs bg-base-200 px-1.5 py-0.5 rounded cursor-copy hover:bg-primary/10 hover:text-primary transition-colors">

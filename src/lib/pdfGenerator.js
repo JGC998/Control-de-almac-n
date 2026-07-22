@@ -2164,7 +2164,7 @@ export async function generateEtiquetasLotePDF(productos, baseUrl) {
  *   - Sección 2: etiquetas de 10 mm — código interno (GOM-FALD-T-8mm-400×710)
  * @param {Array<{producto: object, cantidad: number}>} items
  */
-export async function generateEtiquetasLoteA4PDF(items) {
+export async function generateEtiquetasLoteA4PDF(items, nomConfig = {}) {
     try {
         const COLS     = 2;
         const LABEL_W  = 95;
@@ -2173,7 +2173,7 @@ export async function generateEtiquetasLoteA4PDF(items) {
         const PAGE_H   = 297;
 
         const flat = items.flatMap(({ producto, cantidad }) => {
-            const codigo = generarCodigo(producto);
+            const codigo = generarCodigo(producto, nomConfig);
             if (!codigo) return [];
             const fab  = producto.fabricante?.nombre ?? '';
             const dims = [producto.espesor, producto.ancho, producto.largo]

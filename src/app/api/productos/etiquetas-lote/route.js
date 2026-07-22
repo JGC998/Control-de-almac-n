@@ -46,7 +46,10 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Ningún producto encontrado' }, { status: 404 });
     }
 
-    const buffer = await generateEtiquetasLoteA4PDF(itemsConProducto);
+    const nomRow = await db.config.findUnique({ where: { key: 'nomenclatura' } });
+    const nomConfig = nomRow ? JSON.parse(nomRow.value) : {};
+
+    const buffer = await generateEtiquetasLoteA4PDF(itemsConProducto, nomConfig);
     const total  = itemsConProducto.reduce((s, it) => s + it.cantidad, 0);
 
     return new NextResponse(buffer, {

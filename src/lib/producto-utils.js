@@ -33,21 +33,37 @@ export function etiquetaProducto(p) {
  * Requiere que el producto tenga cargadas las relaciones:
  *   subfamilia.familia.nombre, fabricante.nombre
  */
-export function generarCodigo(producto) {
+export function generarCodigo(producto, config = {}) {
+  const {
+    familiaChars    = 3,
+    subfamiliaChars = 4,
+    fabricanteMode  = 'iniciales',
+    fabricanteChars = 3,
+    acabadoChars    = 3,
+    familiaAliases  = {},
+  } = config;
+
   const segs = [];
 
   const famNombre = producto.subfamilia?.familia?.nombre;
-  if (famNombre) segs.push(famNombre.slice(0, 3).toUpperCase());
+  if (famNombre) {
+    const alias = familiaAliases[famNombre];
+    segs.push(alias ? alias.toUpperCase() : famNombre.slice(0, familiaChars).toUpperCase());
+  }
 
   const subNombre = producto.subfamilia?.nombre;
-  if (subNombre) segs.push(subNombre.slice(0, 4).toUpperCase());
+  if (subNombre) segs.push(subNombre.slice(0, subfamiliaChars).toUpperCase());
 
   const fabNombre = producto.fabricante?.nombre;
   if (fabNombre) {
-    const iniciales = fabNombre.trim().split(/\s+/).map(w => w[0].toUpperCase()).join('');
-    segs.push(iniciales);
+    if (fabricanteMode === 'primeros') {
+      segs.push(fabNombre.replace(/\s+/g, '').slice(0, fabricanteChars).toUpperCase());
+    } else {
+      const iniciales = fabNombre.trim().split(/\s+/).map(w => w[0].toUpperCase()).join('');
+      segs.push(iniciales);
+    }
   } else if (producto.acabado) {
-    segs.push(producto.acabado.slice(0, 3).toUpperCase());
+    segs.push(producto.acabado.slice(0, acabadoChars).toUpperCase());
   }
 
   if (producto.espesor != null) {

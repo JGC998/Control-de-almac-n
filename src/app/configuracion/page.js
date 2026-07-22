@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Settings, DollarSign, Truck, Layers, ScrollText, Package } from 'lucide-react';
+import { Settings, DollarSign, Truck, Layers, ScrollText, Package, Hash } from 'lucide-react';
 
 export const metadata = { title: 'Configuración — CRM Taller' };
 
@@ -38,6 +38,13 @@ export default function ConfiguracionHub() {
           titulo: 'Materiales',
           descripcion: 'Gestiona la lista de tipos de material: GOMA, PVC, FIELTRO, etc. y consulta cuántos productos y tarifas tiene cada uno.',
           accion: 'Gestionar materiales',
+        },
+        {
+          href: '/configuracion/nomenclatura',
+          icon: Hash,
+          titulo: 'Nomenclatura',
+          descripcion: 'Personaliza los alias de familias, el número de caracteres de cada segmento y el modo de abreviatura del fabricante en los códigos automáticos.',
+          accion: 'Configurar nomenclatura',
         },
         {
           href: '/configuracion/audit-log',
