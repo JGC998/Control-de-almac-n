@@ -549,6 +549,8 @@ function GestionTarifasRollo({ margenes }) {
   const [newTarifa, setNewTarifa] = useState({
     material: '', espesor: '', ancho: '', color: '', metrajeMinimo: '10', precioBase: '', peso: '',
   });
+  const [tarifaM2, setTarifaM2] = useState(null);
+  const [loadingM2, setLoadingM2] = useState(false);
 
   const selectedMargin = useMemo(
     () => margenes?.find(m => m.id === selectedMarginId) || null,
@@ -565,6 +567,33 @@ function GestionTarifasRollo({ margenes }) {
 
   const precioFinal = (precioBase) =>
     selectedMargin ? precioBase * selectedMargin.multiplicador : null;
+
+  const calcPrecioRollo = (precioM2, anchoMm, metros) => {
+    const p = parseFloat(precioM2);
+    const a = parseFloat(anchoMm);
+    const m = parseFloat(metros);
+    if (!p || !a || !m) return '';
+    return (p * (a / 1000) * m).toFixed(2);
+  };
+
+  const fetchTarifaM2 = async (material, espesor, ancho, metros) => {
+    if (!material || !espesor) { setTarifaM2(null); return; }
+    setLoadingM2(true);
+    try {
+      const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(material)}&espesor=${encodeURIComponent(espesor)}`);
+      const d = await r.json();
+      const t = d.tarifas?.[0] ?? null;
+      setTarifaM2(t);
+      if (t) {
+        setNewTarifa(prev => ({
+          ...prev,
+          peso: t.peso != null ? String(t.peso) : prev.peso,
+          precioBase: calcPrecioRollo(t.precio, ancho, metros) || prev.precioBase,
+        }));
+      }
+    } catch { setTarifaM2(null); }
+    finally { setLoadingM2(false); }
+  };
 
   const handleCreate = async () => {
     if (!newTarifa.material || !newTarifa.espesor || !newTarifa.precioBase || !newTarifa.peso) {
@@ -583,7 +612,8 @@ function GestionTarifasRollo({ margenes }) {
         const err = await res.json();
         throw new Error(err.message);
       }
-      setNewTarifa({ material: '', espesor: '', color: '', metrajeMinimo: '10', precioBase: '', peso: '' });
+      setNewTarifa({ material: '', espesor: '', ancho: '', color: '', metrajeMinimo: '10', precioBase: '', peso: '' });
+      setTarifaM2(null);
       setMessage({ type: 'success', text: 'Tarifa añadida correctamente' });
       mutate('/api/tarifas-rollo');
     } catch (err) {
@@ -692,7 +722,11 @@ function GestionTarifasRollo({ margenes }) {
               <select
                 className="select select-bordered select-sm w-36"
                 value={newTarifa.material}
-                onChange={e => setNewTarifa(p => ({ ...p, material: e.target.value }))}
+                onChange={e => {
+                  const v = e.target.value;
+                  setNewTarifa(p => ({ ...p, material: v }));
+                  fetchTarifaM2(v, newTarifa.espesor, newTarifa.ancho, newTarifa.metrajeMinimo);
+                }}
               >
                 <option value="">Seleccionar...</option>
                 {(materiales || []).map(m => (
@@ -705,7 +739,11 @@ function GestionTarifasRollo({ margenes }) {
               <input
                 type="number" min="0" step="0.1" placeholder="Ej: 3"
                 value={newTarifa.espesor}
-                onChange={e => setNewTarifa(p => ({ ...p, espesor: e.target.value }))}
+                onChange={e => {
+                  const v = e.target.value;
+                  setNewTarifa(p => ({ ...p, espesor: v }));
+                  fetchTarifaM2(newTarifa.material, v, newTarifa.ancho, newTarifa.metrajeMinimo);
+                }}
                 className="input input-bordered input-sm w-24"
               />
             </div>
@@ -714,7 +752,14 @@ function GestionTarifasRollo({ margenes }) {
               <input
                 type="number" min="0" step="1" placeholder="Ej: 1000"
                 value={newTarifa.ancho}
-                onChange={e => setNewTarifa(p => ({ ...p, ancho: e.target.value }))}
+                onChange={e => {
+                  const v = e.target.value;
+                  setNewTarifa(p => ({
+                    ...p,
+                    ancho: v,
+                    precioBase: tarifaM2?.precio ? (calcPrecioRollo(tarifaM2.precio, v, p.metrajeMinimo) || p.precioBase) : p.precioBase,
+                  }));
+                }}
                 className="input input-bordered input-sm w-24"
               />
             </div>
@@ -732,26 +777,39 @@ function GestionTarifasRollo({ margenes }) {
               <input
                 type="number" min="1" step="1" placeholder="10"
                 value={newTarifa.metrajeMinimo}
-                onChange={e => setNewTarifa(p => ({ ...p, metrajeMinimo: e.target.value }))}
+                onChange={e => {
+                  const v = e.target.value;
+                  setNewTarifa(p => ({
+                    ...p,
+                    metrajeMinimo: v,
+                    precioBase: tarifaM2?.precio ? (calcPrecioRollo(tarifaM2.precio, p.ancho, v) || p.precioBase) : p.precioBase,
+                  }));
+                }}
                 className="input input-bordered input-sm w-20"
               />
             </div>
             <div className="form-control">
-              <label className="label py-0 pb-1"><span className="label-text text-xs">Precio rollo (€)</span></label>
+              <label className="label py-0 pb-1">
+                <span className="label-text text-xs">Precio rollo (€)</span>
+                {tarifaM2?.precio != null && <span className="label-text-alt text-xs text-success">{Number(tarifaM2.precio).toFixed(2)} €/m²</span>}
+              </label>
               <input
                 type="number" min="0" step="0.01" placeholder="Ej: 4.50"
                 value={newTarifa.precioBase}
                 onChange={e => setNewTarifa(p => ({ ...p, precioBase: e.target.value }))}
-                className="input input-bordered input-sm w-28"
+                className={`input input-bordered input-sm w-28 ${tarifaM2?.precio != null ? 'input-success' : ''}`}
               />
             </div>
             <div className="form-control">
-              <label className="label py-0 pb-1"><span className="label-text text-xs">Peso kg/m²</span></label>
+              <label className="label py-0 pb-1">
+                <span className="label-text text-xs">Peso kg/m²</span>
+                {tarifaM2?.peso != null && <span className="label-text-alt text-xs text-success">desde tarifa</span>}
+              </label>
               <input
                 type="number" min="0" step="0.001" placeholder="Ej: 3.2"
                 value={newTarifa.peso}
                 onChange={e => setNewTarifa(p => ({ ...p, peso: e.target.value }))}
-                className="input input-bordered input-sm w-24"
+                className={`input input-bordered input-sm w-24 ${tarifaM2?.peso != null ? 'input-success' : ''}`}
               />
             </div>
             <button
