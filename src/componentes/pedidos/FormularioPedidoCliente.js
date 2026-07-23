@@ -445,7 +445,11 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
               {/* Botones de añadir línea */}
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={addItem} className="btn btn-sm btn-outline btn-primary gap-1">
+                <button type="button" onClick={() => {
+                  const newIndex = items.length;
+                  addItem();
+                  setProductSearchState({ isOpen: true, rowIndex: newIndex, initialSearch: '' });
+                }} className="btn btn-sm btn-outline btn-primary gap-1">
                   <Plus className="w-3.5 h-3.5" /> Añadir producto
                 </button>
                 <button type="button" onClick={() => setIsMetrajeOpen(true)} className="btn btn-sm btn-outline btn-accent gap-1">
