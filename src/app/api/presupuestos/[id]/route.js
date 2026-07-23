@@ -100,7 +100,7 @@ export async function PUT(request, { params }) {
         });
       }
 
-      return quote;
+      return tx.presupuesto.findUnique({ where: { id }, include: { items: true } });
     });
 
     revalidatePath('/presupuestos'); // Invalidate the list page

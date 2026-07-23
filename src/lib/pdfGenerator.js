@@ -180,12 +180,12 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         doc.setFont("helvetica", "normal");
         doc.text("Este presupuesto tiene una validez de quince (15) días desde la fecha presupuestada.", 14, notesY + 4);
 
-        if (quote.notes) {
+        if (quote.notas) {
             notesY += 10;
             doc.setFont("helvetica", "bold");
             doc.text("Notas:", 14, notesY);
             doc.setFont("helvetica", "normal");
-            doc.text(quote.notes, 14, notesY + 4, { maxWidth: 180 });
+            doc.text(quote.notas, 14, notesY + 4, { maxWidth: 180 });
         }
 
         // --- Desglose Bandas PVC (segunda página, si hay) ---
@@ -1536,7 +1536,10 @@ export async function generateAlbaranPDF(albaran) {
             doc.setFont("helvetica", "normal");
             doc.text(`Subtotal:`, 145, finalY + 10);
             doc.text(`${fmtN(albaran.subtotal || 0)} €`, 198, finalY + 10, { align: 'right' });
-            doc.text(`IVA (21%):`, 145, finalY + 16);
+            const ivaLabel = albaran.subtotal > 0
+                ? `IVA (${Math.round((albaran.tax / albaran.subtotal) * 100)}%):`
+                : `IVA:`;
+            doc.text(ivaLabel, 145, finalY + 16);
             doc.text(`${fmtN(albaran.tax || 0)} €`, 198, finalY + 16, { align: 'right' });
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
@@ -1956,7 +1959,7 @@ function _drawLabelAt(doc, p, codigo, logoBase64, qrDataUrl, ox, oy) {
     const dims = [
         p.espesor && `${p.espesor} mm`,
         p.ancho   && `${p.ancho} mm`,
-        p.largo   && `${p.largo} m`,
+        p.largo   && `${p.largo} mm`,
     ].filter(Boolean);
     if (dims.length > 0) { doc.text(dims.join(' × '), x, y); y += 4; }
 
@@ -2059,7 +2062,7 @@ export async function generateEtiquetaPDF(producto, baseUrl, opciones = {}) {
         const dims = [
             producto.espesor && `${producto.espesor} mm`,
             producto.ancho   && `${producto.ancho} mm`,
-            producto.largo   && `${producto.largo} m`,
+            producto.largo   && `${producto.largo} mm`,
         ].filter(Boolean);
         if (dims.length > 0) {
             doc.text(dims.join(' × '), x, y);

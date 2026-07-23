@@ -43,12 +43,16 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
 
   // Cargar materiales al montar (nombres para dropdown + registros con ID para guardar)
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/tarifas-material-opciones')
       .then(r => r.json())
-      .then(d => setOpciones(prev => ({ ...prev, materiales: d.materiales ?? [] })));
+      .then(d => { if (!cancelled) setOpciones(prev => ({ ...prev, materiales: d.materiales ?? [] })); })
+      .catch(() => {});
     fetch('/api/materiales')
       .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) materialesDBRef.current = d; });
+      .then(d => { if (!cancelled && Array.isArray(d)) materialesDBRef.current = d; })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   // Precargar si es edición

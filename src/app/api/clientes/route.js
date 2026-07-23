@@ -11,10 +11,10 @@ const manejadores = crearManejadoresCRUD('cliente', {
     email: data.email,
     direccion: data.direccion,
     telefono: data.telefono,
-    tier: ['FABRICANTE', 'INTERMEDIARIO', 'FINAL'].includes(data.categoria) ? data.categoria : null,
+    tier: data.tier ?? null,
     nif: data.nif ?? null,
   }),
-  camposBusqueda: ['nombre', 'email', 'telefono'],
+  campoBusqueda: 'nombre',
 }, '/gestion/clientes');
 
 export const GET = manejadores.GET;

@@ -59,7 +59,7 @@ export function generarCodigo(producto, config = {}) {
     if (fabricanteMode === 'primeros') {
       segs.push(fabNombre.replace(/\s+/g, '').slice(0, fabricanteChars).toUpperCase());
     } else {
-      const iniciales = fabNombre.trim().split(/\s+/).map(w => w[0].toUpperCase()).join('');
+      const iniciales = fabNombre.trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('');
       segs.push(iniciales);
     }
   } else if (producto.acabado) {
@@ -67,7 +67,7 @@ export function generarCodigo(producto, config = {}) {
   }
 
   if (producto.espesor != null) {
-    segs.push(`${+producto.espesor.toFixed(1)}mm`);
+    segs.push(`${(+producto.espesor).toFixed(1)}mm`);
   }
 
   if (producto.ancho != null && producto.largo != null) {

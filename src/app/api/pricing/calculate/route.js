@@ -62,6 +62,8 @@ export async function POST(request) {
           if (margenRule) {
             margenAplicar = margenRule.multiplicador;
             gastoFijoTotalAplicar = margenRule.gastoFijo || 0;
+          } else {
+            margenAplicar = 1.0; // regla no encontrada: mantener precio sin margen adicional
           }
         } else if (cliente?.tier) {
           const margenClienteRule = margenes.find(m => m.tipo === 'Cliente' && m.tierCliente === cliente.tier);

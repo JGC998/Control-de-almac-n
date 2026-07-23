@@ -187,7 +187,7 @@ export default function GestionProductosPage() {
       lista = [...lista].sort((a, b) => comparar(a, b, sort.campo, col?.tipo, sort.dir, nomConfig));
     }
     return lista;
-  }, [productos, busqueda, sort]);
+  }, [productos, busqueda, sort, nomConfig]);
 
   function toggleSeleccion(id) {
     setSeleccion(prev => {
@@ -225,11 +225,12 @@ export default function GestionProductosPage() {
       });
       if (!ok) return;
     }
-    await fetch(`/api/productos/${p.id}`, {
+    const res = await fetch(`/api/productos/${p.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activo: !p.activo }),
     });
+    if (!res.ok) { toastError('Error al actualizar el producto'); return; }
     invalidarProductos();
   }
 
@@ -240,7 +241,8 @@ export default function GestionProductosPage() {
       variante: 'peligro',
     });
     if (!ok) return;
-    await fetch(`/api/productos/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/productos/${id}`, { method: 'DELETE' });
+    if (!res.ok) { toastError('Error al eliminar el producto'); return; }
     invalidarProductos();
   }
 

@@ -33,8 +33,12 @@ export async function GET(request) {
     }
 
     // Material + espesor → devuelve acabados, colores y tarifas completas
+    const espesorNum = parseFloat(espesor);
+    if (isNaN(espesorNum)) {
+      return NextResponse.json({ error: 'Espesor inválido' }, { status: 400 });
+    }
     const tarifas = await db.tarifaMaterial.findMany({
-      where: { material, espesor: parseFloat(espesor) },
+      where: { material, espesor: espesorNum },
       orderBy: [{ acabado: 'asc' }, { color: 'asc' }],
     });
 

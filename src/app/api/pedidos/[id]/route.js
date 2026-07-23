@@ -146,6 +146,8 @@ export async function PUT(request, { params: paramsPromise }) {
       })),
     };
 
+    revalidatePath('/pedidos');
+    revalidatePath(`/pedidos/${id}`);
     return NextResponse.json(orderSerializado);
 
   } catch (error) {
