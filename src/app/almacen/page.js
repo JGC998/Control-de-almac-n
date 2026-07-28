@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Warehouse, Layers, Link2, AlignJustify, Box, Package, RectangleHorizontal } from 'lucide-react';
+import { Warehouse, Layers, Link2, AlignJustify, Package, RectangleHorizontal } from 'lucide-react';
 
 export const metadata = { title: 'Almacén — CRM Taller' };
 
@@ -45,13 +45,6 @@ export default function AlmacenHub() {
           titulo: 'Tacos',
           descripcion: 'Tacos rectos e inclinados por altura y precio por metro lineal.',
           accion: 'Ver tacos',
-        },
-        {
-          href: '/almacen/articulos',
-          icon: Box,
-          titulo: 'Artículos varios',
-          descripcion: 'Cordón, borde ondulado y otros artículos que se venden tal como llegan.',
-          accion: 'Ver artículos',
         },
       ]}
     />

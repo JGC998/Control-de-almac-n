@@ -21,7 +21,6 @@ export default function Providers({ children }) {
         revalidateOnReconnect: true,
         dedupingInterval: 5000,
         keepPreviousData: true,
-        provider: () => new Map(),
       }}
     >
       {children}
