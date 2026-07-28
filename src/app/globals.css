@@ -30,6 +30,10 @@ tbody tr { transition: background-color 0.1s ease; }
   table { page-break-inside: auto; }
   tr { page-break-inside: avoid; }
 
+  /* ── Página de Informes ── */
+  .tabs { display: none !important; }
+  .print\:hidden { display: none !important; }
+
   /* ── Calculadora de Contenedor ── */
   .print-contenedor .overflow-x-auto { overflow: visible !important; }
   .print-contenedor select,

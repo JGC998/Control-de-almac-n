@@ -15,6 +15,7 @@ const columnasPedido = [
   { clave: 'cliente.nombre', etiqueta: 'Cliente' },
   { clave: 'fechaCreacion', etiqueta: 'Fecha', formato: 'fecha' },
   { clave: 'total', etiqueta: 'Total', formato: 'moneda' },
+  { clave: 'margenBase', etiqueta: 'Margen' },
   {
     clave: 'estado',
     etiqueta: 'Estado',
@@ -79,13 +80,13 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
 
   const ivaRate = ivaConfig?.value ? parseFloat(ivaConfig.value) / 100 : 0.21;
   const pedidosConTotal = pedidos.map(p => {
-    if (!p.marginId) return p;
-    const margen = margenes.find(m => m.id === p.marginId);
-    if (!margen) return p;
+    const margen = p.marginId ? margenes.find(m => m.id === p.marginId) : null;
+    const margenBase = margen?.base ?? '—';
+    if (!margen) return { ...p, margenBase };
     const multiplicador = Number(margen.multiplicador) || 1;
     const gastoFijo = Number(margen.gastoFijo) || 0;
     const subtotalVenta = p.subtotal * multiplicador + gastoFijo;
-    return { ...p, total: parseFloat((subtotalVenta * (1 + ivaRate)).toFixed(2)) };
+    return { ...p, margenBase, total: parseFloat((subtotalVenta * (1 + ivaRate)).toFixed(2)) };
   });
 
   const meta = { total, page, limit, totalPages: Math.ceil(total / limit) };

@@ -27,6 +27,23 @@ const PedidoCard = ({ pedido, onReceive, onDelete, onViewDetails }) => {
     const trackingUrl = getTrackingUrl(pedido.naviera, pedido.numeroContenedor);
     const isRecibido = pedido.estado === 'Recibido';
 
+    // Calcula el coste final por metro de cada bobina igual que receive-order
+    const esImportacion = pedido.tipo === 'IMPORTACION';
+    const tasa = parseFloat(pedido.tasaCambio) || 1;
+    const gastos = parseFloat(pedido.gastosTotales) || 0;
+    const valorTotalMercanciaEUR = pedido.bobinas.reduce((acc, b) => {
+        const precioBaseEUR = (parseFloat(b.precioMetro) || 0) * (esImportacion ? tasa : 1);
+        return acc + precioBaseEUR * (parseFloat(b.largo) || 0);
+    }, 0);
+    const calcularCostoFinalMetro = (bobina) => {
+        const metrosTotales = (parseFloat(bobina.largo) || 0) * (parseInt(bobina.cantidad) || 1);
+        const precioBaseEUR = (parseFloat(bobina.precioMetro) || 0) * (esImportacion ? tasa : 1);
+        const costeTotalBaseLinea = precioBaseEUR * metrosTotales;
+        const factorParticipacion = valorTotalMercanciaEUR > 0 ? costeTotalBaseLinea / valorTotalMercanciaEUR : 0;
+        const gastosAsignados = gastos * factorParticipacion;
+        return metrosTotales > 0 ? precioBaseEUR + gastosAsignados / metrosTotales : 0;
+    };
+
     return (
         <div className="card bg-base-200 shadow-md mb-4">
             <div className="card-body p-5">
@@ -104,14 +121,17 @@ const PedidoCard = ({ pedido, onReceive, onDelete, onViewDetails }) => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {pedido.bobinas.map(bobina => (
+                                    {pedido.bobinas.map(bobina => {
+                                        const costoFinalMetro = calcularCostoFinalMetro(bobina);
+                                        return (
                                         <tr key={bobina.id}>
                                             <td>{bobina.referencia?.nombre || 'N/A'}</td>
-                                            <td>{bobina.ancho}x{bobina.largo}</td>
-                                            <td>{bobina.precioMetro.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                            <td className="font-bold">{bobina.costoFinalMetro?.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '-'} €</td>
+                                            <td>{bobina.ancho}×{bobina.largo} m {bobina.cantidad > 1 ? `(×${bobina.cantidad})` : ''}</td>
+                                            <td>{parseFloat(bobina.precioMetro).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} {esImportacion ? '$' : '€'}</td>
+                                            <td className="font-bold text-success">{costoFinalMetro.toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} €</td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

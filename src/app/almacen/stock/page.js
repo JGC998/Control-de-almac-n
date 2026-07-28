@@ -149,6 +149,7 @@ export default function AlmacenPage() {
                   <th>Metros Disp.</th>
                   <th>Mín.</th>
                   <th>Cant. Bobinas</th>
+                  <th>Costo/m</th>
                   <th>Proveedor</th>
                   <th>Acción</th>
                 </tr></thead>
@@ -165,6 +166,11 @@ export default function AlmacenPage() {
                       </td>
                       <td className="text-sm text-base-content/60">{item.stockMinimo ? `${item.stockMinimo} m` : '—'}</td>
                       <td>{item.cantidadBobinas || 0}</td>
+                      <td className="font-mono text-sm">
+                        {item.costoMetro != null
+                          ? `${Number(item.costoMetro).toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} €`
+                          : <span className="opacity-30">—</span>}
+                      </td>
                       <td>{item.proveedorNombre}</td>
                       <td className="flex gap-1">
                         <button

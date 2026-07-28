@@ -133,28 +133,42 @@ export async function GET(request) {
       const parseFechaVP = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
       const currentYear = new Date().getFullYear();
       const defaultDesde = new Date(`${currentYear}-01-01T00:00:00.000Z`);
-      const whereVP = { pedido: { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: parseFechaVP(desde) ?? defaultDesde } } };
-      const hastaVP = parseFechaVP(hasta);
-      if (hastaVP) { hastaVP.setHours(23,59,59,999); whereVP.pedido.fechaCreacion.lte = hastaVP; }
 
-      const items = await db.pedidoItem.findMany({
+      const ivaConfigVP = await db.config.findUnique({ where: { key: 'iva_rate' } });
+      const IVA_VP = ivaConfigVP?.value ? parseFloat(String(ivaConfigVP.value)) : 0.21;
+
+      const whereVP = { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: parseFechaVP(desde) ?? defaultDesde } };
+      const hastaVP = parseFechaVP(hasta);
+      if (hastaVP) { hastaVP.setHours(23,59,59,999); whereVP.fechaCreacion.lte = hastaVP; }
+
+      // Cargamos pedidos con sus ítems y el total (precio de venta con IVA).
+      // La venta estimada por ítem = proporción del coste del ítem × total sin IVA del pedido.
+      const pedidosVP = await db.pedido.findMany({
         where: whereVP,
-        select: { descripcion: true, quantity: true, unitPrice: true, productoId: true },
-        take: 2000,
+        select: {
+          total: true,
+          items: { select: { descripcion: true, quantity: true, unitPrice: true, productoId: true } },
+        },
+        take: 500,
       });
 
-      // BUG-03: unitPrice es el precio de COSTE introducido antes de aplicar el margen.
-      // Se renombra totalVentas → totalCosteBase para reflejar la realidad del campo.
-      // El precio de venta real está en pedido.total (margen ya aplicado), no en los items.
       const byProducto = {};
-      for (const item of items) {
-        const key = item.productoId ?? item.descripcion;
-        if (!byProducto[key]) byProducto[key] = { descripcion: item.descripcion, productoId: item.productoId, cantidadTotal: 0, totalCosteBase: 0 };
-        byProducto[key].cantidadTotal += Number(item.quantity);
-        byProducto[key].totalCosteBase += Number(item.quantity) * Number(item.unitPrice);
+      for (const pedido of pedidosVP) {
+        const totalSinIVA = Number(pedido.total ?? 0) / (1 + IVA_VP);
+        const totalCostePedido = pedido.items.reduce((s, i) => s + Number(i.quantity) * Number(i.unitPrice), 0);
+        for (const item of pedido.items) {
+          const key = item.productoId ?? item.descripcion;
+          const itemCoste = Number(item.quantity) * Number(item.unitPrice);
+          const participacion = totalCostePedido > 0 ? itemCoste / totalCostePedido : 0;
+          if (!byProducto[key]) byProducto[key] = { descripcion: item.descripcion, productoId: item.productoId, cantidadTotal: 0, totalVentaEstimada: 0 };
+          byProducto[key].cantidadTotal += Number(item.quantity);
+          byProducto[key].totalVentaEstimada += totalSinIVA * participacion;
+        }
       }
 
-      const sorted = Object.values(byProducto).sort((a, b) => b.totalCosteBase - a.totalCosteBase);
+      const sorted = Object.values(byProducto)
+        .map(p => ({ ...p, totalVentaEstimada: parseFloat(p.totalVentaEstimada.toFixed(2)) }))
+        .sort((a, b) => b.totalVentaEstimada - a.totalVentaEstimada);
       return NextResponse.json(sorted.slice(0, 50));
     }
 
@@ -371,18 +385,48 @@ export async function GET(request) {
 
       const IVA = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
 
-      // Recopilar todos los productoIds para obtener costoUnitario en una sola query
+      // Recopilar todos los productoIds para obtener costoUnitario actual y historial
       const productoIds = [...new Set(
         pedidos.flatMap(p => p.items.map(i => i.productoId).filter(Boolean))
       )];
       const productosMap = new Map();
+      const historialMap = new Map(); // productoId → [{fecha, costo}] ordenado asc
       if (productoIds.length > 0) {
-        const productos = await db.producto.findMany({
-          where: { id: { in: productoIds } },
-          select: { id: true, costoUnitario: true, nombre: true },
-        });
+        const [productos, historiales] = await Promise.all([
+          db.producto.findMany({
+            where: { id: { in: productoIds } },
+            select: { id: true, costoUnitario: true, nombre: true },
+          }),
+          db.historialPrecioCosto.findMany({
+            where: { productoId: { in: productoIds } },
+            select: { productoId: true, costoDespues: true, creadoEn: true },
+            orderBy: { creadoEn: 'asc' },
+          }),
+        ]);
         for (const p of productos) productosMap.set(p.id, p);
+        for (const h of historiales) {
+          if (!historialMap.has(h.productoId)) historialMap.set(h.productoId, []);
+          historialMap.get(h.productoId).push({ fecha: new Date(h.creadoEn), costo: Number(h.costoDespues) });
+        }
       }
+
+      // Devuelve el coste vigente del producto en una fecha dada.
+      // Usa HistorialPrecioCosto si existe; si no, el costoUnitario actual.
+      const getCostoEnFecha = (productoId, fecha) => {
+        const historial = historialMap.get(productoId);
+        const prod = productosMap.get(productoId);
+        if (historial && historial.length > 0) {
+          let costoEnFecha = null;
+          for (const entry of historial) {
+            if (entry.fecha <= fecha) costoEnFecha = entry.costo;
+            else break;
+          }
+          if (costoEnFecha !== null) return costoEnFecha;
+          // Todos los registros son posteriores a la fecha: usar el coste más antiguo conocido
+          return historial[0].costo;
+        }
+        return prod?.costoUnitario != null ? Number(prod.costoUnitario) : null;
+      };
 
       // Margen mínimo de todas las ReglaMargen (para umbral de alerta)
       const margenMinimoMultiplicador = reglasMargenes.length > 0
@@ -391,18 +435,19 @@ export async function GET(request) {
 
       const result = pedidos.map(p => {
         const ventaSinIVA = Number(p.total ?? 0) / (1 + IVA);
+        const fechaPedido = new Date(p.fechaCreacion);
         let costoReal = 0;
         let itemsConCosto = 0;
         let totalItems = p.items.length;
 
         for (const item of p.items) {
           if (item.productoId) {
-            const prod = productosMap.get(item.productoId);
-            if (prod?.costoUnitario != null) {
-              costoReal += Number(prod.costoUnitario) * Number(item.quantity);
+            const costoHist = getCostoEnFecha(item.productoId, fechaPedido);
+            if (costoHist !== null) {
+              costoReal += costoHist * Number(item.quantity);
               itemsConCosto++;
             } else {
-              // Sin costoUnitario: usar unitPrice como proxy
+              // Sin costoUnitario ni historial: usar unitPrice como proxy
               costoReal += Number(item.unitPrice) * Number(item.quantity);
             }
           } else {

@@ -46,11 +46,14 @@ function KPICards() {
   if (error) return <div role="alert" className="alert alert-error mb-8"><AlertCircle className="w-4 h-4" /><span>Error al cargar los KPIs</span></div>;
   if (!data) return null;
 
-  const varMes = data.totalMesAnterior > 0
-    ? ((data.totalMes - data.totalMesAnterior) / data.totalMesAnterior * 100).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})
+  const varMesNum = data.totalMesAnterior > 0
+    ? ((data.totalMes - data.totalMesAnterior) / data.totalMesAnterior * 100)
+    : null;
+  const varMes = varMesNum !== null
+    ? varMesNum.toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1})
     : null;
   const subMes = varMes !== null
-    ? `${varMes > 0 ? '+' : ''}${varMes}% vs mes anterior`
+    ? `${varMesNum > 0 ? '+' : ''}${varMes}% vs mes anterior`
     : 'Sin datos mes anterior';
 
   return (
@@ -59,8 +62,8 @@ function KPICards() {
         <div className="stat-figure text-primary"><TrendingUp className="w-7 h-7" /></div>
         <div className="stat-title text-xs">Facturado este mes</div>
         <div className="stat-value text-lg">{formatCurrency(data.totalMes)}</div>
-        <div className={`stat-desc flex items-center gap-1 ${varMes > 0 ? 'text-success' : varMes < 0 ? 'text-error' : ''}`}>
-          {varMes > 0 ? <TrendingUp className="w-3 h-3" /> : varMes < 0 ? <TrendingDown className="w-3 h-3" /> : null}
+        <div className={`stat-desc flex items-center gap-1 ${varMesNum > 0 ? 'text-success' : varMesNum < 0 ? 'text-error' : ''}`}>
+          {varMesNum > 0 ? <TrendingUp className="w-3 h-3" /> : varMesNum < 0 ? <TrendingDown className="w-3 h-3" /> : null}
           {subMes}
         </div>
       </div>
@@ -241,7 +244,7 @@ function VentasPorProducto() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold">Volumen por producto — coste base (Top 50)</h2>
+        <h2 className="text-lg font-bold">Volumen por producto — venta estimada sin IVA (Top 50)</h2>
         <button className="btn btn-sm btn-outline" onClick={() => exportCSV(data, 'ventas-por-producto.csv')} disabled={!data?.length}>
           <Download className="w-4 h-4" /> CSV
         </button>
@@ -255,7 +258,7 @@ function VentasPorProducto() {
               <XAxis type="number" tickFormatter={v => `${(v / 1000).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}k€`} tick={{ fontSize: 12 }} />
               <YAxis type="category" dataKey="descripcion" tick={{ fontSize: 10 }} width={155} />
               <Tooltip formatter={v => formatCurrency(v)} />
-              <Bar dataKey="totalCosteBase" name="Coste base (€)" fill="#F59E0B" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="totalVentaEstimada" name="Venta estimada s/IVA (€)" fill="#36D399" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -263,14 +266,21 @@ function VentasPorProducto() {
 
       <div className="overflow-x-auto">
         <table className="table table-sm w-full">
-          <thead><tr><th>#</th><th>Descripción</th><th className="text-right">Cantidad</th><th className="text-right" title="Suma del precio de coste × unidades (unitPrice antes de aplicar margen)">Coste base</th></tr></thead>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Descripción</th>
+              <th className="text-right">Cantidad</th>
+              <th className="text-right" title="Venta estimada = proporción del coste del ítem × total sin IVA del pedido">Venta estimada (s/IVA)</th>
+            </tr>
+          </thead>
           <tbody>
             {(data ?? []).map((row, i) => (
               <tr key={i} className="hover">
                 <td className="text-gray-400 text-sm">{i + 1}</td>
                 <td className="text-sm">{row.descripcion}</td>
                 <td className="text-right">{row.cantidadTotal}</td>
-                <td className="text-right font-semibold">{formatCurrency(row.totalCosteBase)}</td>
+                <td className="text-right font-semibold">{formatCurrency(row.totalVentaEstimada)}</td>
               </tr>
             ))}
             {(!data || data.length === 0) && <tr><td colSpan={4} className="text-center text-gray-400 py-6">Sin datos</td></tr>}
@@ -990,9 +1000,14 @@ export default function InformesPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-5xl">
-      <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
-        <BarChart2 className="w-7 h-7" /> Informes
-      </h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <BarChart2 className="w-7 h-7" /> Informes
+        </h1>
+        <button className="btn btn-sm btn-outline print:hidden" onClick={() => window.print()}>
+          <Printer className="w-4 h-4" /> Imprimir / PDF
+        </button>
+      </div>
 
       <KPICards />
 
