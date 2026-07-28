@@ -107,12 +107,32 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         // Buscar la tarifa que coincide con acabado + color del producto
         const acabadoProd = productoAEditar.acabado ?? '';
         const colorProd   = productoAEditar.color   ?? '';
-        const tarifa = tarifas.find(t =>
+
+        let tarifa = tarifas.find(t =>
           (t.acabado ?? '') === acabadoProd && (t.color ?? '') === colorProd,
         );
+        // Fallback: el color del producto fue guardado en el campo 'acabado' de la tarifa
+        if (!tarifa && colorProd && !acabadoProd) {
+          tarifa = tarifas.find(t => (t.acabado ?? '') === colorProd && !(t.color));
+        }
+        // Fallback: el acabado del producto fue guardado en el campo 'color' de la tarifa
+        if (!tarifa && acabadoProd && !colorProd) {
+          tarifa = tarifas.find(t => (t.color ?? '') === acabadoProd && !(t.acabado));
+        }
+        // Último recurso: si solo hay una tarifa para este material+espesor, usarla
+        if (!tarifa && tarifas.length === 1) {
+          tarifa = tarifas[0];
+        }
+
         if (tarifa) {
           setOpciones(prev => ({ ...prev, tarifa }));
           setTarifaEncontrada(true);
+          // Sincronizar form si el acabado/color del producto no coincidía con la tarifa
+          setForm(f => ({
+            ...f,
+            acabado: f.acabado || tarifa.acabado || f.acabado,
+            color:   f.color   || tarifa.color   || f.color,
+          }));
         }
       } catch { /* silencioso — el usuario puede rellenar precio manualmente */ }
     })();

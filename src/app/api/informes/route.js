@@ -10,7 +10,7 @@ const EXCLUIDOS = ['Cancelado', 'Borrador'];
 export async function GET(request) {
   // Rate limit: 20 peticiones/min por IP
   const ip = getClientIp(request);
-  const rl = checkRateLimit(ip, 20);
+  const rl = checkRateLimit(`informes:${ip}`, 20);
   if (!rl.allowed) {
     return NextResponse.json(
       { message: 'Demasiadas peticiones. Espera un momento.' },
