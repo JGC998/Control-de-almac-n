@@ -71,13 +71,14 @@ function NotaMini({ order, empresa }) {
                   <td className="border border-gray-300 px-2 py-1.5">
                     <div className="flex items-start gap-2">
                       {esBanda && (
-                        <div className="shrink-0 scale-75 origin-top-left" style={{ width: 162, height: 165, overflow: 'hidden' }}>
+                        <div className="shrink-0">
                           <PreviewBandaPVC
                             ancho={detalles.dimensiones?.ancho}
                             largo={detalles.dimensiones?.largo}
                             tipoConfeccion={detalles.tipoConfeccion}
                             configuracionTacos={detalles.tacos}
                             color={detalles.color}
+                            scale={0.6}
                           />
                         </div>
                       )}

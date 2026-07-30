@@ -30,7 +30,7 @@ function seamPath(x1, x2, yBase, amp = 3, cycles = 5) {
   return d;
 }
 
-export default function PreviewBandaPVC({ ancho, largo, tipoConfeccion, configuracionTacos, color }) {
+export default function PreviewBandaPVC({ ancho, largo, tipoConfeccion, configuracionTacos, color, scale = 1 }) {
   const anchoMm = parseFloat(ancho) || 0;
   const largoMm = parseFloat(largo) || 0;
   const hasData = anchoMm > 0 && largoMm > 0;
@@ -84,8 +84,8 @@ export default function PreviewBandaPVC({ ancho, largo, tipoConfeccion, configur
   return (
     <div className="flex justify-center items-center">
       <svg
-        width={TOTAL_W}
-        height={TOTAL_H}
+        width={Math.round(TOTAL_W * scale)}
+        height={Math.round(TOTAL_H * scale)}
         viewBox={`0 0 ${TOTAL_W} ${TOTAL_H}`}
         aria-label="Previsualización de banda PVC"
       >
