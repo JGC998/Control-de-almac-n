@@ -149,7 +149,8 @@ export async function POST(request) {
 
     await logCreate('Producto', nuevoProducto.id, nuevoProducto, 'Admin');
     revalidatePath('/gestion/productos');
-    return NextResponse.json(nuevoProducto, { status: 201 });
+    const { costoUnitario: _c, ...nuevoProductoSafe } = nuevoProducto;
+    return NextResponse.json(nuevoProductoSafe, { status: 201 });
   } catch (error) {
     logApiError(error, 'Error al crear el producto:');
     return NextResponse.json({ message: 'Error al crear el producto' }, { status: 500 });

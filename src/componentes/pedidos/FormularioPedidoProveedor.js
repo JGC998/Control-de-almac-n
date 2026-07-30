@@ -397,18 +397,6 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                             {!bobina.referenciaId && <span className="text-xs text-warning mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Selecciona ref.</span>}
                           </div>
                         </td>
-                        {/* Columna de Cantidad */}
-                        <td className="border p-2">
-                          <input
-                            type="number"
-                            min="1"
-                            className="w-16 p-1 border rounded text-center font-bold text-blue-600"
-                            // ↓↓↓ ESTA ES LA CLAVE DEL ERROR ↓↓↓
-                            value={bobina.cantidad}
-                            onChange={(e) => handleBobinaChange(index, 'cantidad', e.target.value)}
-                          />
-                        </td>
-
                         {formData.material === 'PVC' && (
                           <td>
                             <select value={bobina.color || ''} onChange={(e) => handleBobinaChange(index, 'color', e.target.value)} className="select select-bordered select-sm w-24" required>
@@ -417,6 +405,16 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
                             </select>
                           </td>
                         )}
+                        {/* Columna de Cantidad */}
+                        <td className="border p-2">
+                          <input
+                            type="number"
+                            min="1"
+                            className="w-16 p-1 border rounded text-center font-bold text-blue-600"
+                            value={bobina.cantidad}
+                            onChange={(e) => handleBobinaChange(index, 'cantidad', e.target.value)}
+                          />
+                        </td>
 
                         <td><input type="number" step="0.1" placeholder="0" value={bobina.ancho || ''} onChange={(e) => handleBobinaChange(index, 'ancho', e.target.value)} className="input input-bordered input-sm w-20" /></td>
                         <td><input type="number" step="0.1" placeholder="0" value={bobina.largo || ''} onChange={(e) => handleBobinaChange(index, 'largo', e.target.value)} className="input input-bordered input-sm w-20" /></td>

@@ -44,8 +44,18 @@ export async function GET(request, { params }) {
       };
     });
 
-    // Inyectar items calculados en el objeto quote para el generador
-    const quoteWithCalculations = { ...quote, items: itemsCalculados };
+    // Recalcular totales con margen aplicado para que el pie del PDF cuadre con las filas
+    const subtotalVenta = parseFloat(itemsCalculados.reduce((sum, item) => sum + item.totalVentaItem, 0).toFixed(2));
+    const taxVenta = parseFloat((subtotalVenta * ivaRate).toFixed(2));
+    const totalVenta = parseFloat((subtotalVenta + taxVenta).toFixed(2));
+
+    const quoteWithCalculations = {
+      ...quote,
+      items: itemsCalculados,
+      subtotal: subtotalVenta,
+      tax: taxVenta,
+      total: totalVenta,
+    };
 
     // Generar PDF usando utilidad
     const pdfBuffer = await generateBudgetPDF(quoteWithCalculations, ivaRate);

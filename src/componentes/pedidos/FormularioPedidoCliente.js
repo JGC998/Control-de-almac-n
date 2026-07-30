@@ -174,7 +174,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       setItems(newItems);
     }
     setModalState(null);
-    mutate('/api/productos');
+    mutate('/api/productos?limit=200');
   };
 
   const handleMetrajeAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario, detallesTecnicos }) => {

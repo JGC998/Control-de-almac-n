@@ -6,7 +6,7 @@ import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 const schema = z.object({
   ids: z.array(z.string()).min(1).max(200),
-  estado: z.enum(['Aceptado', 'Rechazado', 'Cancelado', 'Enviado', 'Borrador']),
+  estado: z.enum(['Rechazado', 'Cancelado', 'Enviado', 'Borrador']),
 });
 
 export async function POST(request) {
