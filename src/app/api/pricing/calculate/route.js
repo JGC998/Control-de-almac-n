@@ -33,8 +33,11 @@ export async function POST(request) {
 
     const calculatedItems = [];
 
-    // Total de unidades de todos los ítems para repartir gastoFijo proporcionalmente
-    const totalQty = items.reduce((s, i) => s + (Number(i.quantity) > 0 ? Number(i.quantity) : 1), 0);
+    // Total de unidades de ítems con producto para repartir gastoFijo proporcionalmente
+    // Los ítems manuales (sin productId) no reciben gastoFijo, así que no cuentan en el denominador
+    const totalQty = items
+      .filter(i => i.productId)
+      .reduce((s, i) => s + (Number(i.quantity) > 0 ? Number(i.quantity) : 1), 0) || 1;
 
     // 3. Procesar cada item
     for (const item of items) {

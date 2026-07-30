@@ -10,7 +10,8 @@ import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 // Componente para manejar el desglose del total y los cálculos por item.
 const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
-  const ivaRate = config?.iva_rate || 0.21;
+  const rawIvaRate = config?.iva_rate || 0.21;
+  const ivaRate = rawIvaRate > 1 ? rawIvaRate / 100 : rawIvaRate;
   const marginRule = margenes?.find(m => m.id === quote.marginId);
 
   // 1. Calcular el Costo Base Total de todos los ítems.

@@ -53,9 +53,8 @@ export async function PUT(request, { params }) {
     if (!parsed.success) {
       return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
-    const { clienteId, items, estado, marginId, ultimoRecordatorio } = parsed.data;
-    // Aceptar 'notas', 'observaciones' o 'notes' para compatibilidad con el cliente
-    const finalNotes = body.notas ?? body.notes ?? body.observaciones ?? null;
+    const { clienteId, items, estado, marginId, ultimoRecordatorio, notas } = parsed.data;
+    const finalNotes = notas ?? null;
 
     // Recalcular totales en servidor con IVA desde Config
     const configIva = await db.config.findUnique({ where: { key: 'iva_rate' } });
@@ -105,7 +104,9 @@ export async function PUT(request, { params }) {
 
     revalidatePath('/presupuestos'); // Invalidate the list page
     revalidatePath(`/presupuestos/${id}`); // Invalidate the detail page
-    return NextResponse.json(updatedQuote, { status: 200 });
+    const serialized = serializeDecimals(updatedQuote, ['subtotal', 'tax', 'total']);
+    serialized.items = (serialized.items || []).map(item => serializeDecimals(item, ['unitPrice']));
+    return NextResponse.json(serialized, { status: 200 });
   } catch (error) {
     logApiError(error, 'Error al actualizar el presupuesto');
     return handlePrismaError(error, { notFound: 'Presupuesto no encontrado' });

@@ -135,7 +135,8 @@ export async function GET(request) {
       const defaultDesde = new Date(`${currentYear}-01-01T00:00:00.000Z`);
 
       const ivaConfigVP = await db.config.findUnique({ where: { key: 'iva_rate' } });
-      const IVA_VP = ivaConfigVP?.value ? parseFloat(String(ivaConfigVP.value)) : 0.21;
+      const rawIvaVP = ivaConfigVP?.value ? parseFloat(String(ivaConfigVP.value)) : 0.21;
+      const IVA_VP = rawIvaVP > 1 ? rawIvaVP / 100 : rawIvaVP;
 
       const whereVP = { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: parseFechaVP(desde) ?? defaultDesde } };
       const hastaVP = parseFechaVP(hasta);
@@ -243,7 +244,8 @@ export async function GET(request) {
       const hasta = searchParams.get('hasta');
 
       const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });
-      const IVA_MARGEN = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
+      const rawIvaMargen = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
+      const IVA_MARGEN = rawIvaMargen > 1 ? rawIvaMargen / 100 : rawIvaMargen;
 
       const parseFechaMargen = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
       const where = { estado: { notIn: EXCLUIDOS } };
@@ -305,7 +307,8 @@ export async function GET(request) {
       }
 
       const ivaConfigRent = await db.config.findUnique({ where: { key: 'iva_rate' } });
-      const IVA_RENT = ivaConfigRent?.value ? parseFloat(String(ivaConfigRent.value)) : 0.21;
+      const rawIvaRent = ivaConfigRent?.value ? parseFloat(String(ivaConfigRent.value)) : 0.21;
+      const IVA_RENT = rawIvaRent > 1 ? rawIvaRent / 100 : rawIvaRent;
 
       const pedidos = await db.pedido.findMany({
         where: whereRent,
@@ -383,7 +386,8 @@ export async function GET(request) {
         db.reglaMargen.findMany({ take: 50 }),
       ]);
 
-      const IVA = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
+      const rawIva = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
+      const IVA = rawIva > 1 ? rawIva / 100 : rawIva;
 
       // Recopilar todos los productoIds para obtener costoUnitario actual y historial
       const productoIds = [...new Set(

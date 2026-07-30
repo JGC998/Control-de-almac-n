@@ -183,26 +183,44 @@ export default function ContenedorDetalle() {
   const handleGuardarBarco = async (e) => {
     e.preventDefault();
     const nombre = barcoInput.trim().toUpperCase();
-    await fetch(`/api/importaciones/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombreBarco: nombre || null }),
-    });
-    setEditandoBarco(false);
-    mutate();
-    if (nombre) handleActualizar();
+    try {
+      const res = await fetch(`/api/importaciones/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombreBarco: nombre || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setErrorTracking(data.message || 'Error al guardar el nombre del barco');
+        return;
+      }
+      setEditandoBarco(false);
+      mutate();
+      if (nombre) handleActualizar();
+    } catch (err) {
+      setErrorTracking(err.message || 'Error al guardar el nombre del barco');
+    }
   };
 
   const handleGuardarMmsi = async (e) => {
     e.preventDefault();
     const mmsi = mmsiInput.trim().replace(/\D/g, '');
-    await fetch(`/api/importaciones/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mmsiBarco: mmsi || null }),
-    });
-    setEditandoMmsi(false);
-    mutate();
+    try {
+      const res = await fetch(`/api/importaciones/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mmsiBarco: mmsi || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setErrorTracking(data.message || 'Error al guardar el MMSI');
+        return;
+      }
+      setEditandoMmsi(false);
+      mutate();
+    } catch (err) {
+      setErrorTracking(err.message || 'Error al guardar el MMSI');
+    }
   };
 
   const [enviandoWA, setEnviandoWA] = useState(false);

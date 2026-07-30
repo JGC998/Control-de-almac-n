@@ -44,7 +44,7 @@ export async function GET(request, { params }) {
       margen: p.marginId ? margenMap[p.marginId] ?? null : null,
     }));
 
-    const totalFacturado = totalAgg._sum.total ?? 0;
+    const totalFacturado = Number(totalAgg._sum.total ?? 0);
     const ultimoPedido = pedidos.length > 0 ? pedidos[0].fechaCreacion : null;
 
     return NextResponse.json({

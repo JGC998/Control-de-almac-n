@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
 import { presupuestoSchema } from '@/lib/validations';
+import { serializeDecimals } from '@/lib/manejadores-api';
 
 // GET /api/presupuestos - Obtiene todos los presupuestos con paginación opcional
 export async function GET(request) {
@@ -106,7 +107,7 @@ export async function POST(request) {
     });
 
     revalidatePath('/presupuestos'); // Invalidate cache for the list page
-    return NextResponse.json(newQuote, { status: 201 });
+    return NextResponse.json(serializeDecimals(newQuote, ['subtotal', 'tax', 'total']), { status: 201 });
   } catch (error) {
     logApiError(error, 'Error al crear el presupuesto:');
     if (error.code === 'P2025') {

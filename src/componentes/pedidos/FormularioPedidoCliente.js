@@ -269,7 +269,8 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       , 0);
     const articulosSinCoste = items.filter(i => i.productoId && !(parseFloat(i.costoUnitario) > 0)).length;
 
-    const ivaRate = config?.iva_rate ? parseFloat(config.iva_rate) : 0.21;
+    const rawIvaRate = config?.iva_rate ? parseFloat(config.iva_rate) : 0.21;
+    const ivaRate = rawIvaRate > 1 ? rawIvaRate / 100 : rawIvaRate;
 
     let subtotalConMargen = subtotalBase;
     let margenAplicado = { multiplicador: 1, gastoFijo: 0 };

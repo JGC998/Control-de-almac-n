@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
 import { pedidoSchema } from '@/lib/validations';
+import { serializeDecimals } from '@/lib/manejadores-api';
 
 // GET /api/pedidos - Obtiene todos los pedidos con paginación opcional
 export async function GET(request) {
@@ -107,8 +108,9 @@ export async function POST(request) {
     });
 
     revalidatePath('/pedidos'); // Invalidate cache
-
-    return NextResponse.json(newOrder, { status: 201 });
+    const serialized = serializeDecimals(newOrder, ['subtotal', 'tax', 'total']);
+    serialized.items = (serialized.items || []).map(item => serializeDecimals(item, ['unitPrice']));
+    return NextResponse.json(serialized, { status: 201 });
 
   } catch (error) {
     logApiError(error, 'Error al crear el pedido:');
