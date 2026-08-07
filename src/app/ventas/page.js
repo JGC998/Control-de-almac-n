@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { DollarSign, FileText, Package, FilePlus, PackagePlus } from 'lucide-react';
+import { DollarSign, FileText, Package, FilePlus, PackagePlus, FileCheck } from 'lucide-react';
 
 export const metadata = { title: 'Ventas — CRM Taller' };
 
@@ -7,13 +7,20 @@ export default function VentasHub() {
   return (
     <HubPage
       title="Ventas"
-      descripcion="Gestión del ciclo de venta: presupuestos y pedidos de cliente."
+      descripcion="Gestión del ciclo de venta: presupuestos, pedidos y albaranes."
       icon={DollarSign}
       color="primary"
       groups={[
         {
           titulo: 'Crear nuevo documento',
           items: [
+            {
+              href: '/albaranes/nuevo',
+              icon: FileCheck,
+              titulo: 'Nuevo albarán',
+              descripcion: 'Genera un albarán de entrega sin valorar para que el cliente se lleve en mano.',
+              accion: 'Crear albarán',
+            },
             {
               href: '/presupuestos/nuevo',
               icon: FilePlus,
@@ -33,6 +40,13 @@ export default function VentasHub() {
         {
           titulo: 'Ver y gestionar',
           items: [
+            {
+              href: '/albaranes',
+              icon: FileCheck,
+              titulo: 'Albaranes',
+              descripcion: 'Listado de albaranes emitidos: pendientes, entregados y cancelados.',
+              accion: 'Ver albaranes',
+            },
             {
               href: '/presupuestos',
               icon: FileText,

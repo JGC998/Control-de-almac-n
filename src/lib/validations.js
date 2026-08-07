@@ -138,6 +138,24 @@ export const pedidoSchema = z.object({
 });
 
 // ============================================
+// VALIDACIONES PARA ALBARANES
+// ============================================
+
+const albaranItemSchema = z.object({
+    descripcion: z.string().min(1, 'Descripción requerida'),
+    quantity: z.number().int().positive('Cantidad debe ser positiva'),
+    productoId: z.string().uuid().optional().nullable(),
+});
+
+export const albaranSchema = z.object({
+    clienteId: z.string().optional().nullable(),
+    items: z.array(albaranItemSchema).min(1, 'Debe haber al menos un ítem'),
+    notas: z.string().optional().nullable(),
+    valorado: z.boolean().optional().default(false),
+    pedidoId: z.string().uuid().optional().nullable(),
+});
+
+// ============================================
 // VALIDACIONES PARA PRESUPUESTOS
 // ============================================
 
