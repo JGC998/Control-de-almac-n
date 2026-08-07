@@ -1476,26 +1476,12 @@ export async function generateAlbaranPDF(albaran) {
 
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.text(`Número:`, 14, 36);
+        doc.text(`Fecha:`, 14, 36);
         doc.setFont("helvetica", "normal");
-        doc.text(albaran.numero, 38, 36);
-
-        doc.setFont("helvetica", "bold");
-        doc.text(`Fecha:`, 14, 42);
-        doc.setFont("helvetica", "normal");
-        doc.text(new Date(albaran.fechaCreacion).toLocaleDateString('es-ES'), 38, 42);
-
-        // Badge "SIN VALORAR" en cabecera si aplica
-        if (albaran.valorado === false) {
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(180, 90, 0);
-            doc.text('SIN VALORAR', 14, 49);
-            doc.setTextColor(0, 0, 0);
-        }
+        doc.text(new Date(albaran.fechaCreacion).toLocaleDateString('es-ES'), 38, 36);
 
         // --- Recuadro cliente ---
-        const clientY = albaran.valorado === false ? 57 : 54;
+        const clientY = 50;
         doc.rect(14, clientY, 90, 28);
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
@@ -1562,10 +1548,8 @@ export async function generateAlbaranPDF(albaran) {
         const firmaY = Math.max(finalY + totalesOffset + 20, 230);
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.line(14, firmaY, 80, firmaY);
-        doc.line(120, firmaY, 196, firmaY);
+        doc.line(14, firmaY, 100, firmaY);
         doc.text("Firma del receptor", 14, firmaY + 5);
-        doc.text("Sello y firma empresa", 120, firmaY + 5);
 
         return doc.output('arraybuffer');
     } catch (error) {

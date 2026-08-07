@@ -228,10 +228,10 @@ export const subfamiliaSchema = z.object({
 export const clienteSchema = z.object({
     nombre: z.string().min(1, 'Nombre requerido'),
     nif: z.string().optional().nullable(),
-    email: z.string().email('Email inválido').optional().nullable(),
+    email: z.preprocess(v => (v === '' ? null : v), z.string().email('Email inválido').optional().nullable()),
     telefono: z.string().optional().nullable(),
     direccion: z.string().optional().nullable(),
-    tier: z.enum(['FABRICANTE', 'INTERMEDIARIO', 'FINAL']).optional(),
+    tier: z.preprocess(v => (v === '' ? undefined : v), z.enum(['FABRICANTE', 'INTERMEDIARIO', 'FINAL']).optional().nullable()),
     categoria: z.string().optional().nullable()
 });
 
