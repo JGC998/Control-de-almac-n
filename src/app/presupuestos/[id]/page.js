@@ -269,7 +269,7 @@ export default function PresupuestoDetalle() {
 
       {/* Detalles del Presupuesto */}
       <div className="bg-base-100 shadow-xl rounded-lg p-6">
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
           <div>
             <h1 className="text-3xl font-bold">Presupuesto {quote.numero}</h1>
             <p className="text-base-content/60">Fecha: {quote.fechaCreacion ? new Date(quote.fechaCreacion).toLocaleDateString() : 'N/A'}</p>

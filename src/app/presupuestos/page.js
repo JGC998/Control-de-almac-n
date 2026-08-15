@@ -77,11 +77,11 @@ export default async function PresupuestosPage({ searchParams: searchParamsPromi
   return (
     <div className="container mx-auto p-4">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <FileText className="w-8 h-8" /> Presupuestos
         </h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <a href="/api/presupuestos/export" target="_blank" className="btn btn-outline btn-success gap-2">
             <Download className="w-4 h-4" /> Exportar Excel
           </a>

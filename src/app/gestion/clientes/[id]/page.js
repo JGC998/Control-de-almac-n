@@ -213,7 +213,7 @@ export default function ClienteDetalle() {
       </button>
 
       {/* Cabecera */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <User className="w-8 h-8" /> {cliente.nombre}
         </h1>

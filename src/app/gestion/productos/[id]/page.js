@@ -128,7 +128,7 @@ export default function ProductoDetallePage() {
             <div className="text-right">
               <div className="text-sm text-base-content/60 uppercase font-bold tracking-wider">Precio</div>
               <div className="text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario))} €</div>
-              <div className="flex justify-end gap-2 mt-2">
+              <div className="flex flex-wrap justify-end gap-2 mt-2">
                 <a href={`/api/productos/${id}/etiqueta`} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline btn-success">
                   <QrCode className="w-4 h-4" /> Etiqueta
                 </a>

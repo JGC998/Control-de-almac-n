@@ -94,11 +94,11 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
   return (
     <div className="container mx-auto p-4">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Package className="w-8 h-8" /> Pedidos
         </h1>
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           <Link href="/pedidos/notas-taller" className="btn btn-outline gap-2">
             <Printer className="w-4 h-4" /> Imprimir notas
           </Link>

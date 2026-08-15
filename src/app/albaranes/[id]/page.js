@@ -56,7 +56,7 @@ export default function AlbaranDetallePage() {
           <span className="badge badge-warning">Sin valorar</span>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <a
             href={`/api/albaranes/${id}/pdf`}
             target="_blank"

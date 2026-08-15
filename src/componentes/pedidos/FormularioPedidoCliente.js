@@ -373,7 +373,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
               <div>
                 <h2 className="card-title text-primary">Información Principal</h2>
                 <p className="text-sm opacity-70">
@@ -434,7 +434,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
               <div>
                 <h2 className="card-title text-primary">
                   Líneas del {formType === 'PRESUPUESTO' ? 'presupuesto' : 'pedido'}

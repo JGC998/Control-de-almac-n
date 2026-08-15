@@ -283,7 +283,7 @@ export default function PedidoDetalle() {
       </div>
 
       <div className="bg-base-100 shadow-xl rounded-lg p-6">
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
           <div>
             <h1 className="text-3xl font-bold">Pedido {order.numero}</h1>
             <p className="text-base-content/60">Fecha: {order.fechaCreacion ? new Date(order.fechaCreacion).toLocaleDateString() : 'N/A'}</p>
