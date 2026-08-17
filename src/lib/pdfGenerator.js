@@ -669,26 +669,17 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         const totalUnidades = (order.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
         const gastoFijoUnitario = totalUnidades > 0 ? gastoFijoTotal / totalUnidades : 0;
 
-        // Columna Descripción: nombre + material + dimensiones del producto
-        const getDescripcion = (item) => {
-            const lines = [item.descripcion || item.producto?.nombre || ''];
-            const prod = item.producto;
-            if (prod) {
-                const meta = [];
-                if (prod.material?.nombre) meta.push(prod.material.nombre);
-                const dims = [
-                    prod.espesor != null ? `${prod.espesor}mm` : null,
-                    prod.ancho   != null ? `${prod.ancho}mm`   : null,
-                    prod.largo   != null ? `${prod.largo}mm`   : null,
-                ].filter(Boolean);
-                if (dims.length) meta.push(dims.join(' × '));
-                if (prod.color) meta.push(prod.color);
-                if (meta.length) lines.push(meta.join(' · '));
-            }
-            return lines.join('\n');
-        };
+        // Helpers para columnas técnicas del producto
+        const dash = '—';
+        const getDescripcion = (item) => item.descripcion || item.producto?.nombre || '';
+        const getRefFab      = (item) => item.producto?.referenciaFabricante || dash;
+        const getFabricante  = (item) => item.producto?.fabricante?.nombre    || dash;
+        const getMaterial    = (item) => item.producto?.material?.nombre      || dash;
+        const getEspesor     = (item) => item.producto?.espesor != null ? `${item.producto.espesor}mm` : dash;
+        const getAncho       = (item) => item.producto?.ancho   != null ? `${item.producto.ancho}mm`   : dash;
+        const getLargo       = (item) => item.producto?.largo   != null ? `${item.producto.largo}m`    : dash;
 
-        // Columna Detalles: usa el helper de módulo
+        // Columna Detalles: solo para valorado (cortes, metrajes, etc.)
         const getDetalles = (item) => formatDetallesTecnicos(item);
 
         for (const item of order.items || []) {
@@ -706,13 +697,10 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             const importeLin = qty * precioVenta;
             importeTotal += importeLin;
 
-            const descripcion = getDescripcion(item);
-            const detalles    = getDetalles(item);
-
             if (valorado) {
                 tableRows.push([
-                    descripcion,
-                    detalles,
+                    getDescripcion(item),
+                    getDetalles(item),
                     qty.toString(),
                     `${fmtN(precioVenta)} €`,
                     `${fmtN(importeLin)} €`,
@@ -721,8 +709,13 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                 ]);
             } else {
                 tableRows.push([
-                    descripcion,
-                    detalles,
+                    getDescripcion(item),
+                    getRefFab(item),
+                    getFabricante(item),
+                    getMaterial(item),
+                    getEspesor(item),
+                    getAncho(item),
+                    getLargo(item),
                     qty.toString(),
                     fmtN(peso),
                     fmtN(pesoLinea),
@@ -732,7 +725,7 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
 
         const head = valorado
             ? [["Descripción", "Detalles", "Cant.", "Precio/ud", "Total línea", "Peso unit. (kg)", "Peso total (kg)"]]
-            : [["Descripción", "Detalles", "Cant.", "Peso unit. (kg)", "Peso total (kg)"]];
+            : [["Descripción", "Ref. Fab.", "Fabricante", "Material", "Esp.", "Ancho", "Largo", "Cant.", "Peso unit.", "Peso total"]];
 
         // Ancho útil: 210 - 14 (ML) - 14 (MR) = 182 mm
         const colStyles = valorado ? {
@@ -745,12 +738,17 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             5: { halign: 'right',  cellWidth: 20 },
             6: { halign: 'right',  cellWidth: 20 },
         } : {
-            // 62+46+18+28+28 = 182
-            0: { cellWidth: 62 },
-            1: { cellWidth: 46, fontSize: 8 },
-            2: { halign: 'center', cellWidth: 18 },
-            3: { halign: 'right',  cellWidth: 28 },
-            4: { halign: 'right',  cellWidth: 28 },
+            // 30+20+26+16+13+13+13+12+20+19 = 182
+            0: { cellWidth: 30 },
+            1: { cellWidth: 20, fontSize: 7 },
+            2: { cellWidth: 26, fontSize: 7 },
+            3: { cellWidth: 16, fontSize: 7 },
+            4: { halign: 'center', cellWidth: 13, fontSize: 7 },
+            5: { halign: 'center', cellWidth: 13, fontSize: 7 },
+            6: { halign: 'center', cellWidth: 13, fontSize: 7 },
+            7: { halign: 'center', cellWidth: 12 },
+            8: { halign: 'right',  cellWidth: 20 },
+            9: { halign: 'right',  cellWidth: 19 },
         };
 
         autoTable(doc, {
@@ -759,8 +757,8 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             startY: y,
             margin: { left: ML, right: PW - MR },
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 3 },
-            headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 2.5 },
+            headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold', fontSize: 7 },
             columnStyles: colStyles,
         });
 
