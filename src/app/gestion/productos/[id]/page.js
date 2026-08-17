@@ -59,6 +59,7 @@ function HistorialCostos({ productoId }) {
 // Tarjeta de foto individual (plantilla o troquel)
 function TarjetaFoto({ productoId, tipo, ruta, onActualizar }) {
   const inputRef = useRef(null);
+  const inputCamaraRef = useRef(null);
   const [subiendo, setSubiendo] = useState(false);
   const [fotoAmpliada, setFotoAmpliada] = useState(false);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
@@ -165,21 +166,38 @@ function TarjetaFoto({ productoId, tipo, ruta, onActualizar }) {
           <input
             ref={inputRef}
             type="file"
-            accept=".jpg,.jpeg,.png,.webp"
+            accept="image/*"
+            className="hidden"
+            onChange={handleSeleccionArchivo}
+          />
+          <input
+            ref={inputCamaraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={handleSeleccionArchivo}
           />
 
-          <button
-            className="btn btn-sm btn-outline btn-primary w-full mt-2 gap-2"
-            onClick={() => inputRef.current?.click()}
-            disabled={subiendo}
-          >
-            {subiendo
-              ? <><span className="loading loading-spinner loading-xs" /> Subiendo...</>
-              : <><Camera className="w-3.5 h-3.5" /> {ruta ? 'Cambiar foto' : 'Subir foto'}</>
-            }
-          </button>
+          <div className="flex gap-2 mt-2">
+            <button
+              className="btn btn-sm btn-outline btn-primary flex-1 gap-1"
+              onClick={() => inputCamaraRef.current?.click()}
+              disabled={subiendo}
+            >
+              {subiendo
+                ? <><span className="loading loading-spinner loading-xs" /> Subiendo...</>
+                : <><Camera className="w-3.5 h-3.5" /> Hacer foto</>
+              }
+            </button>
+            <button
+              className="btn btn-sm btn-outline flex-1 gap-1"
+              onClick={() => inputRef.current?.click()}
+              disabled={subiendo}
+            >
+              <ZoomIn className="w-3.5 h-3.5" /> {ruta ? 'Cambiar' : 'Galería'}
+            </button>
+          </div>
         </div>
       </div>
     </>
