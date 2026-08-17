@@ -68,8 +68,21 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
               return (
                 <tr key={index}>
                   <td className="font-medium min-w-[200px]">
-                    {item.descripcion}
-                    {nombreProducto && <div className="text-xs opacity-50 flex items-center gap-1"><Package className="w-3 h-3" /> {nombreProducto}</div>}
+                    {item.productoId ? (
+                      <Link href={`/gestion/productos/${item.productoId}`} className="hover:underline hover:text-primary transition-colors">
+                        {item.descripcion}
+                      </Link>
+                    ) : item.descripcion}
+                    {nombreProducto && (
+                      <div className="text-xs opacity-50 flex items-center gap-1 mt-0.5">
+                        <Package className="w-3 h-3" />
+                        {item.productoId ? (
+                          <Link href={`/gestion/productos/${item.productoId}`} className="hover:underline hover:text-primary transition-colors">
+                            {nombreProducto}
+                          </Link>
+                        ) : nombreProducto}
+                      </div>
+                    )}
                   </td>
                   <td className="text-center">{item.quantity}</td>
                   <td className="text-right opacity-70">{costoUnitario.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>

@@ -12,9 +12,7 @@ export async function GET(request, { params }) {
 
     const valorado = request.nextUrl.searchParams.get('valorado') === '1';
     const host     = request.headers.get('host') || '192.168.1.250:3000';
-    const proto    = request.headers.get('x-forwarded-proto') || 'http';
-    const baseUrl  = `${proto}://${host}`;
-    const pedidoUrl = `${baseUrl}/pedidos/${id}`;
+    const pedidoUrl = `http://${host}/pedidos/${id}`;
 
     const order = await db.pedido.findUnique({
       where: { id },
@@ -37,7 +35,7 @@ export async function GET(request, { params }) {
       if (ivaConfig) ivaRate = parseFloat(ivaConfig.value) / 100;
     }
 
-    const pdfBuffer = await generateTallerPDF(order, { valorado, pedidoUrl, baseUrl, margenRule, ivaRate });
+    const pdfBuffer = await generateTallerPDF(order, { valorado, pedidoUrl, margenRule, ivaRate });
 
     return new NextResponse(pdfBuffer, {
       status: 200,
