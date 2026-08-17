@@ -70,7 +70,7 @@ export async function POST(request, { params }) {
 
     // Escribir nuevo archivo
     const buffer = Buffer.from(await archivo.arrayBuffer());
-    const rutaRelativa = `/fotos-producto/${subcarpeta}/${nombreArchivo}`;
+    const rutaRelativa = `/api/fotos/${subcarpeta}/${nombreArchivo}`;
     await writeFile(path.join(dirAbsoluto, nombreArchivo), buffer);
 
     // Actualizar BD
