@@ -36,7 +36,7 @@ export async function GET(request, { params }) {
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="etiqueta-${nombreSafe}.pdf"`,
+        'Content-Disposition': `inline; filename="etiqueta-${nombreSafe}.pdf"`,
       },
     });
   } catch (error) {

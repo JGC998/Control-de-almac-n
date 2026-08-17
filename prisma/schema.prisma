@@ -333,6 +333,8 @@ model Producto {
   pesoUnitario         Float   @default(0)
   costoUnitario        Float?  @map("costo")
   tieneTroquel         Boolean @default(false)
+  fotoPlantilla        String?
+  fotoTroquel          String?
   color                String?
   acabado              String?
   lonas                Int?
