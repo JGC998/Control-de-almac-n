@@ -700,7 +700,12 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             if (valorado) {
                 tableRows.push([
                     getDescripcion(item),
-                    getDetalles(item),
+                    getRefFab(item),
+                    getFabricante(item),
+                    getMaterial(item),
+                    getEspesor(item),
+                    getAncho(item),
+                    getLargo(item),
                     qty.toString(),
                     `${fmtN(precioVenta)} €`,
                     `${fmtN(importeLin)} €`,
@@ -724,19 +729,24 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         }
 
         const head = valorado
-            ? [["Descripción", "Detalles", "Cant.", "Precio/ud", "Total línea", "Peso unit. (kg)", "Peso total (kg)"]]
+            ? [["Descripción", "Ref. Fab.", "Fabricante", "Material", "Esp.", "Ancho", "Largo", "Cant.", "Precio/ud", "Total", "Peso u.", "Peso t."]]
             : [["Descripción", "Ref. Fab.", "Fabricante", "Material", "Esp.", "Ancho", "Largo", "Cant.", "Peso unit.", "Peso total"]];
 
         // Ancho útil: 210 - 14 (ML) - 14 (MR) = 182 mm
         const colStyles = valorado ? {
-            // 50+34+18+20+20+20+20 = 182
-            0: { cellWidth: 50 },
-            1: { cellWidth: 34, fontSize: 8 },
-            2: { halign: 'center', cellWidth: 18 },
-            3: { halign: 'right',  cellWidth: 20 },
-            4: { halign: 'right',  cellWidth: 20 },
-            5: { halign: 'right',  cellWidth: 20 },
-            6: { halign: 'right',  cellWidth: 20 },
+            // 26+18+22+15+11+11+11+11+17+17+12+11 = 182
+            0: { cellWidth: 26 },
+            1: { cellWidth: 18, fontSize: 7 },
+            2: { cellWidth: 22, fontSize: 7 },
+            3: { cellWidth: 15, fontSize: 7 },
+            4: { halign: 'center', cellWidth: 11, fontSize: 7 },
+            5: { halign: 'center', cellWidth: 11, fontSize: 7 },
+            6: { halign: 'center', cellWidth: 11, fontSize: 7 },
+            7: { halign: 'center', cellWidth: 11 },
+            8: { halign: 'right',  cellWidth: 17 },
+            9: { halign: 'right',  cellWidth: 17 },
+            10: { halign: 'right', cellWidth: 12 },
+            11: { halign: 'right', cellWidth: 11 },
         } : {
             // 30+20+26+16+13+13+13+12+20+19 = 182
             0: { cellWidth: 30 },
