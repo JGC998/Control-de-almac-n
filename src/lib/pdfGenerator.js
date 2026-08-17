@@ -574,7 +574,7 @@ export async function generateOrderPDF(order, config = {}) {
 
 // PDF simplificado para dejar en el taller: cliente, artículos, peso y precio.
 // Sin márgenes, sin referencias internas, sin notas internas.
-export async function generateTallerPDF(order, { valorado = false, pedidoUrl = null, margenRule = null, ivaRate = 0.21 } = {}) {
+export async function generateTallerPDF(order, { valorado = false, pedidoUrl = null, baseUrl = null, margenRule = null, ivaRate = 0.21 } = {}) {
     try {
         const doc    = new jsPDF();
         const client = order.cliente;
@@ -691,6 +691,29 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         // Columna Detalles: usa el helper de módulo
         const getDetalles = (item) => formatDetallesTecnicos(item);
 
+        // Pre-generar QR codes de producto (solo en nota de taller no valorada)
+        const rowQRs = [];
+        if (!valorado && baseUrl) {
+            for (const item of order.items || []) {
+                if (item.productoId) {
+                    try {
+                        const url = `${baseUrl}/gestion/productos/${item.productoId}`;
+                        const qrDataUrl = await QRCode.toDataURL(url, {
+                            width: 80, margin: 1,
+                            color: { dark: '#1f2d3a', light: '#ffffff' },
+                        });
+                        rowQRs.push(qrDataUrl);
+                    } catch {
+                        rowQRs.push(null);
+                    }
+                } else {
+                    rowQRs.push(null);
+                }
+            }
+        }
+
+        const conQR = !valorado && rowQRs.some(Boolean);
+
         for (const item of order.items || []) {
             const qty           = item.quantity || 0;
             const costoUnitario = item.unitPrice || 0;
@@ -719,6 +742,15 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                     fmtN(peso),
                     fmtN(pesoLinea),
                 ]);
+            } else if (conQR) {
+                tableRows.push([
+                    descripcion,
+                    detalles,
+                    qty.toString(),
+                    fmtN(peso),
+                    fmtN(pesoLinea),
+                    '', // celda QR — se dibuja en didDrawCell
+                ]);
             } else {
                 tableRows.push([
                     descripcion,
@@ -732,7 +764,9 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
 
         const head = valorado
             ? [["Descripción", "Detalles", "Cant.", "Precio/ud", "Total línea", "Peso unit. (kg)", "Peso total (kg)"]]
-            : [["Descripción", "Detalles", "Cant.", "Peso unit. (kg)", "Peso total (kg)"]];
+            : conQR
+                ? [["Descripción", "Detalles", "Cant.", "Peso unit. (kg)", "Peso total (kg)", "Ficha"]]
+                : [["Descripción", "Detalles", "Cant.", "Peso unit. (kg)", "Peso total (kg)"]];
 
         // Ancho útil: 210 - 14 (ML) - 14 (MR) = 182 mm
         const colStyles = valorado ? {
@@ -744,6 +778,14 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             4: { halign: 'right',  cellWidth: 20 },
             5: { halign: 'right',  cellWidth: 20 },
             6: { halign: 'right',  cellWidth: 20 },
+        } : conQR ? {
+            // 52+38+16+24+24+28 = 182
+            0: { cellWidth: 52 },
+            1: { cellWidth: 38, fontSize: 8 },
+            2: { halign: 'center', cellWidth: 16 },
+            3: { halign: 'right',  cellWidth: 24 },
+            4: { halign: 'right',  cellWidth: 24 },
+            5: { halign: 'center', cellWidth: 28 },
         } : {
             // 62+46+18+28+28 = 182
             0: { cellWidth: 62 },
@@ -753,15 +795,27 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             4: { halign: 'right',  cellWidth: 28 },
         };
 
+        const QR_SIZE = 22;
+
         autoTable(doc, {
             head,
             body: tableRows,
             startY: y,
             margin: { left: ML, right: PW - MR },
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 3 },
+            styles: { fontSize: 9, cellPadding: 3, minCellHeight: conQR ? QR_SIZE + 2 : 0 },
             headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold' },
             columnStyles: colStyles,
+            didDrawCell: conQR ? (data) => {
+                if (data.section === 'body' && data.column.index === 5) {
+                    const qr = rowQRs[data.row.index];
+                    if (qr) {
+                        const cx = data.cell.x + (data.cell.width - QR_SIZE) / 2;
+                        const cy = data.cell.y + (data.cell.height - QR_SIZE) / 2;
+                        doc.addImage(qr, 'PNG', cx, cy, QR_SIZE, QR_SIZE);
+                    }
+                }
+            } : undefined,
         });
 
         let finalY = doc.lastAutoTable.finalY + 7;

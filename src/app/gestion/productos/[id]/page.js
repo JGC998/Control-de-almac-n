@@ -247,14 +247,15 @@ export default function ProductoDetallePage() {
       <div className="bg-base-100 shadow-xl rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
 
         {/* Cabecera del producto */}
-        <div className="p-8 bg-gradient-to-r from-base-100 to-base-200">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-4 bg-primary/10 rounded-full">
-                <Package className="w-10 h-10 text-primary" />
+        <div className="p-4 sm:p-8 bg-gradient-to-r from-base-100 to-base-200">
+          <div className="flex flex-col gap-4">
+            {/* Nombre + badges */}
+            <div className="flex items-start gap-3">
+              <div className="p-3 bg-primary/10 rounded-full shrink-0">
+                <Package className="w-7 h-7 sm:w-10 sm:h-10 text-primary" />
               </div>
-              <div>
-                <h1 className="text-4xl font-extrabold text-base-content">{producto.nombre}</h1>
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-4xl font-extrabold text-base-content leading-tight break-words">{producto.nombre}</h1>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   {producto.color && <span className="badge badge-secondary badge-outline">{producto.color}</span>}
                   {producto.material?.nombre && <span className="badge badge-outline">{producto.material.nombre}</span>}
@@ -262,22 +263,25 @@ export default function ProductoDetallePage() {
                 </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-sm text-base-content/60 uppercase font-bold tracking-wider">Precio</div>
-              <div className="text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario))} €</div>
-              <div className="flex flex-wrap justify-end gap-2 mt-2">
+            {/* Precio + botones — en móvil ocupan ancho completo */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <div className="text-xs text-base-content/60 uppercase font-bold tracking-wider">Precio</div>
+                <div className="text-3xl sm:text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario))} €</div>
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <a
                   href={`/api/productos/${id}/etiqueta`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn btn-sm btn-outline btn-success gap-1"
+                  className="btn btn-sm btn-outline btn-success gap-1 flex-1 sm:flex-none"
                 >
                   <Printer className="w-4 h-4" /> Etiqueta
                 </a>
-                <button onClick={() => setIsEditModalOpen(true)} className="btn btn-sm btn-outline btn-info gap-1">
+                <button onClick={() => setIsEditModalOpen(true)} className="btn btn-sm btn-outline btn-info gap-1 flex-1 sm:flex-none">
                   <Edit className="w-4 h-4" /> Editar
                 </button>
-                <button onClick={handleDeleteProduct} className="btn btn-sm btn-outline btn-error gap-1">
+                <button onClick={handleDeleteProduct} className="btn btn-sm btn-outline btn-error gap-1 flex-1 sm:flex-none">
                   <Trash2 className="w-4 h-4" /> Eliminar
                 </button>
               </div>
@@ -285,11 +289,33 @@ export default function ProductoDetallePage() {
           </div>
         </div>
 
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
+
+          {/* ── Fotos — lo primero visible al escanear QR desde el móvil ── */}
+          <div className="divider text-base-content/50 font-semibold uppercase tracking-widest text-xs">
+            <Camera className="w-4 h-4 inline mr-1" />
+            Fotos de referencia
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <TarjetaFoto
+              productoId={id}
+              tipo="plantilla"
+              ruta={producto.fotoPlantilla}
+              onActualizar={mutate}
+            />
+            <TarjetaFoto
+              productoId={id}
+              tipo="troquel"
+              ruta={producto.fotoTroquel}
+              onActualizar={mutate}
+            />
+          </div>
+
+          {/* ── Información general ── */}
           <div className="divider text-base-content/50 font-semibold uppercase tracking-widest text-xs">Información General</div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div className="bg-base-200/50 p-6 rounded-xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-base-200/50 p-4 sm:p-6 rounded-xl">
               <h3 className="flex items-center gap-2 font-bold text-lg mb-4 text-secondary">
                 <Info className="w-5 h-5" /> Detalles técnicos
               </h3>
@@ -324,27 +350,7 @@ export default function ProductoDetallePage() {
             </div>
           </div>
 
-          {/* Fotos de plantilla y troquel */}
-          <div className="divider text-base-content/50 font-semibold uppercase tracking-widest text-xs">
-            <Camera className="w-4 h-4 inline mr-1" />
-            Fotos de referencia
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            <TarjetaFoto
-              productoId={id}
-              tipo="plantilla"
-              ruta={producto.fotoPlantilla}
-              onActualizar={mutate}
-            />
-            <TarjetaFoto
-              productoId={id}
-              tipo="troquel"
-              ruta={producto.fotoTroquel}
-              onActualizar={mutate}
-            />
-          </div>
-
-          {/* Historial de costos */}
+          {/* ── Historial de costos ── */}
           <div className="mt-4">
             <div className="divider">
               <TrendingUp className="w-4 h-4 inline mr-1" />
