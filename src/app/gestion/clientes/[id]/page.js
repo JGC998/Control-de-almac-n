@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, TrendingUp, ShoppingCart, Receipt, DollarSign, History, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, TrendingUp, TrendingDown, ShoppingCart, Receipt, DollarSign, History, Plus, Trash2, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
 import ClientEditModal from '@/componentes/modales/ModalEditarCliente';
 import { formatCurrency } from '@/utils/utilidades';
 
@@ -168,6 +168,90 @@ const ESTADO_BADGE = {
   Borrador: 'badge-ghost',
 };
 
+function SeccionRentabilidad({ clienteId }) {
+  const { data, isLoading } = useSWR(`/api/clientes/${clienteId}/rentabilidad`);
+  const [abierto, setAbierto] = useState(false);
+  const r = data?.resumen;
+
+  const colorMargen = (pct) => {
+    if (pct >= 30) return 'text-success';
+    if (pct >= 15) return 'text-warning';
+    return 'text-error';
+  };
+
+  return (
+    <div className="bg-base-100 shadow-xl rounded-xl p-5 mb-6">
+      <button className="flex items-center justify-between w-full text-left" onClick={() => setAbierto(p => !p)}>
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <BarChart2 className="w-5 h-5" /> Rentabilidad
+          {r && (
+            <span className={`badge badge-sm font-mono ${colorMargen(r.margenMedioPct)}`}>
+              {r.margenMedioPct > 0 ? '+' : ''}{r.margenMedioPct}% margen
+            </span>
+          )}
+        </h2>
+        {abierto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      {abierto && (
+        <div className="mt-4 space-y-4">
+          {isLoading && <span className="loading loading-spinner loading-sm" />}
+
+          {r && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Ventas (sin IVA)', value: formatCurrency(r.totalVenta), Icon: TrendingUp, cls: 'text-primary' },
+                { label: 'Coste total', value: formatCurrency(r.totalCoste), Icon: TrendingDown, cls: 'text-base-content/60' },
+                { label: 'Beneficio', value: formatCurrency(r.totalBeneficio), Icon: TrendingUp, cls: r.totalBeneficio >= 0 ? 'text-success' : 'text-error' },
+                { label: 'Margen medio', value: `${r.margenMedioPct > 0 ? '+' : ''}${r.margenMedioPct}%`, Icon: BarChart2, cls: colorMargen(r.margenMedioPct) },
+              ].map(({ label, value, Icon, cls }) => (
+                <div key={label} className="bg-base-200 rounded-xl p-3">
+                  <div className="text-xs text-base-content/50 mb-1">{label}</div>
+                  <div className={`text-lg font-bold font-mono ${cls}`}>{value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {data?.pedidos?.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="table table-xs w-full">
+                <thead>
+                  <tr>
+                    <th>Pedido</th>
+                    <th>Fecha</th>
+                    <th className="text-right">Coste</th>
+                    <th className="text-right">Venta</th>
+                    <th className="text-right">Beneficio</th>
+                    <th className="text-right">Margen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...data.pedidos].reverse().slice(0, 20).map(p => (
+                    <tr key={p.id} className="hover">
+                      <td><Link href={`/pedidos/${p.id}`} className="link link-primary font-mono text-xs">{p.numero}</Link></td>
+                      <td className="text-xs text-base-content/50">{new Date(p.fecha).toLocaleDateString('es-ES')}</td>
+                      <td className="text-right font-mono text-xs">{formatCurrency(p.coste)}</td>
+                      <td className="text-right font-mono text-xs">{formatCurrency(p.venta)}</td>
+                      <td className={`text-right font-mono text-xs font-bold ${p.beneficio >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(p.beneficio)}</td>
+                      <td className={`text-right font-mono text-xs font-bold ${colorMargen(p.margenPct)}`}>{p.margenPct > 0 ? '+' : ''}{p.margenPct}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {data.pedidos.length > 20 && <p className="text-xs text-base-content/40 mt-1">Mostrando últimos 20 de {data.pedidos.length} pedidos.</p>}
+            </div>
+          )}
+
+          {!isLoading && !r && (
+            <p className="text-sm text-base-content/40">Sin pedidos para calcular rentabilidad.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatCard({ icon: Icon, label, value, sub }) {
   return (
     <div className="stat bg-base-200 rounded-xl">
@@ -321,7 +405,8 @@ export default function ClienteDetalle() {
         </div>
       </div>
 
-      {/* Tarifas pactadas y Historial de precios */}
+      {/* Rentabilidad, Tarifas pactadas y Historial de precios */}
+      <SeccionRentabilidad clienteId={id} />
       <SeccionTarifas clienteId={id} />
       <SeccionHistorial clienteId={id} />
 

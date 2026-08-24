@@ -56,3 +56,27 @@ export async function DELETE(request, { params }) {
     return handlePrismaError(error, { notFound: 'Albarán no encontrado.' });
   }
 }
+
+export async function PATCH(request, { params }) {
+  try {
+    const { id } = await params;
+    const data = await request.json();
+
+    const albaran = await db.albaran.findUnique({ where: { id } });
+    if (!albaran) return NextResponse.json({ message: 'No encontrado' }, { status: 404 });
+
+    // No permitir modificar si ya tiene factura
+    const tieneFact = await db.factura.findFirst({ where: { albaranId: id } });
+    if (tieneFact) return NextResponse.json({ message: 'No se puede modificar un albarán facturado' }, { status: 422 });
+
+    const updated = await db.albaran.update({
+      where: { id },
+      data: { notas: data.notas !== undefined ? data.notas : albaran.notas },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    logApiError(error, 'PATCH /api/albaranes/[id]');
+    return NextResponse.json({ message: 'Error interno' }, { status: 500 });
+  }
+}

@@ -1,13 +1,13 @@
 "use client";
 import { useState } from 'react';
-import useSWR, { mutate } from 'swr';
+import useSWR from 'swr';
 import { Tag, PlusCircle, Edit2, Trash2, Check, X, ChevronRight, Package } from 'lucide-react';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { toastError } from '@/lib/toast';
 
 // ─── Fila editable de subfamilia ──────────────────────────────────────────────
 
-function FilaSubfamilia({ sub, familiaId, onDelete }) {
+function FilaSubfamilia({ sub, familiaId, onDelete, onMutate }) {
   const [editando, setEditando] = useState(false);
   const [nombre, setNombre]     = useState(sub.nombre);
   const [saving, setSaving]     = useState(false);
@@ -23,7 +23,7 @@ function FilaSubfamilia({ sub, familiaId, onDelete }) {
         body: JSON.stringify({ nombre: nombre.trim(), familiaId }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Error'); }
-      mutate('/api/familias');
+      onMutate();
       setEditando(false);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -65,7 +65,7 @@ function FilaSubfamilia({ sub, familiaId, onDelete }) {
 
 // ─── Fila expandible de familia ───────────────────────────────────────────────
 
-function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onToggle }) {
+function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onToggle, onMutate }) {
   const [editando, setEditando]     = useState(false);
   const [nombre, setNombre]         = useState(fam.nombre);
   const [color, setColor]           = useState(fam.color ?? '');
@@ -85,7 +85,7 @@ function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onTo
         body: JSON.stringify({ nombre: nombre.trim(), color: color || null, descripcion: fam.descripcion ?? null }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Error'); }
-      mutate('/api/familias');
+      onMutate();
       setEditando(false);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -102,7 +102,7 @@ function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onTo
         body: JSON.stringify({ nombre: nuevaSub.trim(), familiaId: fam.id }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Error'); }
-      mutate('/api/familias');
+      onMutate();
       setNuevaSub('');
     } catch (e) { setErrorSub(e.message); }
     finally { setCreandoSub(false); }
@@ -178,7 +178,7 @@ function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onTo
       {expandida && (
         <>
           {(fam.subfamilias ?? []).map(sub => (
-            <FilaSubfamilia key={sub.id} sub={sub} familiaId={fam.id} onDelete={onDeleteSubfamilia} />
+            <FilaSubfamilia key={sub.id} sub={sub} familiaId={fam.id} onDelete={onDeleteSubfamilia} onMutate={onMutate} />
           ))}
           {/* Fila para añadir subfamilia */}
           <tr>
@@ -208,7 +208,7 @@ function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onTo
 // ─── Página principal ──────────────────────────────────────────────────────────
 
 export default function GestionFamiliasPage() {
-  const { data: familias = [], isLoading } = useSWR('/api/familias');
+  const { data: familias = [], isLoading, mutate: recargar } = useSWR('/api/familias');
   const [expandidas, setExpandidas]        = useState(new Set());
   const [nuevoNombre, setNuevoNombre]      = useState('');
   const [nuevoColor, setNuevoColor]        = useState('#666666');
@@ -236,7 +236,7 @@ export default function GestionFamiliasPage() {
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Error'); }
       const nueva = await res.json();
-      mutate('/api/familias');
+      recargar();
       setNuevoNombre('');
       // Expandir la familia recién creada
       setExpandidas(prev => new Set([...prev, nueva.id]));
@@ -262,7 +262,7 @@ export default function GestionFamiliasPage() {
       }
       const res = await fetch(`/api/familias/${fam.id}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Error'); }
-      mutate('/api/familias');
+      recargar();
     } catch (e) { toastError(e.message); }
   };
 
@@ -275,7 +275,7 @@ export default function GestionFamiliasPage() {
     try {
       const res = await fetch(`/api/subfamilias/${sub.id}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Error'); }
-      mutate('/api/familias');
+      recargar();
     } catch (e) { toastError(e.message); }
   };
 
@@ -346,6 +346,7 @@ export default function GestionFamiliasPage() {
                   onToggle={() => toggleExpandida(fam.id)}
                   onDeleteFamilia={eliminarFamilia}
                   onDeleteSubfamilia={eliminarSubfamilia}
+                  onMutate={recargar}
                 />
               ))}
             </tbody>

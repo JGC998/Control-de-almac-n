@@ -1,15 +1,41 @@
 "use client";
 
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, FileDown, Trash2, FileCheck } from 'lucide-react';
+import { ArrowLeft, FileDown, Trash2, FileCheck, Edit, Save, X } from 'lucide-react';
 import { toastError, toast } from '@/lib/toast';
 
 export default function AlbaranDetallePage() {
   const { id } = useParams();
   const router  = useRouter();
-  const { data: albaran, isLoading } = useSWR(id ? `/api/albaranes/${id}` : null);
+  const { data: albaran, isLoading, mutate } = useSWR(id ? `/api/albaranes/${id}` : null);
+
+  const [editandoNotas, setEditandoNotas] = useState(false);
+  const [notasEdit, setNotasEdit] = useState('');
+  const [guardandoNotas, setGuardandoNotas] = useState(false);
+
+  const handleEditarNotas = () => {
+    setNotasEdit(albaran?.notas || '');
+    setEditandoNotas(true);
+  };
+
+  const handleGuardarNotas = async () => {
+    setGuardandoNotas(true);
+    try {
+      const res = await fetch(`/api/albaranes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notas: notasEdit.trim() || null }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || 'Error al guardar');
+      mutate();
+      setEditandoNotas(false);
+      toast('Instrucciones guardadas');
+    } catch (e) { toastError(e.message); }
+    finally { setGuardandoNotas(false); }
+  };
 
   const handleEliminar = async () => {
     if (!confirm('¿Eliminar este albarán? Esta acción no se puede deshacer.')) return;
@@ -144,15 +170,43 @@ export default function AlbaranDetallePage() {
         </div>
       </div>
 
-      {/* Notas */}
-      {albaran.notas && (
-        <div className="card bg-base-100 shadow border border-base-200 mb-6">
-          <div className="card-body py-4">
-            <p className="text-xs text-base-content/50 uppercase font-semibold mb-1">Observaciones</p>
-            <p className="text-sm whitespace-pre-wrap">{albaran.notas}</p>
+      {/* Instrucciones de entrega */}
+      <div className="card bg-base-100 shadow border border-base-200 mb-6">
+        <div className="card-body py-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-base-content/50 uppercase font-semibold">Instrucciones de entrega</p>
+            {!editandoNotas && !albaran.factura && (
+              <button className="btn btn-xs btn-ghost gap-1" onClick={handleEditarNotas}>
+                <Edit className="w-3 h-3" /> Editar
+              </button>
+            )}
           </div>
+          {editandoNotas ? (
+            <div className="space-y-2">
+              <textarea
+                className="textarea textarea-bordered w-full text-sm"
+                rows={3}
+                placeholder="Ej: Entregar en muelle B, avisar con 24h de antelación…"
+                value={notasEdit}
+                onChange={e => setNotasEdit(e.target.value)}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button className="btn btn-sm btn-primary gap-1" onClick={handleGuardarNotas} disabled={guardandoNotas}>
+                  <Save className="w-3 h-3" /> Guardar
+                </button>
+                <button className="btn btn-sm btn-ghost" onClick={() => setEditandoNotas(false)}>
+                  <X className="w-3 h-3" /> Cancelar
+                </button>
+              </div>
+            </div>
+          ) : albaran.notas ? (
+            <p className="text-sm whitespace-pre-wrap">{albaran.notas}</p>
+          ) : (
+            <p className="text-sm text-base-content/40 italic">Sin instrucciones — pulsa Editar para añadir</p>
+          )}
         </div>
-      )}
+      </div>
 
       {albaran.factura && (
         <div className="alert alert-info">

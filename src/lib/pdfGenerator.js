@@ -1552,7 +1552,7 @@ export async function generateAlbaranPDF(albaran) {
             const notesY = finalY + totalesOffset;
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
-            doc.text("Notas:", 14, notesY);
+            doc.text("Instrucciones de entrega:", 14, notesY);
             doc.setFont("helvetica", "normal");
             doc.text(albaran.notas, 14, notesY + 6, { maxWidth: 180 });
         }
