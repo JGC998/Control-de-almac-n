@@ -58,17 +58,18 @@ model Subfamilia {
 }
 
 model Pedido {
-  id            String    @id @default(uuid())
-  numero        String    @unique
-  fechaCreacion DateTime  @default(now())
-  estado        String
-  notas         String?
-  subtotal      Float
-  tax           Float
-  total         Float
-  clienteId     String?
-  presupuestoId String?   @unique
-  marginId      String?
+  id             String   @id @default(uuid())
+  numero         String   @unique
+  fechaCreacion  DateTime @default(now())
+  estado         String
+  tallerEstado   String   @default("Pendiente")
+  notas          String?
+  subtotal       Float
+  tax            Float
+  total          Float
+  clienteId      String?
+  presupuestoId  String?  @unique
+  marginId       String?
   sinFacturacion Boolean  @default(false)
 
   cliente     Cliente?     @relation(fields: [clienteId], references: [id], onDelete: Restrict)

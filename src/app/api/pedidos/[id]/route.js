@@ -157,7 +157,9 @@ export async function PUT(request, { params: paramsPromise }) {
   }
 }
 
-// PATCH: Actualizaciones parciales (sinFacturacion, estado)
+const TALLER_ESTADOS = ['Pendiente', 'EnTaller', 'Listo', 'Entregado'];
+
+// PATCH: Actualizaciones parciales (sinFacturacion, estado, tallerEstado)
 export async function PATCH(request, { params: paramsPromise }) {
   try {
     const { id } = await paramsPromise;
@@ -165,6 +167,9 @@ export async function PATCH(request, { params: paramsPromise }) {
     const allowed = {};
     if (typeof updates.sinFacturacion === 'boolean') allowed.sinFacturacion = updates.sinFacturacion;
     if (updates.estado) allowed.estado = updates.estado;
+    if (updates.tallerEstado && TALLER_ESTADOS.includes(updates.tallerEstado)) {
+      allowed.tallerEstado = updates.tallerEstado;
+    }
 
     if (!Object.keys(allowed).length) {
       return NextResponse.json({ message: 'Sin campos válidos' }, { status: 400 });

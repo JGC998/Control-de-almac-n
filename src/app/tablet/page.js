@@ -1,10 +1,11 @@
 "use client";
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import useSWR from 'swr';
+import Link from 'next/link';
 import {
   Search, Package, BarChart2, Calculator, X,
   ClipboardList, Plus, CheckCircle, AlertTriangle,
-  ScanLine, Wifi, WifiOff, Trash2, RotateCcw, ExternalLink,
+  ScanLine, Wifi, WifiOff, Trash2, RotateCcw, ExternalLink, Monitor,
 } from 'lucide-react';
 import ModalEscanearEtiqueta from '@/componentes/calculadoras/ModalEscanearEtiqueta';
 import {
@@ -924,6 +925,21 @@ export default function TabletPage() {
 
   return (
     <div>
+      {/* Acceso rápido al quiosco */}
+      <Link
+        href="/tablet/quiosco"
+        className="flex items-center justify-between gap-3 bg-primary/10 border border-primary/30 rounded-2xl px-5 py-4 mb-5 hover:bg-primary/20 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <Monitor className="w-7 h-7 text-primary" />
+          <div>
+            <p className="font-bold text-base text-primary">Quiosco de taller</p>
+            <p className="text-sm text-base-content/60">Kanban de pedidos · pantalla completa · auto-refresco</p>
+          </div>
+        </div>
+        <span className="text-primary font-bold text-lg">→</span>
+      </Link>
+
       <div className="flex gap-2 mb-6">
         {TABS.map(t => (
           <button key={t.id}
