@@ -33,13 +33,15 @@ async function getEmisorInfo() {
             db.config.findUnique({ where: { key: 'empresa_telefono' } }),
         ]);
         _emisorCache = {
+            nombre:  emisor?.nombre   || '',
+            nif:     emisor?.nif      || '',
             address: emisor?.direccion || COMPANY_ADDRESS_FALLBACK,
             phone:   phoneConfig?.value || COMPANY_PHONE_FALLBACK,
         };
         _emisorCacheAt = Date.now();
         return _emisorCache;
     } catch {
-        return { address: COMPANY_ADDRESS_FALLBACK, phone: COMPANY_PHONE_FALLBACK };
+        return { nombre: '', nif: '', address: COMPANY_ADDRESS_FALLBACK, phone: COMPANY_PHONE_FALLBACK };
     }
 }
 
@@ -313,7 +315,7 @@ export async function generateOrderPDF(order, config = {}) {
     try {
         const doc = new jsPDF();
         const client = order.cliente;
-        const { address, phone } = await getEmisorInfo();
+        const { nombre, nif, address, phone } = await getEmisorInfo();
 
         // --- Añadir Logo (cacheado en memoria) ---
         const logoBase64 = await getLogoBase64();
@@ -328,8 +330,11 @@ export async function generateOrderPDF(order, config = {}) {
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(address, 200, 38, { align: 'right' });
-        doc.text(`Teléfono: ${phone}`, 200, 44, { align: 'right' });
+        let headerY = 32;
+        if (nombre) { doc.setFont("helvetica", "bold"); doc.text(nombre, 200, headerY, { align: 'right' }); headerY += 6; doc.setFont("helvetica", "normal"); }
+        if (nif)    { doc.text(`NIF: ${nif}`, 200, headerY, { align: 'right' }); headerY += 6; }
+        if (address){ doc.text(address, 200, headerY, { align: 'right' }); headerY += 6; }
+        if (phone)  { doc.text(`Tel: ${phone}`, 200, headerY, { align: 'right' }); }
 
         // --- Info Pedido ---
         doc.setFontSize(12);

@@ -65,7 +65,7 @@ export default function CalculadoraMetrajesPage() {
     const gastoFijo = selectedMargin?.gastoFijo ?? 0;
 
     const precioBase = tarifa.precio * area;
-    const precioConMargen = precioBase * multiplicador + gastoFijo;
+    const precioConMargen = precioBase * multiplicador;
     const peso = tarifa.peso * area;
 
     return {
@@ -75,16 +75,21 @@ export default function CalculadoraMetrajesPage() {
       anchoM,
       precioBase,
       precioConMargen,
+      gastoFijo,
       peso,
       precioM2: tarifa.precio,
       pesoM2: tarifa.peso,
     };
   }, [tarifas, selectedMaterial, selectedEspesor, selectedColor, selectedMarginId, ancho, metros, isPVC, selectedMargin]);
 
-  const totales = useMemo(() => lineas.reduce(
-    (acc, l) => ({ precio: acc.precio + l.precio, peso: acc.peso + l.peso, metros: acc.metros + l.metros }),
-    { precio: 0, peso: 0, metros: 0 }
-  ), [lineas]);
+  const totales = useMemo(() => {
+    const base = lineas.reduce(
+      (acc, l) => ({ precio: acc.precio + l.precio, peso: acc.peso + l.peso, metros: acc.metros + l.metros }),
+      { precio: 0, peso: 0, metros: 0 }
+    );
+    const gastoFijo = selectedMargin?.gastoFijo ?? 0;
+    return { ...base, precio: base.precio + gastoFijo };
+  }, [lineas, selectedMargin]);
 
   const handleAdd = () => {
     if (!calculo.isValid) return;
@@ -339,9 +344,15 @@ export default function CalculadoraMetrajesPage() {
                               </tr>
                             )}
                             <tr className="border-t-2 border-base-content/20 font-bold">
-                              <td className="py-1">Total</td>
+                              <td className="py-1">Subtotal línea</td>
                               <td className="text-right font-mono text-primary">{formatCurrency(calculo.precioConMargen)}</td>
                             </tr>
+                            {calculo.gastoFijo > 0 && (
+                              <tr className="text-warning">
+                                <td className="py-0.5 text-xs">+ Gasto fijo (se suma una vez al total)</td>
+                                <td className="text-right font-mono text-xs">{formatCurrency(calculo.gastoFijo)}</td>
+                              </tr>
+                            )}
                           </tbody>
                         </table>
                       </div>

@@ -81,33 +81,39 @@ export async function PUT(request) {
     }
 
     const tarifaAnterior = await db.tarifaMaterial.findUnique({ where: { id } });
-    const updatedTarifa = await db.tarifaMaterial.update({
-      where: { id: id },
-      data: {
-        material: data.material,
-        espesor: getSafeFloat(data.espesor),
-        precio: getSafeFloat(data.precio),
-        peso: getSafeFloat(data.peso),
-        color: data.color || null,
-        lonas: data.lonas != null && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
-        acabado: data.acabado?.trim() || null,
-        ...(data.preciosVenta !== undefined && { preciosVenta: data.preciosVenta }),
-      },
-    });
-    await logUpdate('TarifaMaterial', id, tarifaAnterior, updatedTarifa, 'Admin');
-
-    // Si cambió el precio base, recalcular precioBase de todos los rollos de ese material+espesor
     const nuevoPrecio = getSafeFloat(data.precio);
-    if (nuevoPrecio != null && nuevoPrecio !== tarifaAnterior?.precio) {
-      const rollos = await db.tarifaRollo.findMany({
-        where: { material: data.material, espesor: getSafeFloat(data.espesor) },
+
+    const updatedTarifa = await db.$transaction(async (tx) => {
+      const tarifa = await tx.tarifaMaterial.update({
+        where: { id },
+        data: {
+          material: data.material,
+          espesor: getSafeFloat(data.espesor),
+          precio: nuevoPrecio,
+          peso: getSafeFloat(data.peso),
+          color: data.color || null,
+          lonas: data.lonas != null && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
+          acabado: data.acabado?.trim() || null,
+          ...(data.preciosVenta !== undefined && { preciosVenta: data.preciosVenta }),
+        },
       });
-      await Promise.all(rollos.map(r => {
-        if (!r.ancho) return Promise.resolve();
-        const nuevoPrecioBase = nuevoPrecio * (r.ancho / 1000) * r.metrajeMinimo;
-        return db.tarifaRollo.update({ where: { id: r.id }, data: { precioBase: nuevoPrecioBase } });
-      }));
-    }
+
+      // Si cambió el precio base, recalcular precioBase de todos los rollos de ese material+espesor
+      if (nuevoPrecio != null && nuevoPrecio !== tarifaAnterior?.precio) {
+        const rollos = await tx.tarifaRollo.findMany({
+          where: { material: data.material, espesor: getSafeFloat(data.espesor) },
+        });
+        await Promise.all(rollos.map(r => {
+          if (!r.ancho) return Promise.resolve();
+          const nuevoPrecioBase = nuevoPrecio * (r.ancho / 1000) * r.metrajeMinimo;
+          return tx.tarifaRollo.update({ where: { id: r.id }, data: { precioBase: nuevoPrecioBase } });
+        }));
+      }
+
+      return tarifa;
+    });
+
+    await logUpdate('TarifaMaterial', id, tarifaAnterior, updatedTarifa, 'Admin');
 
     revalidatePath('/tarifas');
     return NextResponse.json(updatedTarifa, { status: 200 });

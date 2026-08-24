@@ -30,9 +30,17 @@ export async function POST(request) {
         throw Object.assign(new Error('Presupuesto no encontrado'), { status: 404 });
       }
 
+      const ESTADOS_CONVERTIBLES = ['Borrador', 'Enviado', 'Aceptado'];
+      if (!ESTADOS_CONVERTIBLES.includes(quote.estado)) {
+        throw Object.assign(
+          new Error(`No se puede convertir un presupuesto en estado '${quote.estado}'`),
+          { status: 422 }
+        );
+      }
+
       // Actualización atómica para evitar TOCTOU (doble click / dos pestañas)
       const marcado = await tx.presupuesto.updateMany({
-        where: { id: presupuestoId, estado: { notIn: ['Aceptado'] } },
+        where: { id: presupuestoId, estado: { notIn: ['Aceptado', 'Rechazado', 'Cancelado'] } },
         data: { estado: 'Aceptado' },
       });
       if (marcado.count === 0) {

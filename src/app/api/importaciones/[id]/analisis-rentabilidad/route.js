@@ -50,8 +50,8 @@ export async function GET(request, { params }) {
     if (!Array.isArray(bobs)) bobs = [];
 
     const tc = importacion.tasaCambio || 1;
-    const gastosRepercutibles = (importacion.suplidos || 0) + (importacion.exentos || 0);
-    const totalBobinasEUR = (importacion.totalBobinasUSD || 0) * tc;
+    const gastosRepercutibles = importacion.gastosRepercutibles || 0;
+    const totalBobinasEUR     = importacion.totalBobinasEUR     || 0;
 
     const bobsFiltradas = bobs.filter(b => b.tipo === 'BOBINA' || !b.tipo);
 

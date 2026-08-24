@@ -28,7 +28,14 @@ export async function POST(request, { params }) {
             return NextResponse.json({ message: 'Dirección de email inválida' }, { status: 400 });
         }
 
-        const pdfBuffer = await generateOrderPDF(order);
+        const configList = await db.config.findMany({ take: 100 });
+        const config = configList.reduce((acc, s) => {
+            const n = parseFloat(s.value);
+            acc[s.key] = isNaN(n) ? s.value : n;
+            return acc;
+        }, {});
+
+        const pdfBuffer = await generateOrderPDF(order, config);
         const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
 
         const result = await sendEmail({

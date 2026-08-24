@@ -22,15 +22,23 @@ export async function GET(request, { params }) {
         quantity: true,
         unitPrice: true,
         productoId: true,
-        pedido: { select: { fechaCreacion: true, numero: true } },
+        pedido: {
+          select: {
+            fechaCreacion: true,
+            numero: true,
+            reglaMargen: { select: { multiplicador: true } },
+          },
+        },
       },
       orderBy: { pedido: { fechaCreacion: 'desc' } },
       take: 5000,
     });
 
-    // Agrupar por descripcion
+    // Agrupar por descripcion aplicando el margen para obtener el precio de venta real
     const byDesc = {};
     for (const item of items) {
+      const mult = item.pedido.reglaMargen?.multiplicador ?? 1;
+      const precioVenta = Number(item.unitPrice) * Number(mult);
       const key = item.productoId || item.descripcion;
       if (!byDesc[key]) {
         byDesc[key] = {
@@ -40,22 +48,22 @@ export async function GET(request, { params }) {
           fechas: [],
         };
       }
-      byDesc[key].precios.push(item.unitPrice);
+      byDesc[key].precios.push(precioVenta);
       byDesc[key].fechas.push(item.pedido.fechaCreacion);
     }
 
     const historial = Object.values(byDesc).map(g => {
       const sorted = g.precios;
-      const min = sorted.reduce((m, v) => (Number(v) < Number(m) ? v : m), sorted[0]);
-      const max = sorted.reduce((m, v) => (Number(v) > Number(m) ? v : m), sorted[0]);
-      const avg = sorted.reduce((s, p) => s + Number(p), 0) / sorted.length;
+      const min = sorted.reduce((m, v) => (v < m ? v : m), sorted[0]);
+      const max = sorted.reduce((m, v) => (v > m ? v : m), sorted[0]);
+      const avg = sorted.reduce((s, p) => s + p, 0) / sorted.length;
       return {
         descripcion: g.descripcion,
         productoId: g.productoId,
-        ultimoPrecio: sorted[0],
+        ultimoPrecio: parseFloat(sorted[0].toFixed(4)),
         precioMedio: parseFloat(avg.toFixed(4)),
-        precioMin: min,
-        precioMax: max,
+        precioMin: parseFloat(min.toFixed(4)),
+        precioMax: parseFloat(max.toFixed(4)),
         numVeces: sorted.length,
         ultimaFecha: g.fechas[0],
       };
