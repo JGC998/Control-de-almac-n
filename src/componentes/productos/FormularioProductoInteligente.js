@@ -5,7 +5,7 @@ import { Package, Loader2 } from 'lucide-react';
 import SelectorFamiliaSubfamilia from './SelectorFamiliaSubfamilia';
 import SelectorFabricante from './SelectorFabricante';
 
-const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [], sinTarifas: null };
+const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], lonasOpciones: [], tarifa: null, tarifas: [], sinTarifas: null };
 
 export default function FormularioProductoInteligente({ productoAEditar, onGuardado, onCancelar, initialNombre = '' }) {
   const materialesDBRef = useRef([]);  // [{id, nombre}] para lookup de IDs
@@ -21,6 +21,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     espesor: '',
     acabado: '',
     color: '',
+    lonas: '',
     ancho: '',
     largo: '',
     precioUnitario: '',
@@ -69,6 +70,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         espesor:              productoAEditar.espesor ?? '',
         acabado:              productoAEditar.acabado ?? '',
         color:                productoAEditar.color ?? '',
+        lonas:                productoAEditar.lonas != null ? String(productoAEditar.lonas) : '',
         ancho:                productoAEditar.ancho ?? '',
         largo:                productoAEditar.largo ?? '',
         precioUnitario:       productoAEditar.precioUnitario ?? '',
@@ -104,13 +106,22 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         const colores  = d2.colores  ?? [];
         setOpciones(prev => ({ ...prev, tarifas, acabados, colores }));
 
-        // Buscar la tarifa que coincide con acabado + color del producto
+        // Buscar la tarifa que coincide con acabado + color + lonas del producto
         const acabadoProd = productoAEditar.acabado ?? '';
         const colorProd   = productoAEditar.color   ?? '';
+        const lonasProd   = productoAEditar.lonas   ?? null;
+
+        // Extraer opciones de lonas para mostrar el selector si hay múltiples
+        const lonasOpciones = [...new Set(tarifas.map(t => t.lonas))].sort((a, b) => (a ?? -1) - (b ?? -1));
+        setOpciones(prev => ({ ...prev, lonasOpciones }));
 
         let tarifa = tarifas.find(t =>
-          (t.acabado ?? '') === acabadoProd && (t.color ?? '') === colorProd,
+          (t.acabado ?? '') === acabadoProd && (t.color ?? '') === colorProd && (t.lonas ?? null) === lonasProd,
         );
+        // Fallback: ignorar lonas si no hay coincidencia exacta
+        if (!tarifa) {
+          tarifa = tarifas.find(t => (t.acabado ?? '') === acabadoProd && (t.color ?? '') === colorProd);
+        }
         // Fallback: el color del producto fue guardado en el campo 'acabado' de la tarifa
         if (!tarifa && colorProd && !acabadoProd) {
           tarifa = tarifas.find(t => (t.acabado ?? '') === colorProd && !(t.color));
@@ -142,8 +153,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   // Material → espesores
   const handleMaterialChange = useCallback(async (material) => {
     const registro = materialesDBRef.current.find(m => m.nombre === material);
-    setForm(f => ({ ...f, material, materialId: registro?.id ?? null, espesor: '', acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
-    setOpciones(prev => ({ ...prev, espesores: [], acabados: [], colores: [], tarifa: null, tarifas: [], sinTarifas: null }));
+    setForm(f => ({ ...f, material, materialId: registro?.id ?? null, espesor: '', acabado: '', color: '', lonas: '', precioUnitario: '', pesoUnitario: '' }));
+    setOpciones(prev => ({ ...prev, espesores: [], acabados: [], colores: [], lonasOpciones: [], tarifa: null, tarifas: [], sinTarifas: null }));
     setTarifaEncontrada(false);
 
     // Autodetect familia por nombre de material
@@ -172,10 +183,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     }
   }, [familias]);
 
-  // Espesor → acabados (+ colores si no hay acabados)
+  // Espesor → acabados (+ colores si no hay acabados + lonas si es el factor diferenciador)
   const handleEspesorChange = useCallback(async (espesor) => {
-    setForm(f => ({ ...f, espesor, acabado: '', color: '', precioUnitario: '', pesoUnitario: '' }));
-    setOpciones(prev => ({ ...prev, acabados: [], colores: [], tarifa: null, tarifas: [] }));
+    setForm(f => ({ ...f, espesor, acabado: '', color: '', lonas: '', precioUnitario: '', pesoUnitario: '' }));
+    setOpciones(prev => ({ ...prev, acabados: [], colores: [], lonasOpciones: [], tarifa: null, tarifas: [] }));
     setTarifaEncontrada(false);
     if (!espesor || !form.material) return;
     setCargando(true);
@@ -186,17 +197,20 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       const acabados = d.acabados ?? [];
       const colores  = d.colores  ?? [];
 
-      setOpciones(prev => ({ ...prev, tarifas, acabados, colores, tarifa: null }));
+      // Extraer opciones de lonas únicas (null = sin lona)
+      const lonasOpciones = [...new Set(tarifas.map(t => t.lonas))].sort((a, b) => (a ?? -1) - (b ?? -1));
+      const hayLonasVariantes = lonasOpciones.length > 1;
 
-      // Auto-aplicar SOLO cuando no hay variantes (acabado vacío y sin colores).
-      // Si acabados contiene un valor real (ej: 'NEGRA') hay que mostrar el selector.
-      const sinVariantes = acabados.every(a => a === '') && colores.length === 0;
+      setOpciones(prev => ({ ...prev, tarifas, acabados, colores, lonasOpciones, tarifa: null }));
+
+      // Auto-aplicar solo cuando no hay ninguna dimensión variable (acabado, color, lonas)
+      const sinVariantes = acabados.every(a => a === '') && colores.length === 0 && !hayLonasVariantes;
       if (tarifas.length === 1 && sinVariantes) {
         aplicarTarifa(tarifas[0]);
-        // form.acabado ya es '' desde el setForm del inicio de esta función
       }
       // Si hay acabados → esperar selección del usuario
       // Si hay colores sin acabados → mostrar selector de color (PVC)
+      // Si hay lonas → mostrar selector de lonas (CARAMELO)
     } catch {
       setError('No se pudieron cargar las tarifas para ese espesor.');
     } finally {
@@ -227,6 +241,19 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     ) ?? opciones.tarifa ?? null;
     if (tarifa) aplicarTarifa(tarifa);
   }, [opciones.tarifas, opciones.tarifa, form.acabado]);
+
+  // Lonas → busca tarifa exacta (para materiales como CARAMELO con variantes de lona)
+  const handleLonasChange = useCallback((lonasStr) => {
+    setForm(f => ({ ...f, lonas: lonasStr, precioUnitario: '', pesoUnitario: '' }));
+    setTarifaEncontrada(false);
+    const lonasVal = lonasStr === '' ? null : parseInt(lonasStr, 10);
+    const tarifa = (opciones.tarifas ?? []).find(t =>
+      (t.lonas ?? null) === lonasVal &&
+      (t.acabado ?? '') === (form.acabado ?? '') &&
+      (t.color ?? '') === (form.color ?? '')
+    ) ?? null;
+    if (tarifa) aplicarTarifa(tarifa);
+  }, [opciones.tarifas, form.acabado, form.color]);
 
   function aplicarTarifa(tarifa) {
     if (!tarifa) return;
@@ -278,7 +305,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       largo:                form.largo                ? parseFloat(form.largo)   : null,
       color:                form.color                || null,
       acabado:              form.acabado              || null,
-      lonas:                opciones.tarifa?.lonas    ?? productoAEditar?.lonas ?? null,
+      lonas:                opciones.tarifa?.lonas    ?? (form.lonas !== '' ? parseInt(form.lonas, 10) : null) ?? productoAEditar?.lonas ?? null,
       precioUnitario:       parseFloat(form.precioUnitario) || 0,
       costoUnitario:        parseFloat(form.costoUnitario)  || 0,
       pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
@@ -451,6 +478,25 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
       )}
 
+      {/* Lonas — selector cuando hay múltiples variantes (ej: CARAMELO sin lona vs 1 lona) */}
+      {mostrarMaterial && form.espesor && (opciones.lonasOpciones?.length ?? 0) > 1 && (
+        <div className="form-control">
+          <label className="label"><span className="label-text font-medium">Lonas</span></label>
+          <select
+            className="select select-bordered"
+            value={form.lonas}
+            onChange={e => handleLonasChange(e.target.value)}
+          >
+            <option value="">— Selecciona lonas —</option>
+            {opciones.lonasOpciones.map(l => (
+              <option key={l ?? 'none'} value={l ?? ''}>
+                {l === null || l === undefined ? 'Sin lona' : `${l} lona${l !== 1 ? 's' : ''}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Color (solo si hay opciones, generalmente PVC) */}
       {mostrarMaterial && opciones.colores.length > 0 && (
         <div className="form-control">
@@ -463,13 +509,6 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
             <option value="">— Sin color específico —</option>
             {opciones.colores.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </div>
-      )}
-
-      {/* Lonas — info de solo lectura de la tarifa */}
-      {mostrarMaterial && opciones.tarifa?.lonas && (
-        <div className="alert alert-info py-2 text-sm">
-          Lonas: <strong>{opciones.tarifa.lonas}</strong> — obtenido de la tarifa de {form.material} {form.espesor}mm
         </div>
       )}
 
@@ -560,8 +599,9 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         />
       </div>
 
-      {/* Aviso si no hay tarifa */}
-      {mostrarMaterial && form.material && form.espesor && !tieneTarifa && !cargando && (
+      {/* Aviso si no hay tarifa — no mostrar mientras hay selectors pendientes */}
+      {mostrarMaterial && form.material && form.espesor && !tieneTarifa && !cargando &&
+       (opciones.lonasOpciones?.length ?? 0) <= 1 && !hayAcabados && opciones.colores.length === 0 && (
         <div className="alert alert-warning text-sm">
           No hay tarifa para <strong>{form.material}{form.acabado ? ' ' + form.acabado : ''} {form.espesor}mm</strong>. El precio se pondrá manualmente.
         </div>
