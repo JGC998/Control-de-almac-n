@@ -1,11 +1,10 @@
 "use client";
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import useSWR from 'swr';
-import Link from 'next/link';
 import {
   Search, Package, BarChart2, Calculator, X,
   ClipboardList, Plus, CheckCircle, AlertTriangle,
-  ScanLine, Wifi, WifiOff, Trash2, RotateCcw, ExternalLink, Monitor,
+  ScanLine, Wifi, WifiOff, Trash2, RotateCcw, ExternalLink,
 } from 'lucide-react';
 import ModalEscanearEtiqueta from '@/componentes/calculadoras/ModalEscanearEtiqueta';
 import {
@@ -924,41 +923,38 @@ export default function TabletPage() {
   const [tab, setTab] = useState('recepcion');
 
   return (
-    <div>
-      {/* Acceso rápido al quiosco */}
-      <Link
-        href="/tablet/quiosco"
-        className="flex items-center justify-between gap-3 bg-primary/10 border border-primary/30 rounded-2xl px-5 py-4 mb-5 hover:bg-primary/20 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <Monitor className="w-7 h-7 text-primary" />
-          <div>
-            <p className="font-bold text-base text-primary">Quiosco de taller</p>
-            <p className="text-sm text-base-content/60">Kanban de pedidos · pantalla completa · auto-refresco</p>
-          </div>
-        </div>
-        <span className="text-primary font-bold text-lg">→</span>
-      </Link>
-
-      <div className="flex gap-2 mb-6">
-        {TABS.map(t => (
-          <button key={t.id}
-            className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl text-sm font-semibold transition-colors
-              ${tab === t.id ? 'bg-primary text-primary-content shadow' : 'bg-base-100 text-base-content/60 hover:bg-base-200'}`}
-            onClick={() => setTab(t.id)}>
-            <t.icon className="w-6 h-6" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-base-100 rounded-2xl shadow p-4">
+    <>
+      {/* Área de contenido — pb-20 para despejar la nav inferior fija */}
+      <div className="p-4 pb-24 min-h-[calc(100vh-3rem)]">
         {tab === 'recepcion'   && <TabRecepcion />}
         {tab === 'tarifas'     && <TabTarifas />}
         {tab === 'stock'       && <TabStock />}
         {tab === 'pedidos'     && <TabPedidos />}
         {tab === 'calculadora' && <TabCalculadora />}
       </div>
-    </div>
+
+      {/* Barra de navegación inferior */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-base-100 border-t border-base-200 flex" style={{ boxShadow: '0 -2px 12px rgba(0,0,0,0.06)' }}>
+        {TABS.map(t => {
+          const activo = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors
+                ${activo ? 'text-primary' : 'text-base-content/35 hover:text-base-content/60'}`}
+            >
+              {activo && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-b-full" />
+              )}
+              <t.icon className={`w-5 h-5 transition-transform duration-150 ${activo ? 'scale-110' : 'scale-100'}`} />
+              <span className={`text-[10px] leading-tight ${activo ? 'font-semibold' : 'font-medium'}`}>
+                {t.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+    </>
   );
 }

@@ -1,25 +1,30 @@
 import Link from 'next/link';
+import { Monitor } from 'lucide-react';
 import RegistrarSW from '@/componentes/ui/RegistrarSW';
 
-export const metadata = { title: 'Tablet — CRM Taller' };
+export const metadata = { title: 'Taller' };
 
 export default function TabletLayout({ children }) {
   return (
-    <div className="min-h-screen bg-base-200" data-theme="corporate">
+    <div className="min-h-screen bg-base-100" data-theme="corporate">
       <RegistrarSW />
-      <header className="navbar bg-base-100 shadow-sm px-4 border-b border-base-300">
-        <div className="flex-1">
-          <Link href="/tablet" className="text-xl font-bold text-primary">
-            🏭 Taller — Consulta
-          </Link>
-        </div>
-        <div className="flex-none">
-          <Link href="/" className="btn btn-ghost btn-sm text-base-content/50">
-            Ir al CRM →
-          </Link>
-        </div>
+      <header className="sticky top-0 z-30 h-12 bg-base-100 border-b border-base-200 flex items-center px-4 gap-2">
+        <Link href="/tablet" className="font-bold text-primary text-sm tracking-tight">
+          CRM Taller
+        </Link>
+        <div className="flex-1" />
+        <Link
+          href="/tablet/quiosco"
+          className="btn btn-ghost btn-xs gap-1.5 text-base-content/50 hover:text-primary"
+        >
+          <Monitor className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline text-xs">Quiosco</span>
+        </Link>
+        <Link href="/" className="btn btn-ghost btn-xs text-base-content/30 hover:text-base-content/60 text-xs">
+          Escritorio
+        </Link>
       </header>
-      <main className="p-4 max-w-5xl mx-auto">
+      <main>
         {children}
       </main>
     </div>
