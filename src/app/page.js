@@ -10,7 +10,7 @@ import {
 
 const ACCESOS = [
   {
-    label: 'Consulta rápida',
+    label: 'Pregúntame',
     href: '/consulta',
     icon: MessageCircle,
     color: 'bg-secondary text-secondary-content',
