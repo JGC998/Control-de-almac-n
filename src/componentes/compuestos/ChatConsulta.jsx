@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Send, Package, ClipboardList, AlertTriangle, ArrowRight, ExternalLink, Ruler, Ship } from 'lucide-react';
+import { Send, Package, ClipboardList, AlertTriangle, ArrowRight, ExternalLink, Ruler, Ship, HelpCircle } from 'lucide-react';
 
 const ACCIONES_RAPIDAS = [
   { label: 'Pedidos de hoy',     query: 'pedidos hoy',        icon: ClipboardList  },
@@ -366,9 +366,15 @@ function ResultadoAyuda({ datos }) {
 // ── Burbujas ───────────────────────────────────────────────────────────────────
 
 function BurbujaBot({ msg }) {
+  const esFaltaDatos = msg.tipo === 'falta_datos';
   return (
     <div className="flex flex-col max-w-[92%]">
-      <div className="bg-base-200 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed">
+      <div className={`rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed ${esFaltaDatos ? 'bg-info/10 border border-info/30' : 'bg-base-200'}`}>
+        {esFaltaDatos && (
+          <span className="flex items-center gap-1.5 text-info text-xs font-semibold mb-1">
+            <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Necesito un dato más
+          </span>
+        )}
         {msg.texto}
       </div>
       {msg.tipo === 'stock'          && <ResultadoStock datos={msg.datos} />}

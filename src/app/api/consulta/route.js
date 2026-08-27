@@ -394,6 +394,45 @@ async function calcularMetraje(ent) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VALIDACIÓN DE DATOS NECESARIOS — pregunta al usuario lo que falta
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Fusiona entidades de una conversación parcial anterior con las nuevas.
+// Los valores nuevos no nulos sobreescriben los almacenados; los null no borran.
+function mergeEnt(almacenado, nuevo) {
+  const base = { ...almacenado };
+  delete base.intencion; // no contaminar ent con campo de control
+  for (const [k, v] of Object.entries(nuevo)) {
+    if (v != null) base[k] = v;
+  }
+  return base;
+}
+
+// Devuelve { pregunta } si falta algún dato imprescindible, o null si todo ok.
+function validarEntidades(intencion, ent) {
+  if (intencion === 'calcular_banda' || intencion === 'calcular_pieza') {
+    if (!ent.dims) {
+      return { pregunta: '¿Cuáles son las dimensiones (ancho × largo en mm)? Ej: 600×4800' };
+    }
+    if (!ent.material && ent.espesor == null) {
+      return { pregunta: '¿Qué material y espesor? Ej: PVC 3mm, EPDM 6mm, PU 8mm' };
+    }
+  }
+  if (intencion === 'calcular_metraje') {
+    if (!ent.metros && !ent.anchoTira) {
+      return { pregunta: '¿Cuántos metros y qué ancho de tira necesitas? Ej: 50 metros de 150 mm de ancho' };
+    }
+    if (!ent.metros) {
+      return { pregunta: '¿Cuántos metros lineales necesitas?' };
+    }
+    if (!ent.anchoTira) {
+      return { pregunta: '¿Cuál es el ancho de la tira en mm? Ej: 150 mm' };
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PROCESADOR PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -660,8 +699,31 @@ export async function POST(request) {
       };
     }
 
-    const s       = norm(query.trim());
-    const resultado = await procesarConsulta(s, ent, contexto ?? null, intencion);
+    const s = norm(query.trim());
+
+    // ── Retomar conversación parcial: fusionar entidades del turno anterior ──────
+    // Si el turno anterior terminó con 'falta_datos', contexto.intencion estará
+    // presente pero contexto.precio_total no (a diferencia de un resultado normal).
+    const ctx = contexto ?? null;
+    if (ctx?.intencion && ctx?.precio_total == null) {
+      // Usar la intención almacenada si Ollama no detectó una diferente
+      intencion = intencion ?? ctx.intencion;
+      // Fusionar: los valores nuevos no nulos sobreescriben los guardados
+      ent = mergeEnt(ctx, ent);
+    }
+
+    // ── Preguntar si faltan datos imprescindibles ────────────────────────────────
+    const intent = intencion ?? detectarIntencionRegex(s, ent);
+    const faltante = validarEntidades(intent, ent);
+    if (faltante) {
+      return NextResponse.json({
+        texto: faltante.pregunta,
+        tipo: 'falta_datos',
+        datos: { intencion: intent, ...ent }, // guardamos el estado parcial
+      });
+    }
+
+    const resultado = await procesarConsulta(s, ent, ctx, intencion);
 
     return NextResponse.json(resultado);
 
