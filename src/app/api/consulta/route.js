@@ -174,8 +174,33 @@ async function calcularBanda(ent) {
     } catch { /* usa precio base */ }
   }
 
-  const precio_total = area_m2 * precioM2;
-  const peso_total   = area_m2 * (tarifa.peso || 0);
+  const precio_material = area_m2 * precioM2;
+  const peso_total      = area_m2 * (tarifa.peso || 0);
+
+  // Coste de confección (igual que CalculadoraBandas.js)
+  let coste_conf = 0;
+  let desc_conf  = null;
+
+  if (conf === 'SF' || !conf) {
+    // Sin Fin: costeVulcanizadoMetro × (ancho / 1000)
+    const cfgVulc = await db.config.findUnique({ where: { key: 'costeVulcanizadoMetro' } });
+    const costeVulcM = cfgVulc ? parseFloat(cfgVulc.value) || 0 : 0;
+    coste_conf = costeVulcM * (dims.ancho / 1000);
+    if (coste_conf > 0) desc_conf = `Vulcanizado (${costeVulcM}€/m)`;
+  } else if (conf === 'GR' && espesor != null) {
+    // Grapa: primer modelo compatible × (ancho / 100)
+    const modelo = await db.modeloGrapa.findFirst({
+      where: { espesorDesde: { lte: espesor }, OR: [{ espesorHasta: null }, { espesorHasta: { gte: espesor } }] },
+      orderBy: { espesorDesde: 'asc' },
+    });
+    if (modelo?.precioPor100mm) {
+      coste_conf = (dims.ancho / 100) * modelo.precioPor100mm;
+      desc_conf  = `Grapa ${modelo.nombre}`;
+    }
+  }
+  // AB (Abierta) → coste_conf = 0
+
+  const precio_total = Math.round((precio_material + coste_conf) * 100) / 100;
 
   const bandaCatalogo = await db.producto.findFirst({
     where: {
@@ -197,6 +222,9 @@ async function calcularBanda(ent) {
     datos: {
       dims, conf, material: tarifa.material, espesor: tarifa.espesor,
       color: tarifa.color, area_m2, precio_m2: precioM2,
+      precio_material: Math.round(precio_material * 100) / 100,
+      coste_conf: Math.round(coste_conf * 100) / 100,
+      desc_conf,
       precio_total, peso_m2: tarifa.peso || 0, peso_total,
       preciosVenta,
       bandaCatalogo: bandaCatalogo
@@ -398,13 +426,15 @@ function resumirParaOllama(query, resultado) {
   const { tipo, datos } = resultado;
 
   if (tipo === 'calculo' && datos?.precio_total != null) {
+    const confLabel = datos.conf === 'SF' ? 'Sin Fin' : datos.conf === 'GR' ? 'Con Grapa' : datos.conf === 'AB' ? 'Abierta' : '';
     return `El usuario preguntó: "${query}"
 Datos calculados:
-- Dimensiones: ${datos.dims?.ancho}×${datos.dims?.largo} mm${datos.conf ? ', ' + (datos.conf === 'SF' ? 'Sin Fin' : datos.conf === 'GR' ? 'Con Grapa' : 'Abierta') : ''}
+- Dimensiones: ${datos.dims?.ancho}×${datos.dims?.largo} mm${confLabel ? ', ' + confLabel : ''}
 - Material: ${datos.material || '?'} ${datos.espesor || ''}mm${datos.color ? ' ' + datos.color : ''}
 - Superficie: ${datos.area_m2?.toFixed(3)} m²
-- Precio/m²: ${datos.precio_m2?.toFixed(2)}€
-- Precio total: ${datos.precio_total?.toFixed(2)}€
+- Precio/m² material: ${datos.precio_m2?.toFixed(2)}€
+- Coste material: ${datos.precio_material?.toFixed(2)}€${datos.coste_conf > 0 ? `\n- ${datos.desc_conf || 'Confección'}: ${datos.coste_conf?.toFixed(2)}€` : ''}
+- PRECIO TOTAL: ${datos.precio_total?.toFixed(2)}€
 - Peso total: ${datos.peso_total?.toFixed(2)} kg
 ${datos.bandaCatalogo ? `- Ya está en catálogo al precio de ${datos.bandaCatalogo.precio?.toFixed(2)}€` : ''}`;
   }

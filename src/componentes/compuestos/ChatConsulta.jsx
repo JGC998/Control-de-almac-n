@@ -144,7 +144,7 @@ function fmtEur(n) {
 
 function ResultadoCalculo({ datos }) {
   if (!datos) return null;
-  const { dims, area_m2, precio_m2, precio_total, peso_m2, peso_total, material, espesor, color, conf, preciosVenta, bandaCatalogo } = datos;
+  const { dims, area_m2, precio_m2, precio_total, precio_material, coste_conf, desc_conf, peso_m2, peso_total, material, espesor, color, conf, preciosVenta, bandaCatalogo } = datos;
 
   if (!precio_m2) {
     return (
@@ -178,6 +178,18 @@ function ResultadoCalculo({ datos }) {
           <span>Precio/m²{material ? ` (${material}${espesor ? ' ' + espesor + 'mm' : ''}${color ? ' ' + color : ''})` : ''}</span>
           <span className="font-mono">{fmtEur(precio_m2)}</span>
         </div>
+        {coste_conf > 0 && (
+          <div className="flex justify-between text-xs text-base-content/50">
+            <span>Material</span>
+            <span className="font-mono">{fmtEur(precio_material)}</span>
+          </div>
+        )}
+        {coste_conf > 0 && (
+          <div className="flex justify-between text-xs text-base-content/50">
+            <span>{desc_conf || 'Confección'}</span>
+            <span className="font-mono">{fmtEur(coste_conf)}</span>
+          </div>
+        )}
         {peso_m2 > 0 && (
           <div className="flex justify-between text-xs text-base-content/50">
             <span>Peso aprox.</span>
