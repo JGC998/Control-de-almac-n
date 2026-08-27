@@ -196,7 +196,7 @@ function ResultadoMetraje({ datos }) {
 
 function ResultadoCalculo({ datos }) {
   if (!datos) return null;
-  const { dims, area_m2, precio_m2, precio_total, precio_material, coste_conf, desc_conf, peso_m2, peso_total, material, espesor, color, conf, preciosVenta, bandaCatalogo } = datos;
+  const { dims, area_m2, precio_m2, precio_total, precio_unitario, precio_material, coste_conf, desc_conf, peso_m2, peso_total, material, espesor, color, conf, preciosVenta, bandaCatalogo, unidades } = datos;
 
   if (!precio_m2) {
     return (
@@ -248,8 +248,20 @@ function ResultadoCalculo({ datos }) {
             <span className="font-mono">{fmt(peso_total, 2)} kg</span>
           </div>
         )}
+        {unidades > 1 && (
+          <div className="flex justify-between text-xs text-base-content/50">
+            <span>Precio unitario</span>
+            <span className="font-mono">{fmtEur(precio_unitario)}</span>
+          </div>
+        )}
+        {unidades > 1 && (
+          <div className="flex justify-between text-xs text-base-content/50">
+            <span>× {unidades} unidades</span>
+            <span className="font-mono">= {fmtEur(precio_total)}</span>
+          </div>
+        )}
         <div className="flex justify-between items-center pt-1.5 border-t border-base-200">
-          <span className="font-semibold">Total</span>
+          <span className="font-semibold">{unidades > 1 ? `Total (${unidades} uds.)` : 'Total'}</span>
           <span className="font-bold text-lg text-primary font-mono">{fmtEur(precio_total)}</span>
         </div>
       </div>
@@ -416,10 +428,14 @@ export default function ChatConsulta() {
     setMensajes(prev => [...prev, { role: 'user', texto }]);
     setCargando(true);
     try {
+      // Pasar los datos del último mensaje del bot como contexto (para "multiplicalo por N")
+      const ultimoBot = [...mensajes].reverse().find(m => m.role === 'bot');
+      const contexto  = ultimoBot?.datos ?? null;
+
       const res  = await fetch('/api/consulta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto }),
+        body: JSON.stringify({ query: texto, contexto }),
       });
       const data = await res.json();
       setMensajes(prev => [...prev, { role: 'bot', ...data }]);

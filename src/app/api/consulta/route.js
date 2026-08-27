@@ -55,6 +55,21 @@ function norm(s) {
     .replace(/\s+/g, ' ').trim();
 }
 
+function extraerUnidades(s) {
+  // "4 bandas", "2 unidades", "3 piezas", "×4", "x4"
+  const m1 = s.match(/\b(\d{1,3})\s*(?:bandas?|piezas?|unidades?|uds?\.?|metros?)\b/);
+  if (m1) return parseInt(m1[1], 10);
+  const m2 = s.match(/\b(?:x|×)\s*(\d{1,3})\b/);
+  if (m2) return parseInt(m2[1], 10);
+  return 1;
+}
+
+function extraerMultiplicador(s) {
+  // "multiplicalo por 4", "por las 4", "por 4 bandas", "por 4 unidades"
+  const m = s.match(/(?:multiplic|por\s+(?:las?\s*)?|x\s*)(\d{1,3})\b/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
 function extraerEspesor(s) {
   const m1 = s.match(/(\d+(?:[.,]\d+)?)\s*mm\b/);
   if (m1) return parseFloat(m1[1].replace(',', '.'));
@@ -163,6 +178,23 @@ function detectarIntencion(s, ent) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // CALCULADORA DE BANDA
 // ═══════════════════════════════════════════════════════════════════════════════
+
+function aplicarUnidades(resultado, unidades) {
+  if (unidades <= 1 || !resultado.datos?.precio_total) return resultado;
+  const d = resultado.datos;
+  return {
+    ...resultado,
+    datos: {
+      ...d,
+      unidades,
+      precio_unitario:  d.precio_total,
+      peso_unitario:    d.peso_total,
+      precio_total:     Math.round(d.precio_total * unidades * 100) / 100,
+      peso_total:       (d.peso_total || 0) * unidades,
+      tipo_calculo:     resultado.tipo,
+    },
+  };
+}
 
 async function calcularBanda(ent) {
   const { material, espesor, color, dims, conf } = ent;
@@ -355,12 +387,32 @@ async function calcularMetraje(s, ent) {
 // PROCESADOR PRINCIPAL — devuelve resultado estructurado
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function procesarConsulta(s, ent) {
+async function procesarConsulta(s, ent, contexto) {
   const intencion = detectarIntencion(s, ent);
 
-  if (intencion === 'calcular_banda')   return calcularBanda(ent);
-  if (intencion === 'calcular_pieza')   return calcularPieza(ent);
-  if (intencion === 'calcular_metraje') return calcularMetraje(s, ent);
+  // Multiplicar resultado anterior por N unidades
+  if (contexto && /\b(multiplic|por\s+(?:las?\s*)?\d|x\s*\d|\d\s*unidades?|\d\s*bandas?|\d\s*piezas?)\b/.test(s)) {
+    const n = extraerMultiplicador(s) || extraerUnidades(s);
+    if (n > 1 && contexto.precio_total != null) {
+      const precio_unitario = contexto.precio_unitario ?? contexto.precio_total;
+      return {
+        texto: `× ${n} unidades`,
+        tipo: contexto.tipo_calculo ?? 'calculo',
+        datos: {
+          ...contexto,
+          unidades: n,
+          precio_unitario,
+          precio_total: Math.round(precio_unitario * n * 100) / 100,
+          peso_total: (contexto.peso_unitario ?? contexto.peso_total ?? 0) * n,
+        },
+      };
+    }
+  }
+
+  const unidades = extraerUnidades(s);
+  if (intencion === 'calcular_banda')   return aplicarUnidades(await calcularBanda(ent), unidades);
+  if (intencion === 'calcular_pieza')   return aplicarUnidades(await calcularPieza(ent), unidades);
+  if (intencion === 'calcular_metraje') return await calcularMetraje(s, ent); // metros ya lleva el total
 
   if (intencion === 'tarifa_material') {
     const where = {};
@@ -643,7 +695,7 @@ Respuesta:`;
 
 export async function POST(request) {
   try {
-    const { query } = await request.json();
+    const { query, contexto } = await request.json();
     if (!query?.trim()) {
       return NextResponse.json({ texto: 'Escribe algo para consultar.', tipo: 'ayuda', datos: null });
     }
@@ -663,7 +715,7 @@ export async function POST(request) {
     };
 
     // Procesamos la consulta para obtener datos estructurados
-    const resultado = await procesarConsulta(s, ent);
+    const resultado = await procesarConsulta(s, ent, contexto ?? null);
 
     // Ollama para cálculos y metrajes — donde el lenguaje natural aporta valor real
     const esCalculoConPrecio =
