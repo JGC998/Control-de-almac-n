@@ -1,7 +1,14 @@
 "use client";
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Send, Package, ClipboardList, AlertTriangle, ArrowRight, ExternalLink, Ruler, Ship, HelpCircle } from 'lucide-react';
+import {
+  Send, Package, ClipboardList, AlertTriangle, ArrowRight,
+  ExternalLink, Ruler, Ship, HelpCircle, Mic, MicOff,
+  FileText, Trash2,
+} from 'lucide-react';
+
+const STORAGE_KEY   = 'chat-consulta-v1';
+const MAX_HISTORIAL = 40;
 
 const ACCIONES_RAPIDAS = [
   { label: 'Pedidos de hoy',     query: 'pedidos hoy',        icon: ClipboardList  },
@@ -16,6 +23,12 @@ const ESTADO_BADGE = {
   Cancelado:  'badge-error',
 };
 
+const FRASES_CARGA = [
+  'Interpretando consulta…',
+  'Consultando base de datos…',
+  'Calculando…',
+];
+
 // ── Renderizadores de respuesta ────────────────────────────────────────────────
 
 function ResultadoStock({ datos }) {
@@ -26,9 +39,7 @@ function ResultadoStock({ datos }) {
         <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm ${s.alerta ? 'bg-warning/10 border border-warning/30' : 'bg-base-300/50'}`}>
           <div className="min-w-0">
             <p className="font-semibold truncate">{s.material}{s.espesor ? ` ${s.espesor}mm` : ''}</p>
-            {s.minimo > 0 && (
-              <p className="text-xs text-base-content/50">Mínimo: {s.minimo} m²</p>
-            )}
+            {s.minimo > 0 && <p className="text-xs text-base-content/50">Mínimo: {s.minimo} m²</p>}
           </div>
           <div className="flex items-center gap-2 shrink-0 ml-3">
             {s.alerta && <AlertTriangle className="w-3.5 h-3.5 text-warning" />}
@@ -94,7 +105,7 @@ function ResultadoCliente({ datos }) {
       >
         <div>
           <p className="font-semibold">{datos.nombre}</p>
-          {datos.email && <p className="text-xs text-base-content/50">{datos.email}</p>}
+          {datos.email    && <p className="text-xs text-base-content/50">{datos.email}</p>}
           {datos.telefono && <p className="text-xs text-base-content/50">{datos.telefono}</p>}
         </div>
         <ExternalLink className="w-3.5 h-3.5 text-base-content/30 shrink-0 ml-3" />
@@ -115,24 +126,6 @@ function ResultadoCliente({ datos }) {
   );
 }
 
-function ResultadoPrecio({ datos }) {
-  if (!datos) return null;
-  return (
-    <Link href={`/gestion/productos/${datos.id}`}
-      className="flex items-center justify-between rounded-xl px-3 py-2.5 mt-2 bg-base-300/50 hover:bg-base-300 transition-colors active:scale-[0.99]"
-    >
-      <div>
-        <p className="text-xs text-base-content/50 truncate max-w-[200px]">{datos.nombre}</p>
-        <p className="font-bold text-xl text-primary mt-0.5">
-          {datos.precio?.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-        </p>
-        {datos.peso > 0 && <p className="text-xs text-base-content/40">{datos.peso} kg/ud</p>}
-      </div>
-      <ExternalLink className="w-3.5 h-3.5 text-base-content/30 shrink-0 ml-3" />
-    </Link>
-  );
-}
-
 function fmt(n, dec = 2) {
   if (n == null) return '—';
   return n.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -140,6 +133,28 @@ function fmt(n, dec = 2) {
 function fmtEur(n) {
   if (n == null) return '—';
   return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+}
+
+function ChipsAccion({ datos, tipo, onAccion }) {
+  if ((tipo !== 'calculo' && tipo !== 'metraje') || !datos?.precio_total) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-2">
+      {[2, 3, 4, 5].map(n => (
+        <button key={n}
+          onClick={() => onAccion(`multiplicalo por ${n}`)}
+          className="btn btn-xs btn-ghost border border-base-300 font-mono hover:border-primary hover:text-primary"
+        >
+          ×{n}
+        </button>
+      ))}
+      <Link href="/presupuestos/nuevo"
+        className="btn btn-xs btn-ghost border border-primary/40 text-primary gap-1"
+      >
+        <FileText className="w-3 h-3" />
+        Presupuesto
+      </Link>
+    </div>
+  );
 }
 
 function ResultadoMetraje({ datos }) {
@@ -196,7 +211,11 @@ function ResultadoMetraje({ datos }) {
 
 function ResultadoCalculo({ datos }) {
   if (!datos) return null;
-  const { dims, area_m2, precio_m2, precio_total, precio_unitario, precio_material, coste_conf, desc_conf, peso_m2, peso_total, material, espesor, color, conf, preciosVenta, bandaCatalogo, unidades } = datos;
+  const {
+    dims, area_m2, precio_m2, precio_total, precio_unitario,
+    precio_material, coste_conf, desc_conf, peso_m2, peso_total,
+    material, espesor, color, conf, preciosVenta, bandaCatalogo, unidades,
+  } = datos;
 
   if (!precio_m2) {
     return (
@@ -212,7 +231,6 @@ function ResultadoCalculo({ datos }) {
 
   return (
     <div className="mt-2 rounded-xl overflow-hidden border border-base-300 text-sm">
-      {/* Cabecera */}
       <div className="bg-base-200 px-3 py-2 flex items-center gap-2">
         <Ruler className="w-3.5 h-3.5 text-primary shrink-0" />
         <span className="text-xs text-base-content/60 font-mono">
@@ -220,7 +238,6 @@ function ResultadoCalculo({ datos }) {
           {conf ? ` · ${conf === 'SF' ? 'Sin Fin' : conf === 'GR' ? 'Con Grapa' : 'Abierta'}` : ''}
         </span>
       </div>
-      {/* Desglose */}
       <div className="px-3 py-3 bg-base-100 space-y-1.5">
         <div className="flex justify-between text-xs text-base-content/50">
           <span>Superficie</span>
@@ -265,7 +282,6 @@ function ResultadoCalculo({ datos }) {
           <span className="font-bold text-lg text-primary font-mono">{fmtEur(precio_total)}</span>
         </div>
       </div>
-      {/* Precios por volumen si existen */}
       {preciosVenta && Object.keys(preciosVenta).length > 1 && (
         <div className="px-3 py-2 bg-base-200/50 border-t border-base-300">
           <p className="text-[10px] text-base-content/40 mb-1 uppercase tracking-wide">Precios por margen</p>
@@ -279,7 +295,6 @@ function ResultadoCalculo({ datos }) {
           </div>
         </div>
       )}
-      {/* En catálogo */}
       {bandaCatalogo && (
         <Link href={`/gestion/productos/${bandaCatalogo.id}`}
           className="flex items-center justify-between px-3 py-2 bg-success/10 border-t border-success/20 hover:bg-success/20 transition-colors"
@@ -303,7 +318,9 @@ function ResultadoTarifa({ datos }) {
               <p className="font-semibold">{t.material} {t.espesor}mm{t.color ? ` · ${t.color}` : ''}{t.acabado ? ` · ${t.acabado}` : ''}</p>
               <p className="text-xs text-base-content/50 mt-0.5">{fmt(t.peso, 3)} kg/m²</p>
             </div>
-            <p className="font-bold text-primary font-mono shrink-0 ml-3">{fmtEur(t.precio)}<span className="text-xs font-normal text-base-content/40">/m²</span></p>
+            <p className="font-bold text-primary font-mono shrink-0 ml-3">
+              {fmtEur(t.precio)}<span className="text-xs font-normal text-base-content/40">/m²</span>
+            </p>
           </div>
         </div>
       ))}
@@ -334,9 +351,9 @@ function ResultadoImportaciones({ datos }) {
                 <Ship className="w-3 h-3 text-base-content/40 shrink-0" />
                 <p className="font-medium truncate">{imp.descripcion || imp.numContenedor || 'Contenedor'}</p>
               </div>
-              {imp.proveedor && <p className="text-xs text-base-content/50 mt-0.5">{imp.proveedor}</p>}
-              {imp.nombreBarco && <p className="text-xs text-base-content/40">{imp.nombreBarco}</p>}
-              {imp.etaEstimada && (
+              {imp.proveedor    && <p className="text-xs text-base-content/50 mt-0.5">{imp.proveedor}</p>}
+              {imp.nombreBarco  && <p className="text-xs text-base-content/40">{imp.nombreBarco}</p>}
+              {imp.etaEstimada  && (
                 <p className="text-xs text-base-content/40">
                   ETA: {new Date(imp.etaEstimada).toLocaleDateString('es-ES')}
                 </p>
@@ -365,7 +382,7 @@ function ResultadoAyuda({ datos }) {
 
 // ── Burbujas ───────────────────────────────────────────────────────────────────
 
-function BurbujaBot({ msg }) {
+function BurbujaBot({ msg, onAccion }) {
   const esFaltaDatos = msg.tipo === 'falta_datos';
   return (
     <div className="flex flex-col max-w-[92%]">
@@ -377,16 +394,17 @@ function BurbujaBot({ msg }) {
         )}
         {msg.texto}
       </div>
-      {msg.tipo === 'stock'          && <ResultadoStock datos={msg.datos} />}
-      {msg.tipo === 'pedidos'        && <ResultadoPedidos datos={msg.datos} />}
-      {msg.tipo === 'pedido_detalle' && <ResultadoPedidoDetalle datos={msg.datos} />}
-      {msg.tipo === 'cliente'        && <ResultadoCliente datos={msg.datos} />}
-      {msg.tipo === 'precio'         && <ResultadoPrecio datos={msg.datos} />}
-      {msg.tipo === 'calculo'        && <ResultadoCalculo datos={msg.datos} />}
-      {msg.tipo === 'metraje'        && <ResultadoMetraje datos={msg.datos} />}
-      {msg.tipo === 'tarifa'         && <ResultadoTarifa datos={msg.datos} />}
-      {msg.tipo === 'importaciones'  && <ResultadoImportaciones datos={msg.datos} />}
-      {msg.tipo === 'ayuda'          && <ResultadoAyuda datos={msg.datos} />}
+      {msg.tipo === 'stock'          && <ResultadoStock         datos={msg.datos} />}
+      {msg.tipo === 'pedidos'        && <ResultadoPedidos        datos={msg.datos} />}
+      {msg.tipo === 'pedido_detalle' && <ResultadoPedidoDetalle  datos={msg.datos} />}
+      {msg.tipo === 'cliente'        && <ResultadoCliente        datos={msg.datos} />}
+      {msg.tipo === 'calculo'        && <ResultadoCalculo        datos={msg.datos} />}
+      {msg.tipo === 'metraje'        && <ResultadoMetraje        datos={msg.datos} />}
+      {msg.tipo === 'tarifa'         && <ResultadoTarifa         datos={msg.datos} />}
+      {msg.tipo === 'importaciones'  && <ResultadoImportaciones  datos={msg.datos} />}
+      {msg.tipo === 'ayuda'          && <ResultadoAyuda          datos={msg.datos} />}
+      {/* Chips de acción rápida tras cálculo */}
+      {onAccion && <ChipsAccion datos={msg.datos} tipo={msg.tipo} onAccion={onAccion} />}
     </div>
   );
 }
@@ -401,41 +419,76 @@ function BurbujaUsuario({ texto }) {
   );
 }
 
-function TypingDots() {
+function TypingDots({ fase }) {
   return (
-    <div className="flex gap-1.5 px-4 py-3 bg-base-200 rounded-2xl rounded-tl-sm w-fit">
-      {[0, 150, 300].map(delay => (
-        <span key={delay} className="w-2 h-2 bg-base-content/30 rounded-full animate-bounce"
-          style={{ animationDelay: `${delay}ms` }} />
-      ))}
+    <div className="flex items-center gap-2.5 px-4 py-3 bg-base-200 rounded-2xl rounded-tl-sm w-fit max-w-[80%]">
+      <div className="flex gap-1">
+        {[0, 150, 300].map(delay => (
+          <span key={delay} className="w-2 h-2 bg-base-content/30 rounded-full animate-bounce"
+            style={{ animationDelay: `${delay}ms` }} />
+        ))}
+      </div>
+      <span className="text-xs text-base-content/40">{FRASES_CARGA[fase] ?? FRASES_CARGA.at(-1)}</span>
     </div>
   );
 }
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-export default function ChatConsulta() {
-  const [mensajes, setMensajes] = useState([
-    { role: 'bot', texto: '¡Hola! Pregúntame sobre pedidos, stock, clientes o precios de bandas.', tipo: 'bienvenida', datos: null },
-  ]);
-  const [input, setInput] = useState('');
-  const [cargando, setCargando] = useState(false);
-  const bottomRef = useRef(null);
-  const inputRef  = useRef(null);
+const MSG_BIENVENIDA = { role: 'bot', texto: '¡Hola! Pregúntame sobre pedidos, stock, clientes o precios de bandas.', tipo: 'bienvenida', datos: null };
 
+export default function ChatConsulta() {
+  const [mensajes, setMensajes] = useState([MSG_BIENVENIDA]);
+  const [input,    setInput]    = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [faseCarga, setFaseCarga] = useState(0);
+  const [grabando,  setGrabando]  = useState(false);
+
+  const bottomRef    = useRef(null);
+  const inputRef     = useRef(null);
+  const recognitionRef = useRef(null);
+
+  // ── Persistencia ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setMensajes(parsed);
+      }
+    } catch { /* localStorage no disponible */ }
+  }, []);
+
+  useEffect(() => {
+    if (mensajes.length > 1) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(mensajes.slice(-MAX_HISTORIAL))); } catch {}
+    }
+  }, [mensajes]);
+
+  // ── Scroll automático ─────────────────────────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensajes, cargando]);
 
-  const enviar = async (queryOverride) => {
+  // ── Fases de carga ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!cargando) { setFaseCarga(0); return; }
+    const interval = setInterval(() => {
+      setFaseCarga(f => Math.min(f + 1, FRASES_CARGA.length - 1));
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [cargando]);
+
+  // ── Envío de consulta ─────────────────────────────────────────────────────────
+  const enviar = useCallback(async (queryOverride) => {
     const texto = (queryOverride ?? input).trim();
     if (!texto || cargando) return;
     setInput('');
     setMensajes(prev => [...prev, { role: 'user', texto }]);
     setCargando(true);
     try {
-      // Pasar los datos del último mensaje del bot como contexto (para "multiplicalo por N")
-      const ultimoBot = [...mensajes].reverse().find(m => m.role === 'bot');
+      const msgs     = mensajes; // captura en closure antes del setState
+      const ultimoBot = [...msgs].reverse().find(m => m.role === 'bot');
       const contexto  = ultimoBot?.datos ?? null;
 
       const res  = await fetch('/api/consulta', {
@@ -451,22 +504,73 @@ export default function ChatConsulta() {
       setCargando(false);
       inputRef.current?.focus();
     }
-  };
+  }, [input, cargando, mensajes]);
+
+  // ── Micrófono ─────────────────────────────────────────────────────────────────
+  const toggleMic = useCallback(() => {
+    const SR = (typeof window !== 'undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) return; // el botón no aparece si no hay soporte
+
+    if (grabando) {
+      recognitionRef.current?.stop();
+      setGrabando(false);
+      return;
+    }
+
+    const rec = new SR();
+    rec.lang = 'es-ES';
+    rec.continuous = false;
+    rec.interimResults = false;
+
+    rec.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(prev => (prev + ' ' + transcript).trim());
+      setGrabando(false);
+    };
+    rec.onerror = () => setGrabando(false);
+    rec.onend   = () => setGrabando(false);
+
+    rec.start();
+    recognitionRef.current = rec;
+    setGrabando(true);
+  }, [grabando]);
+
+  const tieneSoporteMic = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  // ── Limpiar historial ─────────────────────────────────────────────────────────
+  const limpiarHistorial = useCallback(() => {
+    setMensajes([MSG_BIENVENIDA]);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  }, []);
 
   const hayMensajesUsuario = mensajes.some(m => m.role === 'user');
 
   return (
     <div className="flex flex-col h-full">
 
+      {/* Cabecera de herramientas */}
+      {hayMensajesUsuario && (
+        <div className="flex justify-end pb-1">
+          <button
+            onClick={limpiarHistorial}
+            className="btn btn-ghost btn-xs text-base-content/30 gap-1"
+            title="Limpiar conversación"
+          >
+            <Trash2 className="w-3 h-3" />
+            Limpiar
+          </button>
+        </div>
+      )}
+
       {/* Historial de mensajes */}
       <div className="flex-1 overflow-y-auto space-y-3 py-2">
         {mensajes.map((m, i) =>
           m.role === 'user'
             ? <BurbujaUsuario key={i} texto={m.texto} />
-            : <BurbujaBot     key={i} msg={m} />
+            : <BurbujaBot     key={i} msg={m} onAccion={enviar} />
         )}
 
-        {/* Acciones rápidas — solo si no ha escrito nada */}
+        {/* Acciones rápidas — solo antes del primer mensaje del usuario */}
         {!hayMensajesUsuario && !cargando && (
           <div className="flex flex-col gap-2 pt-2">
             {ACCIONES_RAPIDAS.map(a => (
@@ -481,24 +585,36 @@ export default function ChatConsulta() {
           </div>
         )}
 
-        {cargando && <TypingDots />}
+        {cargando && <TypingDots fase={faseCarga} />}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
       <div className="pt-3 pb-1 border-t border-base-200">
         <div className="flex gap-2 items-center">
+          {/* Botón micrófono — solo si el navegador lo soporta */}
+          {tieneSoporteMic && (
+            <button
+              onClick={toggleMic}
+              className={`btn btn-square h-11 w-11 shrink-0 ${grabando ? 'btn-error animate-pulse' : 'btn-ghost border border-base-300'}`}
+              title={grabando ? 'Detener grabación' : 'Dictar por voz'}
+            >
+              {grabando ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+          )}
+
           <input
             ref={inputRef}
             type="text"
             className="input input-bordered flex-1 text-sm h-11"
-            placeholder="Pedidos hoy, stock pvc, 400×3800 grapa…"
+            placeholder={grabando ? 'Escuchando…' : 'Pedidos hoy, stock pvc, 400×3800 grapa…'}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && enviar()}
-            disabled={cargando}
+            disabled={cargando || grabando}
             autoComplete="off"
           />
+
           <button
             className="btn btn-primary btn-square h-11 w-11 shrink-0"
             onClick={() => enviar()}
