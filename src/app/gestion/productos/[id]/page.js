@@ -141,20 +141,20 @@ function TarjetaFoto({ productoId, tipo, ruta, onActualizar }) {
 
           {ruta ? (
             <div
-              className="cursor-pointer overflow-hidden rounded-lg bg-base-200 flex items-center justify-center"
-              style={{ height: '180px' }}
+              className="cursor-pointer overflow-hidden rounded-lg bg-base-200 w-full"
+              style={{ aspectRatio: '16/9' }}
               onClick={() => setFotoAmpliada(true)}
             >
               <img
                 src={ruta}
                 alt={etiqueta}
-                className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
               />
             </div>
           ) : (
             <div
-              className="rounded-lg border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary hover:bg-base-200 transition-colors"
-              style={{ height: '180px' }}
+              className="rounded-lg border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary hover:bg-base-200 transition-colors w-full"
+              style={{ aspectRatio: '16/9' }}
               onClick={() => !subiendo && inputRef.current?.click()}
             >
               <Camera className="w-8 h-8 text-base-content/30" />
