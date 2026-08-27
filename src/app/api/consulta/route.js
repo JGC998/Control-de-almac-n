@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// GLOSARIO ESTÁTICO — variantes humanas → valores de BD
+// GLOSARIO ESTÁTICO
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const CONF_ALIAS = {
   'sin fin': 'SF', 'sin-fin': 'SF', sinfin: 'SF', sf: 'SF',
-  cerrada: 'SF', soldada: 'SF', 'sin costura': 'SF', endless: 'SF',
+  cerrada: 'SF', soldada: 'SF', 'sin costura': 'SF',
   'con grapa': 'GR', 'con grapas': 'GR', grapa: 'GR', grapas: 'GR',
   grapada: 'GR', grapado: 'GR', gr: 'GR',
-  abierta: 'AB', abierto: 'AB', ab: 'AB', open: 'AB', 'sin unir': 'AB',
+  abierta: 'AB', abierto: 'AB', ab: 'AB', 'sin unir': 'AB',
 };
-
 const CONF_LABEL = { SF: 'Sin Fin', GR: 'Con Grapa', AB: 'Abierta' };
 
 const COLOR_ALIAS = {
@@ -24,46 +26,36 @@ const COLOR_ALIAS = {
   amarillo: 'AMARILLO', amarilla: 'AMARILLO', yellow: 'AMARILLO',
   rojo: 'ROJO', roja: 'ROJO', red: 'ROJO',
   naranja: 'NARANJA', orange: 'NARANJA',
-  marron: 'MARRON', brown: 'MARRON',
-  beige: 'BEIGE',
-  transparente: 'TRANSPARENTE', claro: 'TRANSPARENTE', transparente: 'TRANSPARENTE',
-  natural: 'NATURAL',
+  marron: 'MARRON', marrón: 'MARRON', brown: 'MARRON',
+  beige: 'BEIGE', transparente: 'TRANSPARENTE', natural: 'NATURAL',
 };
 
 const ESTADO_PEDIDO_ALIAS = {
   pendiente: 'Pendiente', pendientes: 'Pendiente',
-  facturado: 'Facturado', facturados: 'Facturado', facturada: 'Facturado',
-  cancelado: 'Cancelado', cancelados: 'Cancelado', cancelada: 'Cancelado',
+  facturado: 'Facturado', facturados: 'Facturado',
+  cancelado: 'Cancelado', cancelados: 'Cancelado',
 };
 
 const ESTADO_IMPORT_ALIAS = {
-  borrador: 'BORRADOR',
-  pedido: 'PEDIDO', encargado: 'PEDIDO',
-  transito: 'TRANSITO', 'en camino': 'TRANSITO', navegando: 'TRANSITO', viaje: 'TRANSITO',
+  borrador: 'BORRADOR', pedido: 'PEDIDO', encargado: 'PEDIDO',
+  transito: 'TRANSITO', 'en camino': 'TRANSITO', navegando: 'TRANSITO',
   aduana: 'ADUANA', aduanas: 'ADUANA',
-  recibido: 'RECIBIDO', llegado: 'RECIBIDO', recibida: 'RECIBIDO',
+  recibido: 'RECIBIDO', llegado: 'RECIBIDO',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// NORMALIZACIÓN
+// NORMALIZACIÓN Y EXTRACTORES
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function norm(s) {
-  return s
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // eliminar acentos
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[×*]/g, 'x')
     .replace(/[^a-z0-9\s.x,\-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/\s+/g, ' ').trim();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// EXTRACTORES DE ENTIDADES
-// ═══════════════════════════════════════════════════════════════════════════════
-
 function extraerEspesor(s) {
-  // "3mm", "3.5mm", "3,5 mm", "espesor 6"
   const m1 = s.match(/(\d+(?:[.,]\d+)?)\s*mm\b/);
   if (m1) return parseFloat(m1[1].replace(',', '.'));
   const m2 = s.match(/\bespesor\s+(\d+(?:[.,]\d+)?)\b/);
@@ -72,11 +64,9 @@ function extraerEspesor(s) {
 }
 
 function extraerDimensiones(s) {
-  // "600x4800", "600 x 4800", "600 por 4800", "600×4800"
   const m = s.match(/(\d{2,4})\s*(?:x|por)\s*(\d{3,5})/);
   if (!m) return null;
   const a = parseFloat(m[1]), b = parseFloat(m[2]);
-  // convención: ancho ≤ largo
   return { ancho: Math.min(a, b), largo: Math.max(a, b) };
 }
 
@@ -88,12 +78,8 @@ function extraerColor(s) {
 }
 
 function extraerConf(s) {
-  // multi-palabra primero
   const multi = Object.entries(CONF_ALIAS).filter(([k]) => k.includes(' '));
-  for (const [k, v] of multi) {
-    if (s.includes(k)) return v;
-  }
-  // palabra sola como token
+  for (const [k, v] of multi) { if (s.includes(k)) return v; }
   for (const [k, v] of Object.entries(CONF_ALIAS)) {
     if (!k.includes(' ') && new RegExp(`\\b${k}\\b`).test(s)) return v;
   }
@@ -123,66 +109,25 @@ function extraerEstadoImport(s) {
   return null;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// DETECCIÓN DE INTENCIÓN
-// ═══════════════════════════════════════════════════════════════════════════════
-
 function detectarIntencion(s, ent) {
-  const tieneDims     = !!ent.dims;
-  const tieneMaterial = !!ent.material;
-  const tieneEspesor  = ent.espesor != null;
-  const tieneConf     = !!ent.conf;
-
-  // Calculadora de banda — dimensiones + cualquier otra pista de banda
-  if (tieneDims && (tieneMaterial || tieneEspesor || tieneConf || ent.color)) {
-    return 'calcular_banda';
-  }
-  // Sólo dimensiones → también calculadora (asume banda PVC)
-  if (tieneDims) return 'calcular_banda';
-
-  // Tarifa de material — pregunta de precio sin dimensiones
-  if (/\b(precio|tarifa|cuanto|cuanta|coste|vale|cuesta|sale)\b/.test(s) && (tieneMaterial || tieneEspesor)) {
-    return 'tarifa_material';
-  }
-
-  // Stock bajo mínimo
+  const { dims, material, espesor, conf, color } = ent;
+  if (dims && (material || espesor != null || conf || color)) return 'calcular_banda';
+  if (dims) return 'calcular_banda';
+  if (/\b(precio|tarifa|cuanto|cuanta|coste|vale|cuesta|sale)\b/.test(s) && (material || espesor != null)) return 'tarifa_material';
   if (/bajo.{0,10}minimo|minimo.{0,10}stock|alertas?\s*stock|critico/.test(s)) return 'stock_minimo';
-
-  // Stock general
-  if (/\b(stock|metros|disponible|hay|tenemos|quedan|cuanto|cuanta|inventario)\b/.test(s)) return 'stock';
-
-  // Pedido número concreto (tiene dígitos después de "pedido")
+  if (/\b(stock|metros|disponible|hay|tenemos|quedan|cuanto|inventario)\b/.test(s)) return 'stock';
   const mPed = s.match(/\bpedido\s+([a-z0-9\-]+)/);
   if (mPed && /\d/.test(mPed[1])) return 'pedido_numero';
-
-  // Presupuesto número concreto
   const mPres = s.match(/\bpresupuesto\s+([a-z0-9\-]+)/);
   if (mPres && /\d/.test(mPres[1])) return 'presupuesto_numero';
-
-  // Pedidos hoy
   if (/\bpedidos?\b.{0,8}\bhoy\b/.test(s)) return 'pedidos_hoy';
-
-  // Presupuestos hoy
   if (/\bpresupuestos?\b.{0,8}\bhoy\b/.test(s)) return 'presupuestos_hoy';
-
-  // Pedidos por estado
   if (/\bpedidos?\b/.test(s) && extraerEstadoPedido(s)) return 'pedidos_estado';
-
-  // Pedidos recientes
   if (/\bpedidos?\b/.test(s)) return 'pedidos_recientes';
-
-  // Presupuestos recientes
   if (/\bpresupuestos?\b/.test(s)) return 'presupuestos_recientes';
-
-  // Importaciones / contenedores
-  if (/\b(importacion|contenedor|envio|barco|transito|aduana|flete|carga)\b/.test(s)) return 'importaciones';
-
-  // Cliente
+  if (/\b(importacion|contenedor|barco|transito|aduana|flete)\b/.test(s)) return 'importaciones';
   if (/\bcliente\s+\S+/.test(s) || /\bbuscar\s+\S+/.test(s)) return 'cliente';
-
-  // Ayuda
-  if (/\b(ayuda|help|que.{0,5}(puedo|puedes|sabes)|comandos|opciones)\b/.test(s)) return 'ayuda';
-
+  if (/\b(ayuda|help|comandos|opciones|que.{0,5}(puedo|sabes))\b/.test(s)) return 'ayuda';
   return 'desconocido';
 }
 
@@ -192,12 +137,8 @@ function detectarIntencion(s, ent) {
 
 async function calcularBanda(ent) {
   const { material, espesor, color, dims, conf } = ent;
+  if (!dims) return { texto: 'Necesito las dimensiones. Ejemplo: "600x4800 pvc 3mm sin fin"', tipo: 'ayuda', datos: null };
 
-  if (!dims) {
-    return { texto: 'Necesito las dimensiones. Ejemplo: "banda pvc 3mm 600x4800 sin fin"', tipo: 'ayuda', datos: null };
-  }
-
-  // Buscar tarifa: intenta distintas combinaciones en orden de especificidad
   const intentos = [
     { material, espesor, color },
     { material, espesor, color: null },
@@ -213,27 +154,20 @@ async function calcularBanda(ent) {
   }
 
   const area_m2 = (dims.ancho / 1000) * (dims.largo / 1000);
-
   if (!tarifa) {
     return {
-      texto: `No encontré tarifa para${material ? ' ' + material : ''}${espesor ? ' ' + espesor + 'mm' : ''}${color ? ' ' + color : ''}.\nSuperficie: ${area_m2.toFixed(3)} m²`,
-      tipo: 'calculo',
-      datos: { dims, area_m2, tarifa: null, conf },
+      texto: `Sin tarifa para${material ? ' ' + material : ''}${espesor ? ' ' + espesor + 'mm' : ''}. Superficie: ${area_m2.toFixed(3)} m²`,
+      tipo: 'calculo', datos: { dims, area_m2, tarifa: null, conf },
     };
   }
 
-  // Precio base por m²
   let precioM2 = tarifa.precio;
   let preciosVenta = null;
-
   if (tarifa.preciosVenta) {
     try {
-      const pv = typeof tarifa.preciosVenta === 'string'
-        ? JSON.parse(tarifa.preciosVenta)
-        : tarifa.preciosVenta;
+      const pv = typeof tarifa.preciosVenta === 'string' ? JSON.parse(tarifa.preciosVenta) : tarifa.preciosVenta;
       if (pv && typeof pv === 'object' && !Array.isArray(pv)) {
         preciosVenta = pv;
-        // Usa el primer tier como precio por defecto
         const primer = Object.values(pv)[0];
         if (primer && typeof primer === 'number') precioM2 = primer;
       }
@@ -243,37 +177,27 @@ async function calcularBanda(ent) {
   const precio_total = area_m2 * precioM2;
   const peso_total   = area_m2 * (tarifa.peso || 0);
 
-  // ¿Existe ya en el catálogo de bandas guardadas?
-  const catalogoWhere = {
-    activo: true,
-    referenciaFabricante: 'BANDA_PVC',
-    ancho: dims.ancho,
-    largo: dims.largo,
-    ...(espesor != null ? { espesor } : {}),
-    ...(color ? { color } : {}),
-    ...(conf ? { nombre: { contains: conf } } : {}),
-  };
-  const bandaCatalogo = await db.producto.findFirst({ where: catalogoWhere });
+  const bandaCatalogo = await db.producto.findFirst({
+    where: {
+      activo: true, referenciaFabricante: 'BANDA_PVC',
+      ancho: dims.ancho, largo: dims.largo,
+      ...(espesor != null ? { espesor } : {}),
+      ...(color ? { color } : {}),
+      ...(conf ? { nombre: { contains: conf } } : {}),
+    },
+  });
 
   return {
     texto: [
       `${dims.ancho}×${dims.largo} mm`,
       conf ? CONF_LABEL[conf] : null,
-      tarifa.material,
-      tarifa.espesor ? tarifa.espesor + ' mm' : null,
-      tarifa.color || null,
+      tarifa.material, tarifa.espesor ? tarifa.espesor + ' mm' : null, tarifa.color,
     ].filter(Boolean).join(' · '),
     tipo: 'calculo',
     datos: {
-      dims, conf,
-      material: tarifa.material,
-      espesor: tarifa.espesor,
-      color: tarifa.color,
-      area_m2,
-      precio_m2: precioM2,
-      precio_total,
-      peso_m2: tarifa.peso || 0,
-      peso_total,
+      dims, conf, material: tarifa.material, espesor: tarifa.espesor,
+      color: tarifa.color, area_m2, precio_m2: precioM2,
+      precio_total, peso_m2: tarifa.peso || 0, peso_total,
       preciosVenta,
       bandaCatalogo: bandaCatalogo
         ? { id: bandaCatalogo.id, nombre: bandaCatalogo.nombre, precio: bandaCatalogo.precioUnitario }
@@ -283,7 +207,275 @@ async function calcularBanda(ent) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// HANDLER PRINCIPAL
+// PROCESADOR PRINCIPAL — devuelve resultado estructurado
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function procesarConsulta(s, ent) {
+  const intencion = detectarIntencion(s, ent);
+
+  if (intencion === 'calcular_banda') return calcularBanda(ent);
+
+  if (intencion === 'tarifa_material') {
+    const where = {};
+    if (ent.material) where.material = ent.material;
+    if (ent.espesor != null) where.espesor = ent.espesor;
+    if (ent.color) where.color = ent.color;
+    const tarifas = await db.tarifaMaterial.findMany({ where, orderBy: [{ material: 'asc' }, { espesor: 'asc' }], take: 10 });
+    if (!tarifas.length) return { texto: 'No encontré tarifas con esos criterios.', tipo: 'tarifa', datos: [] };
+    return {
+      texto: `${tarifas.length} tarifa${tarifas.length !== 1 ? 's' : ''}`,
+      tipo: 'tarifa',
+      datos: tarifas.map(t => ({ material: t.material, espesor: t.espesor, color: t.color, acabado: t.acabado, precio: t.precio, peso: t.peso, preciosVenta: t.preciosVenta })),
+    };
+  }
+
+  if (intencion === 'stock_minimo') {
+    const todos = await db.stock.findMany({ orderBy: { metrosDisponibles: 'asc' } });
+    const bajos = todos.filter(s => s.metrosDisponibles <= s.stockMinimo);
+    return {
+      texto: bajos.length === 0 ? 'Todo el stock sobre mínimo ✅' : `${bajos.length} material${bajos.length !== 1 ? 'es' : ''} bajo mínimo`,
+      tipo: 'stock',
+      datos: bajos.map(s => ({ id: s.id, material: s.material, espesor: s.espesor, metros: s.metrosDisponibles, minimo: s.stockMinimo, alerta: true })),
+    };
+  }
+
+  if (intencion === 'stock') {
+    let stocks;
+    if (ent.material || ent.espesor != null) {
+      const where = {};
+      if (ent.material) where.material = { contains: ent.material };
+      if (ent.espesor != null) where.espesor = ent.espesor;
+      stocks = await db.stock.findMany({ where, orderBy: { material: 'asc' }, take: 12 });
+    } else {
+      const termino = s.replace(/\b(stock|metros|hay|tenemos|quedan|cuanto|cuanta|disponible|de|el|la|los|las)\b/g, '').trim();
+      stocks = await db.stock.findMany({
+        where: termino ? { material: { contains: termino } } : {},
+        orderBy: { material: 'asc' }, take: 12,
+      });
+    }
+    if (!stocks.length) return { texto: 'No encontré stock con esos criterios.', tipo: 'stock', datos: [] };
+    return {
+      texto: `${stocks.length} resultado${stocks.length !== 1 ? 's' : ''}`,
+      tipo: 'stock',
+      datos: stocks.map(s => ({ id: s.id, material: s.material, espesor: s.espesor, metros: s.metrosDisponibles, minimo: s.stockMinimo, alerta: s.metrosDisponibles <= s.stockMinimo })),
+    };
+  }
+
+  if (intencion === 'pedido_numero') {
+    const mNum = s.match(/\bpedido\s+([a-z0-9\-]+)/);
+    const pedido = await db.pedido.findFirst({
+      where: { numero: { contains: mNum[1] } },
+      include: { cliente: { select: { nombre: true } }, items: { take: 5 } },
+    });
+    if (!pedido) return { texto: `No encontré pedido "${mNum[1]}".`, tipo: 'error', datos: null };
+    return {
+      texto: `Pedido ${pedido.numero}`,
+      tipo: 'pedido_detalle',
+      datos: { id: pedido.id, numero: pedido.numero, cliente: pedido.cliente?.nombre, estado: pedido.estado, total: pedido.total, items: pedido.items.length, fecha: pedido.fechaCreacion },
+    };
+  }
+
+  if (intencion === 'pedidos_hoy') {
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const manana = new Date(hoy); manana.setDate(manana.getDate() + 1);
+    const pedidos = await db.pedido.findMany({
+      where: { fechaCreacion: { gte: hoy, lt: manana } },
+      include: { cliente: { select: { nombre: true } } }, orderBy: { fechaCreacion: 'desc' },
+    });
+    return {
+      texto: pedidos.length === 0 ? 'No hay pedidos hoy.' : `${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''} hoy`,
+      tipo: 'pedidos',
+      datos: pedidos.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total })),
+    };
+  }
+
+  if (intencion === 'pedidos_estado') {
+    const estado = extraerEstadoPedido(s);
+    const pedidos = await db.pedido.findMany({
+      where: { estado }, include: { cliente: { select: { nombre: true } } },
+      orderBy: { fechaCreacion: 'desc' }, take: 10,
+    });
+    return {
+      texto: pedidos.length === 0 ? `No hay pedidos ${estado.toLowerCase()}s.` : `${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''} ${estado.toLowerCase()}${pedidos.length !== 1 ? 's' : ''}`,
+      tipo: 'pedidos',
+      datos: pedidos.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total })),
+    };
+  }
+
+  if (intencion === 'pedidos_recientes') {
+    const pedidos = await db.pedido.findMany({ include: { cliente: { select: { nombre: true } } }, orderBy: { fechaCreacion: 'desc' }, take: 5 });
+    return {
+      texto: 'Últimos 5 pedidos', tipo: 'pedidos',
+      datos: pedidos.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total })),
+    };
+  }
+
+  if (intencion === 'presupuesto_numero') {
+    const mNum = s.match(/\bpresupuesto\s+([a-z0-9\-]+)/);
+    const pres = await db.presupuesto.findFirst({
+      where: { numero: { contains: mNum[1] } }, include: { cliente: { select: { nombre: true } } },
+    });
+    if (!pres) return { texto: `No encontré presupuesto "${mNum[1]}".`, tipo: 'error', datos: null };
+    return {
+      texto: `Presupuesto ${pres.numero}`, tipo: 'pedido_detalle',
+      datos: { id: pres.id, numero: pres.numero, cliente: pres.cliente?.nombre, estado: pres.estado, total: pres.total, items: 0, fecha: pres.fechaCreacion, esPresupuesto: true },
+    };
+  }
+
+  if (intencion === 'presupuestos_hoy') {
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const manana = new Date(hoy); manana.setDate(manana.getDate() + 1);
+    const pres = await db.presupuesto.findMany({
+      where: { fechaCreacion: { gte: hoy, lt: manana } },
+      include: { cliente: { select: { nombre: true } } }, orderBy: { fechaCreacion: 'desc' },
+    });
+    return {
+      texto: pres.length === 0 ? 'No hay presupuestos hoy.' : `${pres.length} presupuesto${pres.length !== 1 ? 's' : ''} hoy`,
+      tipo: 'pedidos',
+      datos: pres.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total, esPresupuesto: true })),
+    };
+  }
+
+  if (intencion === 'presupuestos_recientes') {
+    const pres = await db.presupuesto.findMany({ include: { cliente: { select: { nombre: true } } }, orderBy: { fechaCreacion: 'desc' }, take: 5 });
+    return {
+      texto: 'Últimos 5 presupuestos', tipo: 'pedidos',
+      datos: pres.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total, esPresupuesto: true })),
+    };
+  }
+
+  if (intencion === 'importaciones') {
+    const estadoImport = extraerEstadoImport(s);
+    const importaciones = await db.importacionContenedor.findMany({
+      where: estadoImport ? { estado: estadoImport } : { estado: { in: ['PEDIDO', 'TRANSITO', 'ADUANA'] } },
+      include: { proveedor: { select: { nombre: true } } },
+      orderBy: { creadaEn: 'desc' }, take: 8,
+    });
+    return {
+      texto: importaciones.length === 0 ? 'No hay importaciones activas.' : `${importaciones.length} importacion${importaciones.length !== 1 ? 'es' : ''}`,
+      tipo: 'importaciones',
+      datos: importaciones.map(i => ({ id: i.id, descripcion: i.descripcion, estado: i.estado, proveedor: i.proveedor?.nombre, numContenedor: i.numContenedor, nombreBarco: i.nombreBarco, etaEstimada: i.etaEstimada })),
+    };
+  }
+
+  if (intencion === 'cliente') {
+    const mCli = s.match(/(?:cliente|buscar)\s+(.+)/);
+    const nombre = mCli ? mCli[1].trim() : '';
+    const cliente = await db.cliente.findFirst({
+      where: { nombre: { contains: nombre } },
+      include: { pedidos: { orderBy: { fechaCreacion: 'desc' }, take: 3, select: { id: true, numero: true, estado: true, total: true, fechaCreacion: true } } },
+    });
+    if (!cliente) return { texto: `No encontré cliente "${nombre}".`, tipo: 'error', datos: null };
+    return {
+      texto: cliente.nombre, tipo: 'cliente',
+      datos: { id: cliente.id, nombre: cliente.nombre, email: cliente.email, telefono: cliente.telefono, pedidosRecientes: cliente.pedidos },
+    };
+  }
+
+  if (intencion === 'ayuda') {
+    return {
+      texto: 'Puedo ayudarte con:', tipo: 'ayuda',
+      datos: [
+        '600x4800 sin fin pvc 3mm blanco  →  calcula precio',
+        'tarifa pvc 6mm blanco            →  precios por m²',
+        'stock pvc 3mm  /  stock bajo mínimo',
+        'pedidos hoy  /  pedidos pendientes  /  pedido 227',
+        'presupuestos hoy  /  presupuesto 042',
+        'contenedores en tránsito',
+        'cliente castillero',
+      ],
+    };
+  }
+
+  return { texto: 'No entendí esa consulta. Escribe "ayuda" para ver opciones.', tipo: 'ayuda', datos: null };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OLLAMA — generación de respuesta natural
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function resumirParaOllama(query, resultado) {
+  const { tipo, datos } = resultado;
+
+  if (tipo === 'calculo' && datos?.precio_total != null) {
+    return `El usuario preguntó: "${query}"
+Datos calculados:
+- Dimensiones: ${datos.dims?.ancho}×${datos.dims?.largo} mm${datos.conf ? ', ' + (datos.conf === 'SF' ? 'Sin Fin' : datos.conf === 'GR' ? 'Con Grapa' : 'Abierta') : ''}
+- Material: ${datos.material || '?'} ${datos.espesor || ''}mm${datos.color ? ' ' + datos.color : ''}
+- Superficie: ${datos.area_m2?.toFixed(3)} m²
+- Precio/m²: ${datos.precio_m2?.toFixed(2)}€
+- Precio total: ${datos.precio_total?.toFixed(2)}€
+- Peso total: ${datos.peso_total?.toFixed(2)} kg
+${datos.bandaCatalogo ? `- Ya está en catálogo al precio de ${datos.bandaCatalogo.precio?.toFixed(2)}€` : ''}`;
+  }
+
+  if (tipo === 'tarifa' && Array.isArray(datos) && datos.length) {
+    const lineas = datos.slice(0, 5).map(t => `  ${t.material} ${t.espesor}mm${t.color ? ' ' + t.color : ''}: ${t.precio?.toFixed(2)}€/m² (peso ${t.peso} kg/m²)`);
+    return `El usuario preguntó: "${query}"\nTarifas encontradas:\n${lineas.join('\n')}`;
+  }
+
+  if (tipo === 'stock' && Array.isArray(datos) && datos.length) {
+    const lineas = datos.slice(0, 6).map(s => `  ${s.material}${s.espesor ? ' ' + s.espesor + 'mm' : ''}: ${s.metros?.toFixed(1)} m² disponibles${s.alerta ? ' ⚠️ BAJO MÍNIMO' : ''}`);
+    return `El usuario preguntó: "${query}"\nStock:\n${lineas.join('\n')}`;
+  }
+
+  if (tipo === 'pedidos' && Array.isArray(datos) && datos.length) {
+    const lineas = datos.slice(0, 6).map(p => `  ${p.numero} - ${p.cliente || 'Sin cliente'} - ${p.estado} - ${p.total?.toFixed(2)}€`);
+    return `El usuario preguntó: "${query}"\nPedidos:\n${lineas.join('\n')}`;
+  }
+
+  if (tipo === 'pedido_detalle' && datos) {
+    return `El usuario preguntó: "${query}"\nPedido ${datos.numero}: cliente ${datos.cliente || 'desconocido'}, estado ${datos.estado}, total ${datos.total?.toFixed(2)}€, ${datos.items} líneas, fecha ${new Date(datos.fecha).toLocaleDateString('es-ES')}.`;
+  }
+
+  if (tipo === 'cliente' && datos) {
+    const ultimos = datos.pedidosRecientes?.map(p => p.numero).join(', ') || 'ninguno';
+    return `El usuario preguntó: "${query}"\nCliente ${datos.nombre}: email ${datos.email || 'no disponible'}, teléfono ${datos.telefono || 'no disponible'}. Últimos pedidos: ${ultimos}.`;
+  }
+
+  return null; // no hay datos útiles para Ollama
+}
+
+async function generarTextoOllama(query, resultado) {
+  try {
+    const resumen = resumirParaOllama(query, resultado);
+    if (!resumen) return null;
+
+    const prompt = `Eres el asistente de un taller de bandas transportadoras PVC. Responde en español, de forma breve y directa (máximo 2 frases). No uses bullet points ni markdown. Solo los datos más relevantes.
+
+${resumen}
+
+Respuesta:`;
+
+    const ctrl    = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 20000); // 20s timeout
+
+    const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        prompt,
+        stream: false,
+        options: { temperature: 0.2, num_predict: 120 },
+      }),
+      signal: ctrl.signal,
+    });
+
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const texto = data.response?.trim();
+    return texto || null;
+
+  } catch {
+    return null; // timeout o Ollama no disponible → usa texto de plantilla
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HANDLER
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function POST(request) {
@@ -295,11 +487,10 @@ export async function POST(request) {
 
     const s = norm(query.trim());
 
-    // Cargar materiales reales de BD para el glosario dinámico
-    const tarifasDB = await db.tarifaMaterial.findMany({ select: { material: true }, distinct: ['material'] });
+    // Glosario dinámico — materiales reales de BD
+    const tarifasDB  = await db.tarifaMaterial.findMany({ select: { material: true }, distinct: ['material'] });
     const materialesDB = tarifasDB.map(r => r.material);
 
-    // Extraer entidades
     const ent = {
       material: extraerMaterial(s, materialesDB),
       espesor:  extraerEspesor(s),
@@ -308,281 +499,17 @@ export async function POST(request) {
       dims:     extraerDimensiones(s),
     };
 
-    const intencion = detectarIntencion(s, ent);
+    // Procesamos la consulta para obtener datos estructurados
+    const resultado = await procesarConsulta(s, ent);
 
-    // ── Calculadora de banda ─────────────────────────────────────────────────
-    if (intencion === 'calcular_banda') {
-      const resultado = await calcularBanda(ent);
-      return NextResponse.json(resultado);
+    // Ollama solo para cálculos (el único caso donde la IA añade valor real)
+    // Pedidos, stock, clientes → respuesta instantánea con cards estructuradas
+    if (resultado.tipo === 'calculo' && resultado.datos?.precio_total != null) {
+      const textoAI = await generarTextoOllama(query, resultado);
+      if (textoAI) resultado.texto = textoAI;
     }
 
-    // ── Tarifa de material ───────────────────────────────────────────────────
-    if (intencion === 'tarifa_material') {
-      const where = {};
-      if (ent.material) where.material = ent.material;
-      if (ent.espesor != null) where.espesor = ent.espesor;
-      if (ent.color) where.color = ent.color;
-
-      const tarifas = await db.tarifaMaterial.findMany({
-        where,
-        orderBy: [{ material: 'asc' }, { espesor: 'asc' }, { color: 'asc' }],
-        take: 10,
-      });
-
-      if (!tarifas.length) {
-        return NextResponse.json({ texto: 'No encontré tarifas con esos criterios.', tipo: 'tarifa', datos: [] });
-      }
-
-      return NextResponse.json({
-        texto: `${tarifas.length} tarifa${tarifas.length !== 1 ? 's' : ''} encontrada${tarifas.length !== 1 ? 's' : ''}`,
-        tipo: 'tarifa',
-        datos: tarifas.map(t => ({
-          material: t.material, espesor: t.espesor,
-          color: t.color, acabado: t.acabado,
-          precio: t.precio, peso: t.peso,
-          preciosVenta: t.preciosVenta,
-        })),
-      });
-    }
-
-    // ── Stock bajo mínimo ────────────────────────────────────────────────────
-    if (intencion === 'stock_minimo') {
-      const todos = await db.stock.findMany({ orderBy: { metrosDisponibles: 'asc' } });
-      const bajos = todos.filter(s => s.metrosDisponibles <= s.stockMinimo);
-      return NextResponse.json({
-        texto: bajos.length === 0
-          ? 'Todo el stock está por encima del mínimo ✅'
-          : `${bajos.length} material${bajos.length !== 1 ? 'es' : ''} bajo mínimo`,
-        tipo: 'stock',
-        datos: bajos.map(s => ({
-          id: s.id, material: s.material, espesor: s.espesor,
-          metros: s.metrosDisponibles, minimo: s.stockMinimo, alerta: true,
-        })),
-      });
-    }
-
-    // ── Stock con búsqueda ───────────────────────────────────────────────────
-    if (intencion === 'stock') {
-      // Construir búsqueda combinando material, espesor y texto libre
-      let stocks;
-      if (ent.material || ent.espesor != null) {
-        const where = {};
-        if (ent.material) where.material = { contains: ent.material };
-        if (ent.espesor != null) where.espesor = ent.espesor;
-        stocks = await db.stock.findMany({ where, orderBy: { material: 'asc' }, take: 12 });
-      } else {
-        // Texto libre: extraer palabras significativas
-        const termino = s.replace(/\b(stock|metros|hay|tenemos|quedan|cuanto|cuanta|disponible|de|el|la|los|las)\b/g, '').trim();
-        stocks = await db.stock.findMany({
-          where: termino ? { material: { contains: termino } } : {},
-          orderBy: { material: 'asc' },
-          take: 12,
-        });
-      }
-
-      if (!stocks.length) {
-        return NextResponse.json({ texto: 'No encontré stock con esos criterios.', tipo: 'stock', datos: [] });
-      }
-      return NextResponse.json({
-        texto: `${stocks.length} resultado${stocks.length !== 1 ? 's' : ''}`,
-        tipo: 'stock',
-        datos: stocks.map(s => ({
-          id: s.id, material: s.material, espesor: s.espesor,
-          metros: s.metrosDisponibles, minimo: s.stockMinimo,
-          alerta: s.metrosDisponibles <= s.stockMinimo,
-        })),
-      });
-    }
-
-    // ── Pedido número concreto ───────────────────────────────────────────────
-    if (intencion === 'pedido_numero') {
-      const mNum = s.match(/\bpedido\s+([a-z0-9\-]+)/);
-      const pedido = await db.pedido.findFirst({
-        where: { numero: { contains: mNum[1] } },
-        include: { cliente: { select: { nombre: true } }, items: { take: 5 } },
-      });
-      if (!pedido) return NextResponse.json({ texto: `No encontré pedido "${mNum[1]}".`, tipo: 'error', datos: null });
-      return NextResponse.json({
-        texto: `Pedido ${pedido.numero}`,
-        tipo: 'pedido_detalle',
-        datos: {
-          id: pedido.id, numero: pedido.numero,
-          cliente: pedido.cliente?.nombre, estado: pedido.estado,
-          total: pedido.total, items: pedido.items.length,
-          fecha: pedido.fechaCreacion,
-        },
-      });
-    }
-
-    // ── Pedidos de hoy ───────────────────────────────────────────────────────
-    if (intencion === 'pedidos_hoy') {
-      const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1);
-      const pedidos = await db.pedido.findMany({
-        where: { fechaCreacion: { gte: hoy, lt: manana } },
-        include: { cliente: { select: { nombre: true } } },
-        orderBy: { fechaCreacion: 'desc' },
-      });
-      return NextResponse.json({
-        texto: pedidos.length === 0 ? 'No hay pedidos hoy.' : `${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''} hoy`,
-        tipo: 'pedidos',
-        datos: pedidos.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total })),
-      });
-    }
-
-    // ── Pedidos por estado ───────────────────────────────────────────────────
-    if (intencion === 'pedidos_estado') {
-      const estado = extraerEstadoPedido(s);
-      const pedidos = await db.pedido.findMany({
-        where: { estado },
-        include: { cliente: { select: { nombre: true } } },
-        orderBy: { fechaCreacion: 'desc' },
-        take: 10,
-      });
-      return NextResponse.json({
-        texto: pedidos.length === 0
-          ? `No hay pedidos ${estado.toLowerCase()}s.`
-          : `${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''} ${estado.toLowerCase()}${pedidos.length !== 1 ? 's' : ''}`,
-        tipo: 'pedidos',
-        datos: pedidos.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total })),
-      });
-    }
-
-    // ── Pedidos recientes ────────────────────────────────────────────────────
-    if (intencion === 'pedidos_recientes') {
-      const pedidos = await db.pedido.findMany({
-        include: { cliente: { select: { nombre: true } } },
-        orderBy: { fechaCreacion: 'desc' },
-        take: 5,
-      });
-      return NextResponse.json({
-        texto: 'Últimos 5 pedidos',
-        tipo: 'pedidos',
-        datos: pedidos.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total })),
-      });
-    }
-
-    // ── Presupuesto número concreto ──────────────────────────────────────────
-    if (intencion === 'presupuesto_numero') {
-      const mNum = s.match(/\bpresupuesto\s+([a-z0-9\-]+)/);
-      const pres = await db.presupuesto.findFirst({
-        where: { numero: { contains: mNum[1] } },
-        include: { cliente: { select: { nombre: true } } },
-      });
-      if (!pres) return NextResponse.json({ texto: `No encontré presupuesto "${mNum[1]}".`, tipo: 'error', datos: null });
-      return NextResponse.json({
-        texto: `Presupuesto ${pres.numero}`,
-        tipo: 'pedido_detalle',
-        datos: {
-          id: pres.id, numero: pres.numero,
-          cliente: pres.cliente?.nombre, estado: pres.estado,
-          total: pres.total, items: 0, fecha: pres.fechaCreacion,
-          esPresupuesto: true,
-        },
-      });
-    }
-
-    // ── Presupuestos de hoy ──────────────────────────────────────────────────
-    if (intencion === 'presupuestos_hoy') {
-      const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1);
-      const pres = await db.presupuesto.findMany({
-        where: { fechaCreacion: { gte: hoy, lt: manana } },
-        include: { cliente: { select: { nombre: true } } },
-        orderBy: { fechaCreacion: 'desc' },
-      });
-      return NextResponse.json({
-        texto: pres.length === 0 ? 'No hay presupuestos hoy.' : `${pres.length} presupuesto${pres.length !== 1 ? 's' : ''} hoy`,
-        tipo: 'pedidos',
-        datos: pres.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total, esPresupuesto: true })),
-      });
-    }
-
-    // ── Presupuestos recientes ───────────────────────────────────────────────
-    if (intencion === 'presupuestos_recientes') {
-      const pres = await db.presupuesto.findMany({
-        include: { cliente: { select: { nombre: true } } },
-        orderBy: { fechaCreacion: 'desc' },
-        take: 5,
-      });
-      return NextResponse.json({
-        texto: 'Últimos 5 presupuestos',
-        tipo: 'pedidos',
-        datos: pres.map(p => ({ id: p.id, numero: p.numero, cliente: p.cliente?.nombre, estado: p.estado, total: p.total, esPresupuesto: true })),
-      });
-    }
-
-    // ── Importaciones / contenedores ─────────────────────────────────────────
-    if (intencion === 'importaciones') {
-      const estadoImport = extraerEstadoImport(s);
-      const importaciones = await db.importacionContenedor.findMany({
-        where: estadoImport ? { estado: estadoImport } : { estado: { in: ['PEDIDO', 'TRANSITO', 'ADUANA'] } },
-        include: { proveedor: { select: { nombre: true } } },
-        orderBy: { creadaEn: 'desc' },
-        take: 8,
-      });
-      return NextResponse.json({
-        texto: importaciones.length === 0
-          ? 'No hay importaciones activas.'
-          : `${importaciones.length} importacion${importaciones.length !== 1 ? 'es' : ''}`,
-        tipo: 'importaciones',
-        datos: importaciones.map(i => ({
-          id: i.id, descripcion: i.descripcion, estado: i.estado,
-          proveedor: i.proveedor?.nombre, numContenedor: i.numContenedor,
-          nombreBarco: i.nombreBarco, etaEstimada: i.etaEstimada,
-        })),
-      });
-    }
-
-    // ── Cliente ──────────────────────────────────────────────────────────────
-    if (intencion === 'cliente') {
-      const mCli = s.match(/(?:cliente|buscar)\s+(.+)/);
-      const nombre = mCli ? mCli[1].trim() : '';
-      const cliente = await db.cliente.findFirst({
-        where: { nombre: { contains: nombre } },
-        include: {
-          pedidos: {
-            orderBy: { fechaCreacion: 'desc' }, take: 3,
-            select: { id: true, numero: true, estado: true, total: true, fechaCreacion: true },
-          },
-        },
-      });
-      if (!cliente) return NextResponse.json({ texto: `No encontré cliente "${nombre}".`, tipo: 'error', datos: null });
-      return NextResponse.json({
-        texto: cliente.nombre,
-        tipo: 'cliente',
-        datos: {
-          id: cliente.id, nombre: cliente.nombre,
-          email: cliente.email, telefono: cliente.telefono,
-          pedidosRecientes: cliente.pedidos,
-        },
-      });
-    }
-
-    // ── Ayuda ────────────────────────────────────────────────────────────────
-    if (intencion === 'ayuda') {
-      return NextResponse.json({
-        texto: 'Puedo ayudarte con:',
-        tipo: 'ayuda',
-        datos: [
-          '600x4800 sin fin pvc 3mm blanco  →  calcula precio',
-          'tarifa pvc 6mm blanco            →  precios por m²',
-          'stock pvc 3mm                    →  metros disponibles',
-          'stock bajo mínimo                →  alertas de stock',
-          'pedidos hoy / pedidos pendientes',
-          'pedido 227                       →  busca por número',
-          'presupuestos hoy',
-          'contenedores en tránsito',
-          'cliente castillero               →  historial',
-        ],
-      });
-    }
-
-    // ── No entendido ─────────────────────────────────────────────────────────
-    return NextResponse.json({
-      texto: 'No entendí esa consulta. Escribe "ayuda" para ver qué puedo hacer.',
-      tipo: 'ayuda', datos: null,
-    });
+    return NextResponse.json(resultado);
 
   } catch (error) {
     console.error('[/api/consulta]', error?.message);
