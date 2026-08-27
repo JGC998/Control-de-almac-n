@@ -70,6 +70,24 @@ function extraerDimensiones(s) {
   return { ancho: Math.min(a, b), largo: Math.max(a, b) };
 }
 
+function extraerMetros(s) {
+  // "50 metros", "50m lineales", "50ml" — pero NO "50mm"
+  const m = s.match(/(\d+(?:[.,]\d+)?)\s*(?:metros?\s*lineales?|metros?\b(?!\s*mm)|m\s*lin)/);
+  if (!m) return null;
+  return parseFloat(m[1].replace(',', '.'));
+}
+
+function extraerAnchoTira(s, espesorConocido) {
+  // "150mm de ancho", "ancho de 150mm"
+  const m1 = s.match(/(\d{2,4})\s*mm\s*(?:de\s*)?ancho/);
+  if (m1) return parseFloat(m1[1]);
+  const m2 = s.match(/ancho\s*(?:de\s*)?(\d{2,4})\s*mm/);
+  if (m2) return parseFloat(m2[1]);
+  // Fallback: cualquier valor en mm distinto del espesor, entre 50 y 2000mm
+  const todos = [...s.matchAll(/(\d+)\s*mm/g)].map(m => parseFloat(m[1]));
+  return todos.find(v => v !== espesorConocido && v >= 50 && v <= 2000) ?? null;
+}
+
 function extraerColor(s) {
   for (const [k, v] of Object.entries(COLOR_ALIAS)) {
     if (new RegExp(`\\b${k}\\b`).test(s)) return v;
@@ -111,7 +129,18 @@ function extraerEstadoImport(s) {
 
 function detectarIntencion(s, ent) {
   const { dims, material, espesor, conf, color } = ent;
-  if (dims && (material || espesor != null || conf || color)) return 'calcular_banda';
+
+  // Metraje lineal: "50 metros de PVC 3mm de 150mm de ancho"
+  const metrosLin = extraerMetros(s);
+  if (metrosLin && (material || espesor != null)) return 'calcular_metraje';
+
+  // Pieza plana (sin confección): faldeta, lámina, placa, cortina, corte
+  const esPieza = /\b(pieza|faldeta|lamina|lámina|cortina|chapa|placa|corte)\b/.test(s);
+  if (dims && esPieza) return 'calcular_pieza';
+
+  // Banda: tiene conf explícita, o es PVC con dims (default del taller), o lleva keyword "banda"
+  const esBandaKW = /\b(banda|transportadora)\b/.test(s);
+  if (dims && (conf || esBandaKW || material === 'PVC' || (material || espesor != null || color))) return 'calcular_banda';
   if (dims) return 'calcular_banda';
   if (/\b(precio|tarifa|cuanto|cuanta|coste|vale|cuesta|sale)\b/.test(s) && (material || espesor != null)) return 'tarifa_material';
   if (/bajo.{0,10}minimo|minimo.{0,10}stock|alertas?\s*stock|critico/.test(s)) return 'stock_minimo';
@@ -181,12 +210,12 @@ async function calcularBanda(ent) {
   let coste_conf = 0;
   let desc_conf  = null;
 
-  if (conf === 'SF' || !conf) {
+  if (conf === 'SF') {
     // Sin Fin: costeVulcanizadoMetro × (ancho / 1000)
     const cfgVulc = await db.config.findUnique({ where: { key: 'costeVulcanizadoMetro' } });
     const costeVulcM = cfgVulc ? parseFloat(cfgVulc.value) || 0 : 0;
     coste_conf = costeVulcM * (dims.ancho / 1000);
-    if (coste_conf > 0) desc_conf = `Vulcanizado (${costeVulcM}€/m)`;
+    if (coste_conf > 0) desc_conf = `Vulcanizado Sin Fin`;
   } else if (conf === 'GR' && espesor != null) {
     // Grapa: primer modelo compatible × (ancho / 100)
     const modelo = await db.modeloGrapa.findFirst({
@@ -235,13 +264,103 @@ async function calcularBanda(ent) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CALCULADORA DE PIEZA (faldeta, lámina, corte — sin confección)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function calcularPieza(ent) {
+  const { material, espesor, color, dims } = ent;
+  if (!dims) return { texto: 'Necesito las dimensiones. Ejemplo: "faldeta 300x500 epdm 6mm"', tipo: 'ayuda', datos: null };
+
+  const intentos = [
+    { material, espesor, color },
+    { material, espesor, color: null },
+    { material, espesor },
+    { material },
+  ].filter(w => Object.values(w).some(v => v != null));
+
+  let tarifa = null;
+  for (const where of intentos) {
+    const cleaned = Object.fromEntries(Object.entries(where).filter(([, v]) => v != null));
+    tarifa = await db.tarifaMaterial.findFirst({ where: cleaned, orderBy: { espesor: 'asc' } });
+    if (tarifa) break;
+  }
+
+  const area_m2 = (dims.ancho / 1000) * (dims.largo / 1000);
+  if (!tarifa) {
+    return {
+      texto: `Sin tarifa para${material ? ' ' + material : ''}${espesor ? ' ' + espesor + 'mm' : ''}. Superficie: ${area_m2.toFixed(3)} m²`,
+      tipo: 'calculo', datos: { dims, area_m2, tarifa: null },
+    };
+  }
+
+  const precio_total = Math.round(area_m2 * tarifa.precio * 100) / 100;
+  const peso_total   = area_m2 * (tarifa.peso || 0);
+
+  return {
+    texto: `${dims.ancho}×${dims.largo} mm · ${tarifa.material}${tarifa.espesor ? ' ' + tarifa.espesor + 'mm' : ''}`,
+    tipo: 'calculo',
+    datos: {
+      dims, material: tarifa.material, espesor: tarifa.espesor, color: tarifa.color,
+      area_m2, precio_m2: tarifa.precio,
+      precio_material: precio_total, coste_conf: 0, desc_conf: null,
+      precio_total, peso_m2: tarifa.peso || 0, peso_total,
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALCULADORA DE METRAJE (tira de ancho fijo × metros lineales)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function calcularMetraje(s, ent) {
+  const { material, espesor, color } = ent;
+  const metros    = extraerMetros(s);
+  const anchoTira = extraerAnchoTira(s, espesor);
+
+  if (!metros || !anchoTira) {
+    return { texto: 'Ejemplo: "50 metros de PVC 3mm de 150mm de ancho"', tipo: 'ayuda', datos: null };
+  }
+
+  const intentos = [
+    { material, espesor, color },
+    { material, espesor, color: null },
+    { material, espesor },
+    { material },
+  ].filter(w => Object.values(w).some(v => v != null));
+
+  let tarifa = null;
+  for (const where of intentos) {
+    const cleaned = Object.fromEntries(Object.entries(where).filter(([, v]) => v != null));
+    tarifa = await db.tarifaMaterial.findFirst({ where: cleaned, orderBy: { espesor: 'asc' } });
+    if (tarifa) break;
+  }
+
+  const area_m2     = (anchoTira / 1000) * metros;
+  const precio_m2   = tarifa?.precio ?? null;
+  const precio_total = precio_m2 != null ? Math.round(area_m2 * precio_m2 * 100) / 100 : null;
+  const peso_total   = tarifa ? area_m2 * (tarifa.peso || 0) : null;
+
+  return {
+    texto: `${anchoTira}mm × ${metros}m · ${tarifa?.material ?? material ?? '?'}${tarifa?.espesor ? ' ' + tarifa.espesor + 'mm' : ''}`,
+    tipo: 'metraje',
+    datos: {
+      anchoTira, metros, area_m2,
+      material: tarifa?.material ?? material, espesor: tarifa?.espesor ?? espesor, color: tarifa?.color ?? color,
+      precio_m2, precio_total, peso_m2: tarifa?.peso ?? null, peso_total,
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PROCESADOR PRINCIPAL — devuelve resultado estructurado
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async function procesarConsulta(s, ent) {
   const intencion = detectarIntencion(s, ent);
 
-  if (intencion === 'calcular_banda') return calcularBanda(ent);
+  if (intencion === 'calcular_banda')   return calcularBanda(ent);
+  if (intencion === 'calcular_pieza')   return calcularPieza(ent);
+  if (intencion === 'calcular_metraje') return calcularMetraje(s, ent);
 
   if (intencion === 'tarifa_material') {
     const where = {};
@@ -404,7 +523,10 @@ async function procesarConsulta(s, ent) {
     return {
       texto: 'Puedo ayudarte con:', tipo: 'ayuda',
       datos: [
-        '600x4800 sin fin pvc 3mm blanco  →  calcula precio',
+        '600x4800 sin fin pvc 3mm blanco  →  banda (mat. + vulcanizado)',
+        '600x4800 grapa pvc 3mm           →  banda con grapa',
+        'faldeta 300x500 epdm 6mm         →  pieza (solo material)',
+        '50 metros pvc 3mm 150mm ancho    →  metraje lineal',
         'tarifa pvc 6mm blanco            →  precios por m²',
         'stock pvc 3mm  /  stock bajo mínimo',
         'pedidos hoy  /  pedidos pendientes  /  pedido 227',
@@ -461,6 +583,17 @@ ${datos.bandaCatalogo ? `- Ya está en catálogo al precio de ${datos.bandaCatal
   if (tipo === 'cliente' && datos) {
     const ultimos = datos.pedidosRecientes?.map(p => p.numero).join(', ') || 'ninguno';
     return `El usuario preguntó: "${query}"\nCliente ${datos.nombre}: email ${datos.email || 'no disponible'}, teléfono ${datos.telefono || 'no disponible'}. Últimos pedidos: ${ultimos}.`;
+  }
+
+  if (tipo === 'metraje' && datos?.precio_total != null) {
+    return `El usuario preguntó: "${query}"
+Datos calculados:
+- Tira de ${datos.anchoTira}mm de ancho × ${datos.metros} metros lineales
+- Material: ${datos.material || '?'}${datos.espesor ? ' ' + datos.espesor + 'mm' : ''}${datos.color ? ' ' + datos.color : ''}
+- Área total: ${datos.area_m2?.toFixed(3)} m²
+- Precio/m²: ${datos.precio_m2?.toFixed(2)}€
+- Precio total: ${datos.precio_total?.toFixed(2)}€
+- Peso total: ${datos.peso_total?.toFixed(2)} kg`;
   }
 
   return null; // no hay datos útiles para Ollama
@@ -532,9 +665,10 @@ export async function POST(request) {
     // Procesamos la consulta para obtener datos estructurados
     const resultado = await procesarConsulta(s, ent);
 
-    // Ollama solo para cálculos (el único caso donde la IA añade valor real)
-    // Pedidos, stock, clientes → respuesta instantánea con cards estructuradas
-    if (resultado.tipo === 'calculo' && resultado.datos?.precio_total != null) {
+    // Ollama para cálculos y metrajes — donde el lenguaje natural aporta valor real
+    const esCalculoConPrecio =
+      (['calculo', 'metraje'].includes(resultado.tipo)) && resultado.datos?.precio_total != null;
+    if (esCalculoConPrecio) {
       const textoAI = await generarTextoOllama(query, resultado);
       if (textoAI) resultado.texto = textoAI;
     }

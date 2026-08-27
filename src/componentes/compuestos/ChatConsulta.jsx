@@ -142,6 +142,58 @@ function fmtEur(n) {
   return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 }
 
+function ResultadoMetraje({ datos }) {
+  if (!datos) return null;
+  const { anchoTira, metros, area_m2, precio_m2, precio_total, peso_total, material, espesor, color } = datos;
+
+  if (!precio_m2) {
+    return (
+      <div className="mt-2 rounded-xl px-3 py-3 bg-warning/10 border border-warning/30 text-sm">
+        <p className="flex items-center gap-2 text-warning font-medium">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          Sin tarifa para ese material/espesor
+        </p>
+        {area_m2 && <p className="text-xs mt-1 text-base-content/60">Área: {fmt(area_m2, 3)} m²</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-xl overflow-hidden border border-base-300 text-sm">
+      <div className="bg-base-200 px-3 py-2 flex items-center gap-2">
+        <Ruler className="w-3.5 h-3.5 text-secondary shrink-0" />
+        <span className="text-xs text-base-content/60 font-mono">
+          {anchoTira}mm × {metros}m lin.
+        </span>
+      </div>
+      <div className="px-3 py-3 bg-base-100 space-y-1.5">
+        <div className="flex justify-between text-xs text-base-content/50">
+          <span>Área total</span>
+          <span className="font-mono">{fmt(area_m2, 3)} m²</span>
+        </div>
+        <div className="flex justify-between text-xs text-base-content/50">
+          <span>Precio/m²{material ? ` (${material}${espesor ? ' ' + espesor + 'mm' : ''}${color ? ' ' + color : ''})` : ''}</span>
+          <span className="font-mono">{fmtEur(precio_m2)}</span>
+        </div>
+        <div className="flex justify-between text-xs text-base-content/50">
+          <span>Precio/metro lineal</span>
+          <span className="font-mono">{fmtEur(precio_total / metros)}</span>
+        </div>
+        {peso_total > 0 && (
+          <div className="flex justify-between text-xs text-base-content/50">
+            <span>Peso total</span>
+            <span className="font-mono">{fmt(peso_total, 2)} kg</span>
+          </div>
+        )}
+        <div className="flex justify-between items-center pt-1.5 border-t border-base-200">
+          <span className="font-semibold">Total</span>
+          <span className="font-bold text-lg text-secondary font-mono">{fmtEur(precio_total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ResultadoCalculo({ datos }) {
   if (!datos) return null;
   const { dims, area_m2, precio_m2, precio_total, precio_material, coste_conf, desc_conf, peso_m2, peso_total, material, espesor, color, conf, preciosVenta, bandaCatalogo } = datos;
@@ -313,6 +365,7 @@ function BurbujaBot({ msg }) {
       {msg.tipo === 'cliente'        && <ResultadoCliente datos={msg.datos} />}
       {msg.tipo === 'precio'         && <ResultadoPrecio datos={msg.datos} />}
       {msg.tipo === 'calculo'        && <ResultadoCalculo datos={msg.datos} />}
+      {msg.tipo === 'metraje'        && <ResultadoMetraje datos={msg.datos} />}
       {msg.tipo === 'tarifa'         && <ResultadoTarifa datos={msg.datos} />}
       {msg.tipo === 'importaciones'  && <ResultadoImportaciones datos={msg.datos} />}
       {msg.tipo === 'ayuda'          && <ResultadoAyuda datos={msg.datos} />}
