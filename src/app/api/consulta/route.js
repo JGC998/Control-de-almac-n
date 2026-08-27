@@ -36,6 +36,7 @@ async function extraerConOllama(query, materialesDisponibles) {
 Materiales del catálogo: ${mats}
 Tipos de confección: SF=sin fin/cerrada/soldada, GR=grapa/con grapa, AB=abierta, null=no indicada
 Colores: BLANCO, NEGRO, AZUL, VERDE, GRIS, AMARILLO, ROJO, TRANSPARENTE, NATURAL
+Dimensiones: ancho y largo se expresan en mm, pueden llevar puntos o comas de miles (3.900 = 3900 mm, 6,800 = 6800 mm), devuélvelos siempre como número entero sin separadores.
 
 Intenciones posibles:
 - calcular_banda: precio de banda (ancho+largo en mm, con confección SF/GR/AB)
@@ -98,7 +99,9 @@ Responde con este JSON (usa null en campos que no apliquen):
 function norm(s) {
   return s.toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[×*]/g, 'x')
+    // separadores de miles → eliminar: 3.900→3900, 3,900→3900 (4+ dígitos tras punto/coma)
+    .replace(/(\d)[.,](\d{3})\b/g, '$1$2')
+    .replace(/[×*·]/g, 'x')
     .replace(/[^a-z0-9\s.x,\-]/g, ' ')
     .replace(/\s+/g, ' ').trim();
 }
@@ -662,8 +665,9 @@ export async function POST(request) {
 
     if (extracted) {
       intencion = extracted.intencion;
-      const ancho = extracted.ancho != null ? parseFloat(extracted.ancho) : null;
-      const largo = extracted.largo != null ? parseFloat(extracted.largo) : null;
+      const parseDim = v => v != null ? parseFloat(String(v).replace(/[.,](?=\d{3}\b)/g, '')) : null;
+      const ancho = parseDim(extracted.ancho);
+      const largo = parseDim(extracted.largo);
       ent = {
         material:      extracted.material      || null,
         espesor:       extracted.espesor  != null ? parseFloat(extracted.espesor)  : null,
