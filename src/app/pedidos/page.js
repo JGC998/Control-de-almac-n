@@ -13,9 +13,9 @@ export const dynamic = 'force-dynamic';
 const columnasPedido = [
   { clave: 'numero', etiqueta: 'Número' },
   { clave: 'cliente.nombre', etiqueta: 'Cliente' },
-  { clave: 'fechaCreacion', etiqueta: 'Fecha', formato: 'fecha' },
+  { clave: 'fechaCreacion', etiqueta: 'Fecha', formato: 'fecha', className: 'hidden sm:table-cell' },
   { clave: 'total', etiqueta: 'Total', formato: 'moneda' },
-  { clave: 'margenBase', etiqueta: 'Margen' },
+  { clave: 'margenBase', etiqueta: 'Margen', className: 'hidden md:table-cell' },
   {
     clave: 'estado',
     etiqueta: 'Estado',

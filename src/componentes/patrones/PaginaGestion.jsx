@@ -188,7 +188,7 @@ export default function PaginaGestion({
                     {Icono && <Icono className="w-8 h-8" />}
                     {titulo}
                 </h1>
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center">
                     <FiltroBusquedaSimple valorInicial={busqueda} alBuscar={setBusqueda} />
                     {accionesExtra}
                     {exportModel && (

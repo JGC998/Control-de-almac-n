@@ -18,14 +18,14 @@ import { ContenedorCargando } from '@/componentes/ui';
 
 const COLUMNAS = [
   { key: 'nombre',         label: 'Nombre',   tipo: 'string' },
-  { key: '_codigo',        label: 'Código',   tipo: 'string' },
-  { key: 'material',       label: 'Material', tipo: 'string' },
-  { key: 'acabado',        label: 'Acabado',  tipo: 'string' },
-  { key: 'espesor',        label: 'Espesor',  tipo: 'number' },
-  { key: 'ancho',          label: 'Ancho',    tipo: 'number' },
-  { key: 'largo',          label: 'Largo',    tipo: 'number' },
+  { key: '_codigo',        label: 'Código',   tipo: 'string',  thClass: 'hidden sm:table-cell' },
+  { key: 'material',       label: 'Material', tipo: 'string',  thClass: 'hidden md:table-cell' },
+  { key: 'acabado',        label: 'Acabado',  tipo: 'string',  thClass: 'hidden lg:table-cell' },
+  { key: 'espesor',        label: 'Espesor',  tipo: 'number',  thClass: 'hidden md:table-cell' },
+  { key: 'ancho',          label: 'Ancho',    tipo: 'number',  thClass: 'hidden lg:table-cell' },
+  { key: 'largo',          label: 'Largo',    tipo: 'number',  thClass: 'hidden lg:table-cell' },
   { key: 'precioUnitario', label: 'Precio',   tipo: 'number' },
-  { key: 'pesoUnitario',   label: 'Peso',     tipo: 'number' },
+  { key: 'pesoUnitario',   label: 'Peso',     tipo: 'number',  thClass: 'hidden md:table-cell' },
 ];
 
 
@@ -313,7 +313,7 @@ export default function GestionProductosPage() {
                   />
                 </th>
                 {COLUMNAS.map(col => (
-                  <th key={col.key}>
+                  <th key={col.key} className={col.thClass || ''}>
                     <button
                       onClick={() => toggleSort(col.key, col.tipo)}
                       className="flex items-center gap-1 hover:text-base-content transition-colors cursor-pointer select-none"
@@ -361,7 +361,7 @@ export default function GestionProductosPage() {
                       </Link>
                       {incompleto && <span className="badge badge-warning badge-xs ml-2">incompleto</span>}
                     </td>
-                    <td onClick={e => copiarCodigo(e, p)} title={copiado === p.id ? 'Copiado ✓' : 'Copiar código'}>
+                    <td className="hidden sm:table-cell" onClick={e => copiarCodigo(e, p)} title={copiado === p.id ? 'Copiado ✓' : 'Copiar código'}>
                       {(() => {
                         const code = generarCodigo(p, nomConfig);
                         if (!code) return <span className="text-base-content/30">—</span>;
@@ -376,15 +376,15 @@ export default function GestionProductosPage() {
                         );
                       })()}
                     </td>
-                    <td className="text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
-                    <td className="text-sm">{p.acabado ?? <span className="text-base-content/30">—</span>}</td>
-                    <td className={p.espesor == null ? 'text-warning' : ''}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
-                    <td className={p.ancho == null   ? 'text-warning' : ''}>{p.ancho   != null ? `${p.ancho} mm`   : '—'}</td>
-                    <td className={p.largo == null   ? 'text-warning' : ''}>{p.largo   != null ? `${p.largo} mm`   : '—'}</td>
+                    <td className="hidden md:table-cell text-sm">{p.material?.nombre ?? <span className="text-base-content/30">—</span>}</td>
+                    <td className="hidden lg:table-cell text-sm">{p.acabado ?? <span className="text-base-content/30">—</span>}</td>
+                    <td className={`hidden md:table-cell${p.espesor == null ? ' text-warning' : ''}`}>{p.espesor != null ? `${p.espesor} mm` : '—'}</td>
+                    <td className={`hidden lg:table-cell${p.ancho == null   ? ' text-warning' : ''}`}>{p.ancho   != null ? `${p.ancho} mm`   : '—'}</td>
+                    <td className={`hidden lg:table-cell${p.largo == null   ? ' text-warning' : ''}`}>{p.largo   != null ? `${p.largo} mm`   : '—'}</td>
                     <td className={!p.precioUnitario ? 'text-warning' : ''}>
                       {p.precioUnitario != null ? `${Number(p.precioUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €` : '—'}
                     </td>
-                    <td>{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} kg` : '—'}</td>
+                    <td className="hidden md:table-cell">{p.pesoUnitario != null ? `${Number(p.pesoUnitario).toLocaleString('es-ES', { minimumFractionDigits: 2 })} kg` : '—'}</td>
                     <td onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1 justify-end">
                         <button

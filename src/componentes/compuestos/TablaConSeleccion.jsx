@@ -210,7 +210,7 @@ export default function TablaConSeleccion({
                   title="Seleccionar todo"
                 />
               </th>
-              {columnas.map((col, i) => <th key={col.clave || i}>{col.etiqueta}</th>)}
+              {columnas.map((col, i) => <th key={col.clave || i} className={col.className || ''}>{col.etiqueta}</th>)}
               {rutaBase && <th />}
             </tr>
           </thead>
@@ -233,7 +233,7 @@ export default function TablaConSeleccion({
                     />
                   </td>
                   {columnas.map((col, ci) => (
-                    <td key={col.clave || ci} onClick={ci === 0 ? e => e.stopPropagation() : undefined}>
+                    <td key={col.clave || ci} className={col.className || ''} onClick={ci === 0 ? e => e.stopPropagation() : undefined}>
                       {ci === 0 && rutaBase ? (
                         <Link
                           href={`${rutaBase}/${id}`}

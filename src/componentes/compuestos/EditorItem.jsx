@@ -70,6 +70,11 @@ export default function EditorItem({
             <div className="flex-1 flex flex-wrap gap-2 items-center">
                 {campos.map((campo) => (
                     <div key={campo.clave} className={campo.ancho || 'flex-1'}>
+                        {campo.tipo !== 'texto' && (
+                            <label className="block text-xs text-base-content/50 lg:hidden mb-0.5 px-1">
+                                {campo.etiqueta}
+                            </label>
+                        )}
                         <Entrada
                             tipo={campo.tipo || 'texto'}
                             placeholder={campo.etiqueta}
@@ -129,7 +134,7 @@ export default function EditorItem({
 // Componente para el header de la lista de items
 export function EditorItemsHeader({ campos = camposDefault }) {
     return (
-        <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-base-content/70 border-b border-base-200 mb-2">
+        <div className="hidden lg:flex items-center gap-2 px-2 py-1 text-sm font-medium text-base-content/70 border-b border-base-200 mb-2">
             <div className="w-4" /> {/* Espacio para grip */}
             <div className="flex-1 flex gap-2">
                 {campos.map((campo) => (

@@ -99,7 +99,7 @@ export default function TablaDatos({
                 <thead>
                     <tr className="text-xs uppercase tracking-wider text-base-content/50">
                         {columnas.map((col, i) => (
-                            <th key={col.clave || i} scope="col">{col.etiqueta}</th>
+                            <th key={col.clave || i} scope="col" className={col.className || ''}>{col.etiqueta}</th>
                         ))}
                         {mostrarAccionVer && rutaBase && <th scope="col" />}
                     </tr>
@@ -108,7 +108,7 @@ export default function TablaDatos({
                     {datos.map((fila, filaIndex) => (
                         <tr key={fila.id || filaIndex} className="hover">
                             {columnas.map((col, colIndex) => (
-                                <td key={col.clave || colIndex}>
+                                <td key={col.clave || colIndex} className={col.className || ''}>
                                     {colIndex === 0 && rutaBase ? (
                                         <Link
                                             href={`${rutaBase}/${fila[campoEnlace]}`}

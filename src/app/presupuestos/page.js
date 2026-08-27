@@ -11,7 +11,7 @@ import FiltroBusqueda from '@/componentes/ui/FiltroBusqueda';
 const columnasPresupuesto = [
   { clave: 'numero', etiqueta: 'Número' },
   { clave: 'cliente.nombre', etiqueta: 'Cliente' },
-  { clave: 'fechaCreacion', etiqueta: 'Fecha', formato: 'fecha' },
+  { clave: 'fechaCreacion', etiqueta: 'Fecha', formato: 'fecha', className: 'hidden sm:table-cell' },
   { clave: 'total', etiqueta: 'Total', formato: 'moneda' },
   {
     clave: 'estado',

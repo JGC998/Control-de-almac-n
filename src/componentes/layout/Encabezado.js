@@ -355,6 +355,11 @@ export default function Encabezado() {
             )}
           </div>
 
+          {/* Notificaciones móvil */}
+          <div className="lg:hidden">
+            <CampanaNotificaciones />
+          </div>
+
           {/* Hamburguesa móvil */}
           <button
             className="btn btn-ghost btn-sm btn-circle lg:hidden"
@@ -369,7 +374,7 @@ export default function Encabezado() {
 
       {/* Menú móvil */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-base-200 bg-base-100 pb-3">
+        <div className="lg:hidden border-t border-base-200 bg-base-100 pb-3 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
           <div className="px-4 py-3">
             <BarraBusqueda />
           </div>

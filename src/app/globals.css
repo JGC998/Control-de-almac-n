@@ -70,12 +70,19 @@ body {
 } */
 
 /* ── Mobile utilities ── */
+
+/* Eliminar delay táctil de 300ms en iOS */
+.btn, button, [role="button"], a {
+  touch-action: manipulation;
+}
+
+/* Scroll horizontal suave en tablas */
+.table-mobile-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 639px) {
-  /* Headers de página: apilar vertical en móvil */
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
   /* Tap targets cómodos */
   .btn { min-height: 2.75rem; }
 }

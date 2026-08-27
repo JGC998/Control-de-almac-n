@@ -238,7 +238,7 @@ export default function ProductoDetallePage() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-5xl">
+    <div className="container mx-auto p-4 md:p-6 max-w-5xl">
       <ModalBorrarProducto />
       <Link href="/gestion/productos" className="btn btn-ghost mb-6 gap-2">
         <ArrowLeft className="w-4 h-4" /> Volver al Catálogo

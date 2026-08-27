@@ -462,8 +462,8 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
               </div>
             </div>
 
-            <div className="overflow-visible">
-              <table className="table w-full">
+            <div className="overflow-x-auto">
+              <table className="table w-full min-w-[500px]">
                 <thead>
                   <tr>
                     <th className="w-10">Stock</th>

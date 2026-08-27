@@ -23,8 +23,8 @@ const columnasCliente = [
       'NORMAL': 'neutral',
     }
   },
-  { clave: 'email', etiqueta: 'Email' },
-  { clave: 'telefono', etiqueta: 'Teléfono' },
+  { clave: 'email', etiqueta: 'Email', className: 'hidden sm:table-cell' },
+  { clave: 'telefono', etiqueta: 'Teléfono', className: 'hidden md:table-cell' },
 ];
 
 // Definición de campos del formulario

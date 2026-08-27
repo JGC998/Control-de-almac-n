@@ -129,11 +129,11 @@ function SeccionHistorial({ clienteId }) {
                   <tr>
                     <th>Descripción</th>
                     <th className="text-right">Último precio</th>
-                    <th className="text-right">Precio medio</th>
-                    <th className="text-right">Min</th>
-                    <th className="text-right">Máx</th>
+                    <th className="hidden sm:table-cell text-right">Precio medio</th>
+                    <th className="hidden md:table-cell text-right">Min</th>
+                    <th className="hidden md:table-cell text-right">Máx</th>
                     <th className="text-center">Veces</th>
-                    <th>Último pedido</th>
+                    <th className="hidden sm:table-cell">Último pedido</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -141,11 +141,11 @@ function SeccionHistorial({ clienteId }) {
                     <tr key={i} className="hover">
                       <td className="font-medium max-w-xs truncate">{h.descripcion}</td>
                       <td className="text-right font-mono font-bold text-primary">{formatCurrency(h.ultimoPrecio)}</td>
-                      <td className="text-right font-mono text-sm">{formatCurrency(h.precioMedio)}</td>
-                      <td className="text-right font-mono text-xs text-gray-400">{formatCurrency(h.precioMin)}</td>
-                      <td className="text-right font-mono text-xs text-gray-400">{formatCurrency(h.precioMax)}</td>
+                      <td className="hidden sm:table-cell text-right font-mono text-sm">{formatCurrency(h.precioMedio)}</td>
+                      <td className="hidden md:table-cell text-right font-mono text-xs text-gray-400">{formatCurrency(h.precioMin)}</td>
+                      <td className="hidden md:table-cell text-right font-mono text-xs text-gray-400">{formatCurrency(h.precioMax)}</td>
                       <td className="text-center"><span className="badge badge-ghost badge-sm">{h.numVeces}×</span></td>
-                      <td className="text-sm text-gray-400">{new Date(h.ultimaFecha).toLocaleDateString('es-ES')}</td>
+                      <td className="hidden sm:table-cell text-sm text-gray-400">{new Date(h.ultimaFecha).toLocaleDateString('es-ES')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -219,8 +219,8 @@ function SeccionRentabilidad({ clienteId }) {
                 <thead>
                   <tr>
                     <th>Pedido</th>
-                    <th>Fecha</th>
-                    <th className="text-right">Coste</th>
+                    <th className="hidden sm:table-cell">Fecha</th>
+                    <th className="hidden md:table-cell text-right">Coste</th>
                     <th className="text-right">Venta</th>
                     <th className="text-right">Beneficio</th>
                     <th className="text-right">Margen</th>
@@ -230,8 +230,8 @@ function SeccionRentabilidad({ clienteId }) {
                   {[...data.pedidos].reverse().slice(0, 20).map(p => (
                     <tr key={p.id} className="hover">
                       <td><Link href={`/pedidos/${p.id}`} className="link link-primary font-mono text-xs">{p.numero}</Link></td>
-                      <td className="text-xs text-base-content/50">{new Date(p.fecha).toLocaleDateString('es-ES')}</td>
-                      <td className="text-right font-mono text-xs">{formatCurrency(p.coste)}</td>
+                      <td className="hidden sm:table-cell text-xs text-base-content/50">{new Date(p.fecha).toLocaleDateString('es-ES')}</td>
+                      <td className="hidden md:table-cell text-right font-mono text-xs">{formatCurrency(p.coste)}</td>
                       <td className="text-right font-mono text-xs">{formatCurrency(p.venta)}</td>
                       <td className={`text-right font-mono text-xs font-bold ${p.beneficio >= 0 ? 'text-success' : 'text-error'}`}>{formatCurrency(p.beneficio)}</td>
                       <td className={`text-right font-mono text-xs font-bold ${colorMargen(p.margenPct)}`}>{p.margenPct > 0 ? '+' : ''}{p.margenPct}%</td>

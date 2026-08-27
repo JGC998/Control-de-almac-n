@@ -39,12 +39,12 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
             <tr>
               <th>Descripción</th>
               <th className="text-center">Cantidad</th>
-              <th className="text-right">P. Unit. (Costo)</th>
-              <th className="text-right">Total (Costo)</th>
+              <th className="hidden md:table-cell text-right">P. Unit. (Costo)</th>
+              <th className="hidden md:table-cell text-right">Total (Costo)</th>
               <th className="font-bold text-success text-right">P. Unit. (Venta)</th>
               <th className="font-bold text-success text-right">Total (Venta)</th>
-              <th className="text-right opacity-70">Peso Unit.</th>
-              <th className="text-right opacity-70">Peso Total</th>
+              <th className="hidden md:table-cell text-right opacity-70">Peso Unit.</th>
+              <th className="hidden md:table-cell text-right opacity-70">Peso Total</th>
             </tr>
           </thead>
           <tbody>
@@ -67,7 +67,7 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
 
               return (
                 <tr key={index}>
-                  <td className="font-medium min-w-[200px]">
+                  <td className="font-medium">
                     {item.productoId ? (
                       <Link href={`/gestion/productos/${item.productoId}`} className="hover:underline hover:text-primary transition-colors">
                         {item.descripcion}
@@ -85,12 +85,12 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
                     )}
                   </td>
                   <td className="text-center">{item.quantity}</td>
-                  <td className="text-right opacity-70">{costoUnitario.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
-                  <td className="text-right opacity-70">{totalCosto.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                  <td className="hidden md:table-cell text-right opacity-70">{costoUnitario.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                  <td className="hidden md:table-cell text-right opacity-70">{totalCosto.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
                   <td className="font-bold text-success text-right">{precioVentaUnitario.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
                   <td className="font-bold text-success text-right">{totalVenta.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
-                  <td className="text-right opacity-70 text-sm">{pesoUnit > 0 ? `${pesoUnit.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg` : '—'}</td>
-                  <td className="text-right opacity-70 text-sm">{pesoTotal > 0 ? `${pesoTotal.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg` : '—'}</td>
+                  <td className="hidden md:table-cell text-right opacity-70 text-sm">{pesoUnit > 0 ? `${pesoUnit.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg` : '—'}</td>
+                  <td className="hidden md:table-cell text-right opacity-70 text-sm">{pesoTotal > 0 ? `${pesoTotal.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg` : '—'}</td>
                 </tr>
               );
             })}
