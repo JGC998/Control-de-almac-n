@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Send, Package, ClipboardList, AlertTriangle, ArrowRight, ExternalLink } from 'lucide-react';
+import { Send, Package, ClipboardList, AlertTriangle, ArrowRight, ExternalLink, Ruler, Ship } from 'lucide-react';
 
 const ACCIONES_RAPIDAS = [
   { label: 'Pedidos de hoy',     query: 'pedidos hoy',        icon: ClipboardList  },
@@ -133,6 +133,149 @@ function ResultadoPrecio({ datos }) {
   );
 }
 
+function fmt(n, dec = 2) {
+  if (n == null) return '—';
+  return n.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+function fmtEur(n) {
+  if (n == null) return '—';
+  return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+}
+
+function ResultadoCalculo({ datos }) {
+  if (!datos) return null;
+  const { dims, area_m2, precio_m2, precio_total, peso_m2, peso_total, material, espesor, color, conf, preciosVenta, bandaCatalogo } = datos;
+
+  if (!precio_m2) {
+    return (
+      <div className="mt-2 rounded-xl px-3 py-3 bg-warning/10 border border-warning/30 text-sm">
+        <p className="flex items-center gap-2 text-warning font-medium">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          No hay tarifa para ese material/espesor
+        </p>
+        {area_m2 && <p className="text-xs mt-1 text-base-content/60">Superficie calculada: {fmt(area_m2, 3)} m²</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-xl overflow-hidden border border-base-300 text-sm">
+      {/* Cabecera */}
+      <div className="bg-base-200 px-3 py-2 flex items-center gap-2">
+        <Ruler className="w-3.5 h-3.5 text-primary shrink-0" />
+        <span className="text-xs text-base-content/60 font-mono">
+          {dims?.ancho}×{dims?.largo} mm
+          {conf ? ` · ${conf === 'SF' ? 'Sin Fin' : conf === 'GR' ? 'Con Grapa' : 'Abierta'}` : ''}
+        </span>
+      </div>
+      {/* Desglose */}
+      <div className="px-3 py-3 bg-base-100 space-y-1.5">
+        <div className="flex justify-between text-xs text-base-content/50">
+          <span>Superficie</span>
+          <span className="font-mono">{fmt(area_m2, 3)} m²</span>
+        </div>
+        <div className="flex justify-between text-xs text-base-content/50">
+          <span>Precio/m²{material ? ` (${material}${espesor ? ' ' + espesor + 'mm' : ''}${color ? ' ' + color : ''})` : ''}</span>
+          <span className="font-mono">{fmtEur(precio_m2)}</span>
+        </div>
+        {peso_m2 > 0 && (
+          <div className="flex justify-between text-xs text-base-content/50">
+            <span>Peso aprox.</span>
+            <span className="font-mono">{fmt(peso_total, 2)} kg</span>
+          </div>
+        )}
+        <div className="flex justify-between items-center pt-1.5 border-t border-base-200">
+          <span className="font-semibold">Total</span>
+          <span className="font-bold text-lg text-primary font-mono">{fmtEur(precio_total)}</span>
+        </div>
+      </div>
+      {/* Precios por volumen si existen */}
+      {preciosVenta && Object.keys(preciosVenta).length > 1 && (
+        <div className="px-3 py-2 bg-base-200/50 border-t border-base-300">
+          <p className="text-[10px] text-base-content/40 mb-1 uppercase tracking-wide">Precios por margen</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(preciosVenta).map(([tier, p]) => (
+              <div key={tier} className="text-xs">
+                <span className="text-base-content/50">{tier}: </span>
+                <span className="font-mono font-medium">{fmtEur(area_m2 * p)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* En catálogo */}
+      {bandaCatalogo && (
+        <Link href={`/gestion/productos/${bandaCatalogo.id}`}
+          className="flex items-center justify-between px-3 py-2 bg-success/10 border-t border-success/20 hover:bg-success/20 transition-colors"
+        >
+          <span className="text-xs text-success font-medium truncate">✓ En catálogo: {bandaCatalogo.nombre}</span>
+          <span className="text-xs font-mono text-success shrink-0 ml-2">{fmtEur(bandaCatalogo.precio)}</span>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function ResultadoTarifa({ datos }) {
+  if (!datos?.length) return null;
+  return (
+    <div className="flex flex-col gap-1.5 mt-2">
+      {datos.map((t, i) => (
+        <div key={i} className="rounded-xl px-3 py-2.5 bg-base-300/50 text-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-semibold">{t.material} {t.espesor}mm{t.color ? ` · ${t.color}` : ''}{t.acabado ? ` · ${t.acabado}` : ''}</p>
+              <p className="text-xs text-base-content/50 mt-0.5">{fmt(t.peso, 3)} kg/m²</p>
+            </div>
+            <p className="font-bold text-primary font-mono shrink-0 ml-3">{fmtEur(t.precio)}<span className="text-xs font-normal text-base-content/40">/m²</span></p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const ESTADO_IMPORT_LABEL = {
+  BORRADOR: 'Borrador', PEDIDO: 'Pedido', TRANSITO: 'En tránsito',
+  ADUANA: 'En aduana', RECIBIDO: 'Recibido',
+};
+const ESTADO_IMPORT_BADGE = {
+  BORRADOR: 'badge-ghost', PEDIDO: 'badge-info', TRANSITO: 'badge-warning',
+  ADUANA: 'badge-error', RECIBIDO: 'badge-success',
+};
+
+function ResultadoImportaciones({ datos }) {
+  if (!datos?.length) return null;
+  return (
+    <div className="flex flex-col gap-1.5 mt-2">
+      {datos.map((imp, i) => (
+        <Link key={i} href={`/compras/contenedores/${imp.id}`}
+          className="rounded-xl px-3 py-2.5 bg-base-300/50 hover:bg-base-300 transition-colors text-sm"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <Ship className="w-3 h-3 text-base-content/40 shrink-0" />
+                <p className="font-medium truncate">{imp.descripcion || imp.numContenedor || 'Contenedor'}</p>
+              </div>
+              {imp.proveedor && <p className="text-xs text-base-content/50 mt-0.5">{imp.proveedor}</p>}
+              {imp.nombreBarco && <p className="text-xs text-base-content/40">{imp.nombreBarco}</p>}
+              {imp.etaEstimada && (
+                <p className="text-xs text-base-content/40">
+                  ETA: {new Date(imp.etaEstimada).toLocaleDateString('es-ES')}
+                </p>
+              )}
+            </div>
+            <span className={`badge badge-xs shrink-0 ${ESTADO_IMPORT_BADGE[imp.estado] ?? 'badge-ghost'}`}>
+              {ESTADO_IMPORT_LABEL[imp.estado] ?? imp.estado}
+            </span>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function ResultadoAyuda({ datos }) {
   if (!datos?.length) return null;
   return (
@@ -157,6 +300,9 @@ function BurbujaBot({ msg }) {
       {msg.tipo === 'pedido_detalle' && <ResultadoPedidoDetalle datos={msg.datos} />}
       {msg.tipo === 'cliente'        && <ResultadoCliente datos={msg.datos} />}
       {msg.tipo === 'precio'         && <ResultadoPrecio datos={msg.datos} />}
+      {msg.tipo === 'calculo'        && <ResultadoCalculo datos={msg.datos} />}
+      {msg.tipo === 'tarifa'         && <ResultadoTarifa datos={msg.datos} />}
+      {msg.tipo === 'importaciones'  && <ResultadoImportaciones datos={msg.datos} />}
       {msg.tipo === 'ayuda'          && <ResultadoAyuda datos={msg.datos} />}
     </div>
   );
