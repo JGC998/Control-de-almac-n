@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { Layers, Search, ArrowRight, Trash2, Package, FilterX } from 'lucide-react';
+import { Layers, Search, ArrowRight, Trash2, Package, FilterX, PlusCircle } from 'lucide-react';
 import { formatCurrency, formatWeight } from '@/utils/utilidades';
 import { mutate } from 'swr';
 
@@ -179,6 +179,10 @@ export default function BandasPVCPage() {
         </Link>
         <Layers className="w-7 h-7 text-info" />
         <h1 className="text-3xl font-bold">Bandas PVC guardadas</h1>
+        <div className="flex-1" />
+        <Link href="/calculadora/bandas" className="btn btn-primary btn-sm gap-2">
+          <PlusCircle className="w-4 h-4" /> Nueva banda
+        </Link>
       </div>
       <p className="text-sm text-base-content/50 mb-6 ml-14">
         Bandas calculadas y guardadas desde la calculadora. Haz clic en una para ver todos sus datos.
