@@ -243,10 +243,12 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   }, [opciones.tarifas, opciones.tarifa, form.acabado]);
 
   // Lonas → busca tarifa exacta (para materiales como CARAMELO con variantes de lona)
+  // Sentinel: '' = sin seleccionar, 'null' = sin lona (lonas=null en BD), '1'/'2'/... = número
   const handleLonasChange = useCallback((lonasStr) => {
     setForm(f => ({ ...f, lonas: lonasStr, precioUnitario: '', pesoUnitario: '' }));
     setTarifaEncontrada(false);
-    const lonasVal = lonasStr === '' ? null : parseInt(lonasStr, 10);
+    if (lonasStr === '') return; // sin seleccionar todavía
+    const lonasVal = lonasStr === 'null' ? null : parseInt(lonasStr, 10);
     const tarifa = (opciones.tarifas ?? []).find(t =>
       (t.lonas ?? null) === lonasVal &&
       (t.acabado ?? '') === (form.acabado ?? '') &&
@@ -259,17 +261,20 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     if (!tarifa) return;
     setTarifaEncontrada(true);
     setOpciones(prev => ({ ...prev, tarifa }));
+    // Sentinel: 'null' para lonas=null (sin lona), '' para sin seleccionar
+    const lonasForm = tarifa.lonas != null ? String(tarifa.lonas) : 'null';
     setForm(f => {
       const a = parseFloat(f.ancho) / 1000 || 0;
       const l = parseFloat(f.largo) / 1000 || 0;
       if (a > 0 && l > 0) {
         return {
           ...f,
+          lonas: lonasForm,
           precioUnitario: (tarifa.precio * a * l).toFixed(2),
           pesoUnitario:   (tarifa.peso   * a * l).toFixed(3),
         };
       }
-      return f;
+      return { ...f, lonas: lonasForm };
     });
   }
 
@@ -305,7 +310,9 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       largo:                form.largo                ? parseFloat(form.largo)   : null,
       color:                form.color                || null,
       acabado:              form.acabado              || null,
-      lonas:                opciones.tarifa?.lonas    ?? (form.lonas !== '' ? parseInt(form.lonas, 10) : null) ?? productoAEditar?.lonas ?? null,
+      lonas:                opciones.tarifa?.lonas    ??
+                            (form.lonas === 'null' ? null : form.lonas !== '' ? parseInt(form.lonas, 10) : null) ??
+                            productoAEditar?.lonas   ?? null,
       precioUnitario:       parseFloat(form.precioUnitario) || 0,
       costoUnitario:        parseFloat(form.costoUnitario)  || 0,
       pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
@@ -489,8 +496,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
           >
             <option value="">— Selecciona lonas —</option>
             {opciones.lonasOpciones.map(l => (
-              <option key={l ?? 'none'} value={l ?? ''}>
-                {l === null || l === undefined ? 'Sin lona' : `${l} lona${l !== 1 ? 's' : ''}`}
+              <option key={l ?? 'none'} value={l === null ? 'null' : String(l)}>
+                {l === null ? 'Sin lona' : `${l} lona${l !== 1 ? 's' : ''}`}
               </option>
             ))}
           </select>
