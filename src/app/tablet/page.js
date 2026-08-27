@@ -4,8 +4,9 @@ import useSWR from 'swr';
 import {
   Search, Package, BarChart2, Calculator, X,
   ClipboardList, Plus, CheckCircle, AlertTriangle,
-  ScanLine, Wifi, WifiOff, Trash2, RotateCcw, ExternalLink,
+  ScanLine, Wifi, WifiOff, Trash2, RotateCcw, ExternalLink, MessageCircle,
 } from 'lucide-react';
+import ChatConsulta from '@/componentes/compuestos/ChatConsulta';
 import ModalEscanearEtiqueta from '@/componentes/calculadoras/ModalEscanearEtiqueta';
 import {
   obtenerSesion, guardarSesion, borrarSesion, sincronizarSesion,
@@ -912,6 +913,7 @@ function TabRecepcion() {
 
 // ── Página principal ─────────────────────────────────────────────────────────
 const TABS = [
+  { id: 'consultar',   label: 'Consultar',  icon: MessageCircle },
   { id: 'recepcion',   label: 'Recepción',  icon: ScanLine      },
   { id: 'tarifas',     label: 'Tarifas',    icon: BarChart2     },
   { id: 'stock',       label: 'Stock',      icon: Package       },
@@ -920,12 +922,13 @@ const TABS = [
 ];
 
 export default function TabletPage() {
-  const [tab, setTab] = useState('recepcion');
+  const [tab, setTab] = useState('consultar');
 
   return (
     <>
       {/* Área de contenido — pb-20 para despejar la nav inferior fija */}
-      <div className="p-4 pb-24 min-h-[calc(100vh-3rem)]">
+      <div className="p-4 pb-24 min-h-[calc(100vh-3rem)] flex flex-col">
+        {tab === 'consultar'   && <ChatConsulta />}
         {tab === 'recepcion'   && <TabRecepcion />}
         {tab === 'tarifas'     && <TabTarifas />}
         {tab === 'stock'       && <TabStock />}
