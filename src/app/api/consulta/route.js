@@ -99,8 +99,10 @@ Responde con este JSON (usa null en campos que no apliquen):
 function norm(s) {
   return s.toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    // separadores de miles → eliminar: 3.900→3900, 3,900→3900 (4+ dígitos tras punto/coma)
+    // separadores de miles → eliminar: 3.900→3900, 3,900→3900 (exactamente 3 dígitos tras sep.)
     .replace(/(\d)[.,](\d{3})\b/g, '$1$2')
+    // coma decimal residual → punto: 8925,45→8925.45
+    .replace(/(\d),(\d{1,2})\b/g, '$1.$2')
     .replace(/[×*·]/g, 'x')
     .replace(/[^a-z0-9\s.x,\-]/g, ' ')
     .replace(/\s+/g, ' ').trim();
@@ -665,7 +667,12 @@ export async function POST(request) {
 
     if (extracted) {
       intencion = extracted.intencion;
-      const parseDim = v => v != null ? parseFloat(String(v).replace(/[.,](?=\d{3}\b)/g, '')) : null;
+      // Limpia separadores de miles (3.900→3900, 3,900→3900) y normaliza decimal
+      const parseDim = v => {
+        if (v == null) return null;
+        const s = String(v).replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.');
+        return parseFloat(s) || null;
+      };
       const ancho = parseDim(extracted.ancho);
       const largo = parseDim(extracted.largo);
       ent = {
