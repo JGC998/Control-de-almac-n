@@ -5,10 +5,16 @@ import Link from 'next/link';
 import {
   Package, Receipt, AlertCircle, Clock,
   Ship, Warehouse, Table2,
-  Calculator, Ruler, Tag,
+  Calculator, Ruler, Tag, MessageCircle,
 } from 'lucide-react';
 
 const ACCESOS = [
+  {
+    label: 'Consulta rápida',
+    href: '/consulta',
+    icon: MessageCircle,
+    color: 'bg-secondary text-secondary-content',
+  },
   {
     label: 'Presupuestos',
     href: '/presupuestos',
