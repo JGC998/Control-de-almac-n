@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   Send, Package, ClipboardList, AlertTriangle, ArrowRight,
   ExternalLink, Ruler, Ship, HelpCircle, Mic, MicOff,
-  FileText, Trash2,
+  FileText, Trash2, Copy, Check,
 } from 'lucide-react';
 
 const STORAGE_KEY   = 'chat-consulta-v1';
@@ -135,8 +135,54 @@ function fmtEur(n) {
   return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 }
 
+function generarTexto(datos, tipo) {
+  if (!datos?.precio_total) return null;
+  const lines = [];
+  const pct   = n => n != null ? n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) : '—';
+  const pct2  = n => n != null ? n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const ivaPct = datos.iva != null ? Math.round(datos.iva * 100) : 21;
+
+  if (tipo === 'calculo') {
+    const { dims, conf, material, espesor, color, precio_material, coste_conf, desc_conf, precio_total, precio_con_iva, unidades, precio_unitario } = datos;
+    const confLabel = conf === 'SF' ? 'Sin Fin' : conf === 'GR' ? 'Con Grapa' : conf === 'AB' ? 'Abierta' : '';
+    lines.push(`Banda ${dims?.ancho}×${dims?.largo} mm${confLabel ? ' · ' + confLabel : ''}`);
+    if (material) lines.push(`${material}${espesor ? ' ' + espesor + 'mm' : ''}${color ? ' ' + color : ''}`);
+    lines.push('─────────────────');
+    if (coste_conf > 0) {
+      lines.push(`Material:        ${pct(precio_material)}`);
+      lines.push(`${(desc_conf || 'Confección').padEnd(17)}: ${pct(coste_conf)}`);
+    }
+    if (unidades > 1) {
+      lines.push(`Precio unitario: ${pct(precio_unitario)}`);
+      lines.push(`× ${unidades} uds.`);
+    }
+    lines.push(`Sin IVA:         ${pct(precio_total)}`);
+    if (precio_con_iva) lines.push(`Con IVA (${ivaPct}%):   ${pct(precio_con_iva)}`);
+  } else if (tipo === 'metraje') {
+    const { anchoTira, metros, material, espesor, precio_total, precio_con_iva } = datos;
+    lines.push(`Metraje ${anchoTira}mm × ${metros}m lin.`);
+    if (material) lines.push(`${material}${espesor ? ' ' + espesor + 'mm' : ''}`);
+    lines.push('─────────────────');
+    lines.push(`Sin IVA:       ${pct(precio_total)}`);
+    if (precio_con_iva) lines.push(`Con IVA (${ivaPct}%): ${pct(precio_con_iva)}`);
+  }
+  return lines.join('\n');
+}
+
 function ChipsAccion({ datos, tipo, onAccion }) {
   if ((tipo !== 'calculo' && tipo !== 'metraje') || !datos?.precio_total) return null;
+  const [copiado, setCopiado] = React.useState(false);
+
+  const copiar = async () => {
+    const texto = generarTexto(datos, tipo);
+    if (!texto) return;
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch { /* clipboard no disponible */ }
+  };
+
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {[2, 3, 4, 5].map(n => (
@@ -147,6 +193,12 @@ function ChipsAccion({ datos, tipo, onAccion }) {
           ×{n}
         </button>
       ))}
+      <button onClick={copiar}
+        className={`btn btn-xs gap-1 ${copiado ? 'btn-success text-success-content' : 'btn-ghost border border-base-300'}`}
+      >
+        {copiado ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+        {copiado ? '¡Copiado!' : 'Copiar'}
+      </button>
       <Link href="/presupuestos/nuevo"
         className="btn btn-xs btn-ghost border border-primary/40 text-primary gap-1"
       >
@@ -201,9 +253,15 @@ function ResultadoMetraje({ datos }) {
           </div>
         )}
         <div className="flex justify-between items-center pt-1.5 border-t border-base-200">
-          <span className="font-semibold">Total</span>
+          <span className="font-semibold">Total sin IVA</span>
           <span className="font-bold text-lg text-secondary font-mono">{fmtEur(precio_total)}</span>
         </div>
+        {datos.precio_con_iva && (
+          <div className="flex justify-between text-xs text-base-content/40 pt-0.5">
+            <span>Con IVA ({Math.round((datos.iva ?? 0.21) * 100)}%)</span>
+            <span className="font-mono">{fmtEur(datos.precio_con_iva)}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -278,9 +336,15 @@ function ResultadoCalculo({ datos }) {
           </div>
         )}
         <div className="flex justify-between items-center pt-1.5 border-t border-base-200">
-          <span className="font-semibold">{unidades > 1 ? `Total (${unidades} uds.)` : 'Total'}</span>
+          <span className="font-semibold">{unidades > 1 ? `Total sin IVA (${unidades} uds.)` : 'Total sin IVA'}</span>
           <span className="font-bold text-lg text-primary font-mono">{fmtEur(precio_total)}</span>
         </div>
+        {datos.precio_con_iva && (
+          <div className="flex justify-between text-xs text-base-content/40 pt-0.5">
+            <span>Con IVA ({Math.round((datos.iva ?? 0.21) * 100)}%)</span>
+            <span className="font-mono">{fmtEur(datos.precio_con_iva)}</span>
+          </div>
+        )}
       </div>
       {preciosVenta && Object.keys(preciosVenta).length > 1 && (
         <div className="px-3 py-2 bg-base-200/50 border-t border-base-300">

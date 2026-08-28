@@ -338,6 +338,9 @@ async function calcularBanda(ent) {
     },
   });
 
+  const iva            = ent.iva ?? 0.21;
+  const precio_con_iva = Math.round(precio_total * (1 + iva) * 100) / 100;
+
   return {
     texto: [
       `${dims.ancho}×${dims.largo} mm`,
@@ -350,7 +353,8 @@ async function calcularBanda(ent) {
       color: tarifa.color, area_m2, precio_m2: precioM2,
       precio_material: Math.round(precio_material * 100) / 100,
       coste_conf: Math.round(coste_conf * 100) / 100, desc_conf,
-      precio_total, peso_m2: tarifa.peso || 0, peso_total,
+      precio_total, precio_con_iva, iva,
+      peso_m2: tarifa.peso || 0, peso_total,
       preciosVenta,
       bandaCatalogo: bandaCatalogo
         ? { id: bandaCatalogo.id, nombre: bandaCatalogo.nombre, precio: bandaCatalogo.precioUnitario }
@@ -373,8 +377,10 @@ async function calcularPieza(ent) {
     };
   }
 
-  const precio_total = Math.round(area_m2 * tarifa.precio * 100) / 100;
-  const peso_total   = area_m2 * (tarifa.peso || 0);
+  const precio_total   = Math.round(area_m2 * tarifa.precio * 100) / 100;
+  const peso_total     = area_m2 * (tarifa.peso || 0);
+  const iva            = ent.iva ?? 0.21;
+  const precio_con_iva = Math.round(precio_total * (1 + iva) * 100) / 100;
 
   return {
     texto: `${dims.ancho}×${dims.largo} mm · ${tarifa.material}${tarifa.espesor ? ' ' + tarifa.espesor + 'mm' : ''}`,
@@ -383,7 +389,8 @@ async function calcularPieza(ent) {
       dims, material: tarifa.material, espesor: tarifa.espesor, color: tarifa.color,
       area_m2, precio_m2: tarifa.precio,
       precio_material: precio_total, coste_conf: 0, desc_conf: null,
-      precio_total, peso_m2: tarifa.peso || 0, peso_total,
+      precio_total, precio_con_iva, iva,
+      peso_m2: tarifa.peso || 0, peso_total,
     },
   };
 }
@@ -395,11 +402,13 @@ async function calcularMetraje(ent) {
     return { texto: 'Ejemplo: "50 metros de PVC 3mm de 150mm de ancho"', tipo: 'ayuda', datos: null };
   }
 
-  const tarifa   = await buscarTarifa(material, espesor, color);
-  const area_m2  = (anchoTira / 1000) * metros;
-  const precio_m2   = tarifa?.precio ?? null;
+  const tarifa       = await buscarTarifa(material, espesor, color);
+  const area_m2      = (anchoTira / 1000) * metros;
+  const precio_m2    = tarifa?.precio ?? null;
   const precio_total = precio_m2 != null ? Math.round(area_m2 * precio_m2 * 100) / 100 : null;
   const peso_total   = tarifa ? area_m2 * (tarifa.peso || 0) : null;
+  const iva          = ent.iva ?? 0.21;
+  const precio_con_iva = precio_total != null ? Math.round(precio_total * (1 + iva) * 100) / 100 : null;
 
   return {
     texto: `${anchoTira}mm × ${metros}m · ${tarifa?.material ?? material ?? '?'}${tarifa?.espesor ? ' ' + tarifa.espesor + 'mm' : ''}`,
@@ -407,7 +416,8 @@ async function calcularMetraje(ent) {
     datos: {
       anchoTira, metros, area_m2,
       material: tarifa?.material ?? material, espesor: tarifa?.espesor ?? espesor, color: tarifa?.color ?? color,
-      precio_m2, precio_total, peso_m2: tarifa?.peso ?? null, peso_total,
+      precio_m2, precio_total, precio_con_iva, iva,
+      peso_m2: tarifa?.peso ?? null, peso_total,
     },
   };
 }
@@ -682,9 +692,13 @@ export async function POST(request) {
       return NextResponse.json({ texto: 'Escribe algo para consultar.', tipo: 'ayuda', datos: null });
     }
 
-    // Materiales reales de la BD — necesarios tanto para Ollama como para regex fallback
-    const tarifasDB    = await db.tarifaMaterial.findMany({ select: { material: true }, distinct: ['material'] });
+    // Materiales e IVA — en paralelo para no penalizar latencia
+    const [tarifasDB, cfgIva] = await Promise.all([
+      db.tarifaMaterial.findMany({ select: { material: true }, distinct: ['material'] }),
+      db.config.findUnique({ where: { key: 'iva_rate' } }),
+    ]);
     const materialesDB = tarifasDB.map(r => r.material);
+    const ivaRate      = cfgIva ? parseFloat(cfgIva.value) / 100 : 0.21;
 
     // ── INTENTO 1: Ollama entiende la consulta en lenguaje natural ──────────────
     let intencion = null;
@@ -736,6 +750,9 @@ export async function POST(request) {
         estadoImport:  null,
       };
     }
+
+    // Añadir IVA a ent para que los calculadores lo tengan disponible
+    if (ent) ent.iva = ivaRate;
 
     const s = norm(query.trim());
 
