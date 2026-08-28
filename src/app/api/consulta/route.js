@@ -27,16 +27,19 @@ const ESTADO_IMPORT_ALIAS = {
 // OLLAMA — EXTRACCIÓN DE INTENCIÓN Y ENTIDADES (primer uso, antes de DB)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function extraerConOllama(query, materialesDisponibles) {
+async function extraerConOllama(query, materialesDisponibles, historial) {
   try {
     const mats = materialesDisponibles.slice(0, 12).join(', ');
+    const ctxConv = historial
+      ? `\nConversación reciente (úsala para resolver referencias como "¿y con grapa?", "más largo", "ese material"):\n${historial}\n`
+      : '';
 
     const prompt = `Eres un extractor de datos para un taller de bandas PVC. Analiza la consulta y devuelve ÚNICAMENTE un JSON válido sin ningún texto adicional.
 
 Materiales del catálogo: ${mats}
 Tipos de confección: SF=sin fin/cerrada/soldada, GR=grapa/con grapa, AB=abierta, null=no indicada
 Colores: BLANCO, NEGRO, AZUL, VERDE, GRIS, AMARILLO, ROJO, TRANSPARENTE, NATURAL
-Dimensiones: ancho y largo se expresan en mm, pueden llevar puntos o comas de miles (3.900 = 3900 mm, 6,800 = 6800 mm), devuélvelos siempre como número entero sin separadores.
+Dimensiones: ancho y largo en mm, pueden llevar puntos/comas de miles (3.900=3900 mm); devuélvelos como número entero.${ctxConv}
 
 Intenciones posibles:
 - calcular_banda: precio de banda (ancho+largo en mm, con confección SF/GR/AB)
@@ -272,9 +275,20 @@ async function calcularBanda(ent) {
   const area_m2 = (dims.ancho / 1000) * (dims.largo / 1000);
 
   if (!tarifa) {
+    const alts = material
+      ? (await db.tarifaMaterial.findMany({
+          where: { material: { contains: material } },
+          select: { espesor: true },
+          distinct: ['espesor'],
+          orderBy: { espesor: 'asc' },
+          take: 8,
+        })).filter(a => a.espesor != null).map(a => `${a.espesor}mm`)
+      : [];
+    const textoAlt = alts.length ? ` Disponibles: ${alts.join(' · ')}` : '';
     return {
-      texto: `Sin tarifa para${material ? ' ' + material : ''}${espesor ? ' ' + espesor + 'mm' : ''}. Superficie: ${area_m2.toFixed(3)} m²`,
-      tipo: 'calculo', datos: { dims, area_m2, tarifa: null, conf },
+      texto: `Sin tarifa para${material ? ' ' + material : ''}${espesor ? ' ' + espesor + 'mm' : ''}.${textoAlt}`,
+      tipo: 'calculo',
+      datos: { dims, area_m2, tarifa: null, conf, material, alternativas: alts },
     };
   }
 
@@ -413,25 +427,25 @@ function mergeEnt(almacenado, nuevo) {
   return base;
 }
 
-// Devuelve { pregunta } si falta algún dato imprescindible, o null si todo ok.
+// Devuelve { pregunta, campo } si falta algún dato imprescindible, o null si todo ok.
 function validarEntidades(intencion, ent) {
   if (intencion === 'calcular_banda' || intencion === 'calcular_pieza') {
     if (!ent.dims) {
-      return { pregunta: '¿Cuáles son las dimensiones (ancho × largo en mm)? Ej: 600×4800' };
+      return { pregunta: '¿Cuáles son las dimensiones (ancho × largo en mm)? Ej: 600×4800', campo: 'dims' };
     }
     if (!ent.material && ent.espesor == null) {
-      return { pregunta: '¿Qué material y espesor? Ej: PVC 3mm, EPDM 6mm, PU 8mm' };
+      return { pregunta: '¿Qué material y espesor? Ej: PVC 3mm, EPDM 6mm, PU 8mm', campo: 'material' };
     }
   }
   if (intencion === 'calcular_metraje') {
     if (!ent.metros && !ent.anchoTira) {
-      return { pregunta: '¿Cuántos metros y qué ancho de tira necesitas? Ej: 50 metros de 150 mm de ancho' };
+      return { pregunta: '¿Cuántos metros y qué ancho de tira? Ej: 50 metros de 150 mm de ancho', campo: 'metros_ancho' };
     }
     if (!ent.metros) {
-      return { pregunta: '¿Cuántos metros lineales necesitas?' };
+      return { pregunta: '¿Cuántos metros lineales necesitas?', campo: 'metros' };
     }
     if (!ent.anchoTira) {
-      return { pregunta: '¿Cuál es el ancho de la tira en mm? Ej: 150 mm' };
+      return { pregunta: '¿Cuál es el ancho de la tira en mm? Ej: 150 mm', campo: 'anchoTira' };
     }
   }
   return null;
@@ -648,9 +662,22 @@ async function procesarConsulta(s, ent, contexto, intencionOverride) {
 // HANDLER
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Warm-up: abre la página de consulta → el modelo ya está listo para la primera query
+export async function GET() {
+  fetch(`${OLLAMA_URL}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL, prompt: 'hola', stream: false,
+      format: 'json', options: { temperature: 0, num_predict: 5 },
+    }),
+  }).catch(() => {});
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(request) {
   try {
-    const { query, contexto } = await request.json();
+    const { query, contexto, historial } = await request.json();
     if (!query?.trim()) {
       return NextResponse.json({ texto: 'Escribe algo para consultar.', tipo: 'ayuda', datos: null });
     }
@@ -663,7 +690,7 @@ export async function POST(request) {
     let intencion = null;
     let ent       = null;
 
-    const extracted = await extraerConOllama(query, materialesDB);
+    const extracted = await extraerConOllama(query, materialesDB, historial ?? null);
 
     if (extracted) {
       intencion = extracted.intencion;
@@ -727,10 +754,21 @@ export async function POST(request) {
     const intent = intencion ?? detectarIntencionRegex(s, ent);
     const faltante = validarEntidades(intent, ent);
     if (faltante) {
+      // Chips de respuesta rápida según el dato que falta
+      let sugerencias = null;
+      if (faltante.campo === 'material') {
+        sugerencias = materialesDB.slice(0, 8).map(m => ({ label: m, valor: m }));
+      } else if (faltante.campo === 'conf') {
+        sugerencias = [
+          { label: 'Sin Fin',   valor: 'sin fin'   },
+          { label: 'Con Grapa', valor: 'con grapa' },
+          { label: 'Abierta',   valor: 'abierta'   },
+        ];
+      }
       return NextResponse.json({
         texto: faltante.pregunta,
         tipo: 'falta_datos',
-        datos: { intencion: intent, ...ent }, // guardamos el estado parcial
+        datos: { intencion: intent, ...ent, sugerencias },
       });
     }
 

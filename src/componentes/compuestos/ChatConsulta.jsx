@@ -403,6 +403,32 @@ function BurbujaBot({ msg, onAccion }) {
       {msg.tipo === 'tarifa'         && <ResultadoTarifa         datos={msg.datos} />}
       {msg.tipo === 'importaciones'  && <ResultadoImportaciones  datos={msg.datos} />}
       {msg.tipo === 'ayuda'          && <ResultadoAyuda          datos={msg.datos} />}
+
+      {/* Chips de sugerencia cuando falta un dato — materiales, conf, etc. */}
+      {msg.tipo === 'falta_datos' && msg.datos?.sugerencias?.length > 0 && onAccion && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {msg.datos.sugerencias.map(s => (
+            <button key={s.valor} onClick={() => onAccion(s.valor)}
+              className="btn btn-xs btn-ghost border border-info/30 text-info hover:border-info hover:bg-info/10">
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Chips de espesores alternativos cuando no hay tarifa */}
+      {msg.tipo === 'calculo' && msg.datos?.alternativas?.length > 0 && onAccion && (
+        <div className="flex flex-wrap gap-1.5 mt-2 items-center">
+          <span className="text-xs text-base-content/40">Prueba con:</span>
+          {msg.datos.alternativas.map(esp => (
+            <button key={esp} onClick={() => onAccion(esp)}
+              className="btn btn-xs btn-ghost border border-base-300 font-mono hover:border-primary hover:text-primary">
+              {esp}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Chips de acción rápida tras cálculo */}
       {onAccion && <ChipsAccion datos={msg.datos} tipo={msg.tipo} onAccion={onAccion} />}
     </div>
@@ -448,6 +474,11 @@ export default function ChatConsulta() {
   const inputRef     = useRef(null);
   const recognitionRef = useRef(null);
 
+  // ── Pre-calentar Ollama al abrir el chat ─────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/consulta').catch(() => {});
+  }, []);
+
   // ── Persistencia ──────────────────────────────────────────────────────────────
   useEffect(() => {
     try {
@@ -487,14 +518,21 @@ export default function ChatConsulta() {
     setMensajes(prev => [...prev, { role: 'user', texto }]);
     setCargando(true);
     try {
-      const msgs     = mensajes; // captura en closure antes del setState
+      const msgs      = mensajes; // captura en closure antes del setState
       const ultimoBot = [...msgs].reverse().find(m => m.role === 'bot');
       const contexto  = ultimoBot?.datos ?? null;
+
+      // Últimas 3 preguntas+respuestas como texto para que Ollama entienda referencias
+      const historial = msgs
+        .slice(-8)
+        .filter(m => m.texto && m.tipo !== 'bienvenida')
+        .map(m => `${m.role === 'user' ? 'Usuario' : 'Asistente'}: ${m.texto}`)
+        .join('\n') || null;
 
       const res  = await fetch('/api/consulta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto, contexto }),
+        body: JSON.stringify({ query: texto, contexto, historial }),
       });
       const data = await res.json();
       setMensajes(prev => [...prev, { role: 'bot', ...data }]);
