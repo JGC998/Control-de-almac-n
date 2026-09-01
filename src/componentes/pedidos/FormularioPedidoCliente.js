@@ -7,7 +7,7 @@ import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida"
 import FormularioProductoInteligente from "@/componentes/productos/FormularioProductoInteligente";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
 import ModalCrearBandaChat from "@/componentes/modales/ModalCrearBandaChat";
-import ModalBusquedaBandasPVC from "@/componentes/modales/ModalBusquedaBandasPVC";
+import ModalBusquedaBandasChat from "@/componentes/modales/ModalBusquedaBandasChat";
 import ModalMetrajeMaterial from "@/componentes/modales/ModalMetrajeMaterial";
 import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
 import ModalBusquedaProductos from "@/componentes/modales/ModalBusquedaProductos";
@@ -219,7 +219,19 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   };
 
   const handleBandaCatalogoSelected = (product) => {
-    if (product._fromCalculadora) {
+    if (product._fromHistorial) {
+      // Banda del historial de pedidos — det ya contiene el JSON parseado
+      setItems(prev => [...prev, {
+        id: Date.now() + Math.random(),
+        descripcion: product.descripcion,
+        quantity: 1,
+        unitPrice: product.unitPrice || 0,
+        productoId: null,
+        producto: null,
+        pesoUnitario: product.pesoUnitario || 0,
+        detallesTecnicos: JSON.stringify(product.det),
+      }]);
+    } else if (product._fromCalculadora) {
       // Banda calculada on-the-fly desde la calculadora embebida en el modal
       const bandaItem = product._bandaItem;
       setItems(prev => [...prev, {
@@ -648,7 +660,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         </div>
       )}
 
-      <ModalBusquedaBandasPVC isOpen={isBandaCatalogoOpen} onClose={() => setIsBandaCatalogoOpen(false)} onSelect={handleBandaCatalogoSelected} />
+      <ModalBusquedaBandasChat isOpen={isBandaCatalogoOpen} onClose={() => setIsBandaCatalogoOpen(false)} onSelect={handleBandaCatalogoSelected} clienteId={clienteId} clienteNombre={clienteNombre} />
       <ModalMetrajeMaterial isOpen={isMetrajeOpen} onClose={() => setIsMetrajeOpen(false)} onAñadir={handleMetrajeAñadido} />
       <ModalCrearBandaChat isOpen={isBandaChatOpen} onClose={() => setIsBandaChatOpen(false)} onAddItem={handleBandaAdded} />
     </>
