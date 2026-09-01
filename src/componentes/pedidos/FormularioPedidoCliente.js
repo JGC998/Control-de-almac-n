@@ -204,6 +204,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       pesoUnitario: bandaItem.pesoUnitario,
       detallesTecnicos: JSON.stringify({
         dimensiones: bandaItem.dimensiones,
+        material: bandaItem.material || 'PVC',
         color: bandaItem.color || null,
         tipoConfeccion: bandaItem.tipoConfeccion,
         grapa: bandaItem.grapa || null,
@@ -231,6 +232,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         pesoUnitario: bandaItem.pesoUnitario,
         detallesTecnicos: JSON.stringify({
           dimensiones: bandaItem.dimensiones,
+          material: bandaItem.material || 'PVC',
           color: bandaItem.color || null,
           tipoConfeccion: bandaItem.tipoConfeccion,
           grapa: bandaItem.grapa || null,

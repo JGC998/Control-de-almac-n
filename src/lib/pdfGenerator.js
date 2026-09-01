@@ -676,13 +676,33 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
 
         // Helpers para columnas técnicas del producto
         const dash = '—';
+        const parseDet = (item) => {
+            try { return item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; }
+            catch { return null; }
+        };
         const getDescripcion = (item) => item.descripcion || item.producto?.nombre || '';
         const getRefFab      = (item) => item.producto?.referenciaFabricante || dash;
         const getFabricante  = (item) => item.producto?.fabricante?.nombre    || dash;
-        const getMaterial    = (item) => item.producto?.material?.nombre      || dash;
-        const getEspesor     = (item) => item.producto?.espesor != null ? `${item.producto.espesor}mm` : dash;
-        const getAncho       = (item) => item.producto?.ancho   != null ? `${item.producto.ancho}mm`   : dash;
-        const getLargo       = (item) => item.producto?.largo   != null ? `${item.producto.largo}m`    : dash;
+        const getMaterial    = (item) => {
+            if (item.producto?.material?.nombre) return item.producto.material.nombre;
+            const det = parseDet(item);
+            return det?.material || (det?.dimensiones ? 'PVC' : dash);
+        };
+        const getEspesor = (item) => {
+            if (item.producto?.espesor != null) return `${item.producto.espesor}mm`;
+            const det = parseDet(item);
+            return det?.dimensiones?.espesor != null ? `${det.dimensiones.espesor}mm` : dash;
+        };
+        const getAncho = (item) => {
+            if (item.producto?.ancho != null) return `${item.producto.ancho}mm`;
+            const det = parseDet(item);
+            return det?.dimensiones?.ancho != null ? `${det.dimensiones.ancho}mm` : dash;
+        };
+        const getLargo = (item) => {
+            if (item.producto?.largo != null) return `${item.producto.largo}m`;
+            const det = parseDet(item);
+            return det?.dimensiones?.largo != null ? `${det.dimensiones.largo}mm` : dash;
+        };
 
         // Columna Detalles: solo para valorado (cortes, metrajes, etc.)
         const getDetalles = (item) => formatDetallesTecnicos(item);
