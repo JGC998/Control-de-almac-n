@@ -158,6 +158,20 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
       setPaso('COLOR');
       return;
     }
+
+    // Para 2 mm y 3 mm siempre preguntar color aunque en BD solo haya una entrada genérica
+    const espNum = parseFloat(d0.espesor ?? 0);
+    if (espNum === 2 || espNum === 3) {
+      pushBot('¿De qué color es la banda?', [
+        { label: 'Blanco', valor: 'BLANCO' },
+        { label: 'Verde', valor: 'VERDE' },
+        { label: 'Azul', valor: 'AZUL' },
+      ]);
+      setDatos({ ...d0, acabado });
+      setPaso('COLOR');
+      return;
+    }
+
     askConf({ ...d0, acabado, color: cOpts[0] === '__null' ? null : cOpts[0] });
   };
 
@@ -278,9 +292,14 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
         : candidates.filter(t => t.acabado === d0.acabado);
     }
     if ('color' in d0) {
-      candidates = d0.color == null
-        ? candidates.filter(t => !t.color)
-        : candidates.filter(t => t.color === d0.color);
+      // Solo filtra por color si la BD tiene variantes reales de color;
+      // si todas las entradas tienen color null, el color es cosmético (2/3mm)
+      const hayVariantesColor = candidates.some(t => t.color != null);
+      if (hayVariantesColor) {
+        candidates = d0.color == null
+          ? candidates.filter(t => !t.color)
+          : candidates.filter(t => t.color === d0.color);
+      }
     }
 
     const tarifa = candidates[0];
