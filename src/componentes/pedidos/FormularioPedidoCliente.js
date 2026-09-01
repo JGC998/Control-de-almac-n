@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
-import { Plus, X, Save, Search, Ruler, Package, Scissors } from 'lucide-react';
+import { Plus, X, Save, Search, Ruler, Package, Scissors, Zap } from 'lucide-react';
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 import FormularioProductoInteligente from "@/componentes/productos/FormularioProductoInteligente";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
@@ -444,21 +444,38 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                 </p>
               </div>
 
-              {/* Botones de añadir línea */}
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => {
-                  const newIndex = items.length;
-                  addItem();
-                  setProductSearchState({ isOpen: true, rowIndex: newIndex, initialSearch: '' });
-                }} className="btn btn-sm btn-outline btn-primary gap-1">
-                  <Plus className="w-3.5 h-3.5" /> Añadir producto
-                </button>
-                <button type="button" onClick={() => setIsMetrajeOpen(true)} className="btn btn-sm btn-outline btn-accent gap-1">
-                  <Scissors className="w-3.5 h-3.5" /> Metraje material
-                </button>
-                <button type="button" onClick={() => setIsBandaCatalogoOpen(true)} className="btn btn-sm btn-outline btn-secondary gap-1">
-                  <Ruler className="w-3.5 h-3.5" /> Buscar Banda PVC
-                </button>
+              {/* Botones de añadir línea — tres grupos */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Grupo 1: Producto */}
+                <div className="flex items-center gap-1.5 border border-base-300 rounded-lg px-2 py-1">
+                  <span className="text-xs text-base-content/40 pr-1 select-none">Producto</span>
+                  <button type="button" onClick={() => {
+                    const newIndex = items.length;
+                    addItem();
+                    setProductSearchState({ isOpen: true, rowIndex: newIndex, initialSearch: '' });
+                  }} className="btn btn-xs btn-outline btn-primary gap-1">
+                    <Plus className="w-3 h-3" /> Añadir producto
+                  </button>
+                </div>
+
+                {/* Grupo 2: Metraje */}
+                <div className="flex items-center gap-1.5 border border-base-300 rounded-lg px-2 py-1">
+                  <span className="text-xs text-base-content/40 pr-1 select-none">Metraje</span>
+                  <button type="button" onClick={() => setIsMetrajeOpen(true)} className="btn btn-xs btn-outline btn-accent gap-1">
+                    <Scissors className="w-3 h-3" /> Metraje material
+                  </button>
+                </div>
+
+                {/* Grupo 3: Banda PVC */}
+                <div className="flex items-center gap-1.5 border border-base-300 rounded-lg px-2 py-1">
+                  <span className="text-xs text-base-content/40 pr-1 select-none">Banda PVC</span>
+                  <button type="button" onClick={() => {/* pendiente */}} className="btn btn-xs btn-outline btn-warning gap-1">
+                    <Zap className="w-3 h-3" /> Crear banda PVC
+                  </button>
+                  <button type="button" onClick={() => setIsBandaCatalogoOpen(true)} className="btn btn-xs btn-outline btn-secondary gap-1">
+                    <Ruler className="w-3 h-3" /> Buscar banda PVC
+                  </button>
+                </div>
               </div>
             </div>
 

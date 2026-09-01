@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   Send, Package, ClipboardList, AlertTriangle, ArrowRight,
   ExternalLink, Ruler, Ship, HelpCircle, Mic, MicOff,
-  FileText, Trash2, Copy, Check,
+  FileText, Trash2, Copy, Check, Download,
 } from 'lucide-react';
 
 const STORAGE_KEY   = 'chat-consulta-v1';
@@ -172,6 +172,7 @@ function generarTexto(datos, tipo) {
 function ChipsAccion({ datos, tipo, onAccion }) {
   if ((tipo !== 'calculo' && tipo !== 'metraje') || !datos?.precio_total) return null;
   const [copiado, setCopiado] = React.useState(false);
+  const [descargando, setDescargando] = React.useState(false);
 
   const copiar = async () => {
     const texto = generarTexto(datos, tipo);
@@ -181,6 +182,27 @@ function ChipsAccion({ datos, tipo, onAccion }) {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch { /* clipboard no disponible */ }
+  };
+
+  const descargarPDF = async () => {
+    if (descargando) return;
+    setDescargando(true);
+    try {
+      const res = await fetch('/api/consulta/ficha-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ datos, tipo }),
+      });
+      if (!res.ok) throw new Error('Error');
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `ficha-calculo-${Date.now()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silencioso */ }
+    finally { setDescargando(false); }
   };
 
   return (
@@ -198,6 +220,12 @@ function ChipsAccion({ datos, tipo, onAccion }) {
       >
         {copiado ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
         {copiado ? '¡Copiado!' : 'Copiar'}
+      </button>
+      <button onClick={descargarPDF} disabled={descargando}
+        className="btn btn-xs btn-ghost border border-base-300 gap-1 hover:border-secondary hover:text-secondary"
+      >
+        <Download className="w-3 h-3" />
+        {descargando ? 'Generando…' : 'PDF'}
       </button>
       <Link href="/presupuestos/nuevo"
         className="btn btn-xs btn-ghost border border-primary/40 text-primary gap-1"
