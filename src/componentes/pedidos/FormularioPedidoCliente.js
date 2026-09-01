@@ -6,6 +6,7 @@ import { Plus, X, Save, Search, Ruler, Package, Scissors, Zap } from 'lucide-rea
 import { BaseQuickCreateModal } from "@/componentes/modales/ModalCreacionRapida";
 import FormularioProductoInteligente from "@/componentes/productos/FormularioProductoInteligente";
 import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas";
+import ModalCrearBandaChat from "@/componentes/modales/ModalCrearBandaChat";
 import ModalBusquedaBandasPVC from "@/componentes/modales/ModalBusquedaBandasPVC";
 import ModalMetrajeMaterial from "@/componentes/modales/ModalMetrajeMaterial";
 import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
@@ -29,6 +30,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   const [isClientSearchOpen, setIsClientSearchOpen] = useState(false);
   const [isBandaModalOpen, setIsBandaModalOpen] = useState(false);
   const [isBandaCatalogoOpen, setIsBandaCatalogoOpen] = useState(false);
+  const [isBandaChatOpen, setIsBandaChatOpen] = useState(false);
   const [isMetrajeOpen, setIsMetrajeOpen] = useState(false);
   const [productSearchState, setProductSearchState] = useState({ isOpen: false, rowIndex: null, initialSearch: '' });
 
@@ -469,7 +471,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                 {/* Grupo 3: Banda PVC */}
                 <div className="flex items-center gap-1.5 border border-base-300 rounded-lg px-2 py-1">
                   <span className="text-xs text-base-content/40 pr-1 select-none">Banda PVC</span>
-                  <button type="button" onClick={() => {/* pendiente */}} className="btn btn-xs btn-outline btn-warning gap-1">
+                  <button type="button" onClick={() => setIsBandaChatOpen(true)} className="btn btn-xs btn-outline gap-1">
                     <Zap className="w-3 h-3" /> Crear banda PVC
                   </button>
                   <button type="button" onClick={() => setIsBandaCatalogoOpen(true)} className="btn btn-xs btn-outline btn-secondary gap-1">
@@ -646,6 +648,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
       <ModalBusquedaBandasPVC isOpen={isBandaCatalogoOpen} onClose={() => setIsBandaCatalogoOpen(false)} onSelect={handleBandaCatalogoSelected} />
       <ModalMetrajeMaterial isOpen={isMetrajeOpen} onClose={() => setIsMetrajeOpen(false)} onAñadir={handleMetrajeAñadido} />
+      <ModalCrearBandaChat isOpen={isBandaChatOpen} onClose={() => setIsBandaChatOpen(false)} onAddItem={handleBandaAdded} />
     </>
   );
 }
