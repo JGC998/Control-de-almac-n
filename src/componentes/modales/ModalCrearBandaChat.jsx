@@ -262,13 +262,27 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
   // ── calculation ────────────────────────────────────────────────────────────
 
   const calcular = (d0) => {
-    const { ancho, largo, espesor, lonas, acabado, color, conf, grapaId, tacos } = d0;
+    const { ancho, largo, espesor, conf, grapaId, tacos } = d0;
 
     let candidates = tarifasPVC.filter(t => Math.abs(Number(t.espesor) - Number(espesor)) < 0.001);
-    if (lonas != null) candidates = candidates.filter(t => String(t.lonas) === lonas);
-    else candidates = candidates.filter(t => t.lonas == null || candidates.length === 1);
-    if (acabado != null) candidates = candidates.filter(t => t.acabado === acabado);
-    if (color != null) candidates = candidates.filter(t => t.color === color);
+
+    // Filtros: 'key' in d0 distingue "el usuario eligió null" de "paso no visitado"
+    if ('lonas' in d0) {
+      candidates = d0.lonas == null
+        ? candidates.filter(t => t.lonas == null)
+        : candidates.filter(t => String(t.lonas) === String(d0.lonas));
+    }
+    if ('acabado' in d0) {
+      candidates = d0.acabado == null
+        ? candidates.filter(t => !t.acabado)
+        : candidates.filter(t => t.acabado === d0.acabado);
+    }
+    if ('color' in d0) {
+      candidates = d0.color == null
+        ? candidates.filter(t => !t.color)
+        : candidates.filter(t => t.color === d0.color);
+    }
+
     const tarifa = candidates[0];
 
     if (!tarifa) {
@@ -301,10 +315,11 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
     const precioUnitario = Math.round((costeMat + costeConf + costeTacos) * 100) / 100;
     const pesoUnitario   = (tarifa.peso ?? 0) * area;
 
-    // Nomenclatura
+    // Nomenclatura — si el paso fue visitado usar lo que eligió el usuario,
+    // si no (solo había una opción) usar el valor de la tarifa
     const confCode = conf === 'VULCANIZADA' ? 'SF' : conf === 'GRAPA' ? 'GR' : 'AB';
-    const ac = acabado ?? tarifa.acabado ?? null;
-    const co = color   ?? tarifa.color   ?? null;
+    const ac = 'acabado' in d0 ? d0.acabado : (tarifa.acabado ?? null);
+    const co = 'color'   in d0 ? d0.color   : (tarifa.color   ?? null);
     const variant = ac ? `-${ac}` : co ? `-${COLOR_ABR[co] ?? co.slice(0, 2)}` : '';
     let descripcion = `PVC-${espesor}mm-${confCode}${variant}-${ancho}x${largo}`;
     if (tacos) descripcion += `-T${tacos.tipo === 'RECTO' ? 'R' : 'I'}${tacos.altura}`;
