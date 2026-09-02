@@ -159,7 +159,14 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
       return;
     }
 
-    // Para 2 mm y 3 mm siempre preguntar color aunque en BD solo haya una entrada genérica
+    // Si la BD tiene exactamente un color real para este acabado (ej: negro 3mm), usarlo sin preguntar
+    const coloresReales = cOpts.filter(c => c !== '__null');
+    if (coloresReales.length === 1) {
+      askConf({ ...d0, acabado, color: coloresReales[0] });
+      return;
+    }
+
+    // Para 2 mm y 3 mm el color es cosmético (BD no lo distingue) → preguntar siempre
     const espNum = parseFloat(d0.espesor ?? 0);
     if (espNum === 2 || espNum === 3) {
       pushBot('¿De qué color es la banda?', [

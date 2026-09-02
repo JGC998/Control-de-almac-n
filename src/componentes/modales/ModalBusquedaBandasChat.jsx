@@ -28,10 +28,10 @@ function confFromNombre(nombre) {
 // ─── Tarjeta de banda ─────────────────────────────────────────────────────────
 
 function BandaCard({ banda, onSeleccionar }) {
-  const dim    = banda.det?.dimensiones;
-  const conf   = confFromNombre(banda.descripcion);
-  const color  = banda.det?.color;
-  const esp    = dim?.espesor;
+  const dim   = banda.det?.dimensiones;
+  const conf  = confFromNombre(banda.descripcion);
+  const color = banda.det?.color;
+  const esp   = dim?.espesor;
 
   return (
     <div className="bg-base-100 border border-base-300 rounded-xl p-3 flex flex-col gap-2 hover:border-secondary/50 transition-colors">
@@ -83,64 +83,98 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
   const chatEndRef = useRef(null);
   const inputRef   = useRef(null);
 
-  // ─── Helpers de mensajería ────────────────────────────────────────────────
+  // ─── Mensajería ──────────────────────────────────────────────────────────
 
-  const addBot = useCallback((content, chips = [], bandas = null) => {
-    setMensajes(prev => [...prev, { role: 'bot', content, chips, bandas }]);
+  const addBot = useCallback((content, chips = [], extra = {}) => {
+    setMensajes(prev => [...prev, { role: 'bot', content, chips, ...extra }]);
   }, []);
 
   const addUser = useCallback((text) => {
     setMensajes(prev => [...prev, { role: 'user', content: text }]);
   }, []);
 
-  // ─── Fetch ────────────────────────────────────────────────────────────────
+  // ─── Mostrar resultados de bandas ────────────────────────────────────────
 
-  const buscarPorCliente = useCallback(async (cId, cNombre) => {
+  function mostrarBandas(bandas, contexto) {
+    if (!Array.isArray(bandas) || bandas.length === 0) {
+      addBot(`No encontré bandas para ${contexto}.`, [{ label: '🔄 Nueva búsqueda', action: 'RESET' }]);
+    } else {
+      addBot(
+        `${bandas.length} banda${bandas.length !== 1 ? 's' : ''} de ${contexto}:`,
+        [],
+        { bandas },
+      );
+    }
+    setPaso('RESULTADOS');
+  }
+
+  // ─── Fetch: bandas de un cliente por ID ──────────────────────────────────
+
+  const cargarBandasCliente = useCallback(async (cId, cNombre) => {
     setCargando(true);
     try {
-      const params = new URLSearchParams();
-      if (cId)      params.set('clienteId',     cId);
-      else if (cNombre) params.set('clienteNombre', cNombre);
-      const res  = await fetch(`/api/bandas-historial?${params}`);
+      const res  = await fetch(`/api/bandas-historial?clienteId=${cId}`);
       const data = await res.json();
-      const etiqueta = cNombre ? `"${cNombre}"` : (clienteNombre || 'este cliente');
-      mostrarResultados(data, etiqueta);
+      mostrarBandas(data, cNombre);
     } catch {
-      addBot('Error al buscar. Inténtalo de nuevo.', [{ label: '🔄 Nueva búsqueda', action: 'RESET' }]);
+      addBot('Error al cargar bandas.', [{ label: '🔄 Nueva búsqueda', action: 'RESET' }]);
       setPaso('RESULTADOS');
     } finally {
       setCargando(false);
     }
-  }, [clienteNombre, addBot]);
+  }, [addBot]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Fetch: clientes coincidentes por nombre ─────────────────────────────
+
+  const buscarClientes = useCallback(async (nombre) => {
+    setCargando(true);
+    try {
+      const res     = await fetch(`/api/bandas-historial?modo=clientes&clienteNombre=${encodeURIComponent(nombre)}`);
+      const clientes = await res.json();
+
+      if (!Array.isArray(clientes) || clientes.length === 0) {
+        addBot(`No encontré ningún cliente con bandas que coincida con "${nombre}".`, [
+          { label: '🔄 Nueva búsqueda', action: 'RESET' },
+        ]);
+        setPaso('RESULTADOS');
+      } else if (clientes.length === 1) {
+        // Un único cliente → cargar directamente sus bandas
+        addBot(`Cargando bandas de ${clientes[0].nombre}…`);
+        await cargarBandasCliente(clientes[0].id, clientes[0].nombre);
+      } else {
+        // Varios clientes → mostrar lista para elegir
+        addBot(
+          `${clientes.length} clientes encontrados. ¿De cuál?`,
+          [],
+          { clientes },
+        );
+        setPaso('SELECCIONAR_CLIENTE');
+      }
+    } catch {
+      addBot('Error al buscar clientes.', [{ label: '🔄 Nueva búsqueda', action: 'RESET' }]);
+      setPaso('RESULTADOS');
+    } finally {
+      setCargando(false);
+    }
+  }, [addBot, cargarBandasCliente]);
+
+  // ─── Fetch: bandas por dimensiones ───────────────────────────────────────
 
   const buscarPorDims = useCallback(async (ancho, largo) => {
     setCargando(true);
     try {
       const res  = await fetch(`/api/bandas-historial?ancho=${ancho}&largo=${largo}`);
       const data = await res.json();
-      mostrarResultados(data, `medidas ${ancho}×${largo} mm`);
+      mostrarBandas(data, `medidas ${ancho}×${largo} mm`);
     } catch {
-      addBot('Error al buscar. Inténtalo de nuevo.', [{ label: '🔄 Nueva búsqueda', action: 'RESET' }]);
+      addBot('Error al buscar.', [{ label: '🔄 Nueva búsqueda', action: 'RESET' }]);
       setPaso('RESULTADOS');
     } finally {
       setCargando(false);
     }
-  }, [addBot]);
+  }, [addBot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function mostrarResultados(bandas, contexto) {
-    if (!Array.isArray(bandas) || bandas.length === 0) {
-      addBot(`No encontré bandas para ${contexto}.`, [{ label: '🔄 Nueva búsqueda', action: 'RESET' }]);
-    } else {
-      addBot(
-        `${bandas.length} banda${bandas.length !== 1 ? 's' : ''} encontrada${bandas.length !== 1 ? 's' : ''} para ${contexto}:`,
-        [],
-        bandas,
-      );
-    }
-    setPaso('RESULTADOS');
-  }
-
-  // ─── Reset / init ──────────────────────────────────────────────────────────
+  // ─── Reset / init ──────────────────────────────────────────────────────
 
   const resetChat = useCallback(() => {
     setMensajes([]);
@@ -149,8 +183,8 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
     setCargando(false);
     if (clienteId) {
       setPaso('CARGANDO');
-      setMensajes([{ role: 'bot', content: `Buscando bandas de ${clienteNombre || 'este cliente'}…`, chips: [], bandas: null }]);
-      buscarPorCliente(clienteId, null);
+      setMensajes([{ role: 'bot', content: `Cargando bandas de ${clienteNombre || 'este cliente'}…`, chips: [] }]);
+      cargarBandasCliente(clienteId, clienteNombre || 'este cliente');
     } else {
       setPaso('INICIO');
       setMensajes([{
@@ -160,10 +194,9 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
           { label: '👤 Por cliente', action: 'POR_CLIENTE' },
           { label: '📐 Por medidas', action: 'POR_DIMS' },
         ],
-        bandas: null,
       }]);
     }
-  }, [clienteId, clienteNombre, buscarPorCliente]);
+  }, [clienteId, clienteNombre, cargarBandasCliente]);
 
   useEffect(() => {
     if (isOpen) resetChat();
@@ -179,7 +212,7 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
     }
   }, [paso]);
 
-  // ─── Chip handler ─────────────────────────────────────────────────────────
+  // ─── Chip handler ────────────────────────────────────────────────────────
 
   function handleChip(action) {
     if (paso === 'CARGANDO') return;
@@ -202,7 +235,14 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
     }
   }
 
-  // ─── Submit input ─────────────────────────────────────────────────────────
+  function handleSeleccionarCliente(cliente) {
+    addUser(cliente.nombre);
+    addBot(`Cargando ${cliente.count} banda${cliente.count !== 1 ? 's' : ''} de ${cliente.nombre}…`);
+    setPaso('CARGANDO');
+    cargarBandasCliente(cliente.id, cliente.nombre);
+  }
+
+  // ─── Submit input ────────────────────────────────────────────────────────
 
   function handleSubmit(e) {
     e?.preventDefault();
@@ -211,10 +251,10 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
 
     if (paso === 'BUSCANDO_CLIENTE') {
       addUser(val);
-      addBot(`Buscando bandas de "${val}"…`);
+      addBot(`Buscando clientes que coincidan con "${val}"…`);
       setPaso('CARGANDO');
       setInputVal('');
-      buscarPorCliente(null, val);
+      buscarClientes(val);
     } else if (paso === 'BUSCANDO_DIMS') {
       const dims = parseDims(val);
       if (!dims) {
@@ -230,7 +270,7 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
     }
   }
 
-  // ─── Seleccionar ─────────────────────────────────────────────────────────
+  // ─── Seleccionar banda ────────────────────────────────────────────────────
 
   function handleSeleccionar(banda) {
     onSelect({ _fromHistorial: true, ...banda });
@@ -260,7 +300,7 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
         </div>
 
         {/* Chat */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-base-50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {mensajes.map((msg, i) => (
             <div key={i}>
               {msg.role === 'bot' ? (
@@ -272,6 +312,8 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
                     <div className="bg-base-200 rounded-2xl rounded-tl-sm px-3 py-2 text-sm">
                       {msg.content}
                     </div>
+
+                    {/* Chips genéricos */}
                     {msg.chips?.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {msg.chips.map(chip => (
@@ -286,6 +328,25 @@ export default function ModalBusquedaBandasChat({ isOpen, onClose, onSelect, cli
                         ))}
                       </div>
                     )}
+
+                    {/* Lista de clientes coincidentes */}
+                    {msg.clientes?.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        {msg.clientes.map(cli => (
+                          <button
+                            key={cli.id}
+                            onClick={() => handleSeleccionarCliente(cli)}
+                            className="btn btn-sm btn-ghost justify-between border border-base-300 hover:border-secondary hover:text-secondary"
+                            disabled={paso !== 'SELECCIONAR_CLIENTE'}
+                          >
+                            <span>{cli.nombre}</span>
+                            <span className="badge badge-ghost badge-sm">{cli.count} banda{cli.count !== 1 ? 's' : ''}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tarjetas de bandas */}
                     {msg.bandas?.length > 0 && (
                       <div className="flex flex-col gap-2 w-full">
                         {msg.bandas.map(banda => (
