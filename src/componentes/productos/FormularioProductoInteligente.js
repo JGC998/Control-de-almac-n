@@ -138,12 +138,18 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         if (tarifa) {
           setOpciones(prev => ({ ...prev, tarifa }));
           setTarifaEncontrada(true);
-          // Sincronizar form si el acabado/color del producto no coincidía con la tarifa
-          setForm(f => ({
-            ...f,
-            acabado: f.acabado || tarifa.acabado || f.acabado,
-            color:   f.color   || tarifa.color   || f.color,
-          }));
+          const precioActual = parseFloat(productoAEditar.precioUnitario) || 0;
+          if (precioActual === 0) {
+            // Precio no calculado aún → auto-calcular desde la tarifa
+            aplicarTarifa(tarifa);
+          } else {
+            // Ya tiene precio → solo sincronizar acabado/color sin pisar el precio
+            setForm(f => ({
+              ...f,
+              acabado: f.acabado || tarifa.acabado || f.acabado,
+              color:   f.color   || tarifa.color   || f.color,
+            }));
+          }
         }
       } catch { /* silencioso — el usuario puede rellenar precio manualmente */ }
     })();

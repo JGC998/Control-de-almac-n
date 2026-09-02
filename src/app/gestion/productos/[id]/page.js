@@ -208,7 +208,6 @@ function TarjetaFoto({ productoId, tipo, ruta, onActualizar }) {
 function TarjetaPlano({ productoId, ruta, onActualizar }) {
   const inputRef = useRef(null);
   const [subiendo, setSubiendo] = useState(false);
-  const [ampliado, setAmpliado] = useState(false);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   const handleSeleccionPDF = async (e) => {
@@ -245,45 +244,12 @@ function TarjetaPlano({ productoId, ruta, onActualizar }) {
     }
   };
 
+  // Extraer nombre de archivo de la ruta para mostrarlo
+  const nombreArchivo = ruta ? ruta.split('/').pop() : null;
+
   return (
     <>
       <ModalConfirmacion />
-
-      {/* Visor ampliado a pantalla completa */}
-      {ampliado && ruta && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/90"
-          onClick={() => setAmpliado(false)}
-        >
-          <div className="flex justify-between items-center px-4 py-2 shrink-0">
-            <span className="text-white/60 text-sm">Plano PDF</span>
-            <div className="flex gap-2">
-              <a
-                href={ruta}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-xs btn-ghost text-white gap-1"
-                onClick={e => e.stopPropagation()}
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> Abrir
-              </a>
-              <button
-                className="btn btn-xs btn-circle btn-ghost text-white"
-                onClick={() => setAmpliado(false)}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 px-4 pb-4" onClick={e => e.stopPropagation()}>
-            <iframe
-              src={ruta}
-              title="Plano PDF ampliado"
-              className="w-full h-full rounded-xl bg-white"
-            />
-          </div>
-        </div>
-      )}
 
       <div className="card bg-base-100 border border-base-200 shadow">
         <div className="card-body p-4">
@@ -293,43 +259,33 @@ function TarjetaPlano({ productoId, ruta, onActualizar }) {
               Plano técnico
             </h4>
             {ruta && (
-              <div className="flex gap-1">
-                <a
-                  href={ruta}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-xs btn-ghost"
-                  title="Abrir en nueva pestaña"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-                <button className="btn btn-xs btn-ghost" onClick={() => setAmpliado(true)} title="Ampliar">
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <button className="btn btn-xs btn-ghost text-error" onClick={handleEliminar} title="Eliminar plano">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button className="btn btn-xs btn-ghost text-error" onClick={handleEliminar} title="Eliminar plano">
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
 
           {ruta ? (
-            <div
-              className="cursor-pointer overflow-hidden rounded-lg bg-base-200 w-full border border-base-300"
-              style={{ height: '340px' }}
-              onClick={() => setAmpliado(true)}
+            <a
+              href={ruta}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 rounded-xl border-2 border-secondary/30 bg-secondary/5 hover:bg-secondary/10 hover:border-secondary/60 transition-colors p-5 cursor-pointer group"
             >
-              <iframe
-                src={ruta}
-                title="Plano PDF"
-                className="w-full h-full pointer-events-none"
-                scrolling="no"
-              />
-            </div>
+              <div className="shrink-0 w-14 h-14 rounded-xl bg-secondary/15 flex items-center justify-center group-hover:bg-secondary/25 transition-colors">
+                <FileText className="w-7 h-7 text-secondary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm text-secondary">Plano PDF disponible</p>
+                <p className="text-xs text-base-content/50 truncate mt-0.5">{nombreArchivo}</p>
+                <p className="text-xs text-secondary/70 mt-1 flex items-center gap-1">
+                  <ExternalLink className="w-3 h-3" /> Clic para abrir en nueva pestaña
+                </p>
+              </div>
+            </a>
           ) : (
             <div
-              className="rounded-lg border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-secondary hover:bg-base-200 transition-colors w-full"
-              style={{ height: '340px' }}
+              className="rounded-xl border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-secondary hover:bg-base-200 transition-colors p-10"
               onClick={() => !subiendo && inputRef.current?.click()}
             >
               <FileText className="w-10 h-10 text-base-content/25" />
