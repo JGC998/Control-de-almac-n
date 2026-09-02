@@ -13,6 +13,7 @@ import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
 import ModalBusquedaProductos from "@/componentes/modales/ModalBusquedaProductos";
 import EditorFilaItem from './EditorFilaItem';
 import ModalHistorialCliente from './ModalHistorialCliente';
+import ModalConfirmacion from '@/componentes/ui/ModalConfirmacion';
 
 // --- COMPONENTE PRINCIPAL ---
 export default function FormularioPedidoCliente({ initialData = null, formType = "PRESUPUESTO", onSuccess, onCancel }) {
@@ -33,6 +34,8 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   const [isBandaChatOpen, setIsBandaChatOpen] = useState(false);
   const [isMetrajeOpen, setIsMetrajeOpen] = useState(false);
   const [productSearchState, setProductSearchState] = useState({ isOpen: false, rowIndex: null, initialSearch: '' });
+
+  const [bandaPendiente, setBandaPendiente] = useState(null); // {item, duplicadoDesc}
 
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -193,6 +196,21 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     }]);
   };
 
+  // Busca en las líneas actuales una banda con las mismas dimensiones + confección
+  const encontrarDuplicada = (ancho, largo, espesor, conf) => {
+    return items.find(item => {
+      if (!item.detallesTecnicos) return false;
+      let det;
+      try { det = JSON.parse(item.detallesTecnicos); } catch { return false; }
+      if (!det?.dimensiones) return false;
+      const d = det.dimensiones;
+      return String(d.ancho) === String(ancho)
+          && String(d.largo) === String(largo)
+          && String(d.espesor) === String(espesor)
+          && det.tipoConfeccion === conf;
+    }) ?? null;
+  };
+
   const handleBandaAdded = (bandaItem) => {
     const newItem = {
       id: Date.now() + Math.random(),
@@ -214,14 +232,19 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         costeTacos: bandaItem.costeTacos ?? 0,
       }),
     };
+    const dup = encontrarDuplicada(
+      bandaItem.dimensiones?.ancho, bandaItem.dimensiones?.largo,
+      bandaItem.dimensiones?.espesor, bandaItem.tipoConfeccion,
+    );
+    if (dup) { setBandaPendiente({ item: newItem, duplicadoDesc: dup.descripcion }); return; }
     setItems(prev => [...prev, newItem]);
     setIsBandaModalOpen(false);
   };
 
   const handleBandaCatalogoSelected = (product) => {
     if (product._fromHistorial) {
-      // Banda del historial de pedidos — det ya contiene el JSON parseado
-      setItems(prev => [...prev, {
+      const det = product.det;
+      const newItem = {
         id: Date.now() + Math.random(),
         descripcion: product.descripcion,
         quantity: 1,
@@ -229,12 +252,17 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         productoId: null,
         producto: null,
         pesoUnitario: product.pesoUnitario || 0,
-        detallesTecnicos: JSON.stringify(product.det),
-      }]);
+        detallesTecnicos: JSON.stringify(det),
+      };
+      const dup = encontrarDuplicada(
+        det?.dimensiones?.ancho, det?.dimensiones?.largo,
+        det?.dimensiones?.espesor, det?.tipoConfeccion,
+      );
+      if (dup) { setIsBandaCatalogoOpen(false); setBandaPendiente({ item: newItem, duplicadoDesc: dup.descripcion }); return; }
+      setItems(prev => [...prev, newItem]);
     } else if (product._fromCalculadora) {
-      // Banda calculada on-the-fly desde la calculadora embebida en el modal
       const bandaItem = product._bandaItem;
-      setItems(prev => [...prev, {
+      const newItem = {
         id: Date.now() + Math.random(),
         descripcion: bandaItem.descripcion,
         quantity: bandaItem.unidades,
@@ -253,7 +281,13 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
           costeVulcanizado: bandaItem.costeVulcanizado ?? 0,
           costeTacos: bandaItem.costeTacos ?? 0,
         }),
-      }]);
+      };
+      const dup = encontrarDuplicada(
+        bandaItem.dimensiones?.ancho, bandaItem.dimensiones?.largo,
+        bandaItem.dimensiones?.espesor, bandaItem.tipoConfeccion,
+      );
+      if (dup) { setIsBandaCatalogoOpen(false); setBandaPendiente({ item: newItem, duplicadoDesc: dup.descripcion }); return; }
+      setItems(prev => [...prev, newItem]);
     } else {
       setItems(prev => [...prev, {
         id: Date.now() + Math.random(),
@@ -663,6 +697,17 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       <ModalBusquedaBandasChat isOpen={isBandaCatalogoOpen} onClose={() => setIsBandaCatalogoOpen(false)} onSelect={handleBandaCatalogoSelected} clienteId={clienteId} clienteNombre={clienteNombre} />
       <ModalMetrajeMaterial isOpen={isMetrajeOpen} onClose={() => setIsMetrajeOpen(false)} onAñadir={handleMetrajeAñadido} />
       <ModalCrearBandaChat isOpen={isBandaChatOpen} onClose={() => setIsBandaChatOpen(false)} onAddItem={handleBandaAdded} />
+
+      <ModalConfirmacion
+        abierto={!!bandaPendiente}
+        titulo="Banda ya en el pedido"
+        mensaje={`Ya tienes "${bandaPendiente?.duplicadoDesc}" en este pedido. ¿Añadir otra igual?`}
+        variante="advertencia"
+        textoConfirmar="Añadir igualmente"
+        textoCancelar="Cancelar"
+        alConfirmar={() => { setItems(prev => [...prev, bandaPendiente.item]); setBandaPendiente(null); }}
+        alCancelar={() => setBandaPendiente(null)}
+      />
     </>
   );
 }
