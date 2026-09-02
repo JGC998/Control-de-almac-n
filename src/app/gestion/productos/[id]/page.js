@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Tag, Info, List, Edit, QrCode, TrendingUp, Trash2, Camera, X, ZoomIn, Printer, FileText, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Tag, Info, List, Edit, QrCode, TrendingUp, Trash2, Camera, X, ZoomIn, Printer, FileText, ExternalLink, Ruler } from 'lucide-react';
 import { toastError, toast } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';
@@ -204,13 +204,18 @@ function TarjetaFoto({ productoId, tipo, ruta, onActualizar }) {
   );
 }
 
-// Tarjeta de plano PDF
+// Tarjeta de plano técnico (PDF → convertido a PNG en el servidor)
 function TarjetaPlano({ productoId, ruta, onActualizar }) {
   const inputRef = useRef(null);
   const [subiendo, setSubiendo] = useState(false);
+  const [fotoAmpliada, setFotoAmpliada] = useState(false);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
-  const handleSeleccionPDF = async (e) => {
+  // Los nuevos planos son siempre PNG (convertidos por pdftoppm).
+  // Los planos viejos guardados como PDF todavía se sirven como enlace.
+  const esPDF = ruta ? ruta.toLowerCase().endsWith('.pdf') : false;
+
+  const handleSeleccionArchivo = async (e) => {
     const archivo = e.target.files?.[0];
     if (!archivo) return;
     setSubiendo(true);
@@ -244,62 +249,100 @@ function TarjetaPlano({ productoId, ruta, onActualizar }) {
     }
   };
 
-  // Extraer nombre de archivo de la ruta para mostrarlo
-  const nombreArchivo = ruta ? ruta.split('/').pop() : null;
-
   return (
     <>
       <ModalConfirmacion />
+
+      {/* Lightbox para imagen de plano */}
+      {fotoAmpliada && ruta && !esPDF && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setFotoAmpliada(false)}
+        >
+          <button className="absolute top-4 right-4 btn btn-circle btn-ghost text-white" onClick={() => setFotoAmpliada(false)}>
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={ruta}
+            alt="Plano técnico"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <div className="card bg-base-100 border border-base-200 shadow">
         <div className="card-body p-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4 text-secondary" />
+              <Ruler className="w-4 h-4 text-secondary" />
               Plano técnico
             </h4>
             {ruta && (
-              <button className="btn btn-xs btn-ghost text-error" onClick={handleEliminar} title="Eliminar plano">
-                <X className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex gap-1">
+                {!esPDF && (
+                  <button className="btn btn-xs btn-ghost" onClick={() => setFotoAmpliada(true)} title="Ampliar">
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button className="btn btn-xs btn-ghost text-error" onClick={handleEliminar} title="Eliminar plano">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
           </div>
 
           {ruta ? (
-            <a
-              href={ruta}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-4 rounded-xl border-2 border-secondary/30 bg-secondary/5 hover:bg-secondary/10 hover:border-secondary/60 transition-colors p-5 cursor-pointer group"
-            >
-              <div className="shrink-0 w-14 h-14 rounded-xl bg-secondary/15 flex items-center justify-center group-hover:bg-secondary/25 transition-colors">
-                <FileText className="w-7 h-7 text-secondary" />
+            esPDF ? (
+              /* Planos viejos guardados como PDF — mostrar como enlace */
+              <a
+                href={ruta}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 rounded-xl border-2 border-secondary/30 bg-secondary/5 hover:bg-secondary/10 hover:border-secondary/60 transition-colors p-5 cursor-pointer group"
+              >
+                <div className="shrink-0 w-14 h-14 rounded-xl bg-secondary/15 flex items-center justify-center group-hover:bg-secondary/25 transition-colors">
+                  <FileText className="w-7 h-7 text-secondary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-secondary">Plano PDF</p>
+                  <p className="text-xs text-secondary/70 mt-1 flex items-center gap-1">
+                    <ExternalLink className="w-3 h-3" /> Clic para abrir en nueva pestaña
+                  </p>
+                </div>
+              </a>
+            ) : (
+              /* Planos nuevos convertidos a PNG — mostrar como imagen */
+              <div
+                className="cursor-pointer overflow-hidden rounded-lg bg-base-200 w-full"
+                style={{ aspectRatio: '16/9' }}
+                onClick={() => setFotoAmpliada(true)}
+              >
+                <img
+                  src={ruta}
+                  alt="Plano técnico"
+                  className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
+                />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-secondary">Plano PDF disponible</p>
-                <p className="text-xs text-base-content/50 truncate mt-0.5">{nombreArchivo}</p>
-                <p className="text-xs text-secondary/70 mt-1 flex items-center gap-1">
-                  <ExternalLink className="w-3 h-3" /> Clic para abrir en nueva pestaña
-                </p>
-              </div>
-            </a>
+            )
           ) : (
             <div
-              className="rounded-xl border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-secondary hover:bg-base-200 transition-colors p-10"
+              className="rounded-xl border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-secondary hover:bg-base-200 transition-colors"
+              style={{ aspectRatio: '16/9' }}
               onClick={() => !subiendo && inputRef.current?.click()}
             >
-              <FileText className="w-10 h-10 text-base-content/25" />
+              <Ruler className="w-10 h-10 text-base-content/25" />
               <span className="text-sm text-base-content/40">Sin plano</span>
-              <span className="text-xs text-base-content/30">Click para subir PDF</span>
+              <span className="text-xs text-base-content/30">Click para subir PDF o imagen</span>
             </div>
           )}
 
           <input
             ref={inputRef}
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,application/pdf,image/*"
             className="hidden"
-            onChange={handleSeleccionPDF}
+            onChange={handleSeleccionArchivo}
           />
 
           <div className="flex gap-2 mt-2">
@@ -309,11 +352,11 @@ function TarjetaPlano({ productoId, ruta, onActualizar }) {
               disabled={subiendo}
             >
               {subiendo
-                ? <><span className="loading loading-spinner loading-xs" /> Subiendo...</>
-                : <><FileText className="w-3.5 h-3.5" /> {ruta ? 'Cambiar plano' : 'Subir plano PDF'}</>
+                ? <><span className="loading loading-spinner loading-xs" /> Convirtiendo...</>
+                : <><Ruler className="w-3.5 h-3.5" /> {ruta ? 'Cambiar plano' : 'Subir plano'}</>
               }
             </button>
-            {ruta && (
+            {ruta && esPDF && (
               <a
                 href={ruta}
                 target="_blank"
