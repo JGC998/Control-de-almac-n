@@ -248,7 +248,6 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     );
     if (dup) { setBandaPendiente({ item: newItem, duplicadoDesc: dup.descripcion }); return; }
     addItemSmart(newItem);
-    setIsBandaModalOpen(false);
   };
 
   const handleBandaCatalogoSelected = (product) => {

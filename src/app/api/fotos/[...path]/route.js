@@ -9,6 +9,7 @@ const CONTENT_TYPES = {
   '.jpeg': 'image/jpeg',
   '.png':  'image/png',
   '.webp': 'image/webp',
+  '.pdf':  'application/pdf',
 };
 
 // GET /api/fotos/SUBCARPETA/nombre-archivo.jpg

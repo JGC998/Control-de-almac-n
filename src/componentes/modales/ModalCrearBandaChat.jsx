@@ -481,6 +481,7 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
         <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
           {mensajes.map((m, i) => {
             const isBot = m.role === 'bot';
+            const esUltimoBot = isBot && i === mensajes.map(x => x.role).lastIndexOf('bot');
             return (
               <div key={i} className={`flex ${isBot ? 'justify-start' : 'justify-end'}`}>
                 <div className="max-w-[88%]">
@@ -496,8 +497,9 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
                       {m.chips.map((chip, j) => (
                         <button
                           key={j}
-                          onClick={() => handleChip(chip, paso, datos)}
-                          className="btn btn-xs btn-ghost border border-base-300 hover:border-primary hover:text-primary"
+                          onClick={() => esUltimoBot && handleChip(chip, paso, datos)}
+                          disabled={!esUltimoBot}
+                          className="btn btn-xs btn-ghost border border-base-300 hover:border-primary hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {chip.label}
                         </button>

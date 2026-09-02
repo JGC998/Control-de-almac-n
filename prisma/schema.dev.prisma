@@ -435,6 +435,7 @@ model Producto {
   tieneTroquel         Boolean @default(false)
   fotoPlantilla        String?
   fotoTroquel          String?
+  fotoPlano            String?
   color                String?
   acabado              String?
   lonas                Int?

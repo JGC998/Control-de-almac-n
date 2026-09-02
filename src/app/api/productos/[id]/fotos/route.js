@@ -7,9 +7,10 @@ import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
-const TIPOS_VALIDOS = ['plantilla', 'troquel'];
-const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
-const EXTS_VALIDAS = ['.jpg', '.jpeg', '.png', '.webp'];
+const TIPOS_VALIDOS = ['plantilla', 'troquel', 'plano'];
+const MAX_BYTES = 20 * 1024 * 1024; // 20 MB (PDF puede ser mayor)
+const EXTS_IMAGEN = ['.jpg', '.jpeg', '.png', '.webp'];
+const EXTS_VALIDAS = [...EXTS_IMAGEN, '.pdf'];
 
 function slugify(str) {
   return (str || 'sin-nombre')
@@ -48,7 +49,13 @@ export async function POST(request, { params }) {
 
     const ext = path.extname(archivo.name).toLowerCase();
     if (!EXTS_VALIDAS.includes(ext)) {
-      return NextResponse.json({ message: 'Solo se permiten JPG, PNG o WEBP' }, { status: 400 });
+      return NextResponse.json({ message: 'Solo se permiten JPG, PNG, WEBP o PDF (planos)' }, { status: 400 });
+    }
+    if (ext === '.pdf' && tipo !== 'plano') {
+      return NextResponse.json({ message: 'PDF solo permitido para el tipo "plano"' }, { status: 400 });
+    }
+    if (tipo === 'plano' && ext !== '.pdf') {
+      return NextResponse.json({ message: 'El plano debe ser un archivo PDF' }, { status: 400 });
     }
 
     // Carpeta organizada por fabricante
@@ -61,11 +68,12 @@ export async function POST(request, { params }) {
     await mkdir(dirAbsoluto, { recursive: true });
 
     // Si ya había foto anterior del mismo tipo, borrarla del disco
-    const campo = tipo === 'plantilla' ? 'fotoPlantilla' : 'fotoTroquel';
+    const campo = tipo === 'plantilla' ? 'fotoPlantilla' : tipo === 'troquel' ? 'fotoTroquel' : 'fotoPlano';
     const rutaAnterior = producto[campo];
     if (rutaAnterior) {
-      const absAnterior = path.join(process.cwd(), 'public', rutaAnterior);
-      await unlink(absAnterior).catch(() => {}); // silencioso si no existe
+      // rutaAnterior = '/api/fotos/SUBCARPETA/nombre.ext' → disco: public/fotos-producto/...
+      const relAnterior = rutaAnterior.replace(/^\/api\/fotos\//, 'fotos-producto/');
+      await unlink(path.join(process.cwd(), 'public', relAnterior)).catch(() => {});
     }
 
     // Escribir nuevo archivo
@@ -95,16 +103,17 @@ export async function DELETE(request, { params }) {
     const tipo = searchParams.get('tipo');
 
     if (!TIPOS_VALIDOS.includes(tipo)) {
-      return NextResponse.json({ message: 'Tipo inválido (plantilla|troquel)' }, { status: 400 });
+      return NextResponse.json({ message: 'Tipo inválido (plantilla|troquel|plano)' }, { status: 400 });
     }
 
-    const campo = tipo === 'plantilla' ? 'fotoPlantilla' : 'fotoTroquel';
+    const campo = tipo === 'plantilla' ? 'fotoPlantilla' : tipo === 'troquel' ? 'fotoTroquel' : 'fotoPlano';
     const producto = await db.producto.findUnique({ where: { id }, select: { [campo]: true } });
     if (!producto) return NextResponse.json({ message: 'Producto no encontrado' }, { status: 404 });
 
     const ruta = producto[campo];
     if (ruta) {
-      await unlink(path.join(process.cwd(), 'public', ruta)).catch(() => {});
+      const relRuta = ruta.replace(/^\/api\/fotos\//, 'fotos-producto/');
+      await unlink(path.join(process.cwd(), 'public', relRuta)).catch(() => {});
     }
 
     await db.producto.update({ where: { id }, data: { [campo]: null } });

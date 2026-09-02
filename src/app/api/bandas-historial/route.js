@@ -90,6 +90,9 @@ export async function GET(request) {
     if (ancho && largo) {
       const anchoN = Number(ancho);
       const largoN = Number(largo);
+      if (!Number.isFinite(anchoN) || !Number.isFinite(largoN)) {
+        return NextResponse.json({ error: 'Dimensiones inválidas' }, { status: 400 });
+      }
       const filtradas = bandas.filter(b => {
         const d = b.det.dimensiones;
         return Math.abs((d.ancho ?? 0) - anchoN) <= TOLERANCIA_ANCHO

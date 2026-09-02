@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Tag, Info, List, Edit, QrCode, TrendingUp, Trash2, Camera, X, ZoomIn, Printer } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Tag, Info, List, Edit, QrCode, TrendingUp, Trash2, Camera, X, ZoomIn, Printer, FileText, ExternalLink } from 'lucide-react';
 import { toastError, toast } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';
@@ -204,6 +204,176 @@ function TarjetaFoto({ productoId, tipo, ruta, onActualizar }) {
   );
 }
 
+// Tarjeta de plano PDF
+function TarjetaPlano({ productoId, ruta, onActualizar }) {
+  const inputRef = useRef(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [ampliado, setAmpliado] = useState(false);
+  const { confirmar, ModalConfirmacion } = useConfirmacion();
+
+  const handleSeleccionPDF = async (e) => {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+    setSubiendo(true);
+    try {
+      const form = new FormData();
+      form.append('tipo', 'plano');
+      form.append('archivo', archivo);
+      const res = await fetch(`/api/productos/${productoId}/fotos`, { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) { toastError(data.message || 'Error al subir el plano'); return; }
+      toast('Plano guardado');
+      onActualizar();
+    } catch {
+      toastError('Error al subir el plano');
+    } finally {
+      setSubiendo(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const handleEliminar = async () => {
+    const ok = await confirmar({ titulo: '¿Eliminar plano?', mensaje: 'Se borrará del servidor.', variante: 'peligro' });
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/productos/${productoId}/fotos?tipo=plano`, { method: 'DELETE' });
+      if (!res.ok) { toastError('Error al eliminar el plano'); return; }
+      toast('Plano eliminado');
+      onActualizar();
+    } catch {
+      toastError('Error al eliminar el plano');
+    }
+  };
+
+  return (
+    <>
+      <ModalConfirmacion />
+
+      {/* Visor ampliado a pantalla completa */}
+      {ampliado && ruta && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/90"
+          onClick={() => setAmpliado(false)}
+        >
+          <div className="flex justify-between items-center px-4 py-2 shrink-0">
+            <span className="text-white/60 text-sm">Plano PDF</span>
+            <div className="flex gap-2">
+              <a
+                href={ruta}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-xs btn-ghost text-white gap-1"
+                onClick={e => e.stopPropagation()}
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Abrir
+              </a>
+              <button
+                className="btn btn-xs btn-circle btn-ghost text-white"
+                onClick={() => setAmpliado(false)}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 px-4 pb-4" onClick={e => e.stopPropagation()}>
+            <iframe
+              src={ruta}
+              title="Plano PDF ampliado"
+              className="w-full h-full rounded-xl bg-white"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="card bg-base-100 border border-base-200 shadow">
+        <div className="card-body p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-semibold text-sm flex items-center gap-2">
+              <FileText className="w-4 h-4 text-secondary" />
+              Plano técnico
+            </h4>
+            {ruta && (
+              <div className="flex gap-1">
+                <a
+                  href={ruta}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-xs btn-ghost"
+                  title="Abrir en nueva pestaña"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+                <button className="btn btn-xs btn-ghost" onClick={() => setAmpliado(true)} title="Ampliar">
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button className="btn btn-xs btn-ghost text-error" onClick={handleEliminar} title="Eliminar plano">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {ruta ? (
+            <div
+              className="cursor-pointer overflow-hidden rounded-lg bg-base-200 w-full border border-base-300"
+              style={{ height: '340px' }}
+              onClick={() => setAmpliado(true)}
+            >
+              <iframe
+                src={ruta}
+                title="Plano PDF"
+                className="w-full h-full pointer-events-none"
+                scrolling="no"
+              />
+            </div>
+          ) : (
+            <div
+              className="rounded-lg border-2 border-dashed border-base-300 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-secondary hover:bg-base-200 transition-colors w-full"
+              style={{ height: '340px' }}
+              onClick={() => !subiendo && inputRef.current?.click()}
+            >
+              <FileText className="w-10 h-10 text-base-content/25" />
+              <span className="text-sm text-base-content/40">Sin plano</span>
+              <span className="text-xs text-base-content/30">Click para subir PDF</span>
+            </div>
+          )}
+
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            className="hidden"
+            onChange={handleSeleccionPDF}
+          />
+
+          <div className="flex gap-2 mt-2">
+            <button
+              className="btn btn-sm btn-outline btn-secondary flex-1 gap-1"
+              onClick={() => inputRef.current?.click()}
+              disabled={subiendo}
+            >
+              {subiendo
+                ? <><span className="loading loading-spinner loading-xs" /> Subiendo...</>
+                : <><FileText className="w-3.5 h-3.5" /> {ruta ? 'Cambiar plano' : 'Subir plano PDF'}</>
+              }
+            </button>
+            {ruta && (
+              <a
+                href={ruta}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-sm btn-outline gap-1"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Abrir
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function ProductoDetallePage() {
   const params = useParams();
   const router = useRouter();
@@ -296,7 +466,7 @@ export default function ProductoDetallePage() {
             <Camera className="w-4 h-4 inline mr-1" />
             Fotos de referencia
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
             <TarjetaFoto
               productoId={id}
               tipo="plantilla"
@@ -307,6 +477,13 @@ export default function ProductoDetallePage() {
               productoId={id}
               tipo="troquel"
               ruta={producto.fotoTroquel}
+              onActualizar={mutate}
+            />
+          </div>
+          <div className="mb-6">
+            <TarjetaPlano
+              productoId={id}
+              ruta={producto.fotoPlano}
               onActualizar={mutate}
             />
           </div>
