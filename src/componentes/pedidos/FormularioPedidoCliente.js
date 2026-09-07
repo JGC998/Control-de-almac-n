@@ -9,6 +9,7 @@ import ModalCalculadoraBandas from "@/componentes/modales/ModalCalculadoraBandas
 import ModalCrearBandaChat from "@/componentes/modales/ModalCrearBandaChat";
 import ModalBusquedaBandasChat from "@/componentes/modales/ModalBusquedaBandasChat";
 import ModalMetrajeMaterial from "@/componentes/modales/ModalMetrajeMaterial";
+import ModalMetrajeCauchoChat from "@/componentes/modales/ModalMetrajeCauchoChat";
 import ModalBusqueda from "@/componentes/compuestos/ModalBusqueda";
 import ModalBusquedaProductos from "@/componentes/modales/ModalBusquedaProductos";
 import EditorFilaItem from './EditorFilaItem';
@@ -32,7 +33,8 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   const [isBandaModalOpen, setIsBandaModalOpen] = useState(false);
   const [isBandaCatalogoOpen, setIsBandaCatalogoOpen] = useState(false);
   const [isBandaChatOpen, setIsBandaChatOpen] = useState(false);
-  const [isMetrajeOpen, setIsMetrajeOpen] = useState(false);
+  const [isMetrajeOpen,  setIsMetrajeOpen]  = useState(false);
+  const [isCauchoOpen,   setIsCauchoOpen]   = useState(false);
   const [productSearchState, setProductSearchState] = useState({ isOpen: false, rowIndex: null, initialSearch: '' });
 
   const [bandaPendiente, setBandaPendiente] = useState(null); // {item, duplicadoDesc}
@@ -193,6 +195,20 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       productoId: null,
       producto: null,
       detallesTecnicos,
+    });
+  };
+
+  const handleCauchoAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario }) => {
+    addItemSmart({
+      id: Date.now() + Math.random(),
+      descripcion,
+      quantity: unidades,
+      unitPrice: precioUnitario,
+      costoUnitario: 0,
+      pesoUnitario,
+      productoId: null,
+      producto: null,
+      detallesTecnicos: null,
     });
   };
 
@@ -517,11 +533,11 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                   </button>
                 </div>
 
-                {/* Grupo 2: Metraje */}
+                {/* Grupo 2: Metraje caucho */}
                 <div className="flex items-center gap-1.5 border border-base-300 rounded-lg px-2 py-1">
-                  <span className="text-xs text-base-content/40 pr-1 select-none">Metraje</span>
-                  <button type="button" onClick={() => setIsMetrajeOpen(true)} className="btn btn-xs btn-outline btn-accent gap-1">
-                    <Scissors className="w-3 h-3" /> Metraje material
+                  <span className="text-xs text-base-content/40 pr-1 select-none">Caucho</span>
+                  <button type="button" onClick={() => setIsCauchoOpen(true)} className="btn btn-xs btn-outline btn-accent gap-1">
+                    <Scissors className="w-3 h-3" /> Metraje caucho
                   </button>
                 </div>
 
@@ -705,6 +721,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
       <ModalBusquedaBandasChat isOpen={isBandaCatalogoOpen} onClose={() => setIsBandaCatalogoOpen(false)} onSelect={handleBandaCatalogoSelected} clienteId={clienteId} clienteNombre={clienteNombre} />
       <ModalMetrajeMaterial isOpen={isMetrajeOpen} onClose={() => setIsMetrajeOpen(false)} onAñadir={handleMetrajeAñadido} />
+      <ModalMetrajeCauchoChat isOpen={isCauchoOpen} onClose={() => setIsCauchoOpen(false)} onAddItem={handleCauchoAñadido} />
       <ModalCrearBandaChat isOpen={isBandaChatOpen} onClose={() => setIsBandaChatOpen(false)} onAddItem={handleBandaAdded} />
 
       <ModalConfirmacion
