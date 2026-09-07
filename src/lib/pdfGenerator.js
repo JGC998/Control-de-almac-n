@@ -908,7 +908,7 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
                 if (!item.detallesTecnicos) return null;
                 try {
                     const dt = JSON.parse(item.detallesTecnicos);
-                    if (!dt.dimensiones) return null;
+                    if (!dt.dimensiones || dt.tipoPieza) return null; // caucho tiene tipoPieza, no necesita ficha técnica
                     return { descripcion: item.descripcion, quantity: item.quantity, dt };
                 } catch { return null; }
             })
