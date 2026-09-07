@@ -220,15 +220,8 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
     const precioTotal    = Math.round(precioUnitario * cantidad * 100) / 100;
     const pesoTotal      = Math.round(pesoUnitario   * cantidad * 1000) / 1000;
 
-    // Descripción de línea de pedido
-    const partes = [material];
-    if (acabado) partes.push(acabado);
-    partes.push(`${parseFloat(espesor)}mm`);
-    if (lonas) partes.push(`${lonas}L`);
-    const dimStr = `${fmtMm(ancho)}×${fmtMm(largo)}mm`;
-    const descripcion = tipoPieza === 'TIRAS'
-      ? [...partes, `— ${cantidad} tiras ${dimStr}`].join(' ')
-      : [...partes, `— ${dimStr}`].join(' ');
+    // Descripción corta para la columna Descripción del PDF
+    const descripcion = tipoPieza === 'TIRAS' ? `Tira de ${material}` : `Pieza de ${material}`;
 
     const lineas = [
       tipoPieza === 'TIRAS'
@@ -244,7 +237,23 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
       pesoTotal > 0 ? `Peso:       ${pesoTotal.toLocaleString('es-ES', { minimumFractionDigits: 3 })} kg` : null,
     ].filter(l => l !== null).join('\n');
 
-    const item = { descripcion, unidades: cantidad, precioUnitario, pesoUnitario };
+    const item = {
+      descripcion,
+      unidades: cantidad,
+      precioUnitario,
+      pesoUnitario,
+      detallesTecnicos: JSON.stringify({
+        material,
+        dimensiones: {
+          espesor: parseFloat(espesor),
+          ancho,
+          largo,
+        },
+        lonas: lonas != null ? Number(lonas) : null,
+        acabado: acabado || null,
+        tipoPieza,
+      }),
+    };
 
     setDatos({ ...d0, _resultado: item });
     pushBot(lineas, [

@@ -198,7 +198,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     });
   };
 
-  const handleCauchoAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario }) => {
+  const handleCauchoAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario, detallesTecnicos }) => {
     addItemSmart({
       id: Date.now() + Math.random(),
       descripcion,
@@ -208,7 +208,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       pesoUnitario,
       productoId: null,
       producto: null,
-      detallesTecnicos: null,
+      detallesTecnicos,
     });
   };
 

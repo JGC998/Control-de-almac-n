@@ -681,8 +681,13 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             catch { return null; }
         };
         const getDescripcion = (item) => item.descripcion || item.producto?.nombre || '';
-        const getRefFab      = (item) => item.producto?.referenciaFabricante || dash;
-        const getFabricante  = (item) => item.producto?.fabricante?.nombre    || dash;
+        const getRefFab     = (item) => item.producto?.referenciaFabricante || dash;
+        const getFabricante = (item) => {
+            if (item.producto?.fabricante?.nombre) return item.producto.fabricante.nombre;
+            const det = parseDet(item);
+            if (det?.material) return client?.nombre || dash; // caucho/metraje → cliente del pedido
+            return dash;
+        };
         const getMaterial    = (item) => {
             if (item.producto?.material?.nombre) return item.producto.material.nombre;
             const det = parseDet(item);
