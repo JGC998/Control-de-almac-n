@@ -2,4 +2,3 @@
 // Uso: import { useGestionCRUD } from '@/componentes/hooks';
 
 export { useGestionCRUD, default } from './useGestionCRUD';
-export { useMessage } from './useMessage';
