@@ -680,7 +680,13 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             try { return item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; }
             catch { return null; }
         };
-        const getDescripcion = (item) => item.descripcion || item.producto?.nombre || '';
+        const getDescripcion = (item) => {
+            const det = parseDet(item);
+            if (det?.material && det?.tipoPieza) {
+                return det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
+            }
+            return item.descripcion || item.producto?.nombre || '';
+        };
         const getRefFab     = (item) => item.producto?.referenciaFabricante || dash;
         const getFabricante = (item) => {
             if (item.producto?.fabricante?.nombre) return item.producto.fabricante.nombre;

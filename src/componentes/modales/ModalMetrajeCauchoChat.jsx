@@ -82,16 +82,21 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
 
   useEffect(() => {
     if (!isOpen) return;
-    setMensajes(msgInicial(null)); // chips se añaden cuando carguen las tarifas
+    // Si las tarifas ya están en caché, poner los chips directamente; si no, llegan luego
+    const chips = materialesDisp.length > 0 ? materialesDisp.map(m => ({ label: m, valor: m })) : null;
+    setMensajes(msgInicial(chips));
     setPaso('MATERIAL');
     setDatos({});
     setInput('');
-  }, [isOpen]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Actualizar chips del primer mensaje en cuanto lleguen las tarifas
+  // Fallback: añade chips cuando las tarifas llegan tarde (primera carga sin caché)
   useEffect(() => {
-    if (!isOpen || !todasTarifas || paso !== 'MATERIAL' || Object.keys(datos).length > 0) return;
-    setMensajes(msgInicial(materialesDisp.map(m => ({ label: m, valor: m }))));
+    if (!isOpen || materialesDisp.length === 0) return;
+    setMensajes(prev => {
+      if (prev.length !== 1 || prev[0].chips) return prev; // ya tiene chips o hay conversación
+      return msgInicial(materialesDisp.map(m => ({ label: m, valor: m })));
+    });
   }, [todasTarifas, isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -220,8 +225,15 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
     const precioTotal    = Math.round(precioUnitario * cantidad * 100) / 100;
     const pesoTotal      = Math.round(pesoUnitario   * cantidad * 1000) / 1000;
 
-    // Descripción corta para la columna Descripción del PDF
-    const descripcion = tipoPieza === 'TIRAS' ? `Tira de ${material}` : `Pieza de ${material}`;
+    // Descripción larga para la interfaz del pedido (el PDF usa detallesTecnicos para las columnas)
+    const partes = [material];
+    if (acabado) partes.push(acabado);
+    partes.push(`${parseFloat(espesor)}mm`);
+    if (lonas) partes.push(`${lonas}L`);
+    const dimStr = `${fmtMm(ancho)}×${fmtMm(largo)}mm`;
+    const descripcion = tipoPieza === 'TIRAS'
+      ? [...partes, `— ${cantidad} tiras ${dimStr}`].join(' ')
+      : [...partes, `— ${dimStr}`].join(' ');
 
     const lineas = [
       tipoPieza === 'TIRAS'
