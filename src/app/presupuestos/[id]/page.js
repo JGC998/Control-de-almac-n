@@ -74,11 +74,27 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
             </tr>
           </thead>
           <tbody>
-            {calculatedItems.map((item, index) => (
+            {calculatedItems.map((item, index) => {
+              let detDims = null;
+              if (item.detallesTecnicos) {
+                try {
+                  const det = JSON.parse(item.detallesTecnicos);
+                  const parts = [];
+                  if (det.material) parts.push(det.material);
+                  if (det.dimensiones?.espesor != null) parts.push(`${det.dimensiones.espesor}mm`);
+                  if (det.dimensiones?.ancho != null) parts.push(`${det.dimensiones.ancho}mm ancho`);
+                  if (det.dimensiones?.largo != null) parts.push(`${det.dimensiones.largo}mm largo`);
+                  if (det.lonas) parts.push(`${det.lonas} lonas`);
+                  if (det.acabado) parts.push(det.acabado);
+                  if (parts.length > 0) detDims = parts.join(' · ');
+                } catch { /* ignore */ }
+              }
+              return (
               <tr key={index}>
                 <td className="font-medium">
                   {item.descripcion}
                   {item.producto && <div className="text-xs opacity-50">{item.producto.nombre}</div>}
+                  {detDims && <div className="text-xs text-base-content/50 mt-0.5">{detDims}</div>}
                 </td>
                 <td className="text-center">{item.quantity}</td>
                 {/* MOSTRANDO COSTO (Sin Margen) */}
@@ -88,7 +104,8 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
                 <td className="font-bold text-success text-right">{item.precioUnitarioVenta.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
                 <td className="font-bold text-success text-right">{item.totalVentaItem.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

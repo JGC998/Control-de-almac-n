@@ -130,25 +130,52 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         // Vamos a asumir que 'quote.items' tiene 'unitPriceVenta' y 'totalVentaItem'.
         // SI NO, usamos 'unitPrice' como fallback (aunque sea costo, si no hay más info).
 
-        const tableColumn = ["Descripción", "Cantidad", "P. Unit. (Venta)", "Total (Venta)"];
+        const dash = '—';
+        const parseDet = (item) => {
+            try { return item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; } catch { return null; }
+        };
+        const getBudgetDescripcion = (item) => {
+            const det = parseDet(item);
+            if (det?.material && det?.tipoPieza) return det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
+            return item.descripcion || item.producto?.nombre || '';
+        };
+        const getBudgetMaterial = (item) => {
+            if (item.producto?.material?.nombre) return item.producto.material.nombre;
+            const det = parseDet(item);
+            return det?.material || (det?.dimensiones ? 'PVC' : dash);
+        };
+        const getBudgetEspesor = (item) => {
+            if (item.producto?.espesor != null) return `${item.producto.espesor}mm`;
+            const det = parseDet(item);
+            return det?.dimensiones?.espesor != null ? `${det.dimensiones.espesor}mm` : dash;
+        };
+        const getBudgetAncho = (item) => {
+            if (item.producto?.ancho != null) return `${item.producto.ancho}mm`;
+            const det = parseDet(item);
+            return det?.dimensiones?.ancho != null ? `${det.dimensiones.ancho}mm` : dash;
+        };
+        const getBudgetLargo = (item) => {
+            if (item.producto?.largo != null) return `${item.producto.largo}m`;
+            const det = parseDet(item);
+            return det?.dimensiones?.largo != null ? `${det.dimensiones.largo}mm` : dash;
+        };
+
+        const tableColumn = ["Descripción", "Material", "Esp.", "Ancho", "Largo", "Cant.", "P. Unit.", "Total"];
         const tableRows = [];
 
         (quote.items || []).forEach(item => {
-            let descripcion = item.descripcion;
-            const tacosMatch = item.descripcion?.match(/\+ Tacos (RECTO|INCLINADO) (\d+)mm/);
-            if (tacosMatch) {
-                descripcion += `\n(Incluye tacos ${tacosMatch[1]} ${tacosMatch[2]}mm)`;
-            }
-
-            // Usamos unitPriceVenta si existe (inyectado por la API), sino unitPrice
             const precio = item.unitPriceVenta ?? item.unitPrice ?? 0;
             const total = item.totalVentaItem ?? (precio * item.quantity);
 
             tableRows.push([
-                descripcion,
+                getBudgetDescripcion(item),
+                getBudgetMaterial(item),
+                getBudgetEspesor(item),
+                getBudgetAncho(item),
+                getBudgetLargo(item),
                 item.quantity,
                 `${fmtN(precio)} €`,
-                `${fmtN(total)} €`
+                `${fmtN(total)} €`,
             ]);
         });
 
@@ -156,7 +183,20 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
             head: [tableColumn],
             body: tableRows,
             startY: tableStartY,
-            theme: 'grid'
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold', fontSize: 7 },
+            columnStyles: {
+                // Desc+Mat+Esp+Ancho+Largo+Cant+PU+Total ~182mm total
+                0: { cellWidth: 50 },
+                1: { cellWidth: 20, fontSize: 7 },
+                2: { halign: 'center', cellWidth: 14, fontSize: 7 },
+                3: { halign: 'center', cellWidth: 16, fontSize: 7 },
+                4: { halign: 'center', cellWidth: 16, fontSize: 7 },
+                5: { halign: 'center', cellWidth: 12 },
+                6: { halign: 'right',  cellWidth: 26 },
+                7: { halign: 'right',  cellWidth: 28 },
+            },
         });
 
         const finalY = doc.lastAutoTable.finalY;

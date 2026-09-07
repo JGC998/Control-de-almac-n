@@ -40,8 +40,13 @@ export async function GET(request) {
       take: 5,
     };
 
-    const numSearchConfig = (field) => ({
-      where: { [field]: { contains: query } },
+    const docSearchConfig = (field) => ({
+      where: {
+        OR: [
+          { [field]: { contains: query } },
+          { cliente: { nombre: { contains: query } } },
+        ],
+      },
       take: 5,
     });
 
@@ -50,11 +55,11 @@ export async function GET(request) {
       db.cliente.findMany({ ...searchConfig, select: { id: true, nombre: true, email: true } }),
       db.producto.findMany({ ...productSearchConfig, select: { id: true, nombre: true, referenciaFabricante: true } }),
       db.pedido.findMany({
-        ...numSearchConfig('numero'),
+        ...docSearchConfig('numero'),
         select: { id: true, numero: true, estado: true, total: true, cliente: { select: { nombre: true } } },
       }),
       db.presupuesto.findMany({
-        ...numSearchConfig('numero'),
+        ...docSearchConfig('numero'),
         select: { id: true, numero: true, estado: true, total: true, cliente: { select: { nombre: true } } },
       }),
     ]);
