@@ -2,7 +2,7 @@
 import { SWRConfig } from 'swr';
 
 const fetcher = async (url) => {
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) {
     const err = new Error('Error en la respuesta del servidor');
     err.status = res.status;
