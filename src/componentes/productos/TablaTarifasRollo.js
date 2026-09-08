@@ -33,8 +33,14 @@ export default function TablaTarifasRollo() {
 
   const filteredTarifas = useMemo(() => {
     if (!Array.isArray(tarifas)) return [];
-    if (selectedMaterial === 'Todos') return tarifas;
-    return tarifas.filter(t => t.material === selectedMaterial);
+    const lista = selectedMaterial === 'Todos' ? tarifas : tarifas.filter(t => t.material === selectedMaterial);
+    return [...lista].sort((a, b) => {
+      const mat = a.material.localeCompare(b.material, 'es', { sensitivity: 'base' });
+      if (mat !== 0) return mat;
+      const esp = (a.espesor ?? 0) - (b.espesor ?? 0);
+      if (esp !== 0) return esp;
+      return (a.ancho ?? 0) - (b.ancho ?? 0);
+    });
   }, [tarifas, selectedMaterial]);
 
   // Cuántos rollos tienen precioBase desincronizado respecto a TarifaMaterial
