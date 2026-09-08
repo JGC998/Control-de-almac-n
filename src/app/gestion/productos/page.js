@@ -335,7 +335,11 @@ export default function GestionProductosPage() {
                 </tr>
               )}
               {filtrados.map(p => {
-                const incompleto = tab === 'activos' && (p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario);
+                const incompleto = tab === 'activos' && (
+                  p.tipo === 'GRAPA'
+                    ? !p.precioUnitario
+                    : (p.espesor == null || p.ancho == null || p.largo == null || !p.precioUnitario)
+                );
                 const marcado    = seleccion.has(p.id);
                 return (
                   <tr
