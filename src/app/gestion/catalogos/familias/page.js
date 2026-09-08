@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import useSWR from 'swr';
+import Link from 'next/link';
 import { Tag, PlusCircle, Edit2, Trash2, Check, X, ChevronRight, Package } from 'lucide-react';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { toastError } from '@/lib/toast';
@@ -141,7 +142,7 @@ function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onTo
               {fam.color && (
                 <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: fam.color }} />
               )}
-              <span className="font-semibold">{fam.nombre}</span>
+              <Link href={`/gestion/catalogos/familias/${fam.id}`} className="link link-primary font-semibold" onClick={e => e.stopPropagation()}>{fam.nombre}</Link>
             </div>
           )}
         </td>
@@ -164,6 +165,7 @@ function FilaFamilia({ fam, onDeleteFamilia, onDeleteSubfamilia, expandida, onTo
         </td>
         <td onClick={e => e.stopPropagation()}>
           <div className="flex gap-1">
+            <Link href={`/gestion/catalogos/familias/${fam.id}`} className="btn btn-xs btn-ghost" onClick={e => e.stopPropagation()}>Ver →</Link>
             <button className="btn btn-xs btn-ghost btn-square" onClick={() => setEditando(true)} title="Editar">
               <Edit2 className="w-3 h-3" />
             </button>

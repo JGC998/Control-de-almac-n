@@ -67,7 +67,7 @@ export async function POST(request) {
       );
     }
 
-    const { clienteId, items, notas, estado, marginId, sinFacturacion } = validation.data;
+    const { clienteId, items, notas, estado, marginId, sinFacturacion, fechaEntrega } = validation.data;
 
     // BACK-01: Recalcular totales en servidor para no confiar en valores del cliente
     const configIva = await db.config.findUnique({ where: { key: 'iva_rate' } });
@@ -90,6 +90,7 @@ export async function POST(request) {
         total: total,
         marginId: marginId,
         sinFacturacion: sinFacturacion || false,
+        fechaEntrega: fechaEntrega ? new Date(fechaEntrega) : null,
         items: {
           create: items.map(item => ({
             descripcion: item.descripcion,

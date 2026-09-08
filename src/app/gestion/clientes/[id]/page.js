@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, TrendingUp, TrendingDown, ShoppingCart, Receipt, DollarSign, History, Plus, Trash2, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
+import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, TrendingUp, TrendingDown, ShoppingCart, Receipt, DollarSign, History, Plus, Trash2, ChevronDown, ChevronUp, BarChart2, Star } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import ClientEditModal from '@/componentes/modales/ModalEditarCliente';
 import { formatCurrency } from '@/utils/utilidades';
 
@@ -252,6 +253,86 @@ function SeccionRentabilidad({ clienteId }) {
   );
 }
 
+function SeccionHistorialMejorado({ data }) {
+  const { pedidos = [], facturacionMensual = [], topProductos = [] } = data ?? {};
+  const ultimos5 = pedidos.slice(0, 5);
+
+  return (
+    <div className="bg-base-100 shadow-xl rounded-xl p-5 mb-6">
+      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+        <BarChart2 className="w-5 h-5" /> Actividad del cliente
+      </h2>
+
+      {/* Gráfico facturación mensual */}
+      {facturacionMensual.some(m => m.total > 0) ? (
+        <div className="mb-5">
+          <p className="text-xs text-base-content/50 mb-2 font-semibold uppercase tracking-wider">Facturación últimos 12 meses</p>
+          <ResponsiveContainer width="100%" height={150}>
+            <AreaChart data={facturacionMensual} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
+              <XAxis dataKey="mes" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={v => formatCurrency(v)} labelStyle={{ fontSize: 11 }} />
+              <Area type="monotone" dataKey="total" stroke="oklch(var(--p))" fill="oklch(var(--p)/0.15)" strokeWidth={2} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <p className="text-sm text-base-content/40 mb-4">Sin pedidos facturados en los últimos 12 meses.</p>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Últimos 5 pedidos */}
+        <div className="md:col-span-2">
+          <p className="text-xs text-base-content/50 mb-2 font-semibold uppercase tracking-wider">Últimos pedidos</p>
+          <div className="space-y-1">
+            {ultimos5.length === 0 && <p className="text-sm text-base-content/40">Sin pedidos.</p>}
+            {ultimos5.map(p => (
+              <div key={p.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-base-200 last:border-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Link href={`/pedidos/${p.id}`} className="link link-primary font-mono text-sm shrink-0">{p.numero}</Link>
+                  <span className="text-xs text-base-content/40">{new Date(p.fechaCreacion).toLocaleDateString('es-ES')}</span>
+                  {p.fechaEntrega && (
+                    <span className="text-xs text-warning">→ {new Date(p.fechaEntrega).toLocaleDateString('es-ES')}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`badge badge-sm ${ESTADO_BADGE[p.estado] ?? 'badge-neutral'}`}>{p.estado}</span>
+                  <span className="font-mono text-sm font-semibold">{formatCurrency(p.total)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top productos */}
+        {topProductos.length > 0 && (
+          <div>
+            <p className="text-xs text-base-content/50 mb-2 font-semibold uppercase tracking-wider flex items-center gap-1">
+              <Star className="w-3 h-3 text-warning" /> Más comprado (12m)
+            </p>
+            <div className="space-y-2">
+              {topProductos.map((p, i) => (
+                <div key={p.descripcion} className="bg-base-200 rounded-lg px-3 py-2">
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs font-bold text-base-content/30 mt-0.5">#{i + 1}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{p.descripcion}</div>
+                      <div className="text-xs text-base-content/50">
+                        {p.cantidad} uds · {formatCurrency(p.totalEuros)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ icon: Icon, label, value, sub }) {
   return (
     <div className="stat bg-base-200 rounded-xl">
@@ -331,10 +412,13 @@ export default function ClienteDetalle() {
         <StatCard icon={Receipt} label="Presupuestos" value={stats.numPresupuestos} />
       </div>
 
+      {/* Historial mejorado */}
+      <SeccionHistorialMejorado data={data} />
+
       {/* Pedidos */}
       <div className="bg-base-100 shadow-xl rounded-xl p-5 mb-6">
         <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
-          <ShoppingCart className="w-5 h-5" /> Pedidos
+          <ShoppingCart className="w-5 h-5" /> Todos los pedidos
         </h2>
         <div className="overflow-x-auto">
           <table className="table table-sm w-full">
@@ -342,8 +426,9 @@ export default function ClienteDetalle() {
               <tr>
                 <th>Número</th>
                 <th>Fecha</th>
+                <th className="hidden sm:table-cell">Entrega</th>
                 <th>Estado</th>
-                <th>Margen</th>
+                <th className="hidden md:table-cell">Margen</th>
                 <th className="text-right">Total</th>
               </tr>
             </thead>
@@ -357,8 +442,13 @@ export default function ClienteDetalle() {
                     <Link href={`/pedidos/${p.id}`} className="link link-primary font-mono text-sm">{p.numero}</Link>
                   </td>
                   <td className="text-sm text-gray-500">{new Date(p.fechaCreacion).toLocaleDateString('es-ES')}</td>
+                  <td className="hidden sm:table-cell text-sm">
+                    {p.fechaEntrega
+                      ? <span className="text-warning font-medium">{new Date(p.fechaEntrega).toLocaleDateString('es-ES')}</span>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
                   <td><span className={badgeClass(p.estado)}>{p.estado}</span></td>
-                  <td className="text-sm">
+                  <td className="hidden md:table-cell text-sm">
                     {p.margen
                       ? <span className="text-gray-600">{p.margen.descripcion} <span className="font-mono text-xs">(×{p.margen.multiplicador})</span></span>
                       : <span className="text-gray-300">—</span>}

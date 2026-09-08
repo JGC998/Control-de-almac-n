@@ -71,7 +71,8 @@ model Pedido {
   clienteId      String?
   presupuestoId  String?  @unique
   marginId       String?
-  sinFacturacion Boolean  @default(false)
+  sinFacturacion Boolean   @default(false)
+  fechaEntrega   DateTime?
 
   cliente     Cliente?     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   presupuesto Presupuesto? @relation(fields: [presupuestoId], references: [id], onDelete: SetNull)

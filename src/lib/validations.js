@@ -135,6 +135,7 @@ export const pedidoSchema = z.object({
     marginId: z.string().uuid().optional().nullable(),
     notas: z.string().optional().nullable(),
     sinFacturacion: z.boolean().optional(),
+    fechaEntrega: z.string().optional().nullable(),
 });
 
 // ============================================

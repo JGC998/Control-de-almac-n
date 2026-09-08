@@ -9,7 +9,22 @@ export async function GET(request, { params }) {
     const { id } = await params;
     const familia = await db.familia.findUnique({
       where: { id },
-      include: { subfamilias: { orderBy: { nombre: 'asc' } } },
+      include: {
+        subfamilias: {
+          orderBy: { nombre: 'asc' },
+          include: {
+            productos: {
+              select: {
+                id: true, nombre: true, tipo: true, activo: true,
+                espesor: true, ancho: true, largo: true, unidad: true,
+                precioUnitario: true, pesoUnitario: true,
+                fabricante: { select: { nombre: true } },
+              },
+              orderBy: { nombre: 'asc' },
+            },
+          },
+        },
+      },
     });
     if (!familia) return NextResponse.json({ message: 'Familia no encontrada' }, { status: 404 });
     return NextResponse.json(familia);

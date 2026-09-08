@@ -51,7 +51,10 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     })) || [{ id: Date.now(), descripcion: '', quantity: 1, unitPrice: 0, costoUnitario: 0, productoId: null }]
   );
 
-  const [notes, setNotes] = useState(initialData?.notas || '');
+  const [notes, setNotes]             = useState(initialData?.notas || '');
+  const [fechaEntrega, setFechaEntrega] = useState(
+    initialData?.fechaEntrega ? new Date(initialData.fechaEntrega).toISOString().split('T')[0] : ''
+  );
 
   // Solo re-sincroniza cuando initialData cambia DESPUÉS del montaje inicial
   // (evita el render extra en modo creación/edición al abrir el formulario)
@@ -409,6 +412,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       total: total,
       notas: notes,
       marginId: selectedMarginId,
+      ...(formType === 'PEDIDO' ? { fechaEntrega: fechaEntrega ? new Date(fechaEntrega).toISOString() : null } : {}),
     };
 
     const endpoint = formType === 'PRESUPUESTO'
@@ -589,6 +593,17 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
             <div className="card-body">
               <h2 className="card-title">Notas Adicionales</h2>
               <textarea name="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="textarea textarea-bordered h-24" placeholder="Notas internas..."></textarea>
+              {formType === 'PEDIDO' && (
+                <div className="form-control mt-3">
+                  <label className="label py-1"><span className="label-text font-semibold">Fecha de entrega <span className="text-base-content/40 font-normal">(opcional)</span></span></label>
+                  <input
+                    type="date"
+                    className="input input-bordered"
+                    value={fechaEntrega}
+                    onChange={e => setFechaEntrega(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
           </div>
 

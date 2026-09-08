@@ -121,7 +121,9 @@ export default function GestionProductosPage() {
 
   const { data: dataActivos,    isLoading: loadA, error: errA } = useSWR('/api/productos?page=1&limit=500&activo=true');
   const { data: dataArchivados, isLoading: loadB, error: errB } = useSWR('/api/productos?page=1&limit=500&activo=false');
-  const { data: nomenclatura } = useSWR('/api/configuracion/nomenclatura');
+  const { data: nomenclatura }  = useSWR('/api/configuracion/nomenclatura');
+  const { data: fabricantes }   = useSWR('/api/fabricantes');
+  const { data: materiales }    = useSWR('/api/materiales');
   const nomConfig = nomenclatura ?? {};
 
   const productosActivos    = dataActivos?.data    ?? [];
@@ -131,6 +133,8 @@ export default function GestionProductosPage() {
   const [modalAbierto, setModalAbierto]         = useState(false);
   const [productoEditando, setProductoEditando] = useState(null);
   const [busqueda, setBusqueda]                 = useState('');
+  const [filtroFabricante, setFiltroFabricante] = useState('');
+  const [filtroMaterial, setFiltroMaterial]     = useState('');
   const [sort, setSort]                         = useState({ campo: null, dir: 'asc' });
   const [seleccion, setSeleccion]               = useState(new Set());
   const [copiado, setCopiado]                   = useState(null);
@@ -175,19 +179,21 @@ export default function GestionProductosPage() {
   const filtrados = useMemo(() => {
     const q = busqueda.toLowerCase().trim();
     let lista = productos.filter(p => {
-      if (!q) return true;
-      return (
+      if (q && !(
         p.nombre?.toLowerCase().includes(q) ||
         (p.material?.nombre ?? '').toLowerCase().includes(q) ||
         (p.acabado ?? '').toLowerCase().includes(q)
-      );
+      )) return false;
+      if (filtroFabricante && p.fabricanteId !== filtroFabricante) return false;
+      if (filtroMaterial   && p.materialId   !== filtroMaterial)   return false;
+      return true;
     });
     if (sort.campo) {
       const col = COLUMNAS.find(c => c.key === sort.campo);
       lista = [...lista].sort((a, b) => comparar(a, b, sort.campo, col?.tipo, sort.dir, nomConfig));
     }
     return lista;
-  }, [productos, busqueda, sort, nomConfig]);
+  }, [productos, busqueda, filtroFabricante, filtroMaterial, sort, nomConfig]);
 
   function toggleSeleccion(id) {
     setSeleccion(prev => {
@@ -256,14 +262,30 @@ export default function GestionProductosPage() {
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Package className="w-6 h-6" /> Productos
         </h1>
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           <input
             type="text"
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre o material…"
-            className="input input-bordered input-sm w-56"
+            className="input input-bordered input-sm w-48"
           />
+          <select
+            className="select select-bordered select-sm"
+            value={filtroFabricante}
+            onChange={e => setFiltroFabricante(e.target.value)}
+          >
+            <option value="">Todos los fabricantes</option>
+            {(fabricantes ?? []).map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+          </select>
+          <select
+            className="select select-bordered select-sm"
+            value={filtroMaterial}
+            onChange={e => setFiltroMaterial(e.target.value)}
+          >
+            <option value="">Todos los materiales</option>
+            {(materiales ?? []).map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+          </select>
           <a
             href={`/api/productos/export?activo=${tab === 'activos' ? 'true' : 'false'}`}
             className="btn btn-ghost btn-sm btn-square"
@@ -281,14 +303,14 @@ export default function GestionProductosPage() {
       <div className="tabs tabs-boxed mb-4 w-fit">
         <button
           className={`tab gap-2 ${tab === 'activos' ? 'tab-active' : ''}`}
-          onClick={() => { setTab('activos'); setSeleccion(new Set()); setBusqueda(''); }}
+          onClick={() => { setTab('activos'); setSeleccion(new Set()); setBusqueda(''); setFiltroFabricante(''); setFiltroMaterial(''); }}
         >
           Activos
           {!loadA && <span className="badge badge-sm">{productosActivos.length}</span>}
         </button>
         <button
           className={`tab gap-2 ${tab === 'archivados' ? 'tab-active' : ''}`}
-          onClick={() => { setTab('archivados'); setSeleccion(new Set()); setBusqueda(''); }}
+          onClick={() => { setTab('archivados'); setSeleccion(new Set()); setBusqueda(''); setFiltroFabricante(''); setFiltroMaterial(''); }}
         >
           <Archive className="w-3.5 h-3.5" /> Archivados
           {!loadB && productosArchivados.length > 0 && (

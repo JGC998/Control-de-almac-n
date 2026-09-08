@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Package, PlusCircle, Download, Ban, Printer, LayoutDashboard } from 'lucide-react';
+import { Package, PlusCircle, Download, Ban, Printer, LayoutDashboard, Calendar } from 'lucide-react';
 import { db } from '@/lib/db';
 import TablaConSeleccion from '@/componentes/compuestos/TablaConSeleccion';
 import { PaginacionServidor, FiltroEstado } from '@/componentes/ui';
@@ -101,6 +101,9 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
         <div className="flex flex-wrap gap-2 items-center">
           <Link href="/pedidos/kanban" className="btn btn-outline gap-2">
             <LayoutDashboard className="w-4 h-4" /> Kanban
+          </Link>
+          <Link href="/pedidos/calendario" className="btn btn-outline gap-2">
+            <Calendar className="w-4 h-4" /> Calendario
           </Link>
           <Link href="/pedidos/notas-taller" className="btn btn-outline gap-2">
             <Printer className="w-4 h-4" /> Imprimir notas

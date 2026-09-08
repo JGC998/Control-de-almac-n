@@ -70,7 +70,7 @@ export async function PUT(request, { params: paramsPromise }) {
     if (!parsed.success) {
       return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
-    const { clienteId, items, notas, estado, marginId } = parsed.data;
+    const { clienteId, items, notas, estado, marginId, fechaEntrega } = parsed.data;
     const presupuestoId = body.presupuestoId !== undefined
       ? (typeof body.presupuestoId === 'string' ? body.presupuestoId : null)
       : undefined;
@@ -113,6 +113,7 @@ export async function PUT(request, { params: paramsPromise }) {
           estado: estado,
           marginId: marginId,
           presupuestoId: presupuestoId,
+          fechaEntrega: fechaEntrega !== undefined ? (fechaEntrega ? new Date(fechaEntrega) : null) : undefined,
         },
         include: {
           cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, tier: true } },
