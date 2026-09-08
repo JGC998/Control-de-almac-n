@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Link2, Plus, Pencil, Trash2, Save, X, Settings, History } from 'lucide-react';
+import { Link2, Plus, Pencil, Trash2, Save, X, Settings, History, Package } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 import { toastError } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
@@ -80,7 +80,23 @@ function SeccionModelosGenericos() {
   const [guardando, setGuardando] = useState(false);
   const [errMsg, setErrMsg] = useState('');
   const [historialAbierto, setHistorialAbierto] = useState(null);
+  const [generando, setGenerando] = useState(false);
+  const [resultadoGen, setResultadoGen] = useState(null);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
+
+  const handleGenerarProductos = async () => {
+    setGenerando(true);
+    setResultadoGen(null);
+    try {
+      const res = await fetch('/api/modelos-grapa/generar-productos', { method: 'POST' });
+      const data = await res.json();
+      setResultadoGen(data);
+    } catch {
+      toastError('Error al generar productos de grapa');
+    } finally {
+      setGenerando(false);
+    }
+  };
 
   const handleGuardarMerma = async () => {
     setGuardandoMerma(true);
@@ -176,12 +192,35 @@ function SeccionModelosGenericos() {
     <div className="card bg-base-100 shadow border border-base-200">
       <ModalConfirmacion />
       <div className="card-body">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="card-title text-base">Modelos genéricos de grapa</h2>
-          <button className="btn btn-sm btn-primary" onClick={abrirNuevo}>
-            <Plus className="w-4 h-4" /> Añadir modelo
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="btn btn-sm btn-outline btn-primary gap-1"
+              onClick={handleGenerarProductos}
+              disabled={generando}
+              title="Crea o actualiza un Producto por cada modelo × ancho disponible. Solo sube el precio, nunca lo baja."
+            >
+              <Package className={`w-4 h-4 ${generando ? 'animate-pulse' : ''}`} />
+              {generando ? 'Generando…' : 'Generar productos'}
+            </button>
+            <button className="btn btn-sm btn-primary" onClick={abrirNuevo}>
+              <Plus className="w-4 h-4" /> Añadir modelo
+            </button>
+          </div>
         </div>
+
+        {resultadoGen && (
+          <div className="alert alert-info py-2 text-sm mb-4">
+            <span>
+              <strong>{resultadoGen.creados} producto(s) nuevo(s)</strong> creados
+              {resultadoGen.actualizados > 0 && <>, <strong>{resultadoGen.actualizados} precio(s) subido(s)</strong></>}
+              {resultadoGen.omitidos > 0 && <> · {resultadoGen.omitidos} modelo(s) sin anchos definidos (omitidos)</>}
+              . Visítalos en <a href="/gestion/productos" className="link">Catálogo → Productos</a>.
+            </span>
+            <button className="btn btn-xs btn-ghost ml-auto" onClick={() => setResultadoGen(null)}>✕</button>
+          </div>
+        )}
 
         <p className="text-xs text-base-content/50 mb-4">
           Define los modelos de grapa por rango de espesor con su precio por metro lineal.
