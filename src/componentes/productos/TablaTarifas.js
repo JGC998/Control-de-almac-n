@@ -177,62 +177,13 @@ export default function TablaTarifas() {
       margin: { left: 14, right: 14 },
     });
 
-    // ── Tabla 2: precios por metro lineal a anchos configurados ───
-    if (anchosML.length > 0) {
-      const y2 = doc.lastAutoTable.finalY + 12;
-
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Conversión a Metro Lineal — precio × (ancho / 1000)", 14, y2);
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "normal");
-      doc.text("Fórmula: Precio ML = Precio m² × (ancho mm ÷ 1000)", 14, y2 + 6);
-
-      // Cabeceras: Material | Lonas | Esp | [Tier @ Xmm] ...
-      const colsML = [
-        "Material", "Lonas", "Espesor\n(mm)",
-        ...anchosML.flatMap(ancho =>
-          margenesVenta.map(m => `${m.descripcion}\n@${ancho}mm (€/ml)`)
-        ),
-      ];
-      const rowsML = filteredTarifas.map(row => {
-        const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
-        const mlCols = anchosML.flatMap(ancho =>
-          margenesVenta.map(m => {
-            const pm2 = preciosMap[m.base] ?? (row.precio * m.multiplicador);
-            const ml  = pm2 * (ancho / 1000);
-            return fmt2(ml) + ' €';
-          })
-        );
-        return [
-          row.material,
-          row.lonas != null ? String(row.lonas) : '—',
-          fmt2(row.espesor),
-          ...mlCols,
-        ];
-      });
-
-      // Colorear columnas por ancho alternando gris claro / blanco
-      const nTiers = margenesVenta.length;
-      const columnStyles = {};
-      anchosML.forEach((_, ai) => {
-        const bg = ai % 2 === 0 ? [235, 240, 255] : [255, 255, 255];
-        for (let t = 0; t < nTiers; t++) {
-          columnStyles[3 + ai * nTiers + t] = { fillColor: bg };
-        }
-      });
-
-      autoTable(doc, {
-        head: [colsML],
-        body: rowsML,
-        startY: y2 + 10,
-        theme: 'grid',
-        styles: { fontSize: 8.5, cellPadding: 3 },
-        headStyles: { fillColor: [28, 60, 120], textColor: 255, fontStyle: 'bold' },
-        columnStyles,
-        margin: { left: 14, right: 14 },
-      });
-    }
+    // ── Nota: fórmula metro lineal ────────────────────────────────
+    const y2 = doc.lastAutoTable.finalY + 9;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text("Precio en metro lineal:", 14, y2);
+    doc.setFont("helvetica", "normal");
+    doc.text("Precio ML (€/ml)  =  Precio m² (€/m²)  ×  (ancho en mm ÷ 1000)", 14, y2 + 5);
 
     const fileName = selectedMaterial === 'Todos'
       ? `tarifas-m2-${new Date().toISOString().slice(0, 10)}.pdf`
