@@ -3,14 +3,19 @@ import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
-import { Download, Settings } from 'lucide-react';
+import { Download, Settings, Plus, X, Ruler } from 'lucide-react';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toastError } from '@/lib/toast';
 
 
+// Anchos predeterminados en mm para la tabla de conversión ML
+const ANCHOS_DEFECTO = [300, 400, 500, 600];
+
 export default function TablaTarifas() {
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
+  const [anchosML, setAnchosML]                 = useState(ANCHOS_DEFECTO);
+  const [nuevoAncho, setNuevoAncho]             = useState('');
 
   // Edición inline precio base
   const [editandoPrecio, setEditandoPrecio] = useState(null); // { id, value }
@@ -116,6 +121,15 @@ export default function TablaTarifas() {
     finally { setGuardandoVenta(false); setEditandoVenta(null); }
   };
 
+  const agregarAncho = () => {
+    const v = parseInt(nuevoAncho, 10);
+    if (!v || v <= 0 || v > 5000) return;
+    if (!anchosML.includes(v)) setAnchosML(prev => [...prev, v].sort((a, b) => a - b));
+    setNuevoAncho('');
+  };
+
+  const eliminarAncho = (ancho) => setAnchosML(prev => prev.filter(a => a !== ancho));
+
   const handleExportPDF = () => {
     if (filteredTarifas.length === 0) {
       toastError('No hay tarifas para exportar.');
@@ -123,36 +137,38 @@ export default function TablaTarifas() {
     }
     const doc = new jsPDF({ orientation: 'landscape' });
     const fecha = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const fmt2 = (v) => v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    doc.setFontSize(15);
+    // ── Tabla 1: precios por m² ───────────────────────────────────
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("Tabla de Tarifas de Materiales (por m²)", 14, 16);
+    doc.text("Tarifas de Materiales — Precio por m²", 14, 16);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text(`Filtro: ${selectedMaterial}   ·   Impreso el ${fecha}`, 14, 23);
 
-    const ventaCols = margenesVenta.map(m => `${m.descripcion} (€/m²)`);
-    const tableColumn = ["Material", "Lonas", "Acabado", "Espesor (mm)", "Precio Base (€/m²)", ...ventaCols, "Peso (kg/m²)"];
-    const tableRows = filteredTarifas.map(row => {
+    const ventaCols = margenesVenta.map(m => `${m.descripcion}\n(€/m²)`);
+    const colsM2 = ["Material", "Lonas", "Acabado", "Espesor\n(mm)", "Precio base\n(€/m²)", ...ventaCols, "Peso\n(kg/m²)"];
+    const rowsM2 = filteredTarifas.map(row => {
       const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
       const ventaVals = margenesVenta.map(m => {
         const v = preciosMap[m.base] ?? (row.precio * m.multiplicador);
-        return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        return fmt2(v) + ' €';
       });
       return [
         row.material,
         row.lonas != null ? String(row.lonas) : '—',
         row.acabado || '—',
-        row.espesor.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-        row.precio.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €',
+        fmt2(row.espesor),
+        fmt2(row.precio) + ' €',
         ...ventaVals,
-        row.peso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kg',
+        fmt2(row.peso) + ' kg',
       ];
     });
 
     autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
+      head: [colsM2],
+      body: rowsM2,
       startY: 28,
       theme: 'grid',
       styles: { fontSize: 9, cellPadding: 3 },
@@ -160,6 +176,63 @@ export default function TablaTarifas() {
       alternateRowStyles: { fillColor: [245, 245, 245] },
       margin: { left: 14, right: 14 },
     });
+
+    // ── Tabla 2: precios por metro lineal a anchos configurados ───
+    if (anchosML.length > 0) {
+      const y2 = doc.lastAutoTable.finalY + 12;
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Conversión a Metro Lineal — precio × (ancho / 1000)", 14, y2);
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.text("Fórmula: Precio ML = Precio m² × (ancho mm ÷ 1000)", 14, y2 + 6);
+
+      // Cabeceras: Material | Lonas | Esp | [Tier @ Xmm] ...
+      const colsML = [
+        "Material", "Lonas", "Espesor\n(mm)",
+        ...anchosML.flatMap(ancho =>
+          margenesVenta.map(m => `${m.descripcion}\n@${ancho}mm (€/ml)`)
+        ),
+      ];
+      const rowsML = filteredTarifas.map(row => {
+        const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
+        const mlCols = anchosML.flatMap(ancho =>
+          margenesVenta.map(m => {
+            const pm2 = preciosMap[m.base] ?? (row.precio * m.multiplicador);
+            const ml  = pm2 * (ancho / 1000);
+            return fmt2(ml) + ' €';
+          })
+        );
+        return [
+          row.material,
+          row.lonas != null ? String(row.lonas) : '—',
+          fmt2(row.espesor),
+          ...mlCols,
+        ];
+      });
+
+      // Colorear columnas por ancho alternando gris claro / blanco
+      const nTiers = margenesVenta.length;
+      const columnStyles = {};
+      anchosML.forEach((_, ai) => {
+        const bg = ai % 2 === 0 ? [235, 240, 255] : [255, 255, 255];
+        for (let t = 0; t < nTiers; t++) {
+          columnStyles[3 + ai * nTiers + t] = { fillColor: bg };
+        }
+      });
+
+      autoTable(doc, {
+        head: [colsML],
+        body: rowsML,
+        startY: y2 + 10,
+        theme: 'grid',
+        styles: { fontSize: 8.5, cellPadding: 3 },
+        headStyles: { fillColor: [28, 60, 120], textColor: 255, fontStyle: 'bold' },
+        columnStyles,
+        margin: { left: 14, right: 14 },
+      });
+    }
 
     const fileName = selectedMaterial === 'Todos'
       ? `tarifas-m2-${new Date().toISOString().slice(0, 10)}.pdf`
@@ -348,6 +421,96 @@ export default function TablaTarifas() {
         <p className="text-xs text-base-content/40 mt-2">
           Los precios en <span className="text-primary font-bold">azul negrita</span> están fijados manualmente. El resto se calculan automáticamente (precio base × multiplicador de margen). Clic en cualquier precio para editarlo.
         </p>
+      </div>
+
+      {/* ── Conversión a metro lineal ───────────────────────── */}
+      <div className="card-body pt-0 border-t border-base-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="font-bold flex items-center gap-2 text-base">
+              <Ruler className="w-4 h-4 text-primary" /> Conversión a Metro Lineal
+            </h3>
+            <p className="text-xs text-base-content/50 mt-0.5">
+              Precio ML = Precio m² × (ancho mm ÷ 1000) — se incluye en el PDF impreso
+            </p>
+          </div>
+          {/* Añadir ancho */}
+          <div className="flex gap-2 items-center">
+            <input
+              type="number"
+              className="input input-bordered input-sm w-28"
+              placeholder="Ancho mm"
+              value={nuevoAncho}
+              min="1" max="5000" step="1"
+              onChange={e => setNuevoAncho(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && agregarAncho()}
+            />
+            <button className="btn btn-sm btn-primary gap-1" onClick={agregarAncho} disabled={!nuevoAncho}>
+              <Plus className="w-3 h-3" /> Añadir ancho
+            </button>
+          </div>
+        </div>
+
+        {/* Chips de anchos configurados */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {anchosML.map(ancho => (
+            <span key={ancho} className="badge badge-outline gap-1 pr-1">
+              {ancho} mm
+              <button className="hover:text-error ml-1" onClick={() => eliminarAncho(ancho)}>
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          {anchosML.length === 0 && (
+            <span className="text-xs text-base-content/30">Añade al menos un ancho para ver la tabla</span>
+          )}
+        </div>
+
+        {/* Tabla de previsualización */}
+        {anchosML.length > 0 && filteredTarifas.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="table table-sm table-zebra w-full">
+              <thead>
+                <tr className="text-xs uppercase text-base-content/50">
+                  <th>Material</th>
+                  <th>Lonas</th>
+                  <th>Espesor</th>
+                  {anchosML.flatMap(ancho =>
+                    margenesVenta.map(m => (
+                      <th key={`${ancho}-${m.base}`} className="text-right whitespace-nowrap">
+                        <span className="block font-semibold text-primary">{m.descripcion}</span>
+                        <span className="block text-base-content/40 font-normal">@ {ancho} mm (€/ml)</span>
+                      </th>
+                    ))
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTarifas.map(row => {
+                  const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
+                  return (
+                    <tr key={row.id} className="hover">
+                      <td className="font-bold">{row.material}</td>
+                      <td className="text-center">{row.lonas ?? '—'}</td>
+                      <td className="text-center font-mono">{row.espesor} mm</td>
+                      {anchosML.flatMap((ancho, ai) =>
+                        margenesVenta.map(m => {
+                          const pm2 = preciosMap[m.base] ?? (row.precio * m.multiplicador);
+                          const ml  = pm2 * (ancho / 1000);
+                          return (
+                            <td key={`${ancho}-${m.base}`} className={`text-right font-mono font-semibold${ai % 2 === 0 ? ' bg-primary/5' : ''}`}>
+                              {ml.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                            </td>
+                          );
+                        })
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
