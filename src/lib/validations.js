@@ -200,8 +200,8 @@ export const productoSchema = z.object({
     fabricanteId: z.string().uuid().optional().nullable(),
     materialId: z.string().uuid().optional().nullable(),
     subfamiliaId: z.string().optional().nullable(),
-    tipo: z.enum(['BANDA', 'CORDON', 'BORDE_ONDULADO', 'ACCESORIO']).optional().default('BANDA'),
-    unidad: z.enum(['M2', 'M', 'ML', 'UDS', 'KG']).optional().default('M2'),
+    tipo: z.enum(['BANDA', 'CORDON', 'BORDE_ONDULADO', 'ACCESORIO', 'GRAPA']).optional().default('BANDA'),
+    unidad: z.enum(['M2', 'M', 'ML', 'UDS', 'KG', 'PAR']).optional().default('M2'),
     activo: z.boolean().optional().default(true),
     descripcion: z.string().max(1000).optional().nullable(),
 });
