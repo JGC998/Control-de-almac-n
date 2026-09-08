@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
+import Link from 'next/link';
 import { Layers, PlusCircle, Edit2, Trash2, Check, X, AlertTriangle, Package, Tag } from 'lucide-react';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { toastError } from '@/lib/toast';
@@ -56,7 +57,9 @@ function FilaMaterial({ mat, onDelete }) {
             {error && <span className="text-error text-xs">{error}</span>}
           </div>
         ) : (
-          <span className="font-medium">{mat.nombre}</span>
+          <Link href={`/gestion/catalogos/materiales/${mat.id}`} className="link link-primary font-semibold">
+            {mat.nombre}
+          </Link>
         )}
       </td>
       <td>
@@ -74,6 +77,9 @@ function FilaMaterial({ mat, onDelete }) {
       <td><EstadoBadge numProductos={mat.numProductos} numTarifas={mat.numTarifas} /></td>
       <td>
         <div className="flex gap-1">
+          <Link href={`/gestion/catalogos/materiales/${mat.id}`} className="btn btn-xs btn-ghost">
+            Ver →
+          </Link>
           <button className="btn btn-xs btn-ghost btn-square" onClick={() => setEditando(true)} title="Renombrar">
             <Edit2 className="w-3.5 h-3.5" />
           </button>

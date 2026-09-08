@@ -1,10 +1,45 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
 import { logDelete, logUpdate } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
+
+export async function GET(request, { params }) {
+  try {
+    const { id } = await params;
+    const mat = await db.material.findUnique({
+      where: { id },
+      include: {
+        productos: {
+          select: {
+            id: true,
+            nombre: true,
+            referenciaFabricante: true,
+            tipo: true,
+            espesor: true,
+            ancho: true,
+            largo: true,
+            precioUnitario: true,
+            pesoUnitario: true,
+            color: true,
+            activo: true,
+            unidad: true,
+            fabricante: { select: { nombre: true } },
+            subfamilia: { select: { nombre: true, familia: { select: { nombre: true } } } },
+          },
+          orderBy: { nombre: 'asc' },
+        },
+      },
+    });
+    if (!mat) return NextResponse.json({ message: 'Material no encontrado' }, { status: 404 });
+    return NextResponse.json(mat);
+  } catch (error) {
+    return handlePrismaError(error, {});
+  }
+}
 
 const materialUpdateSchema = z.object({
   nombre: z.string().min(1, 'Nombre requerido').max(200),
