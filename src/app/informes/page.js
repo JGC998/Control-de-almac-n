@@ -8,7 +8,7 @@ import {
 import {
   BarChart2, Users, Package, Download, TrendingUp,
   TrendingDown, Clock, ShoppingCart, FileText, AlertCircle, Printer,
-  DollarSign, Package2, AlertTriangle,
+  DollarSign, Package2, AlertTriangle, Layers, Activity,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
@@ -981,6 +981,389 @@ function MargenReal() {
   );
 }
 
+// ── Previsión de Ventas ──────────────────────────────────────────────────────
+const MESES_LABEL = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function calcRegresionLineal(puntos) {
+  const n = puntos.length;
+  if (n < 2) return { slope: 0, intercept: puntos[0]?.y ?? 0 };
+  const sumX  = puntos.reduce((s, _, i) => s + i, 0);
+  const sumY  = puntos.reduce((s, p) => s + p.y, 0);
+  const sumXY = puntos.reduce((s, p, i) => s + i * p.y, 0);
+  const sumX2 = puntos.reduce((s, _, i) => s + i * i, 0);
+  const denom = n * sumX2 - sumX * sumX;
+  const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+  const intercept = (sumY - slope * sumX) / n;
+  return { slope, intercept };
+}
+
+function PrevisionVentas() {
+  const hoy        = new Date();
+  const añoActual  = hoy.getFullYear();
+  const mesActual  = hoy.getMonth(); // 0-based
+
+  const { data: respActual,   isLoading: loadA } = useSWR(`/api/informes?tipo=ventas-mensuales&año=${añoActual}`);
+  const { data: respAnterior, isLoading: loadB } = useSWR(`/api/informes?tipo=ventas-mensuales&año=${añoActual - 1}`);
+
+  const isLoading = loadA || loadB;
+
+  const { chartData, kpis } = useMemo(() => {
+    if (!respActual?.data) return { chartData: [], kpis: null };
+
+    const dataAnt = respAnterior?.data ?? [];
+    const dataAct = respActual.data;
+
+    // Build ordered series: last 12 completed months
+    const completed = [];
+    // Months from previous year that fall in the last 12
+    const startMesAnt = mesActual + 1; // 1-based, first month to include from prev year
+    for (let m = startMesAnt; m <= 12; m++) {
+      const mes = String(m).padStart(2, '0');
+      const e   = dataAnt.find(d => d.mes === mes);
+      completed.push({ label: `${MESES_LABEL[m-1]} ${añoActual - 1}`, totalVentas: e?.totalVentas ?? 0 });
+    }
+    // All completed months from current year
+    for (let m = 1; m <= mesActual; m++) {
+      const mes = String(m).padStart(2, '0');
+      const e   = dataAct.find(d => d.mes === mes);
+      completed.push({ label: `${MESES_LABEL[m-1]} ${añoActual}`, totalVentas: e?.totalVentas ?? 0 });
+    }
+    // Current month (partial) if it has data
+    const mesCurStr = String(mesActual + 1).padStart(2, '0');
+    const mesCurEntry = dataAct.find(d => d.mes === mesCurStr);
+    if (mesCurEntry?.totalVentas > 0) {
+      completed.push({ label: `${MESES_LABEL[mesActual]} ${añoActual} *`, totalVentas: mesCurEntry.totalVentas, parcial: true });
+    }
+
+    // Use non-partial months for regression
+    const base = completed.filter(p => !p.parcial && p.totalVentas > 0);
+    const puntos = base.map((p, i) => ({ y: p.totalVentas, i }));
+    const { slope, intercept } = calcRegresionLineal(puntos);
+    const n = base.length;
+
+    // Project 3 months forward
+    const proyeccion = [];
+    for (let k = 1; k <= 3; k++) {
+      const mesIdx = (mesActual + k) % 12;
+      const añoProj = mesActual + k > 11 ? añoActual + 1 : añoActual;
+      const valor   = Math.max(0, Math.round((slope * (n + k - 1) + intercept) * 100) / 100);
+      proyeccion.push({ label: `${MESES_LABEL[mesIdx]} ${añoProj}`, proyeccion: valor });
+    }
+
+    // Build chart data: historical + bridge + projection
+    const lastReal = completed[completed.length - 1];
+    const chartHist = completed.map((p, i) => ({
+      label: p.label,
+      ventas: p.totalVentas,
+      proyeccion: i === completed.length - 1 ? p.totalVentas : undefined, // bridge
+      parcial: p.parcial,
+    }));
+    const chartProj = proyeccion.map(p => ({ label: p.label, ventas: undefined, proyeccion: p.proyeccion }));
+    const chartDataFull = [...chartHist, ...chartProj];
+
+    // KPIs
+    const totalProyectado = proyeccion.reduce((s, p) => s + p.proyeccion, 0);
+    const tendenciaPct    = base.length >= 2 && base[0].totalVentas > 0
+      ? ((base[base.length - 1].totalVentas - base[0].totalVentas) / base[0].totalVentas) * 100
+      : 0;
+    const mejorMes = completed.reduce((m, p) => (!p.parcial && p.totalVentas > (m?.totalVentas ?? 0)) ? p : m, null);
+
+    return {
+      chartData: chartDataFull,
+      kpis: { totalProyectado, tendenciaPct, mejorMes, slopeMsg: slope >= 0 ? 'Tendencia alcista' : 'Tendencia a la baja' },
+    };
+  }, [respActual, respAnterior, añoActual, mesActual]);
+
+  if (isLoading) return <div className="flex justify-center py-20"><span className="loading loading-dots loading-lg" /></div>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold">Previsión de Ventas</h2>
+        <span className="text-xs text-base-content/40">Últimos 12 meses + proyección 3 meses · regresión lineal</span>
+      </div>
+
+      {kpis && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          <div className="stat bg-base-200 rounded-xl p-3">
+            <div className="stat-title text-xs">Próximos 3 meses (est.)</div>
+            <div className="stat-value text-base text-primary">{formatCurrency(kpis.totalProyectado)}</div>
+          </div>
+          <div className={`stat rounded-xl p-3 ${kpis.tendenciaPct >= 0 ? 'bg-success/10' : 'bg-error/10'}`}>
+            <div className="stat-title text-xs">Tendencia (12 m)</div>
+            <div className={`stat-value text-base flex items-center gap-1 ${kpis.tendenciaPct >= 0 ? 'text-success' : 'text-error'}`}>
+              {kpis.tendenciaPct >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+              {kpis.tendenciaPct > 0 ? '+' : ''}{kpis.tendenciaPct.toFixed(1)}%
+            </div>
+            <div className="stat-desc">{kpis.slopeMsg}</div>
+          </div>
+          {kpis.mejorMes && (
+            <div className="stat bg-base-200 rounded-xl p-3">
+              <div className="stat-title text-xs">Mejor mes reciente</div>
+              <div className="stat-value text-base">{formatCurrency(kpis.mejorMes.totalVentas)}</div>
+              <div className="stat-desc">{kpis.mejorMes.label}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="h-72 w-full mb-4">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={1} angle={-25} textAnchor="end" height={40} />
+            <YAxis tickFormatter={v => `${(v / 1000).toLocaleString('es-ES', { maximumFractionDigits: 0 })}k€`} tick={{ fontSize: 12 }} />
+            <Tooltip
+              formatter={(v, name) => [formatCurrency(v), name === 'ventas' ? 'Real' : 'Proyección']}
+            />
+            <Legend formatter={v => v === 'ventas' ? 'Ventas reales' : 'Proyección'} />
+            <Line
+              type="monotone"
+              dataKey="ventas"
+              stroke="#570DF8"
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              connectNulls={false}
+              activeDot={{ r: 5 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="proyeccion"
+              stroke="#570DF8"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              strokeOpacity={0.5}
+              dot={{ r: 3 }}
+              connectNulls={false}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <p className="text-xs text-base-content/40 text-center">
+        * Mes actual con datos parciales · La proyección es indicativa (modelo de tendencia lineal simple)
+      </p>
+    </div>
+  );
+}
+
+// ── Ventas por Material ──────────────────────────────────────────────────────
+const MAT_COLORS = {
+  PVC: '#570DF8', GOMA: '#36D399', EPDM: '#3ABFF8',
+  FIELTRO: '#FBBD23', PU: '#F87272',
+};
+const matColor = (m) => MAT_COLORS[m] || '#9CA3AF';
+
+function VentasPorMaterial() {
+  const añoActual = new Date().getFullYear();
+  const [año, setAño] = useState(añoActual);
+  const [comparar, setComparar] = useState(false);
+  const [modo, setModo] = useState('m2');
+
+  const { data: resp, error, isLoading } = useSWR(
+    `/api/informes?tipo=ventas-por-material&año=${año}&comparar=${comparar}`
+  );
+
+  const años = Array.from({ length: 5 }, (_, i) => añoActual - i);
+  const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  const { chartData, materiales, totales, totalesAnterior } = useMemo(() => {
+    if (!resp?.data) return { chartData: [], materiales: [], totales: [], totalesAnterior: [] };
+
+    const data = resp.data;
+    const dataAnt = resp.dataAnterior ?? [];
+    const mats = [...new Set([...data, ...dataAnt].map(d => d.material))].sort();
+
+    const buildRows = (arr) => Array.from({ length: 12 }, (_, i) => {
+      const mes = String(i + 1).padStart(2, '0');
+      const row = { mes, mesLabel: MESES[i] };
+      for (const mat of mats) {
+        const e = arr.find(d => d.mes === mes && d.material === mat);
+        row[`${mat}_m2`] = e?.area_m2 ?? 0;
+        row[`${mat}_eur`] = e?.importe ?? 0;
+      }
+      return row;
+    }).filter(r => mats.some(m => r[`${m}_m2`] > 0));
+
+    const rows = buildRows(data);
+    const rowsAnt = comparar ? buildRows(dataAnt) : [];
+
+    const merged = rows.map(r => {
+      const ant = rowsAnt.find(a => a.mes === r.mes) ?? {};
+      const extra = {};
+      for (const mat of mats) {
+        extra[`${mat}_m2_ant`] = ant[`${mat}_m2`] ?? 0;
+        extra[`${mat}_eur_ant`] = ant[`${mat}_eur`] ?? 0;
+      }
+      return { ...r, ...extra };
+    });
+
+    const sumMat = (arr, mat, field) =>
+      parseFloat(arr.filter(d => d.material === mat).reduce((s, d) => s + d[field], 0).toFixed(2));
+
+    const totales = mats.map(mat => ({
+      material: mat,
+      total_m2: sumMat(data, mat, 'area_m2'),
+      total_importe: sumMat(data, mat, 'importe'),
+    }));
+
+    const totalesAnterior = comparar
+      ? mats.map(mat => ({
+          material: mat,
+          total_m2: sumMat(dataAnt, mat, 'area_m2'),
+          total_importe: sumMat(dataAnt, mat, 'importe'),
+        }))
+      : [];
+
+    return { chartData: merged, materiales: mats, totales, totalesAnterior };
+  }, [resp, comparar]);
+
+  const fmtM2 = (v) => `${(v ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m²`;
+  const suffix = modo === 'm2' ? '_m2' : '_eur';
+  const ytickFmt = modo === 'm2'
+    ? (v) => `${v.toLocaleString('es-ES', { maximumFractionDigits: 0 })} m²`
+    : (v) => `${(v / 1000).toLocaleString('es-ES', { maximumFractionDigits: 1 })}k€`;
+  const tooltipFmt = modo === 'm2' ? (v) => fmtM2(v) : (v) => formatCurrency(v);
+
+  const csvData = chartData.map(r => {
+    const row = { Mes: r.mesLabel };
+    for (const mat of materiales) {
+      row[`${mat} m2`] = r[`${mat}_m2`];
+      row[`${mat} EUR`] = r[`${mat}_eur`];
+    }
+    return row;
+  });
+
+  if (isLoading) return <div className="flex justify-center py-20"><span className="loading loading-dots loading-lg" /></div>;
+  if (error) return <div role="alert" className="alert alert-error"><AlertCircle className="w-4 h-4" /><span>Error al cargar ventas por material</span></div>;
+
+  return (
+    <div>
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+        <h2 className="text-lg font-bold">Ventas por Material</h2>
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="join">
+            <button className={`btn btn-sm join-item ${modo === 'm2' ? 'btn-primary' : 'btn-ghost border border-base-300'}`} onClick={() => setModo('m2')}>m²</button>
+            <button className={`btn btn-sm join-item ${modo === 'eur' ? 'btn-primary' : 'btn-ghost border border-base-300'}`} onClick={() => setModo('eur')}>€</button>
+          </div>
+          <select className="select select-bordered select-sm" value={año} onChange={e => setAño(parseInt(e.target.value, 10))}>
+            {años.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <label className="flex items-center gap-1 text-sm cursor-pointer">
+            <input type="checkbox" className="checkbox checkbox-sm" checked={comparar} onChange={e => setComparar(e.target.checked)} />
+            Comparar con {año - 1}
+          </label>
+          <button className="btn btn-sm btn-outline" onClick={() => exportCSV(csvData, `ventas-material-${año}.csv`)} disabled={!chartData.length}>
+            <Download className="w-4 h-4" /> CSV
+          </button>
+        </div>
+      </div>
+
+      {totales.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          {totales.map(t => {
+            const ant = totalesAnterior.find(a => a.material === t.material);
+            return (
+              <div key={t.material} className="stat bg-base-200 rounded-xl p-3">
+                <div className="stat-title text-xs flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: matColor(t.material) }} />
+                  {t.material}
+                </div>
+                <div className="stat-value text-base font-mono">{fmtM2(t.total_m2)}</div>
+                <div className="stat-desc">{formatCurrency(t.total_importe)}</div>
+                {ant && <div className="stat-desc text-base-content/40">{año - 1}: {fmtM2(ant.total_m2)}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="h-72 w-full mb-6">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="mesLabel" tick={{ fontSize: 12 }} />
+            <YAxis tickFormatter={ytickFmt} tick={{ fontSize: 12 }} />
+            <Tooltip formatter={tooltipFmt} />
+            <Legend />
+            {materiales.map(mat => (
+              <Bar key={mat} dataKey={`${mat}${suffix}`} name={mat} fill={matColor(mat)} stackId="a" />
+            ))}
+            {comparar && materiales.map(mat => (
+              <Bar key={`${mat}_ant`} dataKey={`${mat}${suffix}_ant`} name={`${mat} ${año - 1}`} fill={matColor(mat)} stackId="b" fillOpacity={0.35} />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {chartData.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="table table-sm w-full">
+            <thead>
+              <tr>
+                <th>Mes</th>
+                {materiales.map(mat => (
+                  <React.Fragment key={mat}>
+                    <th className="text-right" style={{ color: matColor(mat) }}>{mat} m²</th>
+                    <th className="text-right" style={{ color: matColor(mat) }}>{mat} €</th>
+                  </React.Fragment>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {chartData.map(r => (
+                <tr key={r.mes} className="hover">
+                  <td className="font-mono">{r.mesLabel}</td>
+                  {materiales.map(mat => (
+                    <React.Fragment key={mat}>
+                      <td className="text-right font-mono text-sm">{r[`${mat}_m2`] > 0 ? fmtM2(r[`${mat}_m2`]) : '—'}</td>
+                      <td className="text-right text-sm">{r[`${mat}_eur`] > 0 ? formatCurrency(r[`${mat}_eur`]) : '—'}</td>
+                    </React.Fragment>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="font-bold border-t-2">
+                <td>TOTAL {año}</td>
+                {materiales.map(mat => {
+                  const t = totales.find(x => x.material === mat);
+                  return (
+                    <React.Fragment key={mat}>
+                      <td className="text-right font-mono">{t ? fmtM2(t.total_m2) : '—'}</td>
+                      <td className="text-right">{t ? formatCurrency(t.total_importe) : '—'}</td>
+                    </React.Fragment>
+                  );
+                })}
+              </tr>
+              {comparar && totalesAnterior.length > 0 && (
+                <tr className="text-base-content/40 border-t">
+                  <td>TOTAL {año - 1}</td>
+                  {materiales.map(mat => {
+                    const t = totalesAnterior.find(x => x.material === mat);
+                    return (
+                      <React.Fragment key={mat}>
+                        <td className="text-right font-mono">{t ? fmtM2(t.total_m2) : '—'}</td>
+                        <td className="text-right">{t ? formatCurrency(t.total_importe) : '—'}</td>
+                      </React.Fragment>
+                    );
+                  })}
+                </tr>
+              )}
+            </tfoot>
+          </table>
+        </div>
+      ) : (
+        <p className="text-center text-base-content/40 py-8">
+          No hay datos para {año}.<br />
+          <span className="text-xs">Solo se contabilizan ítems con información técnica (banda PVC o metraje caucho).</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Página ───────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'mensuales',    label: 'Ventas por Mes',    icon: BarChart2,    component: VentasMensuales },
@@ -992,6 +1375,8 @@ const TABS = [
   { id: 'rentabilidad',label: 'Rentabilidad',       icon: TrendingUp,   component: RentabilidadClientes },
   { id: 'precios-imp', label: 'Precios Importación',icon: Package2,     component: HistoricoPrecios },
   { id: 'margen-real', label: 'Margen Real',        icon: AlertTriangle,component: MargenReal },
+  { id: 'material',   label: 'Por Material',        icon: Layers,       component: VentasPorMaterial },
+  { id: 'prevision',  label: 'Previsión',           icon: Activity,     component: PrevisionVentas },
 ];
 
 export default function InformesPage() {

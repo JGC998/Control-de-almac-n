@@ -45,6 +45,7 @@ Intenciones posibles:
 - calcular_banda: precio de banda (ancho+largo en mm, con confección SF/GR/AB)
 - calcular_pieza: precio pieza plana sin confección (faldeta, lámina, chapa, corte, caucho)
 - calcular_metraje: precio de tira por metros lineales (anchoTira mm + metros)
+- calcular_tiras_caucho: precio de N tiras de caucho/goma/EPDM (ancho×largo mm, cantidad unidades)
 - tarifa_material: precio por m² de un material
 - stock: consultar disponibilidad de stock
 - stock_minimo: materiales bajo mínimo / alertas
@@ -209,6 +210,7 @@ function detectarIntencionRegex(s, ent) {
   const esBandaKW = /\b(banda|transportadora)\b/.test(s);
 
   if (metrosLin && (material || espesor != null)) return 'calcular_metraje';
+  if (/\b\d+\s*tiras?\b/.test(s) && dims && (material || espesor != null)) return 'calcular_tiras_caucho';
   if (dims && esPieza) return 'calcular_pieza';
   if (dims && (conf || esBandaKW || material || espesor != null || color)) return 'calcular_banda';
   if (dims) return 'calcular_banda';
@@ -395,6 +397,45 @@ async function calcularPieza(ent) {
   };
 }
 
+async function calcularTirasCaucho(ent) {
+  const { material, espesor, color, dims, unidades } = ent;
+
+  if (!dims) {
+    return { texto: 'Ejemplo: "20 tiras de GOMA 10mm 300×2000"', tipo: 'ayuda', datos: null };
+  }
+
+  const qty = Math.max(1, Math.round(unidades ?? 1));
+  const anchoTira = dims.ancho;
+  const tiraLargo = dims.largo;
+  const area_m2  = (anchoTira / 1000) * (tiraLargo / 1000) * qty;
+
+  const tarifa = await buscarTarifa(material, espesor, color);
+  const precio_m2   = tarifa?.precio ?? null;
+  const precio_total = precio_m2 != null ? Math.round(area_m2 * precio_m2 * 100) / 100 : null;
+  const peso_total   = tarifa ? area_m2 * (tarifa.peso || 0) : null;
+  const iva          = ent.iva ?? 0.21;
+  const precio_con_iva = precio_total != null ? Math.round(precio_total * (1 + iva) * 100) / 100 : null;
+
+  return {
+    texto: `${qty} tira${qty !== 1 ? 's' : ''} ${anchoTira}×${tiraLargo} mm · ${tarifa?.material ?? material ?? '?'}${tarifa?.espesor != null ? ' ' + tarifa.espesor + 'mm' : ''}`,
+    tipo: 'metraje',
+    datos: {
+      anchoTira,
+      metros: parseFloat(((tiraLargo / 1000) * qty).toFixed(3)),
+      area_m2,
+      material: tarifa?.material ?? material,
+      espesor: tarifa?.espesor ?? espesor,
+      color: tarifa?.color ?? color,
+      precio_m2,
+      precio_total,
+      precio_con_iva,
+      iva,
+      peso_m2: tarifa?.peso ?? null,
+      peso_total,
+    },
+  };
+}
+
 async function calcularMetraje(ent) {
   const { material, espesor, color, metros, anchoTira } = ent;
 
@@ -458,6 +499,14 @@ function validarEntidades(intencion, ent) {
       return { pregunta: '¿Cuál es el ancho de la tira en mm? Ej: 150 mm', campo: 'anchoTira' };
     }
   }
+  if (intencion === 'calcular_tiras_caucho') {
+    if (!ent.dims) {
+      return { pregunta: '¿Cuáles son las dimensiones de cada tira (ancho × largo en mm)? Ej: 300×2000', campo: 'dims' };
+    }
+    if (!ent.material && ent.espesor == null) {
+      return { pregunta: '¿Qué material y espesor? Ej: GOMA 10mm, EPDM 6mm', campo: 'material' };
+    }
+  }
   return null;
 }
 
@@ -492,9 +541,10 @@ async function procesarConsulta(s, ent, contexto, intencionOverride) {
 
   const unidades = ent.unidades ?? 1;
 
-  if (intencion === 'calcular_banda')   return aplicarUnidades(await calcularBanda(ent), unidades);
-  if (intencion === 'calcular_pieza')   return aplicarUnidades(await calcularPieza(ent), unidades);
-  if (intencion === 'calcular_metraje') return calcularMetraje(ent);
+  if (intencion === 'calcular_banda')         return aplicarUnidades(await calcularBanda(ent), unidades);
+  if (intencion === 'calcular_pieza')         return aplicarUnidades(await calcularPieza(ent), unidades);
+  if (intencion === 'calcular_metraje')       return calcularMetraje(ent);
+  if (intencion === 'calcular_tiras_caucho')  return calcularTirasCaucho(ent);
 
   if (intencion === 'tarifa_material') {
     const where = {};
@@ -653,8 +703,9 @@ async function procesarConsulta(s, ent, contexto, intencionOverride) {
       datos: [
         '600x4800 sin fin pvc 3mm blanco  →  banda (mat. + vulcanizado)',
         '4 bandas 800x6900 grapa pvc 2mm  →  precio × cantidad',
-        'faldeta 300x500 epdm 6mm         →  pieza (solo material)',
+        'faldeta 300x500 epdm 6mm         →  pieza plana (solo material)',
         '50 metros pvc 3mm 150mm ancho    →  metraje lineal',
+        '20 tiras goma 10mm 300x2000      →  tiras de caucho',
         'tarifa pvc 6mm blanco            →  precios por m²',
         'stock pvc 3mm  /  stock bajo mínimo',
         'pedidos hoy  /  pedidos pendientes  /  pedido 227',

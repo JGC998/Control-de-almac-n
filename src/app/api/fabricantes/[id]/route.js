@@ -5,6 +5,39 @@ import { fabricanteSchema, validateData } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
+export async function GET(request, { params }) {
+  try {
+    const { id } = await params;
+    const fab = await db.fabricante.findUnique({
+      where: { id },
+      include: {
+        productos: {
+          select: {
+            id: true,
+            nombre: true,
+            referenciaFabricante: true,
+            tipo: true,
+            espesor: true,
+            ancho: true,
+            largo: true,
+            precioUnitario: true,
+            pesoUnitario: true,
+            color: true,
+            activo: true,
+            unidad: true,
+            material: { select: { nombre: true } },
+          },
+          orderBy: { nombre: 'asc' },
+        },
+      },
+    });
+    if (!fab) return NextResponse.json({ message: 'Fabricante no encontrado' }, { status: 404 });
+    return NextResponse.json(fab);
+  } catch (error) {
+    return handlePrismaError(error, {});
+  }
+}
+
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;

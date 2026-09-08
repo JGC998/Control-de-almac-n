@@ -24,6 +24,10 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
   const gastoFijoUnitario = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
 
   const subtotalCostoBase = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+  const pesoTotalPedido = items.reduce((acc, item) => {
+    const pw = item.pesoUnitario || item.producto?.pesoUnitario || 0;
+    return acc + (pw * item.quantity);
+  }, 0);
 
   // Totales de venta siempre calculados (order.subtotal almacena coste base, no precio venta)
   const subtotalVenta = (subtotalCostoBase * multiplicador) + gastoFijoTotal;
@@ -118,6 +122,16 @@ const PedidoTotalsAndItems = ({ order, margenes, config }) => {
           <span>TOTAL</span>
           <span>{totalVentaFinal.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
         </div>
+
+        {pesoTotalPedido > 0 && (
+          <>
+            <div className="divider my-1"></div>
+            <div className="flex justify-between text-sm opacity-60">
+              <span>Peso total aprox.</span>
+              <span className="font-mono">{pesoTotalPedido.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

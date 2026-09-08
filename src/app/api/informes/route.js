@@ -485,6 +485,78 @@ export async function GET(request) {
       });
     }
 
+    // ── Ventas por material (m² y €) ───────────────────────────────────────
+    if (tipo === 'ventas-por-material') {
+      const currentYear = new Date().getFullYear();
+      const año = Math.max(2000, Math.min(currentYear, parseInt(searchParams.get('año') || String(currentYear), 10)));
+      const comparar = searchParams.get('comparar') === 'true';
+
+      const ivaConfigMat = await db.config.findUnique({ where: { key: 'iva_rate' } });
+      const rawIvaMat = ivaConfigMat?.value ? parseFloat(String(ivaConfigMat.value)) : 0.21;
+      const IVA_MAT = rawIvaMat > 1 ? rawIvaMat / 100 : rawIvaMat;
+
+      const fetchYearMaterial = async (y) => {
+        const inicio = new Date(`${y}-01-01T00:00:00.000Z`);
+        const fin = new Date(`${y + 1}-01-01T00:00:00.000Z`);
+
+        const pedidos = await db.pedido.findMany({
+          where: { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: inicio, lt: fin } },
+          select: {
+            fechaCreacion: true,
+            total: true,
+            items: { select: { quantity: true, unitPrice: true, detallesTecnicos: true } },
+          },
+          take: 5000,
+        });
+
+        const byMatMes = {};
+
+        for (const pedido of pedidos) {
+          const mes = String(new Date(pedido.fechaCreacion).getMonth() + 1).padStart(2, '0');
+          const totalSinIVA = Number(pedido.total ?? 0) / (1 + IVA_MAT);
+          const totalCostePedido = pedido.items.reduce(
+            (s, i) => s + Number(i.quantity ?? 0) * Number(i.unitPrice ?? 0), 0
+          );
+
+          for (const item of pedido.items) {
+            if (!item.detallesTecnicos) continue;
+            let det;
+            try { det = JSON.parse(item.detallesTecnicos); } catch { continue; }
+
+            const dims = det.dimensiones;
+            if (!dims?.ancho || !dims?.largo) continue;
+
+            const material = det.material || 'PVC';
+            const qty = Number(item.quantity ?? 1);
+            const area_m2 = (dims.ancho / 1000) * (dims.largo / 1000) * qty;
+            if (area_m2 <= 0) continue;
+
+            const itemCoste = Number(item.quantity ?? 0) * Number(item.unitPrice ?? 0);
+            const participacion = totalCostePedido > 0 ? itemCoste / totalCostePedido : 0;
+            const importe = totalSinIVA * participacion;
+
+            const key = `${material}|${mes}`;
+            if (!byMatMes[key]) byMatMes[key] = { material, mes, area_m2: 0, importe: 0 };
+            byMatMes[key].area_m2 += area_m2;
+            byMatMes[key].importe += importe;
+          }
+        }
+
+        return Object.values(byMatMes).map(d => ({
+          material: d.material,
+          mes: d.mes,
+          area_m2: parseFloat(d.area_m2.toFixed(3)),
+          importe: parseFloat(d.importe.toFixed(2)),
+        }));
+      };
+
+      const [actual, anterior] = comparar
+        ? await Promise.all([fetchYearMaterial(año), fetchYearMaterial(año - 1)])
+        : [await fetchYearMaterial(año), null];
+
+      return NextResponse.json({ data: actual, dataAnterior: anterior, año, añoAnterior: año - 1 });
+    }
+
     return NextResponse.json({ message: 'Tipo de informe no válido' }, { status: 400 });
   } catch (error) {
     logApiError(error);

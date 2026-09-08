@@ -30,6 +30,7 @@ export default function GestionFabricantesPage() {
       campos={camposFabricante}
       tituloNuevo="Nuevo Fabricante"
       tituloEditar="Editar Fabricante"
+      rutaDetalle="/gestion/catalogos/fabricantes"
     />
   );
 }
