@@ -133,6 +133,7 @@ export const pedidoSchema = z.object({
     tax: z.number().nonnegative('Tax no puede ser negativo').optional(),
     total: z.number().nonnegative('Total no puede ser negativo').optional(),
     marginId: z.string().uuid().optional().nullable(),
+    presupuestoId: z.string().uuid().optional().nullable(),
     notas: z.string().optional().nullable(),
     sinFacturacion: z.boolean().optional(),
     fechaEntrega: z.string().optional().nullable(),

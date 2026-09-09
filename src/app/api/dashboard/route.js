@@ -22,10 +22,10 @@ export async function GET(request) {
       db.presupuesto.count(),
       db.pedidoProveedor.count({ where: { estado: { not: 'Recibido' } } }),
       db.stock.findMany({
-        where: { metrosDisponibles: { lt: 100 } },
+        where: { stockMinimo: { gt: 0 } },
         select: { id: true, material: true, metrosDisponibles: true, espesor: true, stockMinimo: true },
         orderBy: { metrosDisponibles: 'asc' },
-        take: 10,
+        take: 50,
       }),
       db.movimientoStock.findMany({
         orderBy: { fecha: 'desc' },

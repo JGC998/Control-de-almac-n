@@ -69,7 +69,7 @@ export async function PUT(request, { params }) {
     if (
       actual !== null &&
       parsed.data.costoUnitario !== undefined &&
-      parsed.data.costoUnitario !== actual?.costoUnitario
+      Number(parsed.data.costoUnitario) !== Number(actual?.costoUnitario)
     ) {
       db.historialPrecioCosto.create({
         data: {

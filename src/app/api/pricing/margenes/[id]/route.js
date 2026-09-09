@@ -3,6 +3,7 @@ import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
 import { reglaMargenSchema, validateData } from '@/lib/validations';
+import { clearMargenesCache } from '@/lib/config-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +40,7 @@ export async function PUT(request, { params }) {
       await logUpdate('ReglaMargen', id, oldRegla, updatedData, 'Admin');
     } catch (e) { logApiError(e); }
 
+    clearMargenesCache();
     return NextResponse.json(updatedRegla);
   } catch (error) {
     return handlePrismaError(error, {
@@ -67,6 +69,7 @@ export async function DELETE(request, { params }) {
       await logDelete('ReglaMargen', id, oldRegla, 'Admin');
     } catch (e) { logApiError(e); }
 
+    clearMargenesCache();
     return NextResponse.json({ message: 'Regla de margen eliminada' }, { status: 200 });
   } catch (error) {
     return handlePrismaError(error, { notFound: 'Regla de margen no encontrada' });

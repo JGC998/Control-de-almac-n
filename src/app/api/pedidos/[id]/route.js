@@ -70,10 +70,7 @@ export async function PUT(request, { params: paramsPromise }) {
     if (!parsed.success) {
       return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
-    const { clienteId, items, notas, estado, marginId, fechaEntrega } = parsed.data;
-    const presupuestoId = body.presupuestoId !== undefined
-      ? (typeof body.presupuestoId === 'string' ? body.presupuestoId : null)
-      : undefined;
+    const { clienteId, items, notas, estado, marginId, presupuestoId, fechaEntrega } = parsed.data;
 
     // Recalcular totales en servidor con IVA desde Config
     const configIva = await db.config.findUnique({ where: { key: 'iva_rate' } });
