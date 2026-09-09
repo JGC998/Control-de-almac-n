@@ -747,7 +747,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { query, contexto, historial } = await request.json();
+    const { query, contexto, historial, intencion: intencionHint } = await request.json();
     if (!query?.trim()) {
       return NextResponse.json({ texto: 'Escribe algo para consultar.', tipo: 'ayuda', datos: null });
     }
@@ -760,39 +760,42 @@ export async function POST(request) {
     const materialesDB = tarifasDB.map(r => r.material);
     const ivaRate      = cfgIva ? parseFloat(cfgIva.value) / 100 : 0.21;
 
-    // ── INTENTO 1: Ollama entiende la consulta en lenguaje natural ──────────────
-    let intencion = null;
+    let intencion = intencionHint ?? null;
     let ent       = null;
 
-    const extracted = await extraerConOllama(query, materialesDB, historial ?? null);
+    // ── INTENTO 1: Ollama — solo si no viene intención ya resuelta desde el cliente
+    // ni estamos dentro de un flujo guiado (falta_datos) donde la intención ya está en contexto
+    if (!intencionHint && !contexto?.intencion) {
+      const extracted = await extraerConOllama(query, materialesDB, historial ?? null);
 
-    if (extracted) {
-      intencion = extracted.intencion;
-      // Limpia separadores de miles (3.900→3900, 3,900→3900) y normaliza decimal
-      const parseDim = v => {
-        if (v == null) return null;
-        const s = String(v).replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.');
-        return parseFloat(s) || null;
-      };
-      const ancho = parseDim(extracted.ancho);
-      const largo = parseDim(extracted.largo);
-      ent = {
-        material:      extracted.material      || null,
-        espesor:       extracted.espesor  != null ? parseFloat(extracted.espesor)  : null,
-        color:         extracted.color         || null,
-        conf:          extracted.conf          || null,
-        dims:          ancho && largo ? { ancho: Math.min(ancho, largo), largo: Math.max(ancho, largo) } : null,
-        unidades:      parseInt(extracted.unidades) || 1,
-        metros:        extracted.metros     != null ? parseFloat(extracted.metros)    : null,
-        anchoTira:     extracted.anchoTira  != null ? parseFloat(extracted.anchoTira) : null,
-        numero:        extracted.numero        || null,
-        clienteNombre: extracted.clienteNombre || null,
-        estado:        extracted.estado        || null,
-        estadoImport:  extracted.estadoImport  || null,
-      };
+      if (extracted) {
+        intencion = extracted.intencion;
+        // Limpia separadores de miles (3.900→3900, 3,900→3900) y normaliza decimal
+        const parseDim = v => {
+          if (v == null) return null;
+          const s = String(v).replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.');
+          return parseFloat(s) || null;
+        };
+        const ancho = parseDim(extracted.ancho);
+        const largo = parseDim(extracted.largo);
+        ent = {
+          material:      extracted.material      || null,
+          espesor:       extracted.espesor  != null ? parseFloat(extracted.espesor)  : null,
+          color:         extracted.color         || null,
+          conf:          extracted.conf          || null,
+          dims:          ancho && largo ? { ancho: Math.min(ancho, largo), largo: Math.max(ancho, largo) } : null,
+          unidades:      parseInt(extracted.unidades) || 1,
+          metros:        extracted.metros     != null ? parseFloat(extracted.metros)    : null,
+          anchoTira:     extracted.anchoTira  != null ? parseFloat(extracted.anchoTira) : null,
+          numero:        extracted.numero        || null,
+          clienteNombre: extracted.clienteNombre || null,
+          estado:        extracted.estado        || null,
+          estadoImport:  extracted.estadoImport  || null,
+        };
+      }
     }
 
-    // ── INTENTO 2: Regex fallback si Ollama no respondió ────────────────────────
+    // ── Regex — siempre como fallback o cuando la intención ya viene del cliente
     if (!ent) {
       const s = norm(query.trim());
       ent = {

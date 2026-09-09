@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
-  Send, Package, ClipboardList, AlertTriangle, ArrowRight,
+  Send, AlertTriangle, ArrowRight,
   ExternalLink, Ruler, Ship, HelpCircle, Mic, MicOff,
   FileText, Trash2, Copy, Check, Download, Calculator,
 } from 'lucide-react';
@@ -11,17 +11,10 @@ const STORAGE_KEY   = 'chat-consulta-v1';
 const MAX_HISTORIAL = 40;
 
 const CALCULOS_RAPIDOS = [
-  { label: 'Banda PVC',       query: 'calcular banda',   icon: Calculator },
-  { label: 'Metraje lineal',  query: 'calcular metraje', icon: Ruler      },
-  { label: 'Pieza / Faldeta', query: 'calcular pieza',   icon: Calculator },
-  { label: 'Tiras de caucho', query: 'calcular tiras',   icon: Ruler      },
-];
-
-const CONSULTAS_RAPIDAS = [
-  { label: 'Pedidos de hoy',     query: 'pedidos hoy',        icon: ClipboardList },
-  { label: 'Stock bajo mínimo',  query: 'stock bajo mínimo',  icon: AlertTriangle },
-  { label: 'Pedidos pendientes', query: 'pedidos pendientes',  icon: ClipboardList },
-  { label: 'Todo el stock',      query: 'stock',               icon: Package       },
+  { label: 'Banda PVC',       query: 'calcular banda',   intencion: 'calcular_banda',       icon: Calculator },
+  { label: 'Metraje lineal',  query: 'calcular metraje', intencion: 'calcular_metraje',      icon: Ruler      },
+  { label: 'Pieza / Faldeta', query: 'calcular pieza',   intencion: 'calcular_pieza',        icon: Calculator },
+  { label: 'Tiras de caucho', query: 'calcular tiras',   intencion: 'calcular_tiras_caucho', icon: Ruler      },
 ];
 
 const ESTADO_BADGE = {
@@ -560,7 +553,7 @@ function TypingDots({ fase }) {
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-const MSG_BIENVENIDA = { role: 'bot', texto: '¡Hola! Puedo calcular precios de bandas y metrajes, o consultar pedidos, stock y clientes. ¿Qué necesitas?', tipo: 'bienvenida', datos: null };
+const MSG_BIENVENIDA = { role: 'bot', texto: '¡Hola! Usa los botones de arriba para calcular precios, o escribe tu consulta directamente.', tipo: 'bienvenida', datos: null };
 
 export default function ChatConsulta() {
   const [mensajes, setMensajes] = useState([MSG_BIENVENIDA]);
@@ -610,7 +603,7 @@ export default function ChatConsulta() {
   }, [cargando]);
 
   // ── Envío de consulta ─────────────────────────────────────────────────────────
-  const enviar = useCallback(async (queryOverride) => {
+  const enviar = useCallback(async (queryOverride, intencionOverride) => {
     const texto = (queryOverride ?? input).trim();
     if (!texto || cargando) return;
     setInput('');
@@ -631,7 +624,7 @@ export default function ChatConsulta() {
       const res  = await fetch('/api/consulta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto, contexto, historial }),
+        body: JSON.stringify({ query: texto, contexto, historial, ...(intencionOverride ? { intencion: intencionOverride } : {}) }),
       });
       const data = await res.json();
       setMensajes(prev => [...prev, { role: 'bot', ...data }]);
@@ -680,74 +673,43 @@ export default function ChatConsulta() {
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
-  const hayMensajesUsuario = mensajes.some(m => m.role === 'user');
-
   return (
     <div className="flex flex-col h-full">
 
-      {/* Cabecera de herramientas */}
-      {hayMensajesUsuario && (
-        <div className="flex justify-end pb-1">
-          <button
-            onClick={limpiarHistorial}
-            className="btn btn-ghost btn-xs text-base-content/30 gap-1"
-            title="Limpiar conversación"
-          >
-            <Trash2 className="w-3 h-3" />
-            Limpiar
-          </button>
+      {/* Botones de calculadora — siempre visibles */}
+      <div className="pb-2 border-b border-base-200">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-base-content/40 mb-2 px-1">
+          📐 Calcular precio
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {CALCULOS_RAPIDOS.map(a => (
+            <button key={a.query}
+              onClick={() => enviar(a.query, a.intencion)}
+              className="flex items-center gap-2 bg-primary/5 hover:bg-primary/10 border border-primary/15 active:scale-[0.99] rounded-xl px-3 py-2.5 text-sm font-medium text-left transition-colors"
+            >
+              <a.icon className="w-4 h-4 text-primary shrink-0" />
+              {a.label}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Historial de mensajes */}
+      <div className="flex justify-end pt-1">
+        <button
+          onClick={limpiarHistorial}
+          className="btn btn-ghost btn-xs text-base-content/30 gap-1"
+          title="Limpiar conversación"
+        >
+          <Trash2 className="w-3 h-3" />
+          Limpiar
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto space-y-3 py-2">
         {mensajes.map((m, i) =>
           m.role === 'user'
             ? <BurbujaUsuario key={i} texto={m.texto} />
             : <BurbujaBot     key={i} msg={m} onAccion={enviar} />
-        )}
-
-        {/* Pantalla inicial — solo antes del primer mensaje del usuario */}
-        {!hayMensajesUsuario && !cargando && (
-          <div className="flex flex-col gap-4 pt-1">
-
-            {/* Cálculo de precios */}
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-base-content/40 mb-2 px-1">
-                📐 Calcular precio
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {CALCULOS_RAPIDOS.map(a => (
-                  <button key={a.query}
-                    onClick={() => enviar(a.query)}
-                    className="flex items-center gap-2 bg-primary/5 hover:bg-primary/10 border border-primary/15 active:scale-[0.99] rounded-xl px-3 py-3 text-sm font-medium text-left transition-colors"
-                  >
-                    <a.icon className="w-4 h-4 text-primary shrink-0" />
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Consultas rápidas */}
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-base-content/40 mb-2 px-1">
-                📋 Consultar
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {CONSULTAS_RAPIDAS.map(a => (
-                  <button key={a.query}
-                    onClick={() => enviar(a.query)}
-                    className="flex items-center gap-3 bg-base-200 hover:bg-base-300 active:scale-[0.99] rounded-xl px-4 py-3 text-sm font-medium text-left transition-colors"
-                  >
-                    <a.icon className="w-4 h-4 text-primary shrink-0" />
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-          </div>
         )}
 
         {cargando && <TypingDots fase={faseCarga} />}
