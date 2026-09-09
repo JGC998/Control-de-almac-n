@@ -2,7 +2,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { Send, Zap, History, Scissors, Tag, ArrowRight } from 'lucide-react';
+import { Send, Zap, History, Scissors, Tag, ArrowRight, AlertTriangle, ExternalLink, Ship, HelpCircle } from 'lucide-react';
+
+const ESTADO_BADGE = { Pendiente: 'badge-warning', Facturado: 'badge-success', Cancelado: 'badge-error' };
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -36,6 +38,109 @@ function parsePositive(text) {
 
 const COLOR_ABR = { AZUL: 'AZ', BLANCO: 'BL', NEGRO: 'NG', VERDE: 'VD' };
 const MATERIALES_CAUCHO = ['GOMA', 'FIELTRO', 'CARAMELO', 'PLANCHA DE GOMA'];
+
+// ─── Ollama result cards ──────────────────────────────────────────────────────
+
+function OllamaResultContent({ tipo, datos }) {
+  if (!datos) return null;
+
+  if (tipo === 'stock' && Array.isArray(datos)) return (
+    <div className="flex flex-col gap-1 mt-1.5">
+      {datos.map((s, i) => (
+        <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs ${s.alerta ? 'bg-warning/10 border border-warning/30' : 'bg-base-300/50'}`}>
+          <p className="font-semibold">{s.material}{s.espesor ? ` ${s.espesor}mm` : ''}</p>
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            {s.alerta && <AlertTriangle className="w-3 h-3 text-warning" />}
+            <span className={`font-mono font-bold ${s.alerta ? 'text-warning' : ''}`}>
+              {s.metros?.toLocaleString('es-ES', { maximumFractionDigits: 1 })} m²
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (tipo === 'pedidos' && Array.isArray(datos)) return (
+    <div className="flex flex-col gap-1 mt-1.5">
+      {datos.map((p, i) => (
+        <Link key={i} href={`/pedidos/${p.id}`}
+          className="flex items-center justify-between rounded-xl px-3 py-2 text-xs bg-base-300/50 hover:bg-base-300 transition-colors">
+          <div>
+            <p className="font-semibold">{p.numero}</p>
+            {p.cliente && <p className="text-base-content/50 truncate">{p.cliente}</p>}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            <span className={`badge badge-xs ${ESTADO_BADGE[p.estado] ?? 'badge-ghost'}`}>{p.estado}</span>
+            <ArrowRight className="w-3 h-3 text-base-content/30" />
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+
+  if (tipo === 'pedido_detalle' && datos.id) return (
+    <Link href={`/pedidos/${datos.id}`}
+      className="flex items-center justify-between rounded-xl px-3 py-2 text-xs bg-base-300/50 hover:bg-base-300 transition-colors mt-1.5">
+      <div>
+        <p className="font-semibold">{datos.numero}</p>
+        {datos.cliente && <p className="text-base-content/50">{datos.cliente}</p>}
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+        <span className={`badge badge-xs ${ESTADO_BADGE[datos.estado] ?? 'badge-ghost'}`}>{datos.estado}</span>
+        <ExternalLink className="w-3 h-3 text-base-content/30" />
+      </div>
+    </Link>
+  );
+
+  if (tipo === 'cliente' && datos.id) return (
+    <Link href={`/gestion/clientes/${datos.id}`}
+      className="flex items-center justify-between rounded-xl px-3 py-2 text-xs bg-base-300/50 hover:bg-base-300 transition-colors mt-1.5">
+      <div>
+        <p className="font-semibold">{datos.nombre}</p>
+        {datos.email && <p className="text-base-content/50">{datos.email}</p>}
+      </div>
+      <ExternalLink className="w-3 h-3 text-base-content/30 shrink-0 ml-2" />
+    </Link>
+  );
+
+  if (tipo === 'tarifa' && Array.isArray(datos)) return (
+    <div className="flex flex-col gap-1 mt-1.5">
+      {datos.map((t, i) => (
+        <div key={i} className="rounded-xl px-3 py-2 bg-base-300/50 text-xs">
+          <div className="flex justify-between items-start">
+            <p className="font-semibold">{t.material} {t.espesor}mm{t.color ? ` · ${t.color}` : ''}</p>
+            <p className="font-bold text-primary font-mono shrink-0 ml-2">{fmtEur(t.precio)}<span className="text-base-content/40 font-normal">/m²</span></p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (tipo === 'importaciones' && Array.isArray(datos)) return (
+    <div className="flex flex-col gap-1 mt-1.5">
+      {datos.map((imp, i) => (
+        <Link key={i} href={`/compras/contenedores/${imp.id}`}
+          className="rounded-xl px-3 py-2 bg-base-300/50 hover:bg-base-300 transition-colors text-xs">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-1"><Ship className="w-3 h-3 text-base-content/40" /><p className="font-semibold">{imp.descripcion || imp.numContenedor}</p></div>
+              {imp.proveedor && <p className="text-base-content/50">{imp.proveedor}</p>}
+            </div>
+            <span className="badge badge-xs badge-ghost shrink-0">{imp.estado}</span>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+
+  if (tipo === 'ayuda' && Array.isArray(datos)) return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {datos.map((e, i) => <span key={i} className="badge badge-ghost badge-sm font-mono">{e}</span>)}
+    </div>
+  );
+
+  return null;
+}
 
 // ─── BandaCard ────────────────────────────────────────────────────────────────
 
@@ -142,7 +247,7 @@ const MODO_DER = { id: 'precio_material', label: 'Precio de material', icon: Tag
 
 export default function ChatConsulta() {
   const [modo,      setModo]      = useState(null);
-  const [mensajes,  setMensajes]  = useState([]);
+  const [mensajes,  setMensajes]  = useState([{ role: 'bot', texto: '¡Hola! Escribe cualquier consulta o usa los botones de arriba para calcular precios.', tipo: 'bienvenida', datos: null, chips: null }]);
   const [paso,      setPaso]      = useState('');
   const [datos,     setDatos]     = useState({});
   const [input,     setInput]     = useState('');
@@ -596,6 +701,40 @@ export default function ChatConsulta() {
   }, [todasTarifas]);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // OLLAMA — chat libre cuando no hay modo guiado activo
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const enviarOllama = useCallback(async (query, intencionHint) => {
+    setCargando(true);
+    try {
+      const ultimoBot = [...mensajes].reverse().find(m => m.role === 'bot');
+      const contexto  = (ultimoBot?.tipo === 'falta_datos' || ultimoBot?.datos?.intencion) ? (ultimoBot?.datos ?? null) : null;
+      const historial = mensajes.slice(-8)
+        .filter(m => m.texto && m.tipo !== 'bienvenida')
+        .map(m => `${m.role === 'user' ? 'Usuario' : 'Asistente'}: ${m.texto}`)
+        .join('\n') || null;
+
+      const res  = await fetch('/api/consulta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, contexto, historial, ...(intencionHint ? { intencion: intencionHint } : {}) }),
+      });
+      const data = await res.json();
+
+      // falta_datos → sugerencias se convierten en chips
+      const chips = data.tipo === 'falta_datos' && data.datos?.sugerencias?.length > 0
+        ? data.datos.sugerencias.map(s => ({ label: s.label, valor: s.valor, _sugerencia: true }))
+        : null;
+
+      setMensajes(prev => [...prev, { role: 'bot', texto: data.texto, tipo: data.tipo, datos: data.datos, chips }]);
+    } catch {
+      setMensajes(prev => [...prev, { role: 'bot', texto: 'Error de conexión. Inténtalo de nuevo.', tipo: 'error', datos: null, chips: null }]);
+    } finally {
+      setCargando(false);
+    }
+  }, [mensajes]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DISPATCHER
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -730,9 +869,17 @@ export default function ChatConsulta() {
   const handleChip = useCallback((chip) => {
     if (!chip.valor && !chip.action) return;
     const v = chip.valor ?? chip.action;
+
+    // Sugerencia de Ollama (falta_datos) — reenviar como texto libre
+    if (chip._sugerencia) {
+      pushUser(chip.label);
+      enviarOllama(chip.valor);
+      return;
+    }
+
     if (v !== '__reiniciar' && v !== '__copiar') pushUser(chip.label);
     procesarChip(v, chip, paso, datos);
-  }, [pushUser, procesarChip, paso, datos]);
+  }, [pushUser, procesarChip, paso, datos, enviarOllama]);
 
   const handleSeleccionarCliente = useCallback((cliente) => {
     pushUser(cliente.nombre);
@@ -743,12 +890,19 @@ export default function ChatConsulta() {
 
   const handleEnviar = useCallback(() => {
     const txt = input.trim();
-    if (!txt) return;
+    if (!txt || cargando) return;
     pushUser(txt);
     setInput('');
     setInputErr('');
-    procesarTexto(txt, paso, datos);
-  }, [input, pushUser, procesarTexto, paso, datos]);
+    // Pasos guiados que necesitan texto libre
+    const PASOS_TEXTO_SET = new Set(['CB_DIMS', 'CB_TACO_PASO', 'CB_TACO_LONGITUD', 'BB_BUSCANDO_CLIENTE', 'BB_BUSCANDO_DIMS', 'CM_DIMS', 'CM_CANTIDAD']);
+    if (modo !== null && PASOS_TEXTO_SET.has(paso)) {
+      procesarTexto(txt, paso, datos);
+    } else {
+      // Chat libre o paso sin input de texto → Ollama
+      enviarOllama(txt);
+    }
+  }, [input, cargando, modo, paso, pushUser, procesarTexto, datos, enviarOllama]);
 
   const INPUT_PASOS = {
     CB_DIMS: 'Ej: 600×4500',
@@ -759,8 +913,7 @@ export default function ChatConsulta() {
     CM_DIMS: 'Ej: 500×1200',
     CM_CANTIDAD: 'Número de tiras',
   };
-  const inputActivo   = paso in INPUT_PASOS;
-  const inputPlaceholder = INPUT_PASOS[paso] ?? 'Usa los botones de arriba';
+  const inputActivo = paso in INPUT_PASOS;
 
   // Focus cuando el paso cambia y el input es necesario
   useEffect(() => {
@@ -807,71 +960,70 @@ export default function ChatConsulta() {
 
       {/* Área de mensajes */}
       <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-2">
-        {modo === null ? (
-          <p className="text-sm text-base-content/40 text-center mt-10">
-            Selecciona una opción arriba para empezar
-          </p>
-        ) : (
-          mensajes.map((m, i) => {
-            const isBot       = m.role === 'bot';
-            const esUltimoBot = isBot && i === mensajes.map(x => x.role).lastIndexOf('bot');
-            return (
-              <div key={i} className={`flex ${isBot ? 'justify-start' : 'justify-end'}`}>
-                <div className="max-w-[92%]">
-                  {m.texto && (
-                    <div className={`rounded-2xl px-3 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
-                      isBot
-                        ? 'bg-base-200 text-base-content rounded-bl-none'
-                        : 'bg-primary text-primary-content rounded-br-none'
-                    }`}>
-                      {m.texto}
-                    </div>
-                  )}
+        {mensajes.map((m, i) => {
+          const isBot       = m.role === 'bot';
+          const esUltimoBot = isBot && i === mensajes.map(x => x.role).lastIndexOf('bot');
+          return (
+            <div key={i} className={`flex ${isBot ? 'justify-start' : 'justify-end'}`}>
+              <div className="max-w-[92%]">
+                {m.texto && (
+                  <div className={`rounded-2xl px-3 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
+                    isBot
+                      ? 'bg-base-200 text-base-content rounded-bl-none'
+                      : 'bg-primary text-primary-content rounded-br-none'
+                  }`}>
+                    {m.texto}
+                  </div>
+                )}
 
-                  {/* Tarifa card (precio_material) */}
-                  {isBot && m.tarifa && <PrecioCard tarifa={m.tarifa} />}
+                {/* Resultado Ollama (stock, pedidos, tarifa, etc.) */}
+                {isBot && m.tipo && m.tipo !== 'bienvenida' && m.tipo !== 'falta_datos' && (
+                  <OllamaResultContent tipo={m.tipo} datos={m.datos} />
+                )}
 
-                  {/* Banda cards (buscar_banda) */}
-                  {isBot && m.bandas?.length > 0 && (
-                    <div className="flex flex-col gap-2 mt-2">
-                      {m.bandas.map((banda, j) => <BandaCard key={j} banda={banda} />)}
-                    </div>
-                  )}
+                {/* Tarifa card (precio_material) */}
+                {isBot && m.tarifa && <PrecioCard tarifa={m.tarifa} />}
 
-                  {/* Lista de clientes (buscar_banda) */}
-                  {isBot && m.clientes?.length > 0 && paso === 'BB_SELECCIONAR_CLIENTE' && (
-                    <div className="flex flex-col gap-1.5 mt-2">
-                      {m.clientes.map(cli => (
-                        <button key={cli.id} onClick={() => handleSeleccionarCliente(cli)}
-                          className="btn btn-sm btn-ghost justify-between border border-base-300 hover:border-secondary hover:text-secondary">
-                          <span>{cli.nombre}</span>
-                          <span className="badge badge-ghost badge-sm">{cli.count} banda{cli.count !== 1 ? 's' : ''}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                {/* Banda cards (buscar_banda) */}
+                {isBot && m.bandas?.length > 0 && (
+                  <div className="flex flex-col gap-2 mt-2">
+                    {m.bandas.map((banda, j) => <BandaCard key={j} banda={banda} />)}
+                  </div>
+                )}
 
-                  {/* Chips de selección */}
-                  {isBot && esUltimoBot && m.chips?.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {m.chips.map((chip, j) => (
-                        <button key={j} onClick={() => handleChip(chip)}
-                          className={`btn btn-xs btn-ghost border ${
-                            chip.valor === '__reiniciar'
-                              ? 'border-base-300 text-base-content/50'
-                              : 'border-base-300 hover:border-primary hover:text-primary'
-                          }`}
-                        >
-                          {chip.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {/* Lista de clientes (buscar_banda) */}
+                {isBot && m.clientes?.length > 0 && paso === 'BB_SELECCIONAR_CLIENTE' && (
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    {m.clientes.map(cli => (
+                      <button key={cli.id} onClick={() => handleSeleccionarCliente(cli)}
+                        className="btn btn-sm btn-ghost justify-between border border-base-300 hover:border-secondary hover:text-secondary">
+                        <span>{cli.nombre}</span>
+                        <span className="badge badge-ghost badge-sm">{cli.count} banda{cli.count !== 1 ? 's' : ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Chips de selección */}
+                {isBot && esUltimoBot && m.chips?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {m.chips.map((chip, j) => (
+                      <button key={j} onClick={() => handleChip(chip)}
+                        className={`btn btn-xs btn-ghost border ${
+                          chip.valor === '__reiniciar'
+                            ? 'border-base-300 text-base-content/50'
+                            : 'border-base-300 hover:border-primary hover:text-primary'
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            );
-          })
-        )}
+            </div>
+          );
+        })}
 
         {cargando && (
           <div className="flex justify-start">
@@ -885,26 +1037,24 @@ export default function ChatConsulta() {
       </div>
 
       {/* Input */}
-      {modo && (
-        <div className="pt-2 border-t border-base-200 shrink-0">
-          {inputErr && <p className="text-xs text-error mb-1.5 px-1">{inputErr}</p>}
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={e => { setInput(e.target.value); setInputErr(''); }}
-              onKeyDown={e => e.key === 'Enter' && inputActivo && handleEnviar()}
-              placeholder={inputPlaceholder}
-              disabled={!inputActivo}
-              className="input input-bordered input-sm flex-1 text-sm"
-            />
-            <button onClick={handleEnviar} disabled={!inputActivo || !input.trim()}
-              className="btn btn-sm btn-primary btn-square">
-              <Send className="w-3.5 h-3.5" />
-            </button>
-          </div>
+      <div className="pt-2 border-t border-base-200 shrink-0">
+        {inputErr && <p className="text-xs text-error mb-1.5 px-1">{inputErr}</p>}
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => { setInput(e.target.value); setInputErr(''); }}
+            onKeyDown={e => e.key === 'Enter' && (modo === null || inputActivo) && handleEnviar()}
+            placeholder={modo === null ? 'Escribe una consulta…' : (INPUT_PASOS[paso] ?? 'Usa los botones de arriba')}
+            disabled={modo !== null && !inputActivo}
+            className="input input-bordered input-sm flex-1 text-sm"
+          />
+          <button onClick={handleEnviar} disabled={(modo !== null && !inputActivo) || !input.trim()}
+            className="btn btn-sm btn-primary btn-square">
+            <Send className="w-3.5 h-3.5" />
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
