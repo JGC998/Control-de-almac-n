@@ -3,7 +3,7 @@ import { logApiError } from '@/lib/logger';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-function escapeHtml(str) {
+export function escapeHtml(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

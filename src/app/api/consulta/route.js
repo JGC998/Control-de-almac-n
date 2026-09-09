@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { logApiError } from '@/lib/logger';
 
 const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
@@ -503,6 +504,9 @@ function validarEntidades(intencion, ent) {
     if (!ent.anchoTira) {
       return { pregunta: '¿Cuál es el ancho de la tira en mm? Ej: 150 mm', campo: 'anchoTira' };
     }
+    if (!ent.material && ent.espesor == null) {
+      return { pregunta: '¿Qué material y espesor? Ej: PVC 3mm, EPDM 6mm', campo: 'material' };
+    }
   }
   if (intencion === 'calcular_tiras_caucho') {
     if (!ent.dims) {
@@ -850,7 +854,7 @@ export async function POST(request) {
     return NextResponse.json(resultado);
 
   } catch (error) {
-    console.error('[/api/consulta]', error?.message);
+    logApiError(error, '/api/consulta');
     return NextResponse.json({ texto: 'Error al consultar. Inténtalo de nuevo.', tipo: 'error', datos: null });
   }
 }

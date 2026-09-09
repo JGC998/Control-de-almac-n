@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { generateOrderPDF } from '@/lib/pdfGenerator';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, escapeHtml } from '@/lib/email';
 
 export async function POST(request, { params }) {
     try {
@@ -43,8 +43,8 @@ export async function POST(request, { params }) {
             subject: `Nuevo Pedido ${order.numero} - CRM`,
             html: `
         <div>
-          <h1>Nuevo Pedido ${order.numero}</h1>
-          <p>Hola ${order.cliente?.nombre || 'Cliente'},</p>
+          <h1>Nuevo Pedido ${escapeHtml(order.numero)}</h1>
+          <p>Hola ${escapeHtml(order.cliente?.nombre || 'Cliente')},</p>
           <p>Adjuntamos la nota de trabajo para su pedido.</p>
           <hr />
           <p>Gracias por su confianza.</p>
