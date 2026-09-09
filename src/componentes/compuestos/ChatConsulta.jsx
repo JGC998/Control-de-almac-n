@@ -1,756 +1,910 @@
-"use client";
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+'use client';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import useSWR from 'swr';
 import Link from 'next/link';
-import {
-  Send, AlertTriangle, ArrowRight,
-  ExternalLink, Ruler, Ship, HelpCircle, Mic, MicOff,
-  FileText, Trash2, Copy, Check, Download, Calculator,
-} from 'lucide-react';
+import { Send, Zap, History, Scissors, Tag, ArrowRight } from 'lucide-react';
 
-const STORAGE_KEY   = 'chat-consulta-v1';
-const MAX_HISTORIAL = 40;
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
-const CALCULOS_RAPIDOS = [
-  { label: 'Banda PVC',       query: 'calcular banda pvc',          intencion: 'calcular_banda',       icon: Calculator },
-  { label: 'Metraje lineal',  query: 'calcular metraje',            intencion: 'calcular_metraje',      icon: Ruler      },
-  { label: 'Pieza / Faldeta', query: 'calcular pieza faldeta',      intencion: 'calcular_pieza',        icon: Calculator },
-  { label: 'Tiras de caucho', query: 'calcular tiras caucho goma',  intencion: 'calcular_tiras_caucho', icon: Ruler      },
-];
+function fmtEur(v) {
+  return (typeof v === 'number' ? v : 0).toLocaleString('es-ES', {
+    style: 'currency', currency: 'EUR', minimumFractionDigits: 2,
+  });
+}
 
-const ESTADO_BADGE = {
-  Pendiente:  'badge-warning',
-  Facturado:  'badge-success',
-  Cancelado:  'badge-error',
-};
+function parseDims(text) {
+  const s = text.trim()
+    .replace(/,/g, '.').replace(/por/gi, 'x')
+    .replace(/[×*·]/g, 'x').replace(/\s+/g, 'x');
+  const m = s.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i);
+  if (!m) return null;
+  const a = parseFloat(m[1]), b = parseFloat(m[2]);
+  return a > 0 && b > 0 ? { ancho: a, largo: b } : null;
+}
 
-const FRASES_CARGA = [
-  'Interpretando consulta…',
-  'Consultando base de datos…',
-  'Calculando…',
-];
+function parseDimsEstricto(text) {
+  const clean = text.trim().replace(/\s+/g, '').replace(/[×xXpP]/gi, 'x');
+  const m = clean.match(/^(\d{2,5})x(\d{2,5})$/);
+  if (!m) return null;
+  return { ancho: parseInt(m[1], 10), largo: parseInt(m[2], 10) };
+}
 
-// ── Renderizadores de respuesta ────────────────────────────────────────────────
+function parsePositive(text) {
+  const n = parseFloat(String(text).replace(',', '.'));
+  return n > 0 ? n : null;
+}
 
-function ResultadoStock({ datos }) {
-  if (!datos?.length) return null;
+const COLOR_ABR = { AZUL: 'AZ', BLANCO: 'BL', NEGRO: 'NG', VERDE: 'VD' };
+const MATERIALES_CAUCHO = ['GOMA', 'FIELTRO', 'CARAMELO', 'PLANCHA DE GOMA'];
+
+// ─── BandaCard ────────────────────────────────────────────────────────────────
+
+function confFromNombre(nombre) {
+  if (!nombre) return null;
+  if (/-SF-/.test(nombre)) return 'Sin Fin';
+  if (/-GR-/.test(nombre)) return 'Con Grapa';
+  if (/-AB-/.test(nombre)) return 'Abierta';
+  return null;
+}
+
+function BandaCard({ banda }) {
+  const dim  = banda.det?.dimensiones;
+  const conf = confFromNombre(banda.descripcion);
+  const esp  = dim?.espesor;
   return (
-    <div className="flex flex-col gap-1.5 mt-2">
-      {datos.map((s, i) => (
-        <div key={i} className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-sm ${s.alerta ? 'bg-warning/10 border border-warning/30' : 'bg-base-300/50'}`}>
-          <div className="min-w-0">
-            <p className="font-semibold truncate">{s.material}{s.espesor ? ` ${s.espesor}mm` : ''}</p>
-            {s.minimo > 0 && <p className="text-xs text-base-content/50">Mínimo: {s.minimo} m²</p>}
-          </div>
-          <div className="flex items-center gap-2 shrink-0 ml-3">
-            {s.alerta && <AlertTriangle className="w-3.5 h-3.5 text-warning" />}
-            <span className={`font-mono font-bold text-sm ${s.alerta ? 'text-warning' : 'text-base-content'}`}>
-              {s.metros?.toLocaleString('es-ES', { maximumFractionDigits: 1 })} m²
-            </span>
+    <div className="bg-base-100 border border-base-300 rounded-xl p-3 flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-xs font-bold leading-snug">{banda.descripcion}</span>
+          <div className="flex flex-wrap gap-1">
+            {esp  != null && <span className="badge badge-ghost badge-xs">{esp} mm</span>}
+            {banda.det?.color && <span className="badge badge-ghost badge-xs">{banda.det.color}</span>}
+            {conf && <span className="badge badge-ghost badge-xs">{conf}</span>}
+            {dim  && <span className="text-xs text-base-content/40">{dim.ancho}×{dim.largo} mm</span>}
           </div>
         </div>
-      ))}
-    </div>
-  );
-}
-
-function ResultadoPedidos({ datos }) {
-  if (!datos?.length) return null;
-  return (
-    <div className="flex flex-col gap-1.5 mt-2">
-      {datos.map((p, i) => (
-        <Link key={i} href={`/pedidos/${p.id}`}
-          className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm bg-base-300/50 hover:bg-base-300 transition-colors active:scale-[0.99]"
-        >
-          <div className="min-w-0">
-            <p className="font-semibold">{p.numero}</p>
-            {p.cliente && <p className="text-xs text-base-content/50 truncate">{p.cliente}</p>}
-          </div>
-          <div className="flex items-center gap-2 shrink-0 ml-3">
-            <span className={`badge badge-xs ${ESTADO_BADGE[p.estado] ?? 'badge-ghost'}`}>{p.estado}</span>
-            <ArrowRight className="w-3.5 h-3.5 text-base-content/30" />
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function ResultadoPedidoDetalle({ datos }) {
-  if (!datos) return null;
-  return (
-    <Link href={`/pedidos/${datos.id}`}
-      className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm bg-base-300/50 hover:bg-base-300 transition-colors mt-2 active:scale-[0.99]"
-    >
-      <div>
-        <p className="font-semibold">{datos.numero}</p>
-        {datos.cliente && <p className="text-xs text-base-content/50">{datos.cliente}</p>}
-        <p className="text-xs text-base-content/40 mt-0.5">
-          {datos.items} línea{datos.items !== 1 ? 's' : ''} · {new Date(datos.fecha).toLocaleDateString('es-ES')}
-        </p>
+        <div className="text-right shrink-0 ml-2">
+          <div className="font-mono text-sm font-bold">{fmtEur(banda.unitPrice ?? 0)}</div>
+          {banda.pesoUnitario > 0 && (
+            <div className="text-xs text-base-content/40">{Number(banda.pesoUnitario).toFixed(3)} kg</div>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0 ml-3">
-        <span className={`badge badge-xs ${ESTADO_BADGE[datos.estado] ?? 'badge-ghost'}`}>{datos.estado}</span>
-        <ExternalLink className="w-3.5 h-3.5 text-base-content/30" />
-      </div>
-    </Link>
-  );
-}
-
-function ResultadoCliente({ datos }) {
-  if (!datos) return null;
-  return (
-    <div className="mt-2">
-      <Link href={`/gestion/clientes/${datos.id}`}
-        className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm bg-base-300/50 hover:bg-base-300 transition-colors active:scale-[0.99]"
-      >
-        <div>
-          <p className="font-semibold">{datos.nombre}</p>
-          {datos.email    && <p className="text-xs text-base-content/50">{datos.email}</p>}
-          {datos.telefono && <p className="text-xs text-base-content/50">{datos.telefono}</p>}
-        </div>
-        <ExternalLink className="w-3.5 h-3.5 text-base-content/30 shrink-0 ml-3" />
-      </Link>
-      {datos.pedidosRecientes?.length > 0 && (
-        <div className="flex flex-col gap-1 mt-1.5">
-          {datos.pedidosRecientes.map((p, i) => (
-            <Link key={i} href={`/pedidos/${p.id}`}
-              className="flex items-center justify-between rounded-xl px-3 py-2 text-xs bg-base-300/30 hover:bg-base-300/60 transition-colors"
-            >
-              <span className="font-medium">{p.numero}</span>
-              <span className={`badge badge-xs ${ESTADO_BADGE[p.estado] ?? 'badge-ghost'}`}>{p.estado}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function fmt(n, dec = 2) {
-  if (n == null) return '—';
-  return n.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
-}
-function fmtEur(n) {
-  if (n == null) return '—';
-  return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
-}
-
-function generarTexto(datos, tipo) {
-  if (!datos?.precio_total) return null;
-  const lines = [];
-  const pct   = n => n != null ? n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) : '—';
-  const pct2  = n => n != null ? n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
-  const ivaPct = datos.iva != null ? Math.round(datos.iva * 100) : 21;
-
-  if (tipo === 'calculo') {
-    const { dims, conf, material, espesor, color, precio_material, coste_conf, desc_conf, precio_total, precio_con_iva, unidades, precio_unitario } = datos;
-    const confLabel = conf === 'SF' ? 'Sin Fin' : conf === 'GR' ? 'Con Grapa' : conf === 'AB' ? 'Abierta' : '';
-    lines.push(`Banda ${dims?.ancho}×${dims?.largo} mm${confLabel ? ' · ' + confLabel : ''}`);
-    if (material) lines.push(`${material}${espesor ? ' ' + espesor + 'mm' : ''}${color ? ' ' + color : ''}`);
-    lines.push('─────────────────');
-    if (coste_conf > 0) {
-      lines.push(`Material:        ${pct(precio_material)}`);
-      lines.push(`${(desc_conf || 'Confección').padEnd(17)}: ${pct(coste_conf)}`);
-    }
-    if (unidades > 1) {
-      lines.push(`Precio unitario: ${pct(precio_unitario)}`);
-      lines.push(`× ${unidades} uds.`);
-    }
-    lines.push(`Sin IVA:         ${pct(precio_total)}`);
-    if (precio_con_iva) lines.push(`Con IVA (${ivaPct}%):   ${pct(precio_con_iva)}`);
-  } else if (tipo === 'metraje') {
-    const { anchoTira, metros, material, espesor, precio_total, precio_con_iva } = datos;
-    lines.push(`Metraje ${anchoTira}mm × ${metros}m lin.`);
-    if (material) lines.push(`${material}${espesor ? ' ' + espesor + 'mm' : ''}`);
-    lines.push('─────────────────');
-    lines.push(`Sin IVA:       ${pct(precio_total)}`);
-    if (precio_con_iva) lines.push(`Con IVA (${ivaPct}%): ${pct(precio_con_iva)}`);
-  }
-  return lines.join('\n');
-}
-
-function ChipsAccion({ datos, tipo, onAccion }) {
-  if ((tipo !== 'calculo' && tipo !== 'metraje') || !datos?.precio_total) return null;
-  const [copiado, setCopiado] = React.useState(false);
-  const [descargando, setDescargando] = React.useState(false);
-
-  const copiar = async () => {
-    const texto = generarTexto(datos, tipo);
-    if (!texto) return;
-    try {
-      await navigator.clipboard.writeText(texto);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
-    } catch { /* clipboard no disponible */ }
-  };
-
-  const descargarPDF = async () => {
-    if (descargando) return;
-    setDescargando(true);
-    try {
-      const res = await fetch('/api/consulta/ficha-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ datos, tipo }),
-      });
-      if (!res.ok) throw new Error('Error');
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `ficha-calculo-${Date.now()}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch { /* silencioso */ }
-    finally { setDescargando(false); }
-  };
-
-  return (
-    <div className="flex flex-wrap gap-1.5 mt-2">
-      {[2, 3, 4, 5].map(n => (
-        <button key={n}
-          onClick={() => onAccion(`multiplicalo por ${n}`)}
-          className="btn btn-xs btn-ghost border border-base-300 font-mono hover:border-primary hover:text-primary"
-        >
-          ×{n}
-        </button>
-      ))}
-      <button onClick={copiar}
-        className={`btn btn-xs gap-1 ${copiado ? 'btn-success text-success-content' : 'btn-ghost border border-base-300'}`}
-      >
-        {copiado ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-        {copiado ? '¡Copiado!' : 'Copiar'}
-      </button>
-      <button onClick={descargarPDF} disabled={descargando}
-        className="btn btn-xs btn-ghost border border-base-300 gap-1 hover:border-secondary hover:text-secondary"
-      >
-        <Download className="w-3 h-3" />
-        {descargando ? 'Generando…' : 'PDF'}
-      </button>
-      <Link href="/presupuestos/nuevo"
-        className="btn btn-xs btn-ghost border border-primary/40 text-primary gap-1"
-      >
-        <FileText className="w-3 h-3" />
-        Presupuesto
-      </Link>
-    </div>
-  );
-}
-
-function ResultadoMetraje({ datos }) {
-  if (!datos) return null;
-  const { anchoTira, metros, area_m2, precio_m2, precio_total, peso_total, material, espesor, color } = datos;
-
-  if (!precio_m2) {
-    return (
-      <div className="mt-2 rounded-xl px-3 py-3 bg-warning/10 border border-warning/30 text-sm">
-        <p className="flex items-center gap-2 text-warning font-medium">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          Sin tarifa para ese material/espesor
-        </p>
-        {area_m2 && <p className="text-xs mt-1 text-base-content/60">Área: {fmt(area_m2, 3)} m²</p>}
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-2 rounded-xl overflow-hidden border border-base-300 text-sm">
-      <div className="bg-base-200 px-3 py-2 flex items-center gap-2">
-        <Ruler className="w-3.5 h-3.5 text-secondary shrink-0" />
-        <span className="text-xs text-base-content/60 font-mono">
-          {anchoTira}mm × {metros}m lin.
-        </span>
-      </div>
-      <div className="px-3 py-3 bg-base-100 space-y-1.5">
-        <div className="flex justify-between text-xs text-base-content/50">
-          <span>Área total</span>
-          <span className="font-mono">{fmt(area_m2, 3)} m²</span>
-        </div>
-        <div className="flex justify-between text-xs text-base-content/50">
-          <span>Precio/m²{material ? ` (${material}${espesor ? ' ' + espesor + 'mm' : ''}${color ? ' ' + color : ''})` : ''}</span>
-          <span className="font-mono">{fmtEur(precio_m2)}</span>
-        </div>
-        <div className="flex justify-between text-xs text-base-content/50">
-          <span>Precio/metro lineal</span>
-          <span className="font-mono">{fmtEur(precio_total / metros)}</span>
-        </div>
-        {peso_total > 0 && (
-          <div className="flex justify-between text-xs text-base-content/50">
-            <span>Peso total</span>
-            <span className="font-mono">{fmt(peso_total, 2)} kg</span>
-          </div>
-        )}
-        <div className="flex justify-between items-center pt-1.5 border-t border-base-200">
-          <span className="font-semibold">Total sin IVA</span>
-          <span className="font-bold text-lg text-secondary font-mono">{fmtEur(precio_total)}</span>
-        </div>
-        {datos.precio_con_iva && (
-          <div className="flex justify-between text-xs text-base-content/40 pt-0.5">
-            <span>Con IVA ({Math.round((datos.iva ?? 0.21) * 100)}%)</span>
-            <span className="font-mono">{fmtEur(datos.precio_con_iva)}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ResultadoCalculo({ datos }) {
-  if (!datos) return null;
-  const {
-    dims, area_m2, precio_m2, precio_total, precio_unitario,
-    precio_material, coste_conf, desc_conf, peso_m2, peso_total,
-    material, espesor, color, conf, preciosVenta, bandaCatalogo, unidades,
-  } = datos;
-
-  if (!precio_m2) {
-    return (
-      <div className="mt-2 rounded-xl px-3 py-3 bg-warning/10 border border-warning/30 text-sm">
-        <p className="flex items-center gap-2 text-warning font-medium">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          No hay tarifa para ese material/espesor
-        </p>
-        {area_m2 && <p className="text-xs mt-1 text-base-content/60">Superficie calculada: {fmt(area_m2, 3)} m²</p>}
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-2 rounded-xl overflow-hidden border border-base-300 text-sm">
-      <div className="bg-base-200 px-3 py-2 flex items-center gap-2">
-        <Ruler className="w-3.5 h-3.5 text-primary shrink-0" />
-        <span className="text-xs text-base-content/60 font-mono">
-          {dims?.ancho}×{dims?.largo} mm
-          {conf ? ` · ${conf === 'SF' ? 'Sin Fin' : conf === 'GR' ? 'Con Grapa' : 'Abierta'}` : ''}
-        </span>
-      </div>
-      <div className="px-3 py-3 bg-base-100 space-y-1.5">
-        <div className="flex justify-between text-xs text-base-content/50">
-          <span>Superficie</span>
-          <span className="font-mono">{fmt(area_m2, 3)} m²</span>
-        </div>
-        <div className="flex justify-between text-xs text-base-content/50">
-          <span>Precio/m²{material ? ` (${material}${espesor ? ' ' + espesor + 'mm' : ''}${color ? ' ' + color : ''})` : ''}</span>
-          <span className="font-mono">{fmtEur(precio_m2)}</span>
-        </div>
-        {coste_conf > 0 && (
-          <div className="flex justify-between text-xs text-base-content/50">
-            <span>Material</span>
-            <span className="font-mono">{fmtEur(precio_material)}</span>
-          </div>
-        )}
-        {coste_conf > 0 && (
-          <div className="flex justify-between text-xs text-base-content/50">
-            <span>{desc_conf || 'Confección'}</span>
-            <span className="font-mono">{fmtEur(coste_conf)}</span>
-          </div>
-        )}
-        {peso_m2 > 0 && (
-          <div className="flex justify-between text-xs text-base-content/50">
-            <span>Peso aprox.</span>
-            <span className="font-mono">{fmt(peso_total, 2)} kg</span>
-          </div>
-        )}
-        {unidades > 1 && (
-          <div className="flex justify-between text-xs text-base-content/50">
-            <span>Precio unitario</span>
-            <span className="font-mono">{fmtEur(precio_unitario)}</span>
-          </div>
-        )}
-        {unidades > 1 && (
-          <div className="flex justify-between text-xs text-base-content/50">
-            <span>× {unidades} unidades</span>
-            <span className="font-mono">= {fmtEur(precio_total)}</span>
-          </div>
-        )}
-        <div className="flex justify-between items-center pt-1.5 border-t border-base-200">
-          <span className="font-semibold">{unidades > 1 ? `Total sin IVA (${unidades} uds.)` : 'Total sin IVA'}</span>
-          <span className="font-bold text-lg text-primary font-mono">{fmtEur(precio_total)}</span>
-        </div>
-        {datos.precio_con_iva && (
-          <div className="flex justify-between text-xs text-base-content/40 pt-0.5">
-            <span>Con IVA ({Math.round((datos.iva ?? 0.21) * 100)}%)</span>
-            <span className="font-mono">{fmtEur(datos.precio_con_iva)}</span>
-          </div>
-        )}
-      </div>
-      {preciosVenta && Object.keys(preciosVenta).length > 1 && (
-        <div className="px-3 py-2 bg-base-200/50 border-t border-base-300">
-          <p className="text-[10px] text-base-content/40 mb-1 uppercase tracking-wide">Precios por margen</p>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(preciosVenta).map(([tier, p]) => (
-              <div key={tier} className="text-xs">
-                <span className="text-base-content/50">{tier}: </span>
-                <span className="font-mono font-medium">{fmtEur(area_m2 * p)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {bandaCatalogo && (
-        <Link href={`/gestion/productos/${bandaCatalogo.id}`}
-          className="flex items-center justify-between px-3 py-2 bg-success/10 border-t border-success/20 hover:bg-success/20 transition-colors"
-        >
-          <span className="text-xs text-success font-medium truncate">✓ En catálogo: {bandaCatalogo.nombre}</span>
-          <span className="text-xs font-mono text-success shrink-0 ml-2">{fmtEur(bandaCatalogo.precio)}</span>
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function ResultadoTarifa({ datos }) {
-  if (!datos?.length) return null;
-  return (
-    <div className="flex flex-col gap-1.5 mt-2">
-      {datos.map((t, i) => (
-        <div key={i} className="rounded-xl px-3 py-2.5 bg-base-300/50 text-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="font-semibold">{t.material} {t.espesor}mm{t.color ? ` · ${t.color}` : ''}{t.acabado ? ` · ${t.acabado}` : ''}</p>
-              <p className="text-xs text-base-content/50 mt-0.5">{fmt(t.peso, 3)} kg/m²</p>
-            </div>
-            <p className="font-bold text-primary font-mono shrink-0 ml-3">
-              {fmtEur(t.precio)}<span className="text-xs font-normal text-base-content/40">/m²</span>
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const ESTADO_IMPORT_LABEL = {
-  BORRADOR: 'Borrador', PEDIDO: 'Pedido', TRANSITO: 'En tránsito',
-  ADUANA: 'En aduana', RECIBIDO: 'Recibido',
-};
-const ESTADO_IMPORT_BADGE = {
-  BORRADOR: 'badge-ghost', PEDIDO: 'badge-info', TRANSITO: 'badge-warning',
-  ADUANA: 'badge-error', RECIBIDO: 'badge-success',
-};
-
-function ResultadoImportaciones({ datos }) {
-  if (!datos?.length) return null;
-  return (
-    <div className="flex flex-col gap-1.5 mt-2">
-      {datos.map((imp, i) => (
-        <Link key={i} href={`/compras/contenedores/${imp.id}`}
-          className="rounded-xl px-3 py-2.5 bg-base-300/50 hover:bg-base-300 transition-colors text-sm"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <Ship className="w-3 h-3 text-base-content/40 shrink-0" />
-                <p className="font-medium truncate">{imp.descripcion || imp.numContenedor || 'Contenedor'}</p>
-              </div>
-              {imp.proveedor    && <p className="text-xs text-base-content/50 mt-0.5">{imp.proveedor}</p>}
-              {imp.nombreBarco  && <p className="text-xs text-base-content/40">{imp.nombreBarco}</p>}
-              {imp.etaEstimada  && (
-                <p className="text-xs text-base-content/40">
-                  ETA: {new Date(imp.etaEstimada).toLocaleDateString('es-ES')}
-                </p>
-              )}
-            </div>
-            <span className={`badge badge-xs shrink-0 ${ESTADO_IMPORT_BADGE[imp.estado] ?? 'badge-ghost'}`}>
-              {ESTADO_IMPORT_LABEL[imp.estado] ?? imp.estado}
-            </span>
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function ResultadoAyuda({ datos }) {
-  if (!datos?.length) return null;
-  return (
-    <div className="flex flex-wrap gap-1.5 mt-2">
-      {datos.map((e, i) => (
-        <span key={i} className="badge badge-ghost badge-sm font-mono">{e}</span>
-      ))}
-    </div>
-  );
-}
-
-// ── Burbujas ───────────────────────────────────────────────────────────────────
-
-function BurbujaBot({ msg, onAccion }) {
-  const esFaltaDatos = msg.tipo === 'falta_datos';
-  return (
-    <div className="flex flex-col max-w-[92%]">
-      <div className={`rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed ${esFaltaDatos ? 'bg-info/10 border border-info/30' : 'bg-base-200'}`}>
-        {esFaltaDatos && (
-          <span className="flex items-center gap-1.5 text-info text-xs font-semibold mb-1">
-            <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Necesito un dato más
+      {banda.pedido && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-base-content/40 truncate">
+            {banda.pedido.numero}
+            {banda.pedido.cliente?.nombre && ` · ${banda.pedido.cliente.nombre}`}
           </span>
-        )}
-        {msg.texto}
-      </div>
-      {msg.tipo === 'stock'          && <ResultadoStock         datos={msg.datos} />}
-      {msg.tipo === 'pedidos'        && <ResultadoPedidos        datos={msg.datos} />}
-      {msg.tipo === 'pedido_detalle' && <ResultadoPedidoDetalle  datos={msg.datos} />}
-      {msg.tipo === 'cliente'        && <ResultadoCliente        datos={msg.datos} />}
-      {msg.tipo === 'calculo'        && <ResultadoCalculo        datos={msg.datos} />}
-      {msg.tipo === 'metraje'        && <ResultadoMetraje        datos={msg.datos} />}
-      {msg.tipo === 'tarifa'         && <ResultadoTarifa         datos={msg.datos} />}
-      {msg.tipo === 'importaciones'  && <ResultadoImportaciones  datos={msg.datos} />}
-      {msg.tipo === 'ayuda'          && <ResultadoAyuda          datos={msg.datos} />}
-
-      {/* Chips de sugerencia cuando falta un dato — materiales, conf, etc. */}
-      {msg.tipo === 'falta_datos' && msg.datos?.sugerencias?.length > 0 && onAccion && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {msg.datos.sugerencias.map(s => (
-            <button key={s.valor} onClick={() => onAccion(s.valor)}
-              className="btn btn-xs btn-ghost border border-info/30 text-info hover:border-info hover:bg-info/10">
-              {s.label}
-            </button>
-          ))}
+          <Link href={`/pedidos/${banda.pedido.id}`}
+            className="btn btn-xs btn-ghost gap-1 shrink-0 ml-2 text-secondary">
+            Ver <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
       )}
-
-      {/* Chips de espesores alternativos cuando no hay tarifa */}
-      {msg.tipo === 'calculo' && msg.datos?.alternativas?.length > 0 && onAccion && (
-        <div className="flex flex-wrap gap-1.5 mt-2 items-center">
-          <span className="text-xs text-base-content/40">Prueba con:</span>
-          {msg.datos.alternativas.map(esp => (
-            <button key={esp} onClick={() => onAccion(esp)}
-              className="btn btn-xs btn-ghost border border-base-300 font-mono hover:border-primary hover:text-primary">
-              {esp}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Chips de acción rápida tras cálculo */}
-      {onAccion && <ChipsAccion datos={msg.datos} tipo={msg.tipo} onAccion={onAccion} />}
     </div>
   );
 }
 
-function BurbujaUsuario({ texto }) {
-  return (
-    <div className="flex justify-end">
-      <div className="bg-primary text-primary-content rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm max-w-[80%]">
-        {texto}
-      </div>
-    </div>
-  );
-}
+// ─── PrecioCard ───────────────────────────────────────────────────────────────
 
-function TypingDots({ fase }) {
+function PrecioCard({ tarifa }) {
+  let tiers = null;
+  if (tarifa.preciosVenta) {
+    try {
+      const pv = typeof tarifa.preciosVenta === 'string' ? JSON.parse(tarifa.preciosVenta) : tarifa.preciosVenta;
+      if (pv && typeof pv === 'object') tiers = pv;
+    } catch { /* sin tiers */ }
+  }
+  if (!tiers) {
+    tiers = {
+      'FABRICANTE (×1.5)':    tarifa.precio * 1.5,
+      'CLIENTE FINAL (×2)':   tarifa.precio * 2,
+      'INTERMEDIARIO (×1.75)': tarifa.precio * 1.75,
+    };
+  }
   return (
-    <div className="flex items-center gap-2.5 px-4 py-3 bg-base-200 rounded-2xl rounded-tl-sm w-fit max-w-[80%]">
-      <div className="flex gap-1">
-        {[0, 150, 300].map(delay => (
-          <span key={delay} className="w-2 h-2 bg-base-content/30 rounded-full animate-bounce"
-            style={{ animationDelay: `${delay}ms` }} />
+    <div className="mt-2 rounded-xl overflow-hidden border border-base-300 text-sm">
+      <div className="bg-base-200 px-3 py-2">
+        <p className="font-semibold">{tarifa.material} {tarifa.espesor}mm
+          {tarifa.lonas ? ` · ${tarifa.lonas}L` : ''}
+          {tarifa.acabado ? ` · ${tarifa.acabado}` : ''}
+          {tarifa.color ? ` · ${tarifa.color}` : ''}
+        </p>
+        {tarifa.peso > 0 && <p className="text-xs text-base-content/40">{tarifa.peso} kg/m²</p>}
+      </div>
+      <div className="px-3 py-2 bg-base-100 space-y-1.5">
+        <div className="flex justify-between text-xs text-base-content/50">
+          <span>Precio base</span>
+          <span className="font-mono font-semibold">{fmtEur(tarifa.precio)}/m²</span>
+        </div>
+        {Object.entries(tiers).map(([label, precio]) => (
+          <div key={label} className="flex justify-between text-xs">
+            <span className="text-base-content/50">{label}</span>
+            <span className="font-mono font-medium">{fmtEur(precio)}/m²</span>
+          </div>
         ))}
       </div>
-      <span className="text-xs text-base-content/40">{FRASES_CARGA[fase] ?? FRASES_CARGA.at(-1)}</span>
     </div>
   );
 }
 
-// ── Componente principal ───────────────────────────────────────────────────────
+// ─── MODOS ────────────────────────────────────────────────────────────────────
 
-const MSG_BIENVENIDA = { role: 'bot', texto: '¡Hola! Usa los botones de arriba para calcular precios, o escribe tu consulta directamente.', tipo: 'bienvenida', datos: null };
+const MODOS_IZQ = [
+  { id: 'crear_banda',      label: 'Crear banda PVC',  icon: Zap      },
+  { id: 'buscar_banda',     label: 'Buscar banda PVC', icon: History  },
+  { id: 'calcular_metraje', label: 'Calcular metraje', icon: Scissors },
+];
+const MODO_DER = { id: 'precio_material', label: 'Precio de material', icon: Tag };
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ChatConsulta() {
-  const [mensajes, setMensajes] = useState([MSG_BIENVENIDA]);
-  const [input,    setInput]    = useState('');
-  const [cargando, setCargando] = useState(false);
-  const [faseCarga, setFaseCarga] = useState(0);
-  const [grabando,  setGrabando]  = useState(false);
+  const [modo,      setModo]      = useState(null);
+  const [mensajes,  setMensajes]  = useState([]);
+  const [paso,      setPaso]      = useState('');
+  const [datos,     setDatos]     = useState({});
+  const [input,     setInput]     = useState('');
+  const [cargando,  setCargando]  = useState(false);
+  const [inputErr,  setInputErr]  = useState('');
 
-  const bottomRef    = useRef(null);
-  const inputRef     = useRef(null);
-  const recognitionRef = useRef(null);
+  const endRef   = useRef(null);
+  const inputRef = useRef(null);
 
-  // ── Pre-calentar Ollama al abrir el chat ─────────────────────────────────────
-  useEffect(() => {
-    fetch('/api/consulta').catch(() => {});
-  }, []);
+  const { data: todasTarifas }     = useSWR('/api/precios');
+  const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
+  const { data: tacosData }        = useSWR('/api/tacos');
+  const { data: configData }       = useSWR('/api/config');
 
-  // ── Persistencia ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) setMensajes(parsed);
-      }
-    } catch { /* localStorage no disponible */ }
-  }, []);
+  const costeVulcMetro = configData?.costeVulcanizadoMetro ?? 0;
+  const tarifasPVC     = useMemo(() => (todasTarifas ?? []).filter(t => t.material === 'PVC'), [todasTarifas]);
+  const tarifasCaucho  = useMemo(() => (todasTarifas ?? []).filter(t => MATERIALES_CAUCHO.includes(t.material)), [todasTarifas]);
 
-  useEffect(() => {
-    if (mensajes.length > 1) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(mensajes.slice(-MAX_HISTORIAL))); } catch {}
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [mensajes, cargando]);
+
+  const pushBot  = useCallback((texto, chips = null, extra = {}) =>
+    setMensajes(prev => [...prev, { role: 'bot', texto, chips, ...extra }]), []);
+  const pushUser = useCallback((texto) =>
+    setMensajes(prev => [...prev, { role: 'user', texto }]), []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MODE: crear_banda (CB_*)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const cbEspesoresDisp = useMemo(() => {
+    const s = [...new Set(tarifasPVC.map(t => String(t.espesor)))];
+    return s.sort((a, b) => parseFloat(a) - parseFloat(b));
+  }, [tarifasPVC]);
+
+  const cbAskEspesor = useCallback((dims, d0) => {
+    const d = { ...d0, ...dims };
+    setDatos(d);
+    const chips = cbEspesoresDisp.map(esp => {
+      const vars    = tarifasPVC.filter(t => Math.abs(Number(t.espesor) - Number(esp)) < 0.001);
+      const acabados = [...new Set(vars.map(t => t.acabado).filter(Boolean))];
+      const colores  = [...new Set(vars.map(t => t.color).filter(Boolean))];
+      const nota = acabados.length ? ` — ${acabados.join(', ')}` : colores.length ? ` — ${colores.join(', ')}` : '';
+      return { label: `${esp} mm${nota}`, valor: esp };
+    });
+    pushBot(`Medidas: ${dims.ancho} × ${dims.largo} mm ✓\n\n¿Qué espesor de PVC necesitas?`, chips);
+    setPaso('CB_ESPESOR');
+  }, [cbEspesoresDisp, tarifasPVC, pushBot]);
+
+  const cbAfterLonas = useCallback((lonas, d0, tarsEsp) => {
+    const tarsL = lonas == null ? tarsEsp.filter(t => t.lonas == null) : tarsEsp.filter(t => String(t.lonas) === lonas);
+    const aOpts = [...new Set(tarsL.map(t => t.acabado == null ? '__null' : t.acabado))];
+    if (aOpts.length > 1) {
+      pushBot('¿Qué acabado?', aOpts.map(a => ({ label: a === '__null' ? 'Sin acabado especial' : a, valor: a })));
+      setDatos({ ...d0, lonas });
+      setPaso('CB_ACABADO');
+      return;
     }
-  }, [mensajes]);
+    cbAfterAcabado(aOpts[0] === '__null' ? null : aOpts[0], { ...d0, lonas }, tarsL); // eslint-disable-line no-use-before-define
+  }, [pushBot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Scroll automático ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [mensajes, cargando]);
+  const cbAskConf = useCallback((d0) => {
+    setDatos(d0);
+    pushBot('¿Cómo va la banda?', [
+      { label: 'Sin Fin (Vulcanizada)', valor: 'VULCANIZADA' },
+      { label: 'Con Grapa',             valor: 'GRAPA'       },
+      { label: 'Abierta',               valor: 'ABIERTA'     },
+    ]);
+    setPaso('CB_CONF');
+  }, [pushBot]);
 
-  // ── Fases de carga ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!cargando) { setFaseCarga(0); return; }
-    const interval = setInterval(() => {
-      setFaseCarga(f => Math.min(f + 1, FRASES_CARGA.length - 1));
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [cargando]);
+  const cbAfterAcabado = useCallback((acabado, d0, tarsL0) => {
+    const tarsA = acabado == null ? tarsL0.filter(t => !t.acabado) : tarsL0.filter(t => t.acabado === acabado);
+    const cOpts = [...new Set(tarsA.map(t => t.color == null ? '__null' : t.color))];
+    if (cOpts.length > 1) {
+      pushBot('¿Qué color?', cOpts.map(c => ({ label: c === '__null' ? 'Sin color específico' : c, valor: c })));
+      setDatos({ ...d0, acabado });
+      setPaso('CB_COLOR');
+      return;
+    }
+    const coloresReales = cOpts.filter(c => c !== '__null');
+    if (coloresReales.length === 1) { cbAskConf({ ...d0, acabado, color: coloresReales[0] }); return; }
+    const espNum = parseFloat(d0.espesor ?? 0);
+    if (espNum === 2 || espNum === 3) {
+      pushBot('¿De qué color es la banda?', [
+        { label: 'Blanco', valor: 'BLANCO' },
+        { label: 'Verde',  valor: 'VERDE'  },
+        { label: 'Azul',   valor: 'AZUL'   },
+      ]);
+      setDatos({ ...d0, acabado });
+      setPaso('CB_COLOR');
+      return;
+    }
+    cbAskConf({ ...d0, acabado, color: cOpts[0] === '__null' ? null : cOpts[0] });
+  }, [cbAskConf, pushBot]);
 
-  // ── Envío de consulta ─────────────────────────────────────────────────────────
-  const enviar = useCallback(async (queryOverride, intencionOverride) => {
-    const texto = (queryOverride ?? input).trim();
-    if (!texto || cargando) return;
+  const cbAfterEspesor = useCallback((espesor, d0) => {
+    const tarsEsp = tarifasPVC.filter(t => Math.abs(Number(t.espesor) - Number(espesor)) < 0.001);
+    const lOpts   = [...new Set(tarsEsp.map(t => t.lonas == null ? '__null' : String(t.lonas)))];
+    if (lOpts.length > 1) {
+      pushBot('¿Cuántas lonas?', lOpts.map(l => ({ label: l === '__null' ? 'Estándar' : `${l} lonas`, valor: l })));
+      setDatos({ ...d0, espesor });
+      setPaso('CB_LONAS');
+      return;
+    }
+    cbAfterLonas(lOpts[0] === '__null' ? null : lOpts[0], { ...d0, espesor }, tarsEsp);
+  }, [tarifasPVC, pushBot, cbAfterLonas]);
+
+  const cbAskTacos = useCallback((d0) => {
+    setDatos(d0);
+    pushBot('¿La banda llevará tacos?', [
+      { label: 'No, sin tacos', valor: 'NO' },
+      { label: 'Sí, con tacos', valor: 'SI' },
+    ]);
+    setPaso('CB_TACOS_YN');
+  }, [pushBot]);
+
+  const cbAfterConf = useCallback((conf, d0) => {
+    if (conf === 'GRAPA') {
+      const modelos = modelosGrapaData?.modelos ?? [];
+      const esp = parseFloat(d0.espesor);
+      const compat = modelos.filter(m => m.tipo === 'NORMAL' && esp >= m.espesorDesde && esp <= (m.espesorHasta ?? Infinity));
+      if (compat.length > 1) {
+        pushBot('¿Qué modelo de grapa?', compat.map(m => ({ label: m.nombre, valor: String(m.id) })));
+        setDatos({ ...d0, conf });
+        setPaso('CB_GRAPA_MODELO');
+        return;
+      }
+      cbAskTacos({ ...d0, conf, grapaId: compat[0]?.id ?? null });
+      return;
+    }
+    cbAskTacos({ ...d0, conf });
+  }, [modelosGrapaData, pushBot, cbAskTacos]);
+
+  const cbCalcular = useCallback((d0) => {
+    const { ancho, largo, espesor, conf, grapaId, tacos } = d0;
+    let candidates = tarifasPVC.filter(t => Math.abs(Number(t.espesor) - Number(espesor)) < 0.001);
+    if ('lonas'   in d0) candidates = d0.lonas   == null ? candidates.filter(t => t.lonas == null)    : candidates.filter(t => String(t.lonas) === String(d0.lonas));
+    if ('acabado' in d0) candidates = d0.acabado  == null ? candidates.filter(t => !t.acabado)         : candidates.filter(t => t.acabado === d0.acabado);
+    if ('color'   in d0) {
+      const hayVariantes = candidates.some(t => t.color != null);
+      if (hayVariantes) candidates = d0.color == null ? candidates.filter(t => !t.color) : candidates.filter(t => t.color === d0.color);
+    }
+    const tarifa = candidates[0];
+    if (!tarifa) { pushBot('No encontré tarifa para esa combinación.', [{ label: 'Empezar de nuevo', valor: '__reiniciar' }]); return; }
+
+    const ancM = ancho / 1000, larM = largo / 1000, area = ancM * larM;
+    const costeMat = tarifa.precio * area;
+    let costeConf = 0;
+    if (conf === 'VULCANIZADA') {
+      costeConf = costeVulcMetro * ancM;
+    } else if (conf === 'GRAPA') {
+      const modelos = modelosGrapaData?.modelos ?? [];
+      const modelo  = grapaId
+        ? modelos.find(m => m.id === parseInt(grapaId, 10))
+        : modelos.filter(m => { const e = parseFloat(espesor); return m.tipo === 'NORMAL' && e >= m.espesorDesde && e <= (m.espesorHasta ?? Infinity); })[0];
+      costeConf = modelo ? (ancho / 100) * modelo.precioPor100mm : 0;
+    }
+    const costeTacos      = tacos?.costeTacos ?? 0;
+    const precioUnitario  = Math.round((costeMat + costeConf + costeTacos) * 100) / 100;
+    const confLabel = { VULCANIZADA: 'Sin Fin', GRAPA: 'Con Grapa', ABIERTA: 'Abierta' }[conf];
+    const ac = 'acabado' in d0 ? d0.acabado : (tarifa.acabado ?? null);
+    const co = 'color'   in d0 ? d0.color   : (tarifa.color   ?? null);
+
+    const lineas = [
+      `📐  ${ancho} × ${largo} mm`,
+      `🔧  PVC ${espesor} mm${ac ? ` · ${ac}` : co ? ` · ${co}` : ''}`,
+      `⚙️  ${confLabel}`,
+      tacos ? `📌  ${tacos.cantidadTacos} tacos ${tacos.tipo === 'RECTO' ? 'rectos' : 'inclinados'} de ${tacos.altura} mm · paso ${tacos.paso} mm` : null,
+      '',
+      `Material:     ${fmtEur(costeMat)}`,
+      costeConf  > 0 ? `Confección:   ${fmtEur(costeConf)}`  : null,
+      costeTacos > 0 ? `Tacos:        ${fmtEur(costeTacos)}` : null,
+      '──────────────────────────',
+      `TOTAL:        ${fmtEur(precioUnitario)}`,
+    ].filter(l => l !== null).join('\n');
+
+    pushBot(lineas, [{ label: 'Nuevo cálculo', valor: '__reiniciar' }]);
+    setPaso('CB_RESULTADO');
+  }, [tarifasPVC, costeVulcMetro, modelosGrapaData, pushBot]);
+
+  const cbAfterTacoLongitud = useCallback((longitud, d0) => {
+    const taco = (tacosData ?? []).find(t => t.tipo === d0.tacoTipo && t.altura === d0.tacoAltura);
+    const cantidadTacos = Math.floor(d0.largo / d0.tacoPaso);
+    const metrosLineales = (longitud / 1000) * cantidadTacos;
+    cbCalcular({ ...d0, tacos: { tipo: d0.tacoTipo, altura: d0.tacoAltura, paso: d0.tacoPaso, longitudTaco: longitud, cantidadTacos, metrosLineales, precioMetro: taco?.precioMetro ?? 0, costeTacos: taco ? metrosLineales * taco.precioMetro : 0 } });
+  }, [tacosData, cbCalcular]);
+
+  const cbAfterTacoPaso = useCallback((p, d0) => {
+    const defaultLong = d0.ancho > 10 ? Math.round(d0.ancho - 10) : d0.ancho;
+    pushBot(`Paso: ${p} mm ✓\n\n¿Longitud del taco?\nPor defecto: ${defaultLong} mm (ancho − 10 mm)`,
+      [{ label: `${defaultLong} mm (por defecto)`, valor: String(defaultLong) }]);
+    setDatos({ ...d0, tacoPaso: p });
+    setPaso('CB_TACO_LONGITUD');
+  }, [pushBot]);
+
+  const cbAfterTacoAltura = useCallback((altura, d0) => {
+    pushBot(`Altura ${altura} mm ✓\n\n¿Cuál es el paso entre tacos en mm?\n(Distancia de taco a taco, ej: 200)`);
+    setDatos({ ...d0, tacoAltura: parseInt(altura, 10) });
+    setPaso('CB_TACO_PASO');
+  }, [pushBot]);
+
+  const cbAfterTacoTipo = useCallback((tipo, d0) => {
+    const disponibles = (tacosData ?? []).filter(t => t.tipo === tipo).sort((a, b) => a.altura - b.altura);
+    pushBot(`Tacos ${tipo === 'RECTO' ? 'rectos' : 'inclinados'}. ¿Qué altura?`,
+      disponibles.map(t => ({ label: `${t.altura} mm`, valor: String(t.altura) })));
+    setDatos({ ...d0, tacoTipo: tipo });
+    setPaso('CB_TACO_ALTURA');
+  }, [tacosData, pushBot]);
+
+  const cbAfterTacosYN = useCallback((resp, d0) => {
+    if (resp === 'NO') { cbCalcular({ ...d0, tacos: null }); return; }
+    pushBot('¿Qué tipo de tacos?', [
+      { label: 'Rectos',     valor: 'RECTO'     },
+      { label: 'Inclinados', valor: 'INCLINADO' },
+    ]);
+    setDatos(d0);
+    setPaso('CB_TACO_TIPO');
+  }, [cbCalcular, pushBot]);
+
+  const initCrearBanda = useCallback(() => {
+    setMensajes([{ role: 'bot', texto: '¡Hola! Vamos a crear una banda PVC paso a paso.\n¿Cuáles son las medidas? Ancho × largo en mm.\nEj: 600×4500', chips: null }]);
+    setPaso('CB_DIMS');
+    setDatos({});
     setInput('');
-    setMensajes(prev => [...prev, { role: 'user', texto }]);
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MODE: buscar_banda (BB_*)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const bbCargarBandasCliente = useCallback(async (cId, cNombre) => {
     setCargando(true);
     try {
-      const msgs      = mensajes; // captura en closure antes del setState
-      const ultimoBot = [...msgs].reverse().find(m => m.role === 'bot');
-      const contexto  = ultimoBot?.datos ?? null;
-
-      // Últimas 3 preguntas+respuestas como texto para que Ollama entienda referencias
-      const historial = msgs
-        .slice(-8)
-        .filter(m => m.texto && m.tipo !== 'bienvenida')
-        .map(m => `${m.role === 'user' ? 'Usuario' : 'Asistente'}: ${m.texto}`)
-        .join('\n') || null;
-
-      const res  = await fetch('/api/consulta', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto, contexto, historial, ...(intencionOverride ? { intencion: intencionOverride } : {}) }),
-      });
+      const res  = await fetch(`/api/bandas-historial?clienteId=${cId}`);
       const data = await res.json();
-      setMensajes(prev => [...prev, { role: 'bot', ...data }]);
+      if (!Array.isArray(data) || data.length === 0) {
+        pushBot(`No encontré bandas para ${cNombre}.`, [{ label: '🔄 Nueva búsqueda', valor: '__reiniciar' }]);
+      } else {
+        pushBot(`${data.length} banda${data.length !== 1 ? 's' : ''} de ${cNombre}:`, [], { bandas: data });
+      }
     } catch {
-      setMensajes(prev => [...prev, { role: 'bot', texto: 'Error de conexión. Inténtalo de nuevo.', tipo: 'error', datos: null }]);
+      pushBot('Error al cargar bandas.', [{ label: '🔄 Nueva búsqueda', valor: '__reiniciar' }]);
     } finally {
       setCargando(false);
-      inputRef.current?.focus();
+      setPaso('BB_RESULTADOS');
     }
-  }, [input, cargando, mensajes]);
+  }, [pushBot]);
 
-  // ── Micrófono ─────────────────────────────────────────────────────────────────
-  const toggleMic = useCallback(() => {
-    const SR = (typeof window !== 'undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
-    if (!SR) return; // el botón no aparece si no hay soporte
+  const bbBuscarClientes = useCallback(async (nombre) => {
+    setCargando(true);
+    try {
+      const res     = await fetch(`/api/bandas-historial?modo=clientes&clienteNombre=${encodeURIComponent(nombre)}`);
+      const clientes = await res.json();
+      if (!Array.isArray(clientes) || clientes.length === 0) {
+        pushBot(`No encontré clientes con bandas para "${nombre}".`, [{ label: '🔄 Nueva búsqueda', valor: '__reiniciar' }]);
+        setPaso('BB_RESULTADOS');
+      } else if (clientes.length === 1) {
+        pushBot(`Cargando bandas de ${clientes[0].nombre}…`);
+        await bbCargarBandasCliente(clientes[0].id, clientes[0].nombre);
+      } else {
+        pushBot(`${clientes.length} clientes encontrados. ¿De cuál?`, [], { clientes });
+        setPaso('BB_SELECCIONAR_CLIENTE');
+      }
+    } catch {
+      pushBot('Error al buscar clientes.', [{ label: '🔄 Nueva búsqueda', valor: '__reiniciar' }]);
+      setPaso('BB_RESULTADOS');
+    } finally {
+      setCargando(false);
+    }
+  }, [pushBot, bbCargarBandasCliente]);
 
-    if (grabando) {
-      recognitionRef.current?.stop();
-      setGrabando(false);
+  const bbBuscarPorDims = useCallback(async (ancho, largo) => {
+    setCargando(true);
+    try {
+      const res  = await fetch(`/api/bandas-historial?ancho=${ancho}&largo=${largo}`);
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        pushBot(`No encontré bandas de ${ancho}×${largo} mm.`, [{ label: '🔄 Nueva búsqueda', valor: '__reiniciar' }]);
+      } else {
+        pushBot(`${data.length} banda${data.length !== 1 ? 's' : ''} de ${ancho}×${largo} mm:`, [], { bandas: data });
+      }
+    } catch {
+      pushBot('Error al buscar.', [{ label: '🔄 Nueva búsqueda', valor: '__reiniciar' }]);
+    } finally {
+      setCargando(false);
+      setPaso('BB_RESULTADOS');
+    }
+  }, [pushBot]);
+
+  const initBuscarBanda = useCallback(() => {
+    setMensajes([{ role: 'bot', texto: '¿Qué bandas buscas?', chips: [
+      { label: '👤 Por cliente', valor: 'BB_POR_CLIENTE' },
+      { label: '📐 Por medidas', valor: 'BB_POR_DIMS'    },
+    ] }]);
+    setPaso('BB_INICIO');
+    setDatos({});
+    setInput('');
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MODE: calcular_metraje (CM_*)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const cmMaterialesDisp = useMemo(() => {
+    const set = new Set(tarifasCaucho.map(t => t.material));
+    return MATERIALES_CAUCHO.filter(m => set.has(m));
+  }, [tarifasCaucho]);
+
+  const cmCalcular = useCallback((d0) => {
+    const { material, espesor, lonas, acabado, ancho, largo, cantidad, tipoPieza } = d0;
+    let cands = tarifasCaucho.filter(t => t.material === material);
+    cands = cands.filter(t => Math.abs(Number(t.espesor) - parseFloat(espesor)) < 0.001);
+    if ('lonas'   in d0) cands = lonas   == null ? cands.filter(t => t.lonas == null)  : cands.filter(t => String(t.lonas) === String(lonas));
+    if ('acabado' in d0) cands = acabado == null ? cands.filter(t => !t.acabado)        : cands.filter(t => t.acabado === acabado);
+    const tarifa = cands[0];
+    if (!tarifa) { pushBot('No encontré tarifa para esa combinación.', [{ label: 'Empezar de nuevo', valor: '__reiniciar' }]); return; }
+
+    const ancM = ancho / 1000, larM = largo / 1000, area = ancM * larM;
+    const precioUnitario = Math.round(tarifa.precio * area * 100) / 100;
+    const precioTotal    = Math.round(precioUnitario * cantidad * 100) / 100;
+    const pesoTotal      = Math.round((tarifa.peso ?? 0) * area * cantidad * 1000) / 1000;
+
+    const lineas = [
+      tipoPieza === 'TIRAS' ? `📐  ${cantidad} tiras de ${ancho} × ${largo} mm` : `📐  ${ancho} × ${largo} mm`,
+      `🔧  ${material} ${parseFloat(espesor)} mm${lonas ? ` · ${lonas} lonas` : ''}${acabado ? ` · ${acabado}` : ''}`,
+      '',
+      `Tarifa:     ${tarifa.precio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²`,
+      `Superficie: ${area.toLocaleString('es-ES', { minimumFractionDigits: 4 })} m²`,
+      tipoPieza === 'TIRAS' ? `Precio/tira: ${fmtEur(precioUnitario)}` : null,
+      '──────────────────────────',
+      `TOTAL:      ${fmtEur(precioTotal)}`,
+      pesoTotal > 0 ? `Peso:       ${pesoTotal.toLocaleString('es-ES', { minimumFractionDigits: 3 })} kg` : null,
+    ].filter(l => l !== null).join('\n');
+
+    pushBot(lineas, [{ label: 'Nuevo cálculo', valor: '__reiniciar' }]);
+    setPaso('CM_RESULTADO');
+  }, [tarifasCaucho, pushBot]);
+
+  const cmAfterDims = useCallback((dims, d0) => {
+    if (d0.tipoPieza === 'TIRAS') {
+      pushBot(`Tiras de ${dims.ancho} × ${dims.largo} mm ✓\n\n¿Cuántas tiras?`);
+      setDatos({ ...d0, ...dims });
+      setPaso('CM_CANTIDAD');
+    } else {
+      cmCalcular({ ...d0, ...dims, cantidad: 1 });
+    }
+  }, [cmCalcular, pushBot]);
+
+  const cmAfterTipoPieza = useCallback((tipo, d0) => {
+    pushBot(tipo === 'TIRAS' ? 'Ancho × largo de cada tira, en mm.\nEj: 250×1200' : '¿Cuáles son las dimensiones?\nAncho × largo en mm.\nEj: 500×1200');
+    setDatos({ ...d0, tipoPieza: tipo });
+    setPaso('CM_DIMS');
+  }, [pushBot]);
+
+  const cmAfterLonas = useCallback((lonas, d0, tarsEsp) => {
+    const tarsL = lonas == null ? tarsEsp.filter(t => t.lonas == null) : tarsEsp.filter(t => String(t.lonas) === lonas);
+    const aOpts = [...new Set(tarsL.map(t => t.acabado == null ? '__null' : t.acabado))];
+    if (aOpts.length > 1) {
+      pushBot('¿Qué acabado?', aOpts.map(a => ({ label: a === '__null' ? 'Sin acabado especial' : a, valor: a })));
+      setDatos({ ...d0, lonas });
+      setPaso('CM_ACABADO');
+      return;
+    }
+    const ac = aOpts[0] === '__null' ? null : aOpts[0];
+    pushBot('¿Cómo va la pieza?', [{ label: 'Pieza completa', valor: 'PIEZA' }, { label: 'Tiras', valor: 'TIRAS' }]);
+    setDatos({ ...d0, lonas, acabado: ac });
+    setPaso('CM_TIPO_PIEZA');
+  }, [pushBot]);
+
+  const cmAfterEspesor = useCallback((espesor, d0) => {
+    const tarsEsp = tarifasCaucho.filter(t => t.material === d0.material && Math.abs(Number(t.espesor) - parseFloat(espesor)) < 0.001);
+    const lOpts   = [...new Set(tarsEsp.map(t => t.lonas == null ? '__null' : String(t.lonas)))];
+    if (lOpts.length > 1) {
+      const chips = lOpts.sort((a, b) => a === '__null' ? -1 : b === '__null' ? 1 : Number(a) - Number(b))
+        .map(l => ({ label: l === '__null' ? 'Estándar' : `${l} lonas`, valor: l }));
+      pushBot('¿Cuántas lonas?', chips);
+      setDatos({ ...d0, espesor });
+      setPaso('CM_LONAS');
+      return;
+    }
+    cmAfterLonas(lOpts[0] === '__null' ? null : lOpts[0], { ...d0, espesor }, tarsEsp);
+  }, [tarifasCaucho, pushBot, cmAfterLonas]);
+
+  const cmAfterMaterial = useCallback((material) => {
+    const tarsM = tarifasCaucho.filter(t => t.material === material);
+    const espesores = [...new Set(tarsM.map(t => String(t.espesor)))].sort((a, b) => parseFloat(a) - parseFloat(b));
+    const chips = espesores.map(esp => {
+      const lonas = [...new Set(tarsM.filter(t => Math.abs(Number(t.espesor) - parseFloat(esp)) < 0.001).map(t => t.lonas).filter(Boolean))].sort();
+      return { label: `${parseFloat(esp)} mm${lonas.length ? ` (${lonas.join('/')}L)` : ''}`, valor: esp };
+    });
+    pushBot(`Material: ${material} ✓\n\n¿Qué espesor?`, chips);
+    setDatos({ material });
+    setPaso('CM_ESPESOR');
+  }, [tarifasCaucho, pushBot]);
+
+  const initCalcularMetraje = useCallback(() => {
+    const chips = cmMaterialesDisp.map(m => ({ label: m, valor: m }));
+    setMensajes([{ role: 'bot', texto: '¡Hola! Vamos a añadir un metraje de caucho.\n¿Qué material necesitas?', chips }]);
+    setPaso('CM_MATERIAL');
+    setDatos({});
+    setInput('');
+  }, [cmMaterialesDisp]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MODE: precio_material (PM_*)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const pmAfterEspesor = useCallback((espesorStr, d0) => {
+    const espesor = parseFloat(espesorStr);
+    const cands = (todasTarifas ?? []).filter(t =>
+      t.material === d0.material && Math.abs(Number(t.espesor) - espesor) < 0.001);
+
+    if (cands.length === 0) {
+      pushBot('No encontré tarifa para ese espesor.', [{ label: 'Volver al inicio', valor: '__reiniciar' }]);
+      return;
+    }
+    if (cands.length === 1) {
+      pushBot(`${d0.material} ${espesor}mm`, [{ label: 'Consultar otro material', valor: '__reiniciar' }], { tarifa: cands[0] });
+      setPaso('PM_RESULTADO');
+      return;
+    }
+    // Múltiples variantes (color/acabado) — mostrar la primera como resumen y los chips
+    pushBot(
+      `${cands.length} variantes de ${d0.material} ${espesor}mm:`,
+      cands.map(t => ({
+        label: [t.acabado, t.color, t.lonas ? `${t.lonas}L` : null].filter(Boolean).join(' · ') || 'Estándar',
+        valor: String(cands.indexOf(t)),
+        _tarifa: t,
+      })),
+    );
+    setDatos({ ...d0, espesor, _cands: cands });
+    setPaso('PM_VARIANTE');
+  }, [todasTarifas, pushBot]);
+
+  const pmAfterMaterial = useCallback((material) => {
+    const cands = (todasTarifas ?? []).filter(t => t.material === material);
+    const espesores = [...new Set(cands.map(t => String(t.espesor)))].sort((a, b) => parseFloat(a) - parseFloat(b));
+    pushBot(`Material: ${material} ✓\n\n¿Qué espesor?`,
+      espesores.map(e => ({ label: `${parseFloat(e)} mm`, valor: e })));
+    setDatos({ material });
+    setPaso('PM_ESPESOR');
+  }, [todasTarifas, pushBot]);
+
+  const initPrecioMaterial = useCallback(() => {
+    const materiales = [...new Set((todasTarifas ?? []).map(t => t.material))].sort();
+    const chips = materiales.map(m => ({ label: m, valor: m }));
+    setMensajes([{ role: 'bot', texto: '¿Qué material quieres consultar?', chips: chips.length ? chips : null }]);
+    setPaso('PM_MATERIAL');
+    setDatos({});
+    setInput('');
+  }, [todasTarifas]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DISPATCHER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const iniciarModo = useCallback((id) => {
+    setModo(id);
+    setInputErr('');
+    switch (id) {
+      case 'crear_banda':      initCrearBanda();      break;
+      case 'buscar_banda':     initBuscarBanda();     break;
+      case 'calcular_metraje': initCalcularMetraje(); break;
+      case 'precio_material':  initPrecioMaterial();  break;
+    }
+  }, [initCrearBanda, initBuscarBanda, initCalcularMetraje, initPrecioMaterial]);
+
+  const procesarChip = useCallback((valor, chip, currentPaso, d) => {
+    if (valor === '__reiniciar') { iniciarModo(modo); return; }
+
+    if (currentPaso.startsWith('CB_')) {
+      switch (currentPaso) {
+        case 'CB_ESPESOR':      cbAfterEspesor(valor, d); break;
+        case 'CB_LONAS':        cbAfterLonas(valor === '__null' ? null : valor, d, tarifasPVC.filter(t => Math.abs(Number(t.espesor) - Number(d.espesor)) < 0.001)); break;
+        case 'CB_ACABADO':      cbAfterAcabado(valor === '__null' ? null : valor, d, tarifasPVC.filter(t => { if (Math.abs(Number(t.espesor) - Number(d.espesor)) >= 0.001) return false; return d.lonas == null ? t.lonas == null : String(t.lonas) === d.lonas; })); break;
+        case 'CB_COLOR':        cbAskConf({ ...d, color: valor === '__null' ? null : valor }); break;
+        case 'CB_CONF':         cbAfterConf(valor, d); break;
+        case 'CB_GRAPA_MODELO': cbAskTacos({ ...d, grapaId: parseInt(valor, 10) }); break;
+        case 'CB_TACOS_YN':     cbAfterTacosYN(valor, d); break;
+        case 'CB_TACO_TIPO':    cbAfterTacoTipo(valor, d); break;
+        case 'CB_TACO_ALTURA':  cbAfterTacoAltura(valor, d); break;
+        case 'CB_TACO_LONGITUD': cbAfterTacoLongitud(parseFloat(valor), d); break;
+        default: break;
+      }
       return;
     }
 
-    const rec = new SR();
-    rec.lang = 'es-ES';
-    rec.continuous = false;
-    rec.interimResults = false;
+    if (currentPaso.startsWith('BB_')) {
+      switch (valor) {
+        case 'BB_POR_CLIENTE':
+          addUser_('Por cliente');
+          pushBot('¿Qué cliente buscas? Escribe el nombre o parte de él.');
+          setPaso('BB_BUSCANDO_CLIENTE');
+          setInput('');
+          break;
+        case 'BB_POR_DIMS':
+          addUser_('Por medidas');
+          pushBot('¿Qué medidas? Escríbelas como ancho×largo en mm (ej: 750×6850)');
+          setPaso('BB_BUSCANDO_DIMS');
+          setInput('');
+          break;
+        default: break;
+      }
+      // Cliente seleccionado de lista
+      if (chip?._cliente) {
+        pushBot(`Cargando bandas de ${chip._cliente.nombre}…`);
+        bbCargarBandasCliente(chip._cliente.id, chip._cliente.nombre);
+      }
+      return;
+    }
 
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setInput(prev => (prev + ' ' + transcript).trim());
-      setGrabando(false);
-    };
-    rec.onerror = () => setGrabando(false);
-    rec.onend   = () => setGrabando(false);
+    if (currentPaso.startsWith('CM_')) {
+      switch (currentPaso) {
+        case 'CM_MATERIAL':   cmAfterMaterial(valor); break;
+        case 'CM_ESPESOR':    cmAfterEspesor(valor, d); break;
+        case 'CM_LONAS':      cmAfterLonas(valor === '__null' ? null : valor, d,
+                                tarifasCaucho.filter(t => t.material === d.material && Math.abs(Number(t.espesor) - parseFloat(d.espesor)) < 0.001)); break;
+        case 'CM_ACABADO': {
+                                const tarsL = tarifasCaucho.filter(t => t.material === d.material && Math.abs(Number(t.espesor) - parseFloat(d.espesor)) < 0.001 && (d.lonas == null ? t.lonas == null : String(t.lonas) === d.lonas));
+                                pushBot('¿Cómo va la pieza?', [{ label: 'Pieza completa', valor: 'PIEZA' }, { label: 'Tiras', valor: 'TIRAS' }]);
+                                setDatos({ ...d, acabado: valor === '__null' ? null : valor });
+                                setPaso('CM_TIPO_PIEZA');
+                                break; }
+        case 'CM_TIPO_PIEZA': cmAfterTipoPieza(valor, d); break;
+        default: break;
+      }
+      return;
+    }
 
-    rec.start();
-    recognitionRef.current = rec;
-    setGrabando(true);
-  }, [grabando]);
+    if (currentPaso.startsWith('PM_')) {
+      switch (currentPaso) {
+        case 'PM_MATERIAL': pmAfterMaterial(valor); break;
+        case 'PM_ESPESOR':  pmAfterEspesor(valor, d); break;
+        case 'PM_VARIANTE':
+          if (chip?._tarifa) {
+            pushBot('', [{ label: 'Consultar otro material', valor: '__reiniciar' }], { tarifa: chip._tarifa });
+            setPaso('PM_RESULTADO');
+          }
+          break;
+        default: break;
+      }
+    }
+  }, [modo, iniciarModo, tarifasPVC, tarifasCaucho, cbAfterEspesor, cbAfterLonas, cbAfterAcabado, cbAskConf, cbAfterConf, cbAskTacos, cbAfterTacosYN, cbAfterTacoTipo, cbAfterTacoAltura, cbAfterTacoLongitud, cmAfterMaterial, cmAfterEspesor, cmAfterLonas, cmAfterTipoPieza, pmAfterMaterial, pmAfterEspesor, bbCargarBandasCliente, pushBot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const tieneSoporteMic = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  // Helper para pushUser desde procesarChip (avoids stale closure)
+  const addUser_ = (texto) => setMensajes(prev => [...prev, { role: 'user', texto }]);
 
-  // ── Limpiar historial ─────────────────────────────────────────────────────────
-  const limpiarHistorial = useCallback(() => {
-    setMensajes([MSG_BIENVENIDA]);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
-  }, []);
+  const procesarTexto = useCallback((txt, currentPaso, d) => {
+    if (currentPaso === 'CB_DIMS') {
+      const dims = parseDims(txt);
+      if (!dims) { pushBot('No entendí las medidas. Prueba: 600×4500'); return; }
+      cbAskEspesor(dims, d);
+    } else if (currentPaso === 'CB_TACO_PASO') {
+      const n = parsePositive(txt);
+      if (!n) { pushBot('Escribe el paso en mm, ej: 200'); return; }
+      cbAfterTacoPaso(n, d);
+    } else if (currentPaso === 'CB_TACO_LONGITUD') {
+      const n = parsePositive(txt);
+      if (!n) { pushBot('Escribe la longitud en mm'); return; }
+      cbAfterTacoLongitud(n, d);
+    } else if (currentPaso === 'BB_BUSCANDO_CLIENTE') {
+      setPaso('BB_CARGANDO');
+      pushBot(`Buscando clientes que coincidan con "${txt}"…`);
+      bbBuscarClientes(txt);
+    } else if (currentPaso === 'BB_BUSCANDO_DIMS') {
+      const dims = parseDimsEstricto(txt);
+      if (!dims) { setInputErr('Formato no reconocido. Prueba: 750×6850 o 750x6850'); return; }
+      setInputErr('');
+      pushBot(`Buscando bandas de ${dims.ancho}×${dims.largo} mm…`);
+      setPaso('BB_CARGANDO');
+      bbBuscarPorDims(dims.ancho, dims.largo);
+    } else if (currentPaso === 'CM_DIMS') {
+      const dims = parseDims(txt);
+      if (!dims) { pushBot('No entendí las medidas. Prueba: 500×1200'); return; }
+      cmAfterDims(dims, d);
+    } else if (currentPaso === 'CM_CANTIDAD') {
+      const n = parseInt(txt, 10);
+      if (!n || n <= 0) { pushBot('Escribe el número de tiras, ej: 10'); return; }
+      cmCalcular({ ...d, cantidad: n });
+    } else {
+      pushBot('Usa los botones de arriba para elegir.');
+    }
+  }, [pushBot, cbAskEspesor, cbAfterTacoPaso, cbAfterTacoLongitud, bbBuscarClientes, bbBuscarPorDims, cmAfterDims, cmCalcular]);
+
+  const handleChip = useCallback((chip) => {
+    if (!chip.valor && !chip.action) return;
+    const v = chip.valor ?? chip.action;
+    if (v !== '__reiniciar' && v !== '__copiar') pushUser(chip.label);
+    procesarChip(v, chip, paso, datos);
+  }, [pushUser, procesarChip, paso, datos]);
+
+  const handleSeleccionarCliente = useCallback((cliente) => {
+    pushUser(cliente.nombre);
+    pushBot(`Cargando ${cliente.count} banda${cliente.count !== 1 ? 's' : ''} de ${cliente.nombre}…`);
+    setPaso('BB_CARGANDO');
+    bbCargarBandasCliente(cliente.id, cliente.nombre);
+  }, [pushUser, pushBot, bbCargarBandasCliente]);
+
+  const handleEnviar = useCallback(() => {
+    const txt = input.trim();
+    if (!txt) return;
+    pushUser(txt);
+    setInput('');
+    setInputErr('');
+    procesarTexto(txt, paso, datos);
+  }, [input, pushUser, procesarTexto, paso, datos]);
+
+  const INPUT_PASOS = {
+    CB_DIMS: 'Ej: 600×4500',
+    CB_TACO_PASO: 'Paso en mm, ej: 200',
+    CB_TACO_LONGITUD: 'Longitud en mm',
+    BB_BUSCANDO_CLIENTE: 'Nombre del cliente…',
+    BB_BUSCANDO_DIMS: 'Ej: 750×6850',
+    CM_DIMS: 'Ej: 500×1200',
+    CM_CANTIDAD: 'Número de tiras',
+  };
+  const inputActivo   = paso in INPUT_PASOS;
+  const inputPlaceholder = INPUT_PASOS[paso] ?? 'Usa los botones de arriba';
+
+  // Focus cuando el paso cambia y el input es necesario
+  useEffect(() => {
+    if (inputActivo) setTimeout(() => inputRef.current?.focus(), 60);
+  }, [paso, inputActivo]);
+
+  // ─── render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full gap-0">
 
-      {/* Botones de calculadora — siempre visibles */}
-      <div className="pb-2 border-b border-base-200">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-base-content/40 mb-2 px-1">
-          📐 Calcular precio
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {CALCULOS_RAPIDOS.map(a => (
-            <button key={a.query}
-              onClick={() => enviar(a.query, a.intencion)}
-              className="flex items-center gap-2 bg-primary/5 hover:bg-primary/10 border border-primary/15 active:scale-[0.99] rounded-xl px-3 py-2.5 text-sm font-medium text-left transition-colors"
+      {/* Selector de modos — dos columnas */}
+      <div className="flex gap-2 pb-3 border-b border-base-200 shrink-0">
+        {/* Izquierda: 3 botones */}
+        <div className="flex flex-col gap-1.5 flex-1">
+          {MODOS_IZQ.map(m => (
+            <button key={m.id} onClick={() => iniciarModo(m.id)}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-left transition-colors border ${
+                modo === m.id
+                  ? 'bg-primary text-primary-content border-primary'
+                  : 'bg-primary/5 hover:bg-primary/10 border-primary/20 text-base-content'
+              }`}
             >
-              <a.icon className="w-4 h-4 text-primary shrink-0" />
-              {a.label}
+              <m.icon className="w-3.5 h-3.5 shrink-0" />
+              {m.label}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Historial de mensajes */}
-      <div className="flex justify-end pt-1">
-        <button
-          onClick={limpiarHistorial}
-          className="btn btn-ghost btn-xs text-base-content/30 gap-1"
-          title="Limpiar conversación"
-        >
-          <Trash2 className="w-3 h-3" />
-          Limpiar
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto space-y-3 py-2">
-        {mensajes.map((m, i) =>
-          m.role === 'user'
-            ? <BurbujaUsuario key={i} texto={m.texto} />
-            : <BurbujaBot     key={i} msg={m} onAccion={enviar} />
-        )}
-
-        {cargando && <TypingDots fase={faseCarga} />}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="pt-3 pb-1 border-t border-base-200">
-        <div className="flex gap-2 items-center">
-          {/* Botón micrófono — solo si el navegador lo soporta */}
-          {tieneSoporteMic && (
-            <button
-              onClick={toggleMic}
-              className={`btn btn-square h-11 w-11 shrink-0 ${grabando ? 'btn-error animate-pulse' : 'btn-ghost border border-base-300'}`}
-              title={grabando ? 'Detener grabación' : 'Dictar por voz'}
-            >
-              {grabando ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
-          )}
-
-          <input
-            ref={inputRef}
-            type="text"
-            className="input input-bordered flex-1 text-sm h-11"
-            placeholder={grabando ? 'Escuchando…' : 'Pedidos hoy, stock pvc, 400×3800 grapa…'}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && enviar()}
-            disabled={cargando || grabando}
-            autoComplete="off"
-          />
-
-          <button
-            className="btn btn-primary btn-square h-11 w-11 shrink-0"
-            onClick={() => enviar()}
-            disabled={!input.trim() || cargando}
+        {/* Derecha: 1 botón grande */}
+        <div className="flex-1">
+          <button onClick={() => iniciarModo(MODO_DER.id)}
+            className={`w-full h-full flex flex-col items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-medium transition-colors border ${
+              modo === MODO_DER.id
+                ? 'bg-secondary text-secondary-content border-secondary'
+                : 'bg-secondary/5 hover:bg-secondary/10 border-secondary/20 text-base-content'
+            }`}
           >
-            <Send className="w-4 h-4" />
+            <MODO_DER.icon className="w-5 h-5" />
+            {MODO_DER.label}
           </button>
         </div>
       </div>
+
+      {/* Área de mensajes */}
+      <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-2">
+        {modo === null ? (
+          <p className="text-sm text-base-content/40 text-center mt-10">
+            Selecciona una opción arriba para empezar
+          </p>
+        ) : (
+          mensajes.map((m, i) => {
+            const isBot       = m.role === 'bot';
+            const esUltimoBot = isBot && i === mensajes.map(x => x.role).lastIndexOf('bot');
+            return (
+              <div key={i} className={`flex ${isBot ? 'justify-start' : 'justify-end'}`}>
+                <div className="max-w-[92%]">
+                  {m.texto && (
+                    <div className={`rounded-2xl px-3 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
+                      isBot
+                        ? 'bg-base-200 text-base-content rounded-bl-none'
+                        : 'bg-primary text-primary-content rounded-br-none'
+                    }`}>
+                      {m.texto}
+                    </div>
+                  )}
+
+                  {/* Tarifa card (precio_material) */}
+                  {isBot && m.tarifa && <PrecioCard tarifa={m.tarifa} />}
+
+                  {/* Banda cards (buscar_banda) */}
+                  {isBot && m.bandas?.length > 0 && (
+                    <div className="flex flex-col gap-2 mt-2">
+                      {m.bandas.map((banda, j) => <BandaCard key={j} banda={banda} />)}
+                    </div>
+                  )}
+
+                  {/* Lista de clientes (buscar_banda) */}
+                  {isBot && m.clientes?.length > 0 && paso === 'BB_SELECCIONAR_CLIENTE' && (
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      {m.clientes.map(cli => (
+                        <button key={cli.id} onClick={() => handleSeleccionarCliente(cli)}
+                          className="btn btn-sm btn-ghost justify-between border border-base-300 hover:border-secondary hover:text-secondary">
+                          <span>{cli.nombre}</span>
+                          <span className="badge badge-ghost badge-sm">{cli.count} banda{cli.count !== 1 ? 's' : ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Chips de selección */}
+                  {isBot && esUltimoBot && m.chips?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {m.chips.map((chip, j) => (
+                        <button key={j} onClick={() => handleChip(chip)}
+                          className={`btn btn-xs btn-ghost border ${
+                            chip.valor === '__reiniciar'
+                              ? 'border-base-300 text-base-content/50'
+                              : 'border-base-300 hover:border-primary hover:text-primary'
+                          }`}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        {cargando && (
+          <div className="flex justify-start">
+            <div className="bg-base-200 rounded-2xl rounded-bl-none px-4 py-3">
+              <span className="loading loading-dots loading-xs" />
+            </div>
+          </div>
+        )}
+
+        <div ref={endRef} />
+      </div>
+
+      {/* Input */}
+      {modo && (
+        <div className="pt-2 border-t border-base-200 shrink-0">
+          {inputErr && <p className="text-xs text-error mb-1.5 px-1">{inputErr}</p>}
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={e => { setInput(e.target.value); setInputErr(''); }}
+              onKeyDown={e => e.key === 'Enter' && inputActivo && handleEnviar()}
+              placeholder={inputPlaceholder}
+              disabled={!inputActivo}
+              className="input input-bordered input-sm flex-1 text-sm"
+            />
+            <button onClick={handleEnviar} disabled={!inputActivo || !input.trim()}
+              className="btn btn-sm btn-primary btn-square">
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
