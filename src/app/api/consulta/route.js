@@ -214,6 +214,11 @@ function detectarIntencionRegex(s, ent) {
   if (dims && esPieza) return 'calcular_pieza';
   if (dims && (conf || esBandaKW || material || espesor != null || color)) return 'calcular_banda';
   if (dims) return 'calcular_banda';
+  // Starters sin datos → validarEntidades preguntará los detalles paso a paso
+  if (esBandaKW)                   return 'calcular_banda';
+  if (esPieza)                     return 'calcular_pieza';
+  if (/\bmetraje\b/.test(s))       return 'calcular_metraje';
+  if (/\btiras?\b/.test(s))        return 'calcular_tiras_caucho';
   if (/\b(precio|tarifa|cuanto|cuanta|coste|vale|cuesta|sale)\b/.test(s) && (material || espesor != null)) return 'tarifa_material';
   if (/bajo.{0,10}minimo|minimo.{0,10}stock|alertas?\s*stock|critico/.test(s)) return 'stock_minimo';
   if (/\b(stock|metros|disponible|hay|tenemos|quedan|inventario)\b/.test(s)) return 'stock';

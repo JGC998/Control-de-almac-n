@@ -4,17 +4,24 @@ import Link from 'next/link';
 import {
   Send, Package, ClipboardList, AlertTriangle, ArrowRight,
   ExternalLink, Ruler, Ship, HelpCircle, Mic, MicOff,
-  FileText, Trash2, Copy, Check, Download,
+  FileText, Trash2, Copy, Check, Download, Calculator,
 } from 'lucide-react';
 
 const STORAGE_KEY   = 'chat-consulta-v1';
 const MAX_HISTORIAL = 40;
 
-const ACCIONES_RAPIDAS = [
-  { label: 'Pedidos de hoy',     query: 'pedidos hoy',        icon: ClipboardList  },
-  { label: 'Stock bajo mínimo',  query: 'stock bajo mínimo',  icon: AlertTriangle  },
-  { label: 'Pedidos pendientes', query: 'pedidos pendientes',  icon: ClipboardList  },
-  { label: 'Todo el stock',      query: 'stock',               icon: Package        },
+const CALCULOS_RAPIDOS = [
+  { label: 'Banda PVC',       query: 'calcular banda',   icon: Calculator },
+  { label: 'Metraje lineal',  query: 'calcular metraje', icon: Ruler      },
+  { label: 'Pieza / Faldeta', query: 'calcular pieza',   icon: Calculator },
+  { label: 'Tiras de caucho', query: 'calcular tiras',   icon: Ruler      },
+];
+
+const CONSULTAS_RAPIDAS = [
+  { label: 'Pedidos de hoy',     query: 'pedidos hoy',        icon: ClipboardList },
+  { label: 'Stock bajo mínimo',  query: 'stock bajo mínimo',  icon: AlertTriangle },
+  { label: 'Pedidos pendientes', query: 'pedidos pendientes',  icon: ClipboardList },
+  { label: 'Todo el stock',      query: 'stock',               icon: Package       },
 ];
 
 const ESTADO_BADGE = {
@@ -553,7 +560,7 @@ function TypingDots({ fase }) {
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-const MSG_BIENVENIDA = { role: 'bot', texto: '¡Hola! Pregúntame sobre pedidos, stock, clientes o precios de bandas.', tipo: 'bienvenida', datos: null };
+const MSG_BIENVENIDA = { role: 'bot', texto: '¡Hola! Puedo calcular precios de bandas y metrajes, o consultar pedidos, stock y clientes. ¿Qué necesitas?', tipo: 'bienvenida', datos: null };
 
 export default function ChatConsulta() {
   const [mensajes, setMensajes] = useState([MSG_BIENVENIDA]);
@@ -700,18 +707,46 @@ export default function ChatConsulta() {
             : <BurbujaBot     key={i} msg={m} onAccion={enviar} />
         )}
 
-        {/* Acciones rápidas — solo antes del primer mensaje del usuario */}
+        {/* Pantalla inicial — solo antes del primer mensaje del usuario */}
         {!hayMensajesUsuario && !cargando && (
-          <div className="flex flex-col gap-2 pt-2">
-            {ACCIONES_RAPIDAS.map(a => (
-              <button key={a.query}
-                onClick={() => enviar(a.query)}
-                className="flex items-center gap-3 bg-base-200 hover:bg-base-300 active:scale-[0.99] rounded-xl px-4 py-3 text-sm font-medium text-left transition-colors"
-              >
-                <a.icon className="w-4 h-4 text-primary shrink-0" />
-                {a.label}
-              </button>
-            ))}
+          <div className="flex flex-col gap-4 pt-1">
+
+            {/* Cálculo de precios */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-base-content/40 mb-2 px-1">
+                📐 Calcular precio
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {CALCULOS_RAPIDOS.map(a => (
+                  <button key={a.query}
+                    onClick={() => enviar(a.query)}
+                    className="flex items-center gap-2 bg-primary/5 hover:bg-primary/10 border border-primary/15 active:scale-[0.99] rounded-xl px-3 py-3 text-sm font-medium text-left transition-colors"
+                  >
+                    <a.icon className="w-4 h-4 text-primary shrink-0" />
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Consultas rápidas */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-base-content/40 mb-2 px-1">
+                📋 Consultar
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {CONSULTAS_RAPIDAS.map(a => (
+                  <button key={a.query}
+                    onClick={() => enviar(a.query)}
+                    className="flex items-center gap-3 bg-base-200 hover:bg-base-300 active:scale-[0.99] rounded-xl px-4 py-3 text-sm font-medium text-left transition-colors"
+                  >
+                    <a.icon className="w-4 h-4 text-primary shrink-0" />
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
           </div>
         )}
 
