@@ -11,10 +11,10 @@ const STORAGE_KEY   = 'chat-consulta-v1';
 const MAX_HISTORIAL = 40;
 
 const CALCULOS_RAPIDOS = [
-  { label: 'Banda PVC',       query: 'calcular banda',   intencion: 'calcular_banda',       icon: Calculator },
-  { label: 'Metraje lineal',  query: 'calcular metraje', intencion: 'calcular_metraje',      icon: Ruler      },
-  { label: 'Pieza / Faldeta', query: 'calcular pieza',   intencion: 'calcular_pieza',        icon: Calculator },
-  { label: 'Tiras de caucho', query: 'calcular tiras',   intencion: 'calcular_tiras_caucho', icon: Ruler      },
+  { label: 'Banda PVC',       query: 'calcular banda pvc',          intencion: 'calcular_banda',       icon: Calculator },
+  { label: 'Metraje lineal',  query: 'calcular metraje',            intencion: 'calcular_metraje',      icon: Ruler      },
+  { label: 'Pieza / Faldeta', query: 'calcular pieza faldeta',      intencion: 'calcular_pieza',        icon: Calculator },
+  { label: 'Tiras de caucho', query: 'calcular tiras caucho goma',  intencion: 'calcular_tiras_caucho', icon: Ruler      },
 ];
 
 const ESTADO_BADGE = {
