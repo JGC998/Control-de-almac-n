@@ -268,7 +268,7 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
       ``,
       `Tarifa:     ${_tarifaPrecio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²`,
       `Superficie: ${_area.toLocaleString('es-ES', { minimumFractionDigits: 4 })} m²`,
-      tipoPieza === 'TIRAS' ? `Precio/tira: ${fmtEur(_precioBase)}` : null,
+      tipoPieza === 'TIRAS' ? `Precio/tira: ${fmtEur(precioUnitario)}` : null,
       mult !== 1 ? `Coste:      ${fmtEur(tipoPieza === 'TIRAS' ? _precioBase * cantidad : _precioBase)}` : null,
       `──────────────────────────`,
       mult !== 1 ? `${labelMult} (×${mult}):` : null,

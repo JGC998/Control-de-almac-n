@@ -349,7 +349,7 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
     let descripcion = `PVC-${espesor}mm-${confCode}${variant}-${ancho}x${largo}`;
     if (tacos) descripcion += `-T${tacos.tipo === 'RECTO' ? 'R' : 'I'}${tacos.altura}`;
 
-    const confLabel = { VULCANIZADA: 'Sin Fin', GRAPA: 'Con Grapa', ABIERTA: 'Abierta' }[conf];
+    const confLabel = { VULCANIZADA: 'Sin Fin', GRAPA: 'Con Grapa', ABIERTA: 'Abierta' }[conf] ?? '—';
 
     setDatos({
       ...d0,

@@ -164,7 +164,8 @@ export async function PATCH(request, { params: paramsPromise }) {
     const updates = await request.json();
     const allowed = {};
     if (typeof updates.sinFacturacion === 'boolean') allowed.sinFacturacion = updates.sinFacturacion;
-    if (updates.estado) allowed.estado = updates.estado;
+    const ESTADOS_PEDIDO = ['Pendiente', 'Facturado', 'Cancelado'];
+    if (updates.estado && ESTADOS_PEDIDO.includes(updates.estado)) allowed.estado = updates.estado;
     if (updates.tallerEstado && TALLER_ESTADOS.includes(updates.tallerEstado)) {
       allowed.tallerEstado = updates.tallerEstado;
     }
