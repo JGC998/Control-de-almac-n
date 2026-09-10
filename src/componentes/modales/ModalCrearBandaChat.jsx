@@ -47,10 +47,12 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
   const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
   const { data: tacosData } = useSWR('/api/tacos');
   const { data: config } = useSWR('/api/config');
+  const { data: margenesData } = useSWR('/api/pricing/margenes');
 
   const costeVulcanizadoMetro = config?.costeVulcanizadoMetro ?? 0;
 
   const tarifasPVC = useMemo(() => (tarifas ?? []).filter(t => t.material === 'PVC'), [tarifas]);
+  const margenesVenta = useMemo(() => (margenesData ?? []).filter(m => m.tipo !== 'gastoFijo' && m.multiplicador !== 1), [margenesData]);
 
   const espesoresDisp = useMemo(() => {
     const set = [...new Set(tarifasPVC.map(t => String(t.espesor)))];
@@ -338,11 +340,8 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
     }
 
     const costeTacos = tacos?.costeTacos ?? 0;
-    const precioUnitario = Math.round((costeMat + costeConf + costeTacos) * 100) / 100;
-    const pesoUnitario   = (tarifa.peso ?? 0) * area;
+    const pesoUnitario = (tarifa.peso ?? 0) * area;
 
-    // Nomenclatura — si el paso fue visitado usar lo que eligió el usuario,
-    // si no (solo había una opción) usar el valor de la tarifa
     const confCode = conf === 'VULCANIZADA' ? 'SF' : conf === 'GRAPA' ? 'GR' : 'AB';
     const ac = 'acabado' in d0 ? d0.acabado : (tarifa.acabado ?? null);
     const co = 'color'   in d0 ? d0.color   : (tarifa.color   ?? null);
@@ -351,37 +350,63 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
     if (tacos) descripcion += `-T${tacos.tipo === 'RECTO' ? 'R' : 'I'}${tacos.altura}`;
 
     const confLabel = { VULCANIZADA: 'Sin Fin', GRAPA: 'Con Grapa', ABIERTA: 'Abierta' }[conf];
+
+    setDatos({
+      ...d0,
+      _costeMat:    Math.round(costeMat * 100) / 100,
+      _costeConf:   Math.round(costeConf * 100) / 100,
+      _costeTacos:  Math.round(costeTacos * 100) / 100,
+      _pesoUnitario: pesoUnitario,
+      _descripcion: descripcion,
+      _confLabel:   confLabel,
+      _ac: ac,
+      _co: co,
+    });
+
+    const margenChips = [
+      { label: 'Coste interno', valor: '__tipo_coste', _mult: 1 },
+      ...margenesVenta.map(m => ({ label: m.descripcion, valor: `__tipo_${m.base}`, _mult: m.multiplicador })),
+    ];
+    pushBot('¿El precio es para...?', margenChips);
+    setPaso('TIPO_CLIENTE');
+  };
+
+  const mostrarResultadoBanda = (d0, mult, labelMult) => {
+    const { ancho, largo, espesor, conf, tacos, _costeMat = 0, _costeConf = 0, _costeTacos = 0, _pesoUnitario = 0, _descripcion, _confLabel, _ac, _co } = d0;
+    const costeBase = _costeMat + _costeConf + _costeTacos;
+    const precioUnitario = Math.round(costeBase * mult * 100) / 100;
+
     const lineas = [
       `📐  ${ancho} × ${largo} mm`,
-      `🔧  PVC ${espesor} mm${ac ? ` · ${ac}` : co ? ` · ${co}` : ''}`,
-      `⚙️  ${confLabel}`,
-      tacos
-        ? `📌  ${tacos.cantidadTacos} tacos ${tacos.tipo === 'RECTO' ? 'rectos' : 'inclinados'} de ${tacos.altura} mm · paso ${tacos.paso} mm`
-        : null,
+      `🔧  PVC ${espesor} mm${_ac ? ` · ${_ac}` : _co ? ` · ${_co}` : ''}`,
+      `⚙️  ${_confLabel}`,
+      tacos ? `📌  ${tacos.cantidadTacos} tacos ${tacos.tipo === 'RECTO' ? 'rectos' : 'inclinados'} de ${tacos.altura} mm · paso ${tacos.paso} mm` : null,
       ``,
-      `Material:     ${fmtEur(costeMat)}`,
-      costeConf > 0 ? `Confección:   ${fmtEur(costeConf)}` : null,
-      costeTacos > 0 ? `Tacos:        ${fmtEur(costeTacos)}` : null,
+      `Material:     ${fmtEur(_costeMat)}`,
+      _costeConf  > 0 ? `Confección:   ${fmtEur(_costeConf)}`  : null,
+      _costeTacos > 0 ? `Tacos:        ${fmtEur(_costeTacos)}` : null,
+      mult !== 1 ? `Coste:        ${fmtEur(costeBase)}` : null,
       `──────────────────────────`,
+      mult !== 1 ? `${labelMult} (×${mult}):` : null,
       `TOTAL:        ${fmtEur(precioUnitario)}`,
     ].filter(l => l !== null).join('\n');
 
     const bandaItem = {
-      descripcion,
+      descripcion: _descripcion,
       unidades: 1,
       precioUnitario,
       precioTotal: precioUnitario,
-      pesoTotal: pesoUnitario,
-      pesoUnitario,
+      pesoTotal: _pesoUnitario,
+      pesoUnitario: _pesoUnitario,
       dimensiones: { ancho: String(ancho), largo: String(largo), espesor: String(espesor) },
-      color: co,
+      color: _co,
       material: 'PVC',
       tipoConfeccion: conf,
       grapa: null,
       tacos: tacos ?? null,
-      precioMaterial: Math.round(costeMat * 100) / 100,
-      costeVulcanizado: conf === 'VULCANIZADA' ? Math.round(costeConf * 100) / 100 : 0,
-      costeTacos: Math.round(costeTacos * 100) / 100,
+      precioMaterial: _costeMat,
+      costeVulcanizado: conf === 'VULCANIZADA' ? _costeConf : 0,
+      costeTacos: _costeTacos,
     };
 
     setDatos({ ...d0, _resultado: bandaItem });
@@ -416,6 +441,7 @@ export default function ModalCrearBandaChat({ isOpen, onClose, onAddItem }) {
       case 'TACO_TIPO':    afterTacoTipo(valor, d); break;
       case 'TACO_ALTURA':  afterTacoAltura(valor, d); break;
       case 'TACO_LONGITUD': afterTacoLongitud(parseFloat(valor), d); break;
+      case 'TIPO_CLIENTE': mostrarResultadoBanda(d, chip._mult ?? 1, chip.label); break;
       default: break;
     }
   };

@@ -261,10 +261,12 @@ export default function ChatConsulta() {
   const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
   const { data: tacosData }        = useSWR('/api/tacos');
   const { data: configData }       = useSWR('/api/config');
+  const { data: margenesData }     = useSWR('/api/pricing/margenes');
 
   const costeVulcMetro = configData?.costeVulcanizadoMetro ?? 0;
   const tarifasPVC     = useMemo(() => (todasTarifas ?? []).filter(t => t.material === 'PVC'), [todasTarifas]);
   const tarifasCaucho  = useMemo(() => (todasTarifas ?? []).filter(t => MATERIALES_CAUCHO.includes(t.material)), [todasTarifas]);
+  const margenesVenta  = useMemo(() => (margenesData ?? []).filter(m => m.tipo !== 'gastoFijo' && m.multiplicador !== 1), [margenesData]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [mensajes, cargando]);
 
@@ -405,28 +407,56 @@ export default function ChatConsulta() {
         : modelos.filter(m => { const e = parseFloat(espesor); return m.tipo === 'NORMAL' && e >= m.espesorDesde && e <= (m.espesorHasta ?? Infinity); })[0];
       costeConf = modelo ? (ancho / 100) * modelo.precioPor100mm : 0;
     }
-    const costeTacos      = tacos?.costeTacos ?? 0;
-    const precioUnitario  = Math.round((costeMat + costeConf + costeTacos) * 100) / 100;
+    const costeTacos = tacos?.costeTacos ?? 0;
+    const pesoUnitario = (tarifa.peso ?? 0) * area;
     const confLabel = { VULCANIZADA: 'Sin Fin', GRAPA: 'Con Grapa', ABIERTA: 'Abierta' }[conf];
     const ac = 'acabado' in d0 ? d0.acabado : (tarifa.acabado ?? null);
     const co = 'color'   in d0 ? d0.color   : (tarifa.color   ?? null);
+    const confCode = conf === 'VULCANIZADA' ? 'SF' : conf === 'GRAPA' ? 'GR' : 'AB';
+    const variant  = ac ? `-${ac}` : co ? `-${COLOR_ABR[co] ?? co.slice(0, 2)}` : '';
+    let descripcion = `PVC-${espesor}mm-${confCode}${variant}-${ancho}x${largo}`;
+    if (tacos) descripcion += `-T${tacos.tipo === 'RECTO' ? 'R' : 'I'}${tacos.altura}`;
 
+    setDatos({
+      ...d0,
+      _costeMat:    Math.round(costeMat * 100) / 100,
+      _costeConf:   Math.round(costeConf * 100) / 100,
+      _costeTacos:  Math.round(costeTacos * 100) / 100,
+      _pesoUnitario: pesoUnitario,
+      _descripcion: descripcion,
+      _confLabel:   confLabel,
+      _ac: ac,
+      _co: co,
+    });
+    const margenChips = [
+      { label: 'Coste interno', valor: '__tipo_coste', _mult: 1 },
+      ...margenesVenta.map(m => ({ label: m.descripcion, valor: `__tipo_${m.base}`, _mult: m.multiplicador })),
+    ];
+    pushBot('¿El precio es para...?', margenChips);
+    setPaso('CB_TIPO_CLIENTE');
+  }, [tarifasPVC, costeVulcMetro, modelosGrapaData, margenesVenta, pushBot]);
+
+  const cbMostrarResultado = useCallback((d0, mult, labelMult) => {
+    const { ancho, largo, espesor, conf, tacos, _costeMat = 0, _costeConf = 0, _costeTacos = 0, _pesoUnitario = 0, _descripcion, _confLabel, _ac, _co } = d0;
+    const costeBase = _costeMat + _costeConf + _costeTacos;
+    const precioUnitario = Math.round(costeBase * mult * 100) / 100;
     const lineas = [
       `📐  ${ancho} × ${largo} mm`,
-      `🔧  PVC ${espesor} mm${ac ? ` · ${ac}` : co ? ` · ${co}` : ''}`,
-      `⚙️  ${confLabel}`,
+      `🔧  PVC ${espesor} mm${_ac ? ` · ${_ac}` : _co ? ` · ${_co}` : ''}`,
+      `⚙️  ${_confLabel}`,
       tacos ? `📌  ${tacos.cantidadTacos} tacos ${tacos.tipo === 'RECTO' ? 'rectos' : 'inclinados'} de ${tacos.altura} mm · paso ${tacos.paso} mm` : null,
       '',
-      `Material:     ${fmtEur(costeMat)}`,
-      costeConf  > 0 ? `Confección:   ${fmtEur(costeConf)}`  : null,
-      costeTacos > 0 ? `Tacos:        ${fmtEur(costeTacos)}` : null,
+      `Material:     ${fmtEur(_costeMat)}`,
+      _costeConf  > 0 ? `Confección:   ${fmtEur(_costeConf)}`  : null,
+      _costeTacos > 0 ? `Tacos:        ${fmtEur(_costeTacos)}` : null,
+      mult !== 1 ? `Coste:        ${fmtEur(costeBase)}` : null,
       '──────────────────────────',
+      mult !== 1 ? `${labelMult} (×${mult}):` : null,
       `TOTAL:        ${fmtEur(precioUnitario)}`,
     ].filter(l => l !== null).join('\n');
-
     pushBot(lineas, [{ label: 'Nuevo cálculo', valor: '__reiniciar' }]);
     setPaso('CB_RESULTADO');
-  }, [tarifasPVC, costeVulcMetro, modelosGrapaData, pushBot]);
+  }, [pushBot]);
 
   const cbAfterTacoLongitud = useCallback((longitud, d0) => {
     const taco = (tacosData ?? []).find(t => t.tipo === d0.tacoTipo && t.altura === d0.tacoAltura);
@@ -566,25 +596,46 @@ export default function ChatConsulta() {
     if (!tarifa) { pushBot('No encontré tarifa para esa combinación.', [{ label: 'Empezar de nuevo', valor: '__reiniciar' }]); return; }
 
     const ancM = ancho / 1000, larM = largo / 1000, area = ancM * larM;
-    const precioUnitario = Math.round(tarifa.precio * area * 100) / 100;
-    const precioTotal    = Math.round(precioUnitario * cantidad * 100) / 100;
-    const pesoTotal      = Math.round((tarifa.peso ?? 0) * area * cantidad * 1000) / 1000;
+    const precioBase   = Math.round(tarifa.precio * area * 100) / 100;
+    const pesoUnitario = Math.round((tarifa.peso ?? 0) * area * 1000) / 1000;
 
+    setDatos({
+      ...d0,
+      _precioBase:   precioBase,
+      _pesoUnitario: pesoUnitario,
+      _area:         area,
+      _tarifaPrecio: tarifa.precio,
+    });
+    const margenChips = [
+      { label: 'Coste interno', valor: '__tipo_coste', _mult: 1 },
+      ...margenesVenta.map(m => ({ label: m.descripcion, valor: `__tipo_${m.base}`, _mult: m.multiplicador })),
+    ];
+    pushBot('¿El precio es para...?', margenChips);
+    setPaso('CM_TIPO_CLIENTE');
+  }, [tarifasCaucho, margenesVenta, pushBot]);
+
+  const cmMostrarResultado = useCallback((d0, mult, labelMult) => {
+    const { material, espesor, lonas, acabado, ancho, largo, cantidad, tipoPieza,
+            _precioBase = 0, _pesoUnitario = 0, _area = 0, _tarifaPrecio = 0 } = d0;
+    const precioUnitario = Math.round(_precioBase * mult * 100) / 100;
+    const precioTotal    = Math.round(precioUnitario * cantidad * 100) / 100;
+    const pesoTotal      = Math.round(_pesoUnitario  * cantidad * 1000) / 1000;
     const lineas = [
       tipoPieza === 'TIRAS' ? `📐  ${cantidad} tiras de ${ancho} × ${largo} mm` : `📐  ${ancho} × ${largo} mm`,
       `🔧  ${material} ${parseFloat(espesor)} mm${lonas ? ` · ${lonas} lonas` : ''}${acabado ? ` · ${acabado}` : ''}`,
       '',
-      `Tarifa:     ${tarifa.precio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²`,
-      `Superficie: ${area.toLocaleString('es-ES', { minimumFractionDigits: 4 })} m²`,
-      tipoPieza === 'TIRAS' ? `Precio/tira: ${fmtEur(precioUnitario)}` : null,
+      `Tarifa:     ${_tarifaPrecio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²`,
+      `Superficie: ${_area.toLocaleString('es-ES', { minimumFractionDigits: 4 })} m²`,
+      tipoPieza === 'TIRAS' ? `Precio/tira: ${fmtEur(_precioBase)}` : null,
+      mult !== 1 ? `Coste:      ${fmtEur(tipoPieza === 'TIRAS' ? _precioBase * cantidad : _precioBase)}` : null,
       '──────────────────────────',
+      mult !== 1 ? `${labelMult} (×${mult}):` : null,
       `TOTAL:      ${fmtEur(precioTotal)}`,
       pesoTotal > 0 ? `Peso:       ${pesoTotal.toLocaleString('es-ES', { minimumFractionDigits: 3 })} kg` : null,
     ].filter(l => l !== null).join('\n');
-
     pushBot(lineas, [{ label: 'Nuevo cálculo', valor: '__reiniciar' }]);
     setPaso('CM_RESULTADO');
-  }, [tarifasCaucho, pushBot]);
+  }, [pushBot]);
 
   const cmAfterDims = useCallback((dims, d0) => {
     if (d0.tipoPieza === 'TIRAS') {
@@ -763,7 +814,8 @@ export default function ChatConsulta() {
         case 'CB_TACOS_YN':     cbAfterTacosYN(valor, d); break;
         case 'CB_TACO_TIPO':    cbAfterTacoTipo(valor, d); break;
         case 'CB_TACO_ALTURA':  cbAfterTacoAltura(valor, d); break;
-        case 'CB_TACO_LONGITUD': cbAfterTacoLongitud(parseFloat(valor), d); break;
+        case 'CB_TACO_LONGITUD':  cbAfterTacoLongitud(parseFloat(valor), d); break;
+        case 'CB_TIPO_CLIENTE':   cbMostrarResultado(d, chip._mult ?? 1, chip.label); break;
         default: break;
       }
       return;
@@ -805,7 +857,8 @@ export default function ChatConsulta() {
                                 setDatos({ ...d, acabado: valor === '__null' ? null : valor });
                                 setPaso('CM_TIPO_PIEZA');
                                 break; }
-        case 'CM_TIPO_PIEZA': cmAfterTipoPieza(valor, d); break;
+        case 'CM_TIPO_PIEZA':    cmAfterTipoPieza(valor, d); break;
+        case 'CM_TIPO_CLIENTE':  cmMostrarResultado(d, chip._mult ?? 1, chip.label); break;
         default: break;
       }
       return;

@@ -47,11 +47,14 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
   const inputRef = useRef(null);
 
   const { data: todasTarifas } = useSWR('/api/precios');
+  const { data: margenesData } = useSWR('/api/pricing/margenes');
 
   const tarifasCaucho = useMemo(
     () => (todasTarifas ?? []).filter(t => MATERIALES_CAUCHO.includes(t.material)),
     [todasTarifas],
   );
+
+  const margenesVenta = useMemo(() => (margenesData ?? []).filter(m => m.tipo !== 'gastoFijo' && m.multiplicador !== 1), [margenesData]);
 
   const materialesDisp = useMemo(() => {
     const set = new Set(tarifasCaucho.map(t => t.material));
@@ -220,12 +223,9 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
     const ancM = ancho / 1000;
     const larM = largo / 1000;
     const area  = ancM * larM;
-    const precioUnitario = Math.round(tarifa.precio * area * 100) / 100;
-    const pesoUnitario   = Math.round((tarifa.peso ?? 0) * area * 1000) / 1000;
-    const precioTotal    = Math.round(precioUnitario * cantidad * 100) / 100;
-    const pesoTotal      = Math.round(pesoUnitario   * cantidad * 1000) / 1000;
+    const precioBase  = Math.round(tarifa.precio * area * 100) / 100;
+    const pesoUnitario = Math.round((tarifa.peso ?? 0) * area * 1000) / 1000;
 
-    // Descripción larga para la interfaz del pedido (el PDF usa detallesTecnicos para las columnas)
     const partes = [material];
     if (acabado) partes.push(acabado);
     partes.push(`${parseFloat(espesor)}mm`);
@@ -235,32 +235,55 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
       ? [...partes, `— ${cantidad} tiras ${dimStr}`].join(' ')
       : [...partes, `— ${dimStr}`].join(' ');
 
+    setDatos({
+      ...d0,
+      _precioBase:   precioBase,
+      _pesoUnitario: pesoUnitario,
+      _area:         area,
+      _tarifaPrecio: tarifa.precio,
+      _descripcion:  descripcion,
+    });
+
+    const margenChips = [
+      { label: 'Coste interno', valor: '__tipo_coste', _mult: 1 },
+      ...margenesVenta.map(m => ({ label: m.descripcion, valor: `__tipo_${m.base}`, _mult: m.multiplicador })),
+    ];
+    pushBot('¿El precio es para...?', margenChips);
+    setPaso('TIPO_CLIENTE');
+  };
+
+  const mostrarResultadoCaucho = (d0, mult, labelMult) => {
+    const { material, espesor, lonas, acabado, ancho, largo, cantidad, tipoPieza,
+            _precioBase = 0, _pesoUnitario = 0, _area = 0, _tarifaPrecio = 0, _descripcion } = d0;
+
+    const precioUnitario = Math.round(_precioBase * mult * 100) / 100;
+    const precioTotal    = Math.round(precioUnitario * cantidad * 100) / 100;
+    const pesoTotal      = Math.round(_pesoUnitario  * cantidad * 1000) / 1000;
+
     const lineas = [
       tipoPieza === 'TIRAS'
         ? `📐  ${cantidad} tiras de ${fmtMm(ancho)} × ${fmtMm(largo)} mm`
         : `📐  ${fmtMm(ancho)} × ${fmtMm(largo)} mm`,
       `🔧  ${material} ${parseFloat(espesor)} mm${lonas ? ` · ${lonas} lonas` : ''}${acabado ? ` · ${acabado}` : ''}`,
       ``,
-      `Tarifa:     ${tarifa.precio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²`,
-      `Superficie: ${area.toLocaleString('es-ES', { minimumFractionDigits: 4 })} m²`,
-      tipoPieza === 'TIRAS' ? `Precio/tira: ${fmtEur(precioUnitario)}` : null,
+      `Tarifa:     ${_tarifaPrecio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²`,
+      `Superficie: ${_area.toLocaleString('es-ES', { minimumFractionDigits: 4 })} m²`,
+      tipoPieza === 'TIRAS' ? `Precio/tira: ${fmtEur(_precioBase)}` : null,
+      mult !== 1 ? `Coste:      ${fmtEur(tipoPieza === 'TIRAS' ? _precioBase * cantidad : _precioBase)}` : null,
       `──────────────────────────`,
+      mult !== 1 ? `${labelMult} (×${mult}):` : null,
       `TOTAL:      ${fmtEur(precioTotal)}`,
       pesoTotal > 0 ? `Peso:       ${pesoTotal.toLocaleString('es-ES', { minimumFractionDigits: 3 })} kg` : null,
     ].filter(l => l !== null).join('\n');
 
     const item = {
-      descripcion,
+      descripcion: _descripcion,
       unidades: cantidad,
       precioUnitario,
-      pesoUnitario,
+      pesoUnitario: _pesoUnitario,
       detallesTecnicos: JSON.stringify({
         material,
-        dimensiones: {
-          espesor: parseFloat(espesor),
-          ancho,
-          largo,
-        },
+        dimensiones: { espesor: parseFloat(espesor), ancho, largo },
         lonas: lonas != null ? Number(lonas) : null,
         acabado: acabado || null,
         tipoPieza,
@@ -300,7 +323,8 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
                          );
                          afterAcabado(valor === '__null' ? null : valor, d, tarsL);
                        } break;
-      case 'TIPO_PIEZA': afterTipoPieza(valor, d); break;
+      case 'TIPO_PIEZA':    afterTipoPieza(valor, d); break;
+      case 'TIPO_CLIENTE':  mostrarResultadoCaucho(d, chip._mult ?? 1, chip.label); break;
       default: break;
     }
   };
