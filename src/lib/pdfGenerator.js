@@ -149,15 +149,16 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
             const det = parseDet(item);
             return det?.dimensiones?.espesor != null ? `${det.dimensiones.espesor}mm` : dash;
         };
+        const fmtMmVal = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
         const getBudgetAncho = (item) => {
-            if (item.producto?.ancho != null) return `${item.producto.ancho}mm`;
+            if (item.producto?.ancho != null) return `${fmtMmVal(item.producto.ancho)}mm`;
             const det = parseDet(item);
-            return det?.dimensiones?.ancho != null ? `${det.dimensiones.ancho}mm` : dash;
+            return det?.dimensiones?.ancho != null ? `${fmtMmVal(det.dimensiones.ancho)}mm` : dash;
         };
         const getBudgetLargo = (item) => {
-            if (item.producto?.largo != null) return `${item.producto.largo}m`;
+            if (item.producto?.largo != null) return `${fmtMmVal(item.producto.largo)}mm`;
             const det = parseDet(item);
-            return det?.dimensiones?.largo != null ? `${det.dimensiones.largo}mm` : dash;
+            return det?.dimensiones?.largo != null ? `${fmtMmVal(det.dimensiones.largo)}mm` : dash;
         };
 
         const tableColumn = ["Descripción", "Material", "Esp.", "Ancho", "Largo", "Cant.", "P. Unit.", "Total"];
@@ -744,15 +745,16 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             const det = parseDet(item);
             return det?.dimensiones?.espesor != null ? `${det.dimensiones.espesor}mm` : dash;
         };
+        const fmtMmVal = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
         const getAncho = (item) => {
-            if (item.producto?.ancho != null) return `${item.producto.ancho}mm`;
+            if (item.producto?.ancho != null) return `${fmtMmVal(item.producto.ancho)}mm`;
             const det = parseDet(item);
-            return det?.dimensiones?.ancho != null ? `${det.dimensiones.ancho}mm` : dash;
+            return det?.dimensiones?.ancho != null ? `${fmtMmVal(det.dimensiones.ancho)}mm` : dash;
         };
         const getLargo = (item) => {
-            if (item.producto?.largo != null) return `${item.producto.largo}m`;
+            if (item.producto?.largo != null) return `${fmtMmVal(item.producto.largo)}mm`;
             const det = parseDet(item);
-            return det?.dimensiones?.largo != null ? `${det.dimensiones.largo}mm` : dash;
+            return det?.dimensiones?.largo != null ? `${fmtMmVal(det.dimensiones.largo)}mm` : dash;
         };
 
         // Columna Detalles: solo para valorado (cortes, metrajes, etc.)
