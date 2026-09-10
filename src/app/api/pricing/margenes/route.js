@@ -2,7 +2,7 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { clearMargenesCache } from '@/lib/config-cache';
+import { getMargenes, clearMargenesCache } from '@/lib/config-cache';
 import { reglaMargenSchema, validateData } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // GET /api/pricing/margenes - Obtiene todas las reglas de margen
 export async function GET() {
   try {
-    const data = await db.reglaMargen.findMany({ take: 100 });
+    const data = await getMargenes();
     return NextResponse.json(data);
   } catch (error) {
     logApiError(error, 'GET /api/pricing/margenes');

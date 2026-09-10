@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
+import { getCosteVulcanizado, getModelosGrapa } from '@/lib/config-cache';
 
 const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
@@ -67,7 +68,7 @@ Responde con este JSON (usa null en campos que no apliquen):
 {"intencion":"...","unidades":1,"material":null,"espesor":null,"color":null,"conf":null,"ancho":null,"largo":null,"anchoTira":null,"metros":null,"numero":null,"clienteNombre":null,"estado":null,"estadoImport":null}`;
 
     const ctrl    = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 18000);
+    const timeout = setTimeout(() => ctrl.abort(), 8000);
 
     const res = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: 'POST',
@@ -260,17 +261,24 @@ function aplicarUnidades(resultado, unidades) {
 }
 
 async function buscarTarifa(material, espesor, color) {
-  const intentos = [
-    { material, espesor, color },
-    { material, espesor, color: null },
-    { material, espesor },
-    { material },
-  ].filter(w => Object.values(w).some(v => v != null));
+  // Una sola query con los filtros disponibles; selección por especificidad de color en código
+  const base = {};
+  if (material) base.material = material;
+  if (espesor != null) base.espesor = espesor;
 
-  for (const where of intentos) {
-    const cleaned = Object.fromEntries(Object.entries(where).filter(([, v]) => v != null));
-    const tarifa = await db.tarifaMaterial.findFirst({ where: cleaned, orderBy: { espesor: 'asc' } });
-    if (tarifa) return tarifa;
+  const cands = Object.keys(base).length
+    ? await db.tarifaMaterial.findMany({ where: base, take: 20 })
+    : [];
+
+  if (cands.length) {
+    return cands.find(t => t.color === color && color != null) // coincidencia exacta de color
+      ?? cands.find(t => !t.color)                            // entrada genérica (sin color)
+      ?? cands[0];                                            // cualquier coincidencia
+  }
+
+  // Fallback: buscar solo por material ignorando espesor
+  if (material) {
+    return db.tarifaMaterial.findFirst({ where: { material }, orderBy: { espesor: 'asc' } });
   }
   return null;
 }
@@ -319,15 +327,14 @@ async function calcularBanda(ent) {
   let coste_conf = 0, desc_conf = null;
 
   if (conf === 'SF') {
-    const cfgVulc    = await db.config.findUnique({ where: { key: 'costeVulcanizadoMetro' } });
-    const costeVulcM = cfgVulc ? parseFloat(cfgVulc.value) || 0 : 0;
+    const costeVulcM = await getCosteVulcanizado();
     coste_conf = costeVulcM * (dims.ancho / 1000);
     if (coste_conf > 0) desc_conf = `Vulcanizado Sin Fin`;
   } else if (conf === 'GR' && espesor != null) {
-    const modelo = await db.modeloGrapa.findFirst({
-      where: { espesorDesde: { lte: espesor }, OR: [{ espesorHasta: null }, { espesorHasta: { gte: espesor } }] },
-      orderBy: { espesorDesde: 'asc' },
-    });
+    const modelos = await getModelosGrapa();
+    const modelo = modelos.find(m =>
+      m.espesorDesde <= espesor && (m.espesorHasta == null || m.espesorHasta >= espesor)
+    );
     if (modelo?.precioPor100mm) {
       coste_conf = (dims.ancho / 100) * modelo.precioPor100mm;
       desc_conf  = `Grapa ${modelo.nombre}`;
