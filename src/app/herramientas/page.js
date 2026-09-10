@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingDown, TrendingUp, FileText, Ruler, Scale, Factory, QrCode } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingDown, TrendingUp, FileText, Ruler, Scale, Factory, QrCode, Camera } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -73,6 +73,13 @@ export default function HerramientasHub() {
           titulo: 'Accesos rápidos QR',
           descripcion: 'Genera códigos QR para las páginas más usadas. Imprímelos y pégalos en el taller para abrir cualquier sección desde el móvil de un escaneo.',
           accion: 'Generar QR codes',
+        },
+        {
+          href: '/herramientas/foto-cotizacion',
+          icon: Camera,
+          titulo: 'Foto → Cotización (IA)',
+          descripcion: 'Sube una foto de la banda desgastada o un plano con medidas. La IA extrae las dimensiones, material y confección y genera el cálculo de precio automáticamente.',
+          accion: 'Próximamente',
         },
       ]}
     />
