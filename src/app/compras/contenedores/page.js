@@ -4,114 +4,107 @@ import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { fetcher } from '@/lib/fetcher';
 import {
-  Ship, Plus, Calculator, MapPin, Trash2, ExternalLink,
-  ChevronRight, AlertTriangle, RefreshCw, PackageCheck,
+  Package, Plus, Calculator, Trash2, ChevronRight,
+  PackageOpen, TrendingUp, Calendar,
 } from 'lucide-react';
 
-const ESTADOS = {
-  BORRADOR:  { label: 'Borrador',    color: 'badge-warning',  orden: 1 },
-  PEDIDO:    { label: 'Pedido',      color: 'badge-ghost',    orden: 2 },
-  TRANSITO:  { label: 'En tránsito', color: 'badge-info',     orden: 3 },
-  ADUANA:    { label: 'En aduana',   color: 'badge-warning',  orden: 4 },
-  RECIBIDO:  { label: 'Recibido',    color: 'badge-success',  orden: 5 },
-};
-
-// El ultimoEvento se guarda como "descripcion|fechaISO"
-function parseEvento(str) {
-  if (!str) return null;
-  const idx = str.lastIndexOf('|');
-  if (idx === -1) return { desc: str, fecha: null };
-  return {
-    desc:  str.slice(0, idx),
-    fecha: str.slice(idx + 1) ? new Date(str.slice(idx + 1)) : null,
-  };
-}
-
 function fmtFecha(d) {
-  if (!d) return '';
+  if (!d) return '—';
   return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function TarjetaContenedor({ imp, onDelete, onMarcarRecibido }) {
-  const estado    = ESTADOS[imp.estado] ?? { label: imp.estado, color: 'badge-neutral' };
+function fmtEur(n) {
+  if (n == null || isNaN(n)) return null;
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
+  }).format(n);
+}
+
+function contarBobinas(raw) {
+  try {
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(arr) ? arr.length : 0;
+  } catch { return 0; }
+}
+
+function TarjetaImportacion({ imp, onDelete }) {
   const esBorrador = imp.estado === 'BORRADOR';
-  const evento    = parseEvento(imp.ultimoEvento);
+  const numBobinas = contarBobinas(imp.bobinas);
+
+  // Coste total aproximado: totalBobinasEUR (ya en EUR) + gastosRepercutibles
+  const costeEUR = (imp.totalBobinasEUR && imp.tasaCambio)
+    ? imp.totalBobinasEUR * imp.tasaCambio + (imp.gastosRepercutibles || 0)
+    : null;
+
+  const titulo = imp.descripcion || imp.numContenedor || imp.numFactura || 'Sin descripción';
+  const fecha  = imp.fechaLlegada || imp.creadaEn;
 
   return (
-    <div className={`card shadow-sm border transition-colors
-      ${esBorrador ? 'bg-warning/5 border-warning/20' : 'bg-base-100 border-base-200'}`}>
+    <div className={`card border shadow-sm hover:shadow-md hover:border-primary/30 transition-all
+      ${esBorrador ? 'bg-warning/5 border-warning/30' : 'bg-base-100 border-base-200'}`}>
       <div className="card-body p-4">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          {/* Info principal */}
+        <div className="flex items-start gap-4">
+
+          {/* Icono */}
+          <div className={`rounded-lg p-2 shrink-0 mt-0.5
+            ${esBorrador ? 'bg-warning/15 text-warning' : 'bg-primary/10 text-primary'}`}>
+            <PackageOpen className="w-5 h-5" />
+          </div>
+
+          {/* Info */}
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`badge badge-sm ${estado.color}`}>{estado.label}</span>
-              {imp.trackingActivo && (
-                <span className="badge badge-sm badge-ghost gap-1">
-                  <MapPin className="w-2.5 h-2.5" /> Tracking activo
-                </span>
+              {esBorrador && (
+                <span className="badge badge-sm badge-warning">Borrador</span>
               )}
-              <Link href={`/compras/contenedores/${imp.id}`} className="font-semibold truncate hover:text-primary transition-colors">
-                {imp.descripcion || imp.numContenedor || imp.blNumber || imp.numFactura || 'Sin identificar'}
+              <Link
+                href={`/compras/contenedores/${imp.id}`}
+                className="font-semibold text-sm hover:text-primary transition-colors truncate"
+              >
+                {titulo}
               </Link>
             </div>
 
-            {/* Metadatos */}
             <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-base-content/50">
-              {imp.numFactura    && <span>Factura: <span className="font-mono">{imp.numFactura}</span></span>}
-              {imp.numContenedor && <span>Contenedor: <span className="font-mono">{imp.numContenedor}</span></span>}
-              {imp.blNumber      && <span>BL: <span className="font-mono">{imp.blNumber}</span></span>}
-              {imp.proveedor     && <span>{imp.proveedor.nombre}</span>}
-              <span>{fmtFecha(imp.creadaEn)}</span>
+              {imp.proveedor?.nombre && <span>{imp.proveedor.nombre}</span>}
+              {imp.numFactura    && <span>Fra. <span className="font-mono">{imp.numFactura}</span></span>}
+              {imp.numContenedor && <span><span className="font-mono">{imp.numContenedor}</span></span>}
+              {imp.blNumber      && <span>BL <span className="font-mono">{imp.blNumber}</span></span>}
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" /> {fmtFecha(fecha)}
+              </span>
             </div>
 
-            {/* Último evento de tracking */}
-            {evento && (
-              <p className="text-xs text-base-content/60">
-                📍 {evento.desc}
-                {evento.fecha && <span className="text-base-content/40 ml-1">· {fmtFecha(evento.fecha)}</span>}
-              </p>
-            )}
-
-            {/* ETA */}
-            {imp.etaEstimada && (
-              <p className="text-xs text-primary font-medium">
-                🎯 ETA estimada: {fmtFecha(imp.etaEstimada)}
-              </p>
-            )}
-
-            {/* Aviso borrador sin tracking */}
-            {esBorrador && !imp.trackingActivo && (
-              <p className="text-xs text-warning flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> Borrador sin tracking — escaneo desde tablet
+            {numBobinas > 0 && (
+              <p className="text-xs text-base-content/40">
+                {numBobinas} {numBobinas === 1 ? 'bobina / referencia' : 'bobinas / referencias'}
               </p>
             )}
           </div>
 
-          {/* Acciones */}
-          <div className="flex gap-1 shrink-0 items-start flex-wrap justify-end">
-            <button
-              className="btn btn-xs btn-success gap-1"
-              onClick={() => onMarcarRecibido(imp.id)}
-              title="El contenedor ha llegado — detiene el tracking y los avisos WhatsApp"
-            >
-              <PackageCheck className="w-3 h-3" /> Llegó
-            </button>
-            <Link
-              href={`/herramientas/calculadora-contenedor?cargar=${imp.id}`}
-              className="btn btn-xs btn-outline gap-1"
-              title="Cargar en la calculadora para completar los gastos"
-            >
-              <Calculator className="w-3 h-3" /> Calcular gastos
-            </Link>
-            <button
-              className="btn btn-xs btn-ghost text-error"
-              onClick={() => onDelete(imp.id)}
-              title="Eliminar"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+          {/* Coste + acciones */}
+          <div className="shrink-0 text-right space-y-2">
+            {costeEUR != null && (
+              <p className="text-sm font-bold text-primary tabular-nums">{fmtEur(costeEUR)}</p>
+            )}
+            <div className="flex gap-1 justify-end">
+              <Link
+                href={`/herramientas/calculadora-contenedor?cargar=${imp.id}`}
+                className="btn btn-xs btn-outline gap-1"
+                title="Ver o editar el cálculo de costes"
+              >
+                <Calculator className="w-3 h-3" /> Ver costes
+              </Link>
+              <button
+                className="btn btn-xs btn-ghost text-error"
+                onClick={() => onDelete(imp.id)}
+                title="Eliminar importación"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -120,142 +113,117 @@ function TarjetaContenedor({ imp, onDelete, onMarcarRecibido }) {
 
 export default function ContenedoresPage() {
   const { data: importaciones, isLoading } = useSWR('/api/importaciones', fetcher);
-  const [sincronizando, setSincronizando] = useState(false);
+  const [mostrarTodas, setMostrarTodas] = useState(false);
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este contenedor del listado?')) return;
+    if (!confirm('¿Eliminar esta importación?')) return;
     await fetch(`/api/importaciones/${id}`, { method: 'DELETE' });
     mutate('/api/importaciones');
   };
 
-  const handleMarcarRecibido = async (id) => {
-    if (!confirm('¿Marcar como recibido? Se desactivará el tracking automático y dejarás de recibir avisos WhatsApp para este contenedor.')) return;
-    await fetch(`/api/importaciones/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ estado: 'RECIBIDO', trackingActivo: false }),
-    });
-    mutate('/api/importaciones');
-  };
+  const todas = importaciones ?? [];
 
-  const handleSyncNow = async () => {
-    setSincronizando(true);
-    await fetch('/api/tracking/sync', { method: 'POST' });
-    await mutate('/api/importaciones');
-    setSincronizando(false);
-  };
+  // KPIs
+  const currentYear = new Date().getFullYear();
+  const esteAnio = todas.filter(i => new Date(i.creadaEn).getFullYear() === currentYear);
+  const costeAnual = esteAnio.reduce((s, i) => {
+    const c = (i.totalBobinasEUR && i.tasaCambio)
+      ? i.totalBobinasEUR * i.tasaCambio + (i.gastosRepercutibles || 0)
+      : 0;
+    return s + c;
+  }, 0);
+  const ultimaFecha = todas[0]?.fechaLlegada || todas[0]?.creadaEn;
 
-  const ordenados = [...(importaciones || [])].sort((a, b) => {
-    const oa = ESTADOS[a.estado]?.orden ?? 99;
-    const ob = ESTADOS[b.estado]?.orden ?? 99;
-    if (oa !== ob) return oa - ob;
-    return new Date(b.creadaEn) - new Date(a.creadaEn);
-  });
-
-  const activos   = ordenados.filter(i => i.estado !== 'RECIBIDO');
-  const recibidos = ordenados.filter(i => i.estado === 'RECIBIDO');
-  const conTracking = activos.filter(i => i.trackingActivo).length;
+  // Mostrar las 8 más recientes por defecto, resto bajo "Ver todas"
+  const VISIBLE = 8;
+  const visibles  = mostrarTodas ? todas : todas.slice(0, VISIBLE);
+  const hayMas    = todas.length > VISIBLE;
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
 
       {/* Cabecera */}
-      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+      <div className="flex items-start justify-between mb-6 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Ship className="w-8 h-8 text-primary" />
+          <div className="bg-primary/10 rounded-xl p-2.5">
+            <Package className="w-7 h-7 text-primary" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold">Contenedores</h1>
-            <p className="text-sm text-base-content/50">
-              {conTracking > 0
-                ? `${conTracking} contenedor${conTracking !== 1 ? 'es' : ''} con seguimiento activo`
-                : 'Seguimiento de importaciones y cálculo de costes'}
-            </p>
+            <h1 className="text-2xl font-bold">Importaciones</h1>
+            <p className="text-sm text-base-content/50">Registro de costes de importación por contenedor</p>
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {conTracking > 0 && (
-            <button
-              className="btn btn-ghost btn-sm gap-1"
-              onClick={handleSyncNow}
-              disabled={sincronizando}
-              title="Forzar comprobación de tracking ahora"
-            >
-              <RefreshCw className={`w-4 h-4 ${sincronizando ? 'animate-spin' : ''}`} />
-              {sincronizando ? 'Sincronizando…' : 'Sincronizar ahora'}
-            </button>
-          )}
-          <Link href="/herramientas/calculadora-contenedor" className="btn btn-outline btn-sm gap-1">
-            <Calculator className="w-4 h-4" /> Nuevo cálculo de gastos
-          </Link>
-          <Link href="/compras/contenedores/nuevo-rastreador" className="btn btn-primary btn-sm gap-1">
-            <Plus className="w-4 h-4" /> Nuevo rastreador
-          </Link>
-        </div>
+        <Link href="/herramientas/calculadora-contenedor" className="btn btn-primary btn-sm gap-1.5">
+          <Plus className="w-4 h-4" /> Nueva importación
+        </Link>
       </div>
 
-      {/* Cargando */}
+      {/* KPIs — solo si hay datos */}
+      {todas.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+          <div className="stat bg-base-100 border border-base-200 rounded-xl p-4 shadow-sm">
+            <div className="stat-title text-xs">Total registradas</div>
+            <div className="stat-value text-2xl">{todas.length}</div>
+            <div className="stat-desc">{esteAnio.length} este año</div>
+          </div>
+          {costeAnual > 0 && (
+            <div className="stat bg-base-100 border border-base-200 rounded-xl p-4 shadow-sm">
+              <div className="stat-title text-xs flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" /> Coste acumulado {currentYear}
+              </div>
+              <div className="stat-value text-xl tabular-nums">{fmtEur(costeAnual)}</div>
+              <div className="stat-desc">{esteAnio.length} importaciones</div>
+            </div>
+          )}
+          {ultimaFecha && (
+            <div className="stat bg-base-100 border border-base-200 rounded-xl p-4 shadow-sm">
+              <div className="stat-title text-xs">Última importación</div>
+              <div className="stat-value text-lg font-semibold">{fmtFecha(ultimaFecha)}</div>
+              <div className="stat-desc">{todas[0]?.descripcion || todas[0]?.numFactura || ''}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Loading */}
       {isLoading && (
         <div className="flex justify-center py-20">
           <span className="loading loading-spinner loading-lg" />
         </div>
       )}
 
-      {/* Vacío */}
-      {!isLoading && ordenados.length === 0 && (
+      {/* Estado vacío */}
+      {!isLoading && todas.length === 0 && (
         <div className="text-center py-20 text-base-content/30">
-          <Ship className="w-16 h-16 mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">No hay contenedores todavía</p>
-          <p className="text-sm mt-1 mb-6">Crea un rastreador cuando hagas un pedido de importación</p>
-          <Link href="/compras/contenedores/nuevo-rastreador" className="btn btn-primary gap-2">
-            <Plus className="w-4 h-4" /> Crear primer rastreador
+          <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
+          <p className="text-lg font-medium">Sin importaciones registradas</p>
+          <p className="text-sm mt-1 mb-6">
+            Cuando llegue un contenedor, crea el cálculo de costes desde la calculadora.
+          </p>
+          <Link href="/herramientas/calculadora-contenedor" className="btn btn-primary gap-2">
+            <Plus className="w-4 h-4" /> Registrar primera importación
           </Link>
         </div>
       )}
 
-      {/* En curso */}
-      {activos.length > 0 && (
-        <div className="space-y-3 mb-8">
-          <h2 className="text-xs font-semibold text-base-content/40 uppercase tracking-wider">
-            En curso — {activos.length}
-          </h2>
-          {activos.map(imp => (
-            <TarjetaContenedor key={imp.id} imp={imp} onDelete={handleDelete} onMarcarRecibido={handleMarcarRecibido} />
+      {/* Lista */}
+      {visibles.length > 0 && (
+        <div className="space-y-3">
+          {visibles.map(imp => (
+            <TarjetaImportacion key={imp.id} imp={imp} onDelete={handleDelete} />
           ))}
         </div>
       )}
 
-      {/* Recibidos (colapsado) */}
-      {recibidos.length > 0 && (
-        <details className="group">
-          <summary className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-3 list-none">
-            <ChevronRight className="w-4 h-4 group-open:rotate-90 transition-transform" />
-            Recibidos — {recibidos.length}
-          </summary>
-          <div className="space-y-2">
-            {recibidos.map(imp => (
-              <div key={imp.id} className="card bg-base-100 shadow-sm border border-base-200 opacity-60 hover:opacity-100 transition-opacity">
-                <div className="card-body p-3">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2 flex-wrap text-sm">
-                      <span className="badge badge-sm badge-success">Recibido</span>
-                      <span className="font-medium">{imp.descripcion || imp.numContenedor || imp.numFactura || '—'}</span>
-                      {imp.proveedor && <span className="text-base-content/40">{imp.proveedor.nombre}</span>}
-                      <span className="text-base-content/40 text-xs">{fmtFecha(imp.creadaEn)}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <Link href={`/herramientas/calculadora-contenedor?cargar=${imp.id}`} className="btn btn-xs btn-ghost gap-1">
-                        <ExternalLink className="w-3 h-3" /> Ver costes
-                      </Link>
-                      <button className="btn btn-xs btn-ghost text-error" onClick={() => handleDelete(imp.id)}>
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </details>
+      {/* Ver todas / colapsar */}
+      {hayMas && (
+        <button
+          className="btn btn-ghost btn-sm gap-1 mt-4 w-full text-base-content/50"
+          onClick={() => setMostrarTodas(v => !v)}
+        >
+          <ChevronRight className={`w-4 h-4 transition-transform ${mostrarTodas ? 'rotate-90' : ''}`} />
+          {mostrarTodas ? 'Ver menos' : `Ver las ${todas.length - VISIBLE} anteriores`}
+        </button>
       )}
 
     </div>

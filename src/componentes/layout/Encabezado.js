@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import {
   Warehouse, Package, FileText, Truck, Calculator, Users, Settings,
   Layers, Factory, ChevronDown, Menu, X, DollarSign,
-  FilePlus, PackagePlus, Ship, TrendingDown, LogOut, Package2, Search, FileCheck
+  FilePlus, PackagePlus, Ship, TrendingDown, LogOut, Package2, Search, FileCheck, Boxes
 } from 'lucide-react';
 import BarraBusqueda from '@/componentes/ui/BarraBusqueda';
 import BusquedaGlobal from '@/componentes/ui/BusquedaGlobal';
@@ -45,15 +45,17 @@ const NAV = [
       {
         titulo: 'Crear',
         links: [
-          { href: '/proveedores/nuevo-nacional',    label: 'Pedido nacional', icon: Truck },
-          { href: '/proveedores/nuevo-importacion', label: 'Importación',     icon: Ship },
+          { href: '/proveedores/nuevo-nacional',         label: 'Pedido nacional',    icon: Truck },
+          { href: '/proveedores/nuevo-importacion',      label: 'Pedido importación', icon: Ship },
+          { href: '/herramientas/calculadora-contenedor',label: 'Nueva importación',  icon: Boxes },
         ]
       },
       {
         titulo: 'Ver',
         links: [
-          { href: '/proveedores',                        label: 'Pedidos proveedor', icon: Package },
-          { href: '/gestion/catalogos/proveedores',      label: 'Proveedores',       icon: Factory },
+          { href: '/compras/contenedores',               label: 'Importaciones',      icon: Boxes },
+          { href: '/proveedores',                        label: 'Pedidos proveedor',  icon: Package },
+          { href: '/gestion/catalogos/proveedores',      label: 'Proveedores',        icon: Factory },
         ]
       }
     ]
