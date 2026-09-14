@@ -61,3 +61,18 @@ export async function getModelosGrapa() {
 }
 
 export function clearModelosGrapaCache() { _modelosGrapaCache = null; _modelosGrapaTs = 0; }
+
+// ── Caché del tipo de IVA (iva_rate) ────────────────────────────────────────
+let _ivaCache = null;
+let _ivaCacheTs = 0;
+
+export async function getIvaRate() {
+  if (_ivaCache !== null && Date.now() - _ivaCacheTs < MARGENES_TTL) return _ivaCache;
+  const c = await db.config.findUnique({ where: { key: 'iva_rate' } });
+  const raw = c ? parseFloat(c.value) : 0.21;
+  _ivaCache = raw > 1 ? raw / 100 : raw;
+  _ivaCacheTs = Date.now();
+  return _ivaCache;
+}
+
+export function clearIvaCache() { _ivaCache = null; _ivaCacheTs = 0; }

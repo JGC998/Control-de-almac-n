@@ -21,7 +21,7 @@ export function escapeHtml(str) {
  */
 export async function sendEmail({ to, subject, html, attachments = [] }) {
     if (!resend) {
-        return { success: true, simulated: true };
+        return { success: false, simulated: true };
     }
 
     try {

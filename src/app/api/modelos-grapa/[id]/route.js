@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
 import { modeloGrapaSchema, validateData } from '@/lib/validations';
+import { clearModelosGrapaCache } from '@/lib/config-cache';
 
 export async function PATCH(request, { params }) {
   try {
@@ -25,6 +26,7 @@ export async function PATCH(request, { params }) {
         ...(precioPor100mm !== undefined && { precioPor100mm }),
       },
     });
+    clearModelosGrapaCache();
     return NextResponse.json(updated);
   } catch (error) {
     return handlePrismaError(error, { notFound: 'Modelo de grapa no encontrado' });
@@ -35,6 +37,7 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
     await db.modeloGrapa.delete({ where: { id: parseInt(id) } });
+    clearModelosGrapaCache();
     return NextResponse.json({ message: 'Modelo eliminado correctamente' });
   } catch (error) {
     return handlePrismaError(error, { notFound: 'Modelo de grapa no encontrado' });

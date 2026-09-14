@@ -2,6 +2,7 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
+import { getIvaRate } from '@/lib/config-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,9 +135,7 @@ export async function GET(request) {
       const currentYear = new Date().getFullYear();
       const defaultDesde = new Date(`${currentYear}-01-01T00:00:00.000Z`);
 
-      const ivaConfigVP = await db.config.findUnique({ where: { key: 'iva_rate' } });
-      const rawIvaVP = ivaConfigVP?.value ? parseFloat(String(ivaConfigVP.value)) : 0.21;
-      const IVA_VP = rawIvaVP > 1 ? rawIvaVP / 100 : rawIvaVP;
+      const IVA_VP = await getIvaRate();
 
       const whereVP = { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: parseFechaVP(desde) ?? defaultDesde } };
       const hastaVP = parseFechaVP(hasta);
@@ -151,6 +150,7 @@ export async function GET(request) {
           items: { select: { descripcion: true, quantity: true, unitPrice: true, productoId: true } },
         },
         take: 500,
+        orderBy: { fechaCreacion: 'desc' },
       });
 
       const byProducto = {};
@@ -243,9 +243,7 @@ export async function GET(request) {
       const desde = searchParams.get('desde');
       const hasta = searchParams.get('hasta');
 
-      const ivaConfig = await db.config.findUnique({ where: { key: 'iva_rate' } });
-      const rawIvaMargen = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
-      const IVA_MARGEN = rawIvaMargen > 1 ? rawIvaMargen / 100 : rawIvaMargen;
+      const IVA_MARGEN = await getIvaRate();
 
       const parseFechaMargen = (str) => { if (!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; };
       const where = { estado: { notIn: EXCLUIDOS } };
@@ -306,9 +304,7 @@ export async function GET(request) {
         whereRent.fechaCreacion = { gte: new Date(`${currentYearRent}-01-01T00:00:00.000Z`) };
       }
 
-      const ivaConfigRent = await db.config.findUnique({ where: { key: 'iva_rate' } });
-      const rawIvaRent = ivaConfigRent?.value ? parseFloat(String(ivaConfigRent.value)) : 0.21;
-      const IVA_RENT = rawIvaRent > 1 ? rawIvaRent / 100 : rawIvaRent;
+      const IVA_RENT = await getIvaRate();
 
       const pedidos = await db.pedido.findMany({
         where: whereRent,
@@ -318,6 +314,7 @@ export async function GET(request) {
           items: { select: { quantity: true, unitPrice: true } },
         },
         take: 2000,
+        orderBy: { fechaCreacion: 'desc' },
       });
 
       const byCliente = {};
@@ -371,7 +368,8 @@ export async function GET(request) {
         where.fechaCreacion = { gte: new Date(`${new Date().getFullYear()}-01-01T00:00:00.000Z`) };
       }
 
-      const [pedidos, ivaConfig, reglasMargenes] = await Promise.all([
+      const [IVA, pedidos, reglasMargenes] = await Promise.all([
+        getIvaRate(),
         db.pedido.findMany({
           where,
           select: {
@@ -382,12 +380,8 @@ export async function GET(request) {
           orderBy: { fechaCreacion: 'desc' },
           take: 500,
         }),
-        db.config.findUnique({ where: { key: 'iva_rate' } }),
         db.reglaMargen.findMany({ take: 50 }),
       ]);
-
-      const rawIva = ivaConfig?.value ? parseFloat(String(ivaConfig.value)) : 0.21;
-      const IVA = rawIva > 1 ? rawIva / 100 : rawIva;
 
       // Recopilar todos los productoIds para obtener costoUnitario actual y historial
       const productoIds = [...new Set(
@@ -491,9 +485,7 @@ export async function GET(request) {
       const año = Math.max(2000, Math.min(currentYear, parseInt(searchParams.get('año') || String(currentYear), 10)));
       const comparar = searchParams.get('comparar') === 'true';
 
-      const ivaConfigMat = await db.config.findUnique({ where: { key: 'iva_rate' } });
-      const rawIvaMat = ivaConfigMat?.value ? parseFloat(String(ivaConfigMat.value)) : 0.21;
-      const IVA_MAT = rawIvaMat > 1 ? rawIvaMat / 100 : rawIvaMat;
+      const IVA_MAT = await getIvaRate();
 
       const fetchYearMaterial = async (y) => {
         const inicio = new Date(`${y}-01-01T00:00:00.000Z`);

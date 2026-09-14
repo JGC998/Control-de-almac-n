@@ -2,6 +2,7 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { clearEmisorCache } from '@/lib/pdfGenerator';
+import { clearVulcanizadoCache, clearIvaCache } from '@/lib/config-cache';
 
 // Claves de empresa que invalidan la caché del emisor en pdfGenerator
 const EMPRESA_KEYS = new Set(['empresa_nombre', 'empresa_nif', 'empresa_direccion', 'empresa_telefono']);
@@ -61,10 +62,16 @@ export async function PUT(request) {
     if (entries.some(([k]) => EMPRESA_KEYS.has(k))) {
       clearEmisorCache();
     }
+    if (entries.some(([k]) => k === 'costeVulcanizadoMetro')) {
+      clearVulcanizadoCache();
+    }
+    if (entries.some(([k]) => k === 'iva_rate')) {
+      clearIvaCache();
+    }
 
     db.auditLog.create({
       data: { action: 'CONFIG_UPDATE', entity: 'Config', entityId: 'global', details: JSON.stringify(Object.fromEntries(entries)) },
-    }).catch(() => {});
+    }).catch(err => logApiError(err, 'PUT /api/config:auditLog'));
 
     return NextResponse.json({ message: `${entries.length} clave(s) guardada(s)` });
   } catch (error) {

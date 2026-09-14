@@ -359,11 +359,12 @@ function parseVFEta(etaStr) {
 function parseVFDate(str) {
   if (!str) return null;
   try {
-    const year = new Date().getFullYear();
+    const now = new Date();
+    const year = now.getFullYear();
     const d = new Date(str.replace(',', '') + ` ${year} UTC`);
     if (isNaN(d.getTime())) return null;
-    // Si queda más de 6 meses en el futuro → probablemente del año pasado
-    if (d - Date.now() > 6 * 30 * 86400_000) d.setFullYear(d.getFullYear() - 1);
+    // Si ya pasó hace más de 6 meses → probablemente es del año siguiente
+    if (now - d > 6 * 30 * 86400_000) d.setFullYear(d.getFullYear() + 1);
     return d.toISOString();
   } catch { return null; }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
 import { modeloGrapaSchema, validateData } from '@/lib/validations';
+import { clearModelosGrapaCache } from '@/lib/config-cache';
 
 export async function GET() {
   try {
@@ -35,6 +36,7 @@ export async function POST(request) {
         precioPor100mm,
       },
     });
+    clearModelosGrapaCache();
     return NextResponse.json(modelo, { status: 201 });
   } catch (error) {
     return handlePrismaError(error);
