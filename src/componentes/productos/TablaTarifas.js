@@ -35,6 +35,7 @@ export default function TablaTarifas() {
 
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
+  const { data: tarifasCoste } = useSWR('/api/tarifas-coste');
 
   const isLoading = tarifasLoading || margenesLoading;
 
@@ -43,6 +44,16 @@ export default function TablaTarifas() {
     if (!Array.isArray(margenes)) return [];
     return margenes.filter(m => m.tipo !== 'gastoFijo' && m.multiplicador !== 1);
   }, [margenes]);
+
+  const costesMap = useMemo(() => {
+    if (!Array.isArray(tarifasCoste)) return {};
+    const map = {};
+    tarifasCoste.forEach(t => {
+      const key = `${t.material}_${t.espesor}_${t.color ?? ''}_${t.lonas ?? ''}_${t.acabado ?? ''}`;
+      map[key] = t;
+    });
+    return map;
+  }, [tarifasCoste]);
 
   const uniqueMaterials = useMemo(() => {
     if (!Array.isArray(tarifas)) return [];
@@ -236,13 +247,15 @@ export default function TablaTarifas() {
                 <th className="text-center">Lonas</th>
                 <th className="text-center">Acabado</th>
                 <th className="text-center">Espesor (mm)</th>
-                <th className="text-center" title="Clic para editar">Precio Base (€/m²)</th>
+                <th className="text-center" title="Clic para editar">Precio venta base (€/m²)</th>
                 {margenesVenta.map(m => (
                   <th key={m.base} className="text-center">
                     <span className="block text-xs font-bold">{m.descripcion}</span>
                     <span className="block text-xs font-normal opacity-60">×{m.multiplicador}</span>
                   </th>
                 ))}
+                <th className="text-center text-base-content/50">Coste imp. (€/m²)</th>
+                <th className="text-center text-base-content/50">Margen</th>
                 <th className="text-center">Peso (kg/m²)</th>
               </tr>
             </thead>
@@ -358,6 +371,29 @@ export default function TablaTarifas() {
                       );
                     })}
 
+                    {/* Coste de importación y margen */}
+                    {(() => {
+                      const key = `${row.material}_${row.espesor}_${row.color ?? ''}_${row.lonas ?? ''}_${row.acabado ?? ''}`;
+                      const coste = costesMap[key];
+                      const costeM2 = coste?.precio ?? null;
+                      const margenPct = costeM2 > 0 ? ((row.precio - costeM2) / costeM2) * 100 : null;
+                      return (
+                        <>
+                          <td className="text-center font-mono text-sm text-base-content/50">
+                            {costeM2 != null ? formatCurrency(costeM2) : <span className="opacity-30">—</span>}
+                          </td>
+                          <td className={`text-center font-mono font-bold text-sm ${
+                            margenPct == null    ? 'text-base-content/30' :
+                            margenPct >= 30      ? 'text-success' :
+                            margenPct >= 10      ? 'text-warning' : 'text-error'
+                          }`}>
+                            {margenPct != null
+                              ? `${margenPct >= 0 ? '+' : ''}${margenPct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+                              : '—'}
+                          </td>
+                        </>
+                      );
+                    })()}
                     <td className="text-center">{row.peso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
                   </tr>
                 );

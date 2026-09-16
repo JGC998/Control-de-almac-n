@@ -308,18 +308,7 @@ async function calcularBanda(ent) {
     };
   }
 
-  let precioM2 = tarifa.precio;
-  let preciosVenta = null;
-  if (tarifa.preciosVenta) {
-    try {
-      const pv = typeof tarifa.preciosVenta === 'string' ? JSON.parse(tarifa.preciosVenta) : tarifa.preciosVenta;
-      if (pv && typeof pv === 'object' && !Array.isArray(pv)) {
-        preciosVenta = pv;
-        const primer = Object.values(pv)[0];
-        if (primer && typeof primer === 'number') precioM2 = primer;
-      }
-    } catch { /* usa precio base */ }
-  }
+  const precioM2 = tarifa.precio;
 
   const precio_material = area_m2 * precioM2;
   const peso_total      = area_m2 * (tarifa.peso || 0);
@@ -370,7 +359,6 @@ async function calcularBanda(ent) {
       coste_conf: Math.round(coste_conf * 100) / 100, desc_conf,
       precio_total, precio_con_iva, iva,
       peso_m2: tarifa.peso || 0, peso_total,
-      preciosVenta,
       bandaCatalogo: bandaCatalogo
         ? { id: bandaCatalogo.id, nombre: bandaCatalogo.nombre, precio: bandaCatalogo.precioUnitario }
         : null,
@@ -572,7 +560,7 @@ async function procesarConsulta(s, ent, contexto, intencionOverride) {
     return {
       texto: `${tarifas.length} tarifa${tarifas.length !== 1 ? 's' : ''}`,
       tipo: 'tarifa',
-      datos: tarifas.map(t => ({ material: t.material, espesor: t.espesor, color: t.color, acabado: t.acabado, precio: t.precio, peso: t.peso, preciosVenta: t.preciosVenta })),
+      datos: tarifas.map(t => ({ material: t.material, espesor: t.espesor, color: t.color, acabado: t.acabado, precio: t.precio, peso: t.peso })),
     };
   }
 

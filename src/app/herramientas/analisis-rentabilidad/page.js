@@ -134,7 +134,8 @@ export default function AnalisisRentabilidadPage() {
                 <tr>
                   <th>Referencia</th>
                   <th className="text-right">Metros</th>
-                  <th className="text-right">Coste real €/m</th>
+                  <th className="text-right">Coste este envío</th>
+                  <th className="text-right text-base-content/50">Coste histórico</th>
                   <th className="text-right">Precio venta €/m</th>
                   <th className="text-right">Margen real</th>
                   <th className="text-right">Precio mínimo</th>
@@ -150,8 +151,10 @@ export default function AnalisisRentabilidadPage() {
                         {r.espesor ? `${r.espesor} mm` : ''}{r.ancho ? ` · ${r.ancho} mm` : ''}
                       </div>
                     </td>
-                    <td className="text-right font-mono">{fmt(r.metros, 1)}</td>
                     <td className="text-right font-mono text-primary">{fmtE(r.costeRealM)}</td>
+                    <td className="text-right font-mono text-base-content/40">
+                      {r.precioCosteHistoricoM != null ? fmtE(r.precioCosteHistoricoM) : <span className="opacity-40">—</span>}
+                    </td>
                     <td className="text-right font-mono">
                       {r.precioVentaM != null ? fmtE(r.precioVentaM) : <span className="opacity-40">Sin tarifa</span>}
                     </td>

@@ -60,9 +60,14 @@ export async function GET(request, { params }) {
       bobsFiltradas.map(b => parseFloat(b.espesor) || null).filter(Boolean)
     )];
 
-    const todasTarifas = uniqueEspesores.length > 0
-      ? await db.tarifaRollo.findMany({ where: { espesor: { in: uniqueEspesores } } })
-      : [];
+    const [todasTarifas, todasTarifasCoste] = await Promise.all([
+      uniqueEspesores.length > 0
+        ? db.tarifaRollo.findMany({ where: { espesor: { in: uniqueEspesores } } })
+        : [],
+      uniqueEspesores.length > 0
+        ? db.tarifaCoste.findMany({ where: { espesor: { in: uniqueEspesores } } })
+        : [],
+    ]);
 
     // BUG-04: Promise.allSettled para que un error en una bobina no cancele todas
     const settled = await Promise.allSettled(
@@ -93,6 +98,18 @@ export async function GET(request, { params }) {
             ) ?? null)
           : null;
 
+        const tarifaCoste = (material && espesor)
+          ? (todasTarifasCoste.find(t =>
+              t.espesor === espesor &&
+              t.material.toUpperCase().includes(material)
+            ) ?? null)
+          : null;
+
+        // Coste histórico por metro lineal: precio m² × ancho bobina en m
+        const precioCosteHistoricoM = tarifaCoste && anchoM > 0
+          ? parseFloat((tarifaCoste.precio * anchoM).toFixed(4))
+          : null;
+
         const precioVentaM = tarifaActual ? Number(tarifaActual.precioBase) : null;
         const margenReal   = precioVentaM != null && costeRealM > 0
           ? (precioVentaM - costeRealM) / costeRealM
@@ -107,15 +124,16 @@ export async function GET(request, { params }) {
         }
 
         return {
-          referencia:    b.referencia || `Bobina ${b.espesor}mm`,
+          referencia:             b.referencia || `Bobina ${b.espesor}mm`,
           espesor, ancho,
-          metros:        parseFloat(metros.toFixed(1)),
-          costeRealM:    parseFloat(costeRealM.toFixed(4)),
-          precioVentaM:  precioVentaM != null ? parseFloat(precioVentaM.toFixed(4)) : null,
-          margenRealPct: margenReal != null ? parseFloat((margenReal * 100).toFixed(1)) : null,
-          precioMinimo:  precioMinimo != null ? parseFloat(precioMinimo.toFixed(4)) : null,
+          metros:                 parseFloat(metros.toFixed(1)),
+          costeRealM:             parseFloat(costeRealM.toFixed(4)),
+          precioCosteHistoricoM:  precioCosteHistoricoM,
+          precioVentaM:           precioVentaM != null ? parseFloat(precioVentaM.toFixed(4)) : null,
+          margenRealPct:          margenReal != null ? parseFloat((margenReal * 100).toFixed(1)) : null,
+          precioMinimo:           precioMinimo != null ? parseFloat(precioMinimo.toFixed(4)) : null,
           semaforo,
-          tarifaId:      tarifaActual?.id ?? null,
+          tarifaId:               tarifaActual?.id ?? null,
         };
       })
     );

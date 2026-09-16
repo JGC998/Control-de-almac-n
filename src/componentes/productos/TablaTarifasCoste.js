@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-import useSWR from 'swr';
-import { PackageSearch } from 'lucide-react';
+import useSWR, { mutate } from 'swr';
+import { PackageSearch, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 
 function fmtFecha(d) {
@@ -14,6 +14,19 @@ function fmtFecha(d) {
 
 export default function TablaTarifasCoste() {
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
+  const [backfilling, setBackfilling] = useState(false);
+
+  const handleBackfill = async () => {
+    setBackfilling(true);
+    try {
+      const res = await fetch('/api/tarifas-coste', { method: 'POST' });
+      const { migrados } = await res.json();
+      await mutate('/api/tarifas-coste');
+      alert(`Listo — ${migrados} materiales importados desde la tarifa de venta.`);
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   const { data: tarifas, isLoading, error } = useSWR('/api/tarifas-coste');
 
@@ -57,9 +70,17 @@ export default function TablaTarifasCoste() {
             <PackageSearch className="w-14 h-14 mx-auto mb-4 opacity-20" />
             <p className="text-base font-medium">Sin datos de coste todavía</p>
             <p className="text-sm mt-1 max-w-sm mx-auto">
-              Los costes se registran automáticamente al guardar una importación de contenedor
-              en la calculadora. Cuando guardes la próxima importación, aparecerán aquí.
+              Los costes se registran automáticamente al guardar una importación.
+              También puedes hacer una carga inicial desde los precios de la tarifa de venta actual.
             </p>
+            <button
+              className="btn btn-sm btn-outline mt-5 gap-2"
+              onClick={handleBackfill}
+              disabled={backfilling}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${backfilling ? 'animate-spin' : ''}`} />
+              {backfilling ? 'Importando…' : 'Cargar desde tarifa de venta'}
+            </button>
           </div>
         ) : (
           <>
