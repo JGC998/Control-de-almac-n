@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
+import { logUpdate } from '@/lib/audit';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,7 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'Precio inválido' }, { status: 400 });
     if (pesoVal !== undefined && (isNaN(pesoVal) || pesoVal < 0))
       return NextResponse.json({ error: 'Peso inválido' }, { status: 400 });
+    const anterior = await db.tarifaCoste.findUnique({ where: { id } });
     const updated = await db.tarifaCoste.update({
       where: { id },
       data: {
@@ -35,6 +37,7 @@ export async function PUT(request) {
         ...(pesoVal   !== undefined && { peso:   pesoVal   }),
       },
     });
+    logUpdate('TarifaCoste', id, anterior, updated, 'Admin').catch(() => {});
     return NextResponse.json(updated);
   } catch (error) {
     logApiError(error, 'PUT /api/tarifas-coste');

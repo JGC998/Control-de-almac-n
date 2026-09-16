@@ -86,7 +86,8 @@ export default function LogViewer({ defaultEntity = '' }) {
                         onChange={(e) => { setEntityFilter(e.target.value); setPage(1); }}
                     >
                         <option value="">Todas</option>
-                        <option value="TarifaMaterial">Tarifa m²</option>
+                        <option value="TarifaMaterial">Tarifa venta m²</option>
+                        <option value="TarifaCoste">Tarifa coste m²</option>
                         <option value="TarifaRollo">Tarifa Rollo</option>
                         <option value="Producto">Producto</option>
                         <option value="Cliente">Cliente</option>
