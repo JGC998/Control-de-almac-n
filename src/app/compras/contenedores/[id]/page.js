@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
@@ -132,6 +132,33 @@ export default function ContenedorDetalle() {
   const { id } = params;
 
   const { data: imp, isLoading, mutate } = useSWR(id ? `/api/importaciones/${id}` : null, fetcher);
+  const { data: tarifasCoste }    = useSWR('/api/tarifas-coste', fetcher);
+  const { data: tarifasMaterial } = useSWR('/api/precios', fetcher);
+
+  const alertasMateriales = useMemo(() => {
+    if (!imp?.bobinas || !Array.isArray(tarifasCoste) || !Array.isArray(tarifasMaterial)) return [];
+    let bobs;
+    try { bobs = typeof imp.bobinas === 'string' ? JSON.parse(imp.bobinas) : imp.bobinas; }
+    catch { bobs = []; }
+    if (!Array.isArray(bobs)) return [];
+    const vistas = new Set();
+    return bobs
+      .filter(b => b.tipo === 'BOBINA' || !b.tipo)
+      .reduce((acc, b) => {
+        const espesor  = parseFloat(b.espesor) || null;
+        const material = b.referencia?.split('-')[0]?.toUpperCase() || null;
+        if (!material || !espesor) return acc;
+        const clave = `${material}_${espesor}`;
+        if (vistas.has(clave)) return acc;
+        const tc = tarifasCoste.find(t => t.espesor === espesor && (t.material.toUpperCase() === material || t.material.toUpperCase().startsWith(material + ' ')));
+        const tm = tarifasMaterial.find(t => t.espesor === espesor && (t.material.toUpperCase() === material || t.material.toUpperCase().startsWith(material + ' ')));
+        if (tc && tm && tc.precio > tm.precio) {
+          vistas.add(clave);
+          acc.push({ referencia: b.referencia, espesor, coste: tc.precio, venta: tm.precio });
+        }
+        return acc;
+      }, []);
+  }, [imp, tarifasCoste, tarifasMaterial]);
 
   const [actualizando, setActualizando]     = useState(false);
   const [eventos, setEventos]               = useState(null);
@@ -339,6 +366,31 @@ export default function ContenedorDetalle() {
           </div>
         </div>
       </div>
+
+      {/* Alerta: coste de importación supera precio de venta */}
+      {alertasMateriales.length > 0 && (
+        <div className="alert alert-error shadow-sm mb-4">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <div>
+            <div className="font-bold text-sm">
+              {alertasMateriales.length === 1
+                ? '1 material se vende por debajo de su coste de importación'
+                : `${alertasMateriales.length} materiales se venden por debajo de su coste de importación`}
+            </div>
+            <ul className="text-xs mt-1 space-y-0.5 opacity-90">
+              {alertasMateriales.map((a, i) => (
+                <li key={i}>
+                  <span className="font-mono font-semibold">{a.referencia}</span>
+                  {' — '}coste <span className="font-mono">{a.coste.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/m²</span>
+                  {' vs venta '}
+                  <span className="font-mono">{a.venta.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/m²</span>
+                </li>
+              ))}
+            </ul>
+            <Link href="/tarifas" className="link link-neutral text-xs mt-1 inline-block">Actualizar precios de venta →</Link>
+          </div>
+        </div>
+      )}
 
       {/* Sección de tracking */}
       {imp.trackingActivo || imp.numContenedor || imp.blNumber ? (

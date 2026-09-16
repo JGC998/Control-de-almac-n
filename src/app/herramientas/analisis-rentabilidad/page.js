@@ -151,6 +151,11 @@ export default function AnalisisRentabilidadPage() {
                         {r.espesor ? `${r.espesor} mm` : ''}{r.ancho ? ` · ${r.ancho} mm` : ''}
                       </div>
                     </td>
+                    <td className="text-right font-mono">
+                      {r.metros != null
+                        ? r.metros.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m'
+                        : '—'}
+                    </td>
                     <td className="text-right font-mono text-primary">{fmtE(r.costeRealM)}</td>
                     <td className="text-right font-mono text-base-content/40">
                       {r.precioCosteHistoricoM != null ? fmtE(r.precioCosteHistoricoM) : <span className="opacity-40">—</span>}

@@ -20,6 +20,11 @@ export default function TablaTarifasCoste() {
     setBackfilling(true);
     try {
       const res = await fetch('/api/tarifas-coste', { method: 'POST' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(`Error al importar: ${body.error || res.status}`);
+        return;
+      }
       const { migrados } = await res.json();
       await mutate('/api/tarifas-coste');
       alert(`Listo — ${migrados} materiales importados desde la tarifa de venta.`);

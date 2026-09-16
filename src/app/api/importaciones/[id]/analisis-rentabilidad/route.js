@@ -110,7 +110,7 @@ export async function GET(request, { params }) {
           ? parseFloat((tarifaCoste.precio * anchoM).toFixed(4))
           : null;
 
-        const precioVentaM = tarifaActual ? Number(tarifaActual.precioBase) : null;
+        const precioVentaM = (tarifaActual && tarifaActual.precioBase != null) ? Number(tarifaActual.precioBase) : null;
         const margenReal   = precioVentaM != null && costeRealM > 0
           ? (precioVentaM - costeRealM) / costeRealM
           : null;

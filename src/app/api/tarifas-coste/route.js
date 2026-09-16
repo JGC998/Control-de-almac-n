@@ -28,9 +28,9 @@ export async function POST() {
           material_espesor_color_lonas_acabado: {
             material: t.material,
             espesor:  t.espesor,
-            color:    t.color    ?? null,
-            lonas:    t.lonas    ?? null,
-            acabado:  t.acabado  ?? null,
+            color:    t.color   || null,
+            lonas:    t.lonas   ?? null,
+            acabado:  t.acabado || null,
           },
         },
         update: { precio: t.precio, peso: t.peso },
@@ -39,9 +39,9 @@ export async function POST() {
           espesor:  t.espesor,
           precio:   t.precio,
           peso:     t.peso,
-          color:    t.color    ?? null,
-          lonas:    t.lonas    ?? null,
-          acabado:  t.acabado  ?? null,
+          color:    t.color   || null,
+          lonas:    t.lonas   ?? null,
+          acabado:  t.acabado || null,
         },
       });
       migrados++;

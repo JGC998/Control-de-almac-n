@@ -74,9 +74,9 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
       });
       materialNombre = tarifa.material;
       espesorVal     = tarifa.espesor;
-      colorVal       = tarifa.color ?? null;
-      lonasVal       = tarifa.lonas ?? null;
-      acabadoVal     = tarifa.acabado ?? null;
+      colorVal       = tarifa.color   || null;
+      lonasVal       = tarifa.lonas   ?? null;
+      acabadoVal     = tarifa.acabado || null;
     }
 
     // Registrar también en TarifaCoste para historial de costes de importación

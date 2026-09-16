@@ -33,6 +33,18 @@ export default function TablaTarifas() {
   const [editandoVenta, setEditandoVenta] = useState(null);
   const [guardandoVenta, setGuardandoVenta] = useState(false);
 
+  // Sugerencia de precio por margen objetivo
+  const [margenObjetivo, setMargenObjetivo] = useState(30);
+  const [aplicandoSugerencia, setAplicandoSugerencia] = useState(null); // row.id
+
+  const handleAplicarSugerencia = async (row, costeM2) => {
+    if (aplicandoSugerencia) return;
+    const precioSugerido = parseFloat((costeM2 * (1 + margenObjetivo / 100)).toFixed(2));
+    setAplicandoSugerencia(row.id);
+    try { await guardarCampo(row, { precio: precioSugerido }); }
+    finally { setAplicandoSugerencia(null); }
+  };
+
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
   const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
   const { data: tarifasCoste } = useSWR('/api/tarifas-coste');
@@ -69,7 +81,7 @@ export default function TablaTarifas() {
   // --- Handlers ---
 
   const guardarCampo = async (row, campoData) => {
-    await fetch('/api/precios', {
+    const res = await fetch('/api/precios', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -85,7 +97,8 @@ export default function TablaTarifas() {
         ...campoData,
       }),
     });
-    mutate('/api/precios');
+    if (!res.ok) throw new Error('Error al guardar precio');
+    await mutate('/api/precios');
   };
 
   const handleGuardarPrecio = async (row) => {
@@ -226,17 +239,31 @@ export default function TablaTarifas() {
           </div>
         </div>
 
-        <div className="form-control w-full max-w-xs mb-4">
-          <label className="label"><span className="label-text font-bold">Filtrar por Material:</span></label>
-          <select
-            className="select select-bordered"
-            value={selectedMaterial}
-            onChange={(e) => setSelectedMaterial(e.target.value)}
-          >
-            {uniqueMaterials.map(material => (
-              <option key={material} value={material}>{material}</option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-end gap-4 mb-4">
+          <div className="form-control w-full max-w-xs">
+            <label className="label"><span className="label-text font-bold">Filtrar por Material:</span></label>
+            <select
+              className="select select-bordered"
+              value={selectedMaterial}
+              onChange={(e) => setSelectedMaterial(e.target.value)}
+            >
+              {uniqueMaterials.map(material => (
+                <option key={material} value={material}>{material}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-control">
+            <label className="label"><span className="label-text text-xs text-base-content/60">Margen objetivo (sugerencias)</span></label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number" min="1" max="200" step="1"
+                className="input input-bordered input-sm w-20 font-mono"
+                value={margenObjetivo}
+                onChange={e => setMargenObjetivo(Math.max(1, parseInt(e.target.value) || 30))}
+              />
+              <span className="text-sm text-base-content/50">%</span>
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto max-h-[70vh]">
@@ -377,19 +404,39 @@ export default function TablaTarifas() {
                       const coste = costesMap[key];
                       const costeM2 = coste?.precio ?? null;
                       const margenPct = costeM2 > 0 ? ((row.precio - costeM2) / costeM2) * 100 : null;
+                      const precioSugerido = costeM2 != null
+                        ? parseFloat((costeM2 * (1 + margenObjetivo / 100)).toFixed(2))
+                        : null;
+                      const mostrarSugerencia = precioSugerido != null && (margenPct == null || margenPct < margenObjetivo);
                       return (
                         <>
                           <td className="text-center font-mono text-sm text-base-content/50">
                             {costeM2 != null ? formatCurrency(costeM2) : <span className="opacity-30">—</span>}
                           </td>
-                          <td className={`text-center font-mono font-bold text-sm ${
+                          <td className={`text-center text-sm ${
                             margenPct == null    ? 'text-base-content/30' :
-                            margenPct >= 30      ? 'text-success' :
+                            margenPct >= margenObjetivo ? 'text-success' :
                             margenPct >= 10      ? 'text-warning' : 'text-error'
                           }`}>
-                            {margenPct != null
-                              ? `${margenPct >= 0 ? '+' : ''}${margenPct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
-                              : '—'}
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="font-mono font-bold">
+                                {margenPct != null
+                                  ? `${margenPct >= 0 ? '+' : ''}${margenPct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+                                  : '—'}
+                              </span>
+                              {mostrarSugerencia && (
+                                <button
+                                  className="btn btn-xs btn-outline btn-warning leading-none"
+                                  title={`Aplicar precio sugerido al ${margenObjetivo}% de margen`}
+                                  disabled={aplicandoSugerencia === row.id}
+                                  onClick={() => handleAplicarSugerencia(row, costeM2)}
+                                >
+                                  {aplicandoSugerencia === row.id
+                                    ? <span className="loading loading-spinner loading-xs" />
+                                    : `→ ${formatCurrency(precioSugerido)}`}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </>
                       );
