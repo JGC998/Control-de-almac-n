@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { PackageSearch, RefreshCw } from 'lucide-react';
+import { PackageSearch, RefreshCw, History } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
+import ModalHistorialCoste from './ModalHistorialCoste';
 
 function fmtFecha(d) {
   if (!d) return '—';
@@ -28,6 +29,7 @@ const guardarCampo = async (id, data) => {
 export default function TablaTarifasCoste() {
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
   const [backfilling, setBackfilling] = useState(false);
+  const [historialRow, setHistorialRow] = useState(null);
 
   // Edición inline precio
   const [editandoPrecio, setEditandoPrecio] = useState(null); // { id, value }
@@ -100,6 +102,8 @@ export default function TablaTarifasCoste() {
   }
 
   return (
+    <>
+    <ModalHistorialCoste row={historialRow} onClose={() => setHistorialRow(null)} />
     <div className="card bg-base-100 shadow-xl">
       <div className="card-body">
         <div className="flex justify-between items-start mb-4 gap-3 flex-wrap">
@@ -156,6 +160,7 @@ export default function TablaTarifasCoste() {
                     <th className="text-center" title="Clic para editar">Precio coste (€/m²)</th>
                     <th className="text-center" title="Clic para editar">Peso (kg/m²)</th>
                     <th className="text-center">Última actualización</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -221,6 +226,15 @@ export default function TablaTarifasCoste() {
                       <td className="text-center text-xs text-base-content/50 tabular-nums">
                         {fmtFecha(row.actualizadoEn)}
                       </td>
+                      <td className="text-center">
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          title="Ver historial de precios"
+                          onClick={() => setHistorialRow(row)}
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -235,5 +249,6 @@ export default function TablaTarifasCoste() {
         )}
       </div>
     </div>
+    </>
   );
 }

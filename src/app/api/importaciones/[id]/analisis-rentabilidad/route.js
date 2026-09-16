@@ -60,12 +60,19 @@ export async function GET(request, { params }) {
       bobsFiltradas.map(b => parseFloat(b.espesor) || null).filter(Boolean)
     )];
 
-    const [todasTarifas, todasTarifasCoste] = await Promise.all([
+    const [todasTarifas, todasTarifasCoste, historialCoste] = await Promise.all([
       uniqueEspesores.length > 0
         ? db.tarifaRollo.findMany({ where: { espesor: { in: uniqueEspesores } } })
         : [],
       uniqueEspesores.length > 0
         ? db.tarifaCoste.findMany({ where: { espesor: { in: uniqueEspesores } } })
+        : [],
+      // Historial: los 2 registros más recientes por material+espesor (para calcular variación)
+      uniqueEspesores.length > 0
+        ? db.tarifaCostoHistorial.findMany({
+            where: { espesor: { in: uniqueEspesores }, importacionId: { not: id } },
+            orderBy: { creadoEn: 'desc' },
+          })
         : [],
     ]);
 
@@ -110,6 +117,15 @@ export async function GET(request, { params }) {
           ? parseFloat((tarifaCoste.precio * anchoM).toFixed(4))
           : null;
 
+        // Variación de coste vs contenedor anterior del mismo material
+        const historialMaterial = (material && espesor)
+          ? historialCoste.filter(h => h.espesor === espesor && h.material.toUpperCase().includes(material))
+          : [];
+        const costePrevioM2 = historialMaterial.length > 0 ? historialMaterial[0].precio : null;
+        const variacionCostePct = (costePrevioM2 && costePrevioM2 > 0 && tarifaCoste)
+          ? parseFloat((((tarifaCoste.precio - costePrevioM2) / costePrevioM2) * 100).toFixed(1))
+          : null;
+
         const precioVentaM = (tarifaActual && tarifaActual.precioBase != null) ? Number(tarifaActual.precioBase) : null;
         const margenReal   = precioVentaM != null && costeRealM > 0
           ? (precioVentaM - costeRealM) / costeRealM
@@ -129,6 +145,7 @@ export async function GET(request, { params }) {
           metros:                 parseFloat(metros.toFixed(1)),
           costeRealM:             parseFloat(costeRealM.toFixed(4)),
           precioCosteHistoricoM:  precioCosteHistoricoM,
+          variacionCostePct:      variacionCostePct,
           precioVentaM:           precioVentaM != null ? parseFloat(precioVentaM.toFixed(4)) : null,
           margenRealPct:          margenReal != null ? parseFloat((margenReal * 100).toFixed(1)) : null,
           precioMinimo:           precioMinimo != null ? parseFloat(precioMinimo.toFixed(4)) : null,

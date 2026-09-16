@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { Scale, TrendingUp, TrendingDown, Minus, Info, ChevronDown } from 'lucide-react';
+import { Scale, TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
 
 const fmt = (v, d = 2) => (isFinite(v) && v != null
@@ -136,6 +136,7 @@ export default function AnalisisRentabilidadPage() {
                   <th className="text-right">Metros</th>
                   <th className="text-right">Coste este envío</th>
                   <th className="text-right text-base-content/50">Coste histórico</th>
+                  <th className="text-right text-base-content/50">Variación coste</th>
                   <th className="text-right">Precio venta €/m</th>
                   <th className="text-right">Margen real</th>
                   <th className="text-right">Precio mínimo</th>
@@ -159,6 +160,18 @@ export default function AnalisisRentabilidadPage() {
                     <td className="text-right font-mono text-primary">{fmtE(r.costeRealM)}</td>
                     <td className="text-right font-mono text-base-content/40">
                       {r.precioCosteHistoricoM != null ? fmtE(r.precioCosteHistoricoM) : <span className="opacity-40">—</span>}
+                    </td>
+                    <td className={`text-right font-mono text-sm font-semibold ${
+                      r.variacionCostePct == null ? 'text-base-content/30' :
+                      r.variacionCostePct > 5    ? 'text-error' :
+                      r.variacionCostePct < -5   ? 'text-success' : 'text-base-content/60'
+                    }`}>
+                      {r.variacionCostePct != null ? (
+                        <span className="flex items-center justify-end gap-0.5">
+                          {r.variacionCostePct > 0 ? <TrendingUp className="w-3 h-3" /> : r.variacionCostePct < 0 ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                          {r.variacionCostePct > 0 ? '+' : ''}{r.variacionCostePct}%
+                        </span>
+                      ) : '—'}
                     </td>
                     <td className="text-right font-mono">
                       {r.precioVentaM != null ? fmtE(r.precioVentaM) : <span className="opacity-40">Sin tarifa</span>}
@@ -185,6 +198,7 @@ export default function AnalisisRentabilidadPage() {
               <p><strong>Coste real €/m</strong>: precio USD/m de compra × tipo de cambio + gastos prorrateados por valor económico.</p>
               <p><strong>Precio venta</strong>: se busca en tus tarifas-rollo por material + espesor ± ancho.</p>
               <p><strong>Precio mínimo</strong>: coste real × (1 + {data.margenMinimoPct}% margen mínimo configurado).</p>
+              <p><strong>Variación coste</strong>: comparación vs el último contenedor anterior del mismo material. Rojo = sube &gt;5%, verde = baja &gt;5%.</p>
               <p><strong>🔴 Bajo coste</strong>: el precio de venta actual no cubre el coste de importación.</p>
               <p><strong>🟡 Margen bajo</strong>: cubre el coste pero está por debajo del margen mínimo configurado.</p>
               <p><strong>🟢 Rentable</strong>: margen ≥ {data.margenMinimoPct}%.</p>
