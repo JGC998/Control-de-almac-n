@@ -81,31 +81,19 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
 
     // Registrar también en TarifaCoste para historial de costes de importación
     if (materialNombre && espesorVal > 0) {
-      await db.tarifaCoste.upsert({
-        where: {
-          material_espesor_color_lonas_acabado: {
-            material: materialNombre,
-            espesor:  espesorVal,
-            color:    colorVal,
-            lonas:    lonasVal,
-            acabado:  acabadoVal,
-          },
-        },
-        update: {
-          precio:        nuevoPrecioM2,
-          importacionId: importacionId ?? undefined,
-        },
-        create: {
-          material:      materialNombre,
-          espesor:       espesorVal,
-          color:         colorVal,
-          lonas:         lonasVal,
-          acabado:       acabadoVal,
-          precio:        nuevoPrecioM2,
-          peso:          0,
-          importacionId: importacionId ?? null,
-        },
+      const tcExisting = await db.tarifaCoste.findFirst({
+        where: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
       });
+      if (tcExisting) {
+        await db.tarifaCoste.update({
+          where: { id: tcExisting.id },
+          data: { precio: nuevoPrecioM2, importacionId: importacionId ?? undefined },
+        });
+      } else {
+        await db.tarifaCoste.create({
+          data: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal, precio: nuevoPrecioM2, peso: 0, importacionId: importacionId ?? null },
+        });
+      }
     }
   }));
 

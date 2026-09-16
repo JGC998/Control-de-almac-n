@@ -23,27 +23,19 @@ export async function POST() {
     const tarifas = await db.tarifaMaterial.findMany();
     let migrados = 0;
     for (const t of tarifas) {
-      await db.tarifaCoste.upsert({
-        where: {
-          material_espesor_color_lonas_acabado: {
-            material: t.material,
-            espesor:  t.espesor,
-            color:    t.color   || null,
-            lonas:    t.lonas   ?? null,
-            acabado:  t.acabado || null,
-          },
-        },
-        update: { precio: t.precio, peso: t.peso },
-        create: {
-          material: t.material,
-          espesor:  t.espesor,
-          precio:   t.precio,
-          peso:     t.peso,
-          color:    t.color   || null,
-          lonas:    t.lonas   ?? null,
-          acabado:  t.acabado || null,
-        },
+      const colorVal   = t.color   || null;
+      const lonasVal   = t.lonas   ?? null;
+      const acabadoVal = t.acabado || null;
+      const existing = await db.tarifaCoste.findFirst({
+        where: { material: t.material, espesor: t.espesor, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
       });
+      if (existing) {
+        await db.tarifaCoste.update({ where: { id: existing.id }, data: { precio: t.precio, peso: t.peso } });
+      } else {
+        await db.tarifaCoste.create({
+          data: { material: t.material, espesor: t.espesor, precio: t.precio, peso: t.peso, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
+        });
+      }
       migrados++;
     }
     return NextResponse.json({ ok: true, migrados });
