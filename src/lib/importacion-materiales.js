@@ -4,10 +4,13 @@ import { logApiError } from '@/lib/logger';
 const n = (v) => parseFloat(v) || 0;
 
 /**
- * Después de guardar una importación, actualiza TarifaMaterial.precio (€/m²)
+ * Después de guardar una importación, actualiza TarifaCoste.precio (€/m²)
  * para cada BOBINA que tenga tarifaMaterialId definido.
  * Fórmula: precio = costeFinalEUR / (totalMetros × ancho_m)
- * Si tarifaMaterialId === '__nuevo__': upsert por (material, espesor).
+ *
+ * NO modifica TarifaMaterial (precios de venta) — esa tabla solo se edita
+ * manualmente desde /tarifas.
+ *
  * Fire-and-forget — llamar con .catch(() => {}).
  */
 export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, gastosRepercutibles, tasaCambio, importacionId = null) {
@@ -17,15 +20,15 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
   );
   if (candidatas.length === 0) return;
 
-  const tc      = n(tasaCambio);
-  const gastos  = n(gastosRepercutibles);
+  const tc       = n(tasaCambio);
+  const gastos   = n(gastosRepercutibles);
   const totalEUR = n(totalBobinasEUR);
 
   const resultados = await Promise.allSettled(candidatas.map(async (b) => {
-    const precio     = n(b.precio);
-    const numRollos  = Math.max(n(b.numRollos), 1);
-    const longitud   = n(b.longitud);
-    const anchoM     = n(b.ancho) / 1000;
+    const precio    = n(b.precio);
+    const numRollos = Math.max(n(b.numRollos), 1);
+    const longitud  = n(b.longitud);
+    const anchoM    = n(b.ancho) / 1000;
 
     if (anchoM <= 0 || longitud <= 0) return;
 
@@ -35,43 +38,26 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
     const proporcion    = totalEUR > 0 ? subtotalEUR / totalEUR : 0;
     const costeFinalEUR = subtotalEUR + gastos * proporcion;
 
-    const totalM2        = totalMetros * anchoM;
-    const nuevoPrecioM2  = totalM2 > 0
+    const totalM2       = totalMetros * anchoM;
+    const nuevoPrecioM2 = totalM2 > 0
       ? Math.round((costeFinalEUR / totalM2) * 10000) / 10000
       : 0;
 
     if (nuevoPrecioM2 <= 0) return;
 
+    // Obtener los datos del material — solo lectura, sin modificar TarifaMaterial
     let materialNombre, espesorVal, colorVal, lonasVal, acabadoVal;
 
     if (b.tarifaMaterialId === '__nuevo__') {
-      // T-74: usar b.material (tipo seleccionado por el usuario) si existe,
-      // si no, caer en b.referencia como antes para retrocompatibilidad
       materialNombre = b.material?.trim() || b.referencia?.trim();
-      espesorVal = n(b.espesor);
+      espesorVal     = n(b.espesor);
       if (!materialNombre || espesorVal <= 0) return;
-
-      const existente = await db.tarifaMaterial.findFirst({
-        where: { material: materialNombre, espesor: espesorVal },
-      });
-      if (existente) {
-        await db.tarifaMaterial.update({ where: { id: existente.id }, data: { precio: nuevoPrecioM2 } });
-        colorVal   = existente.color ?? null;
-        lonasVal   = existente.lonas ?? null;
-        acabadoVal = existente.acabado ?? null;
-      } else {
-        const creada = await db.tarifaMaterial.create({
-          data: { material: materialNombre, espesor: espesorVal, precio: nuevoPrecioM2, peso: 0 },
-        });
-        colorVal   = creada.color ?? null;
-        lonasVal   = creada.lonas ?? null;
-        acabadoVal = creada.acabado ?? null;
-      }
+      colorVal   = null;
+      lonasVal   = null;
+      acabadoVal = null;
     } else {
-      const tarifa = await db.tarifaMaterial.update({
-        where: { id: b.tarifaMaterialId },
-        data: { precio: nuevoPrecioM2 },
-      });
+      const tarifa = await db.tarifaMaterial.findUnique({ where: { id: b.tarifaMaterialId } });
+      if (!tarifa) return;
       materialNombre = tarifa.material;
       espesorVal     = tarifa.espesor;
       colorVal       = tarifa.color   || null;
@@ -79,28 +65,26 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
       acabadoVal     = tarifa.acabado || null;
     }
 
-    // Registrar también en TarifaCoste para historial de costes de importación
-    if (materialNombre && espesorVal > 0) {
-      const tcExisting = await db.tarifaCoste.findFirst({
-        where: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
+    // Actualizar TarifaCoste con el coste real de esta importación
+    const tcExisting = await db.tarifaCoste.findFirst({
+      where: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
+    });
+    if (tcExisting) {
+      await db.tarifaCoste.update({
+        where: { id: tcExisting.id },
+        data: { precio: nuevoPrecioM2, importacionId: importacionId ?? undefined },
       });
-      if (tcExisting) {
-        await db.tarifaCoste.update({
-          where: { id: tcExisting.id },
-          data: { precio: nuevoPrecioM2, importacionId: importacionId ?? undefined },
-        });
-      } else {
-        await db.tarifaCoste.create({
-          data: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal, precio: nuevoPrecioM2, peso: 0, importacionId: importacionId ?? null },
-        });
-      }
+    } else {
+      await db.tarifaCoste.create({
+        data: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal, precio: nuevoPrecioM2, peso: 0, importacionId: importacionId ?? null },
+      });
     }
   }));
 
   const fallidos = resultados.filter(r => r.status === 'rejected');
   if (fallidos.length > 0) {
     logApiError(
-      new Error(`${fallidos.length}/${candidatas.length} tarifas no actualizadas`),
+      new Error(`${fallidos.length}/${candidatas.length} tarifas de coste no actualizadas`),
       'actualizarPrecioMateriales'
     );
   }
