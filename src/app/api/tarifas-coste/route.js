@@ -17,6 +17,31 @@ export async function GET() {
   }
 }
 
+// PUT /api/tarifas-coste — edición manual de precio/peso por id
+export async function PUT(request) {
+  try {
+    const { id, precio, peso } = await request.json();
+    if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 });
+    const precioVal = precio != null ? parseFloat(precio) : undefined;
+    const pesoVal   = peso   != null ? parseFloat(peso)   : undefined;
+    if (precioVal !== undefined && (isNaN(precioVal) || precioVal < 0))
+      return NextResponse.json({ error: 'Precio inválido' }, { status: 400 });
+    if (pesoVal !== undefined && (isNaN(pesoVal) || pesoVal < 0))
+      return NextResponse.json({ error: 'Peso inválido' }, { status: 400 });
+    const updated = await db.tarifaCoste.update({
+      where: { id },
+      data: {
+        ...(precioVal !== undefined && { precio: precioVal }),
+        ...(pesoVal   !== undefined && { peso:   pesoVal   }),
+      },
+    });
+    return NextResponse.json(updated);
+  } catch (error) {
+    logApiError(error, 'PUT /api/tarifas-coste');
+    return NextResponse.json({ error: error?.message ?? 'Error al actualizar' }, { status: 500 });
+  }
+}
+
 // POST /api/tarifas-coste — backfill inicial desde TarifaMaterial
 export async function POST() {
   try {

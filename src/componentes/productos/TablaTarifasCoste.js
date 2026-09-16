@@ -12,9 +12,50 @@ function fmtFecha(d) {
   });
 }
 
+const guardarCampo = async (id, data) => {
+  const res = await fetch('/api/tarifas-coste', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...data }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Error al guardar');
+  }
+  await mutate('/api/tarifas-coste');
+};
+
 export default function TablaTarifasCoste() {
   const [selectedMaterial, setSelectedMaterial] = useState('Todos');
   const [backfilling, setBackfilling] = useState(false);
+
+  // Edición inline precio
+  const [editandoPrecio, setEditandoPrecio] = useState(null); // { id, value }
+  const [guardandoPrecio, setGuardandoPrecio] = useState(false);
+
+  // Edición inline peso
+  const [editandoPeso, setEditandoPeso] = useState(null); // { id, value }
+  const [guardandoPeso, setGuardandoPeso] = useState(false);
+
+  const handleGuardarPrecio = async (row) => {
+    if (guardandoPrecio) return;
+    const nuevo = parseFloat(editandoPrecio.value);
+    if (isNaN(nuevo) || nuevo < 0 || nuevo === row.precio) { setEditandoPrecio(null); return; }
+    setGuardandoPrecio(true);
+    try { await guardarCampo(row.id, { precio: nuevo }); }
+    catch (e) { alert(e.message); }
+    finally { setGuardandoPrecio(false); setEditandoPrecio(null); }
+  };
+
+  const handleGuardarPeso = async (row) => {
+    if (guardandoPeso) return;
+    const nuevo = parseFloat(editandoPeso.value);
+    if (isNaN(nuevo) || nuevo < 0 || nuevo === row.peso) { setEditandoPeso(null); return; }
+    setGuardandoPeso(true);
+    try { await guardarCampo(row.id, { peso: nuevo }); }
+    catch (e) { alert(e.message); }
+    finally { setGuardandoPeso(false); setEditandoPeso(null); }
+  };
 
   const handleBackfill = async () => {
     setBackfilling(true);
@@ -65,7 +106,7 @@ export default function TablaTarifasCoste() {
           <div>
             <h2 className="card-title">Tarifa de coste por m²</h2>
             <p className="text-sm text-base-content/50 mt-0.5">
-              Actualizada automáticamente al guardar una importación de contenedor. Solo lectura.
+              Actualizada automáticamente al guardar una importación. Clic en precio o peso para editar manualmente.
             </p>
           </div>
         </div>
@@ -112,8 +153,8 @@ export default function TablaTarifasCoste() {
                     <th className="text-center">Lonas</th>
                     <th className="text-center">Acabado</th>
                     <th className="text-center">Espesor (mm)</th>
-                    <th className="text-center">Precio coste (€/m²)</th>
-                    <th className="text-center">Peso (kg/m²)</th>
+                    <th className="text-center" title="Clic para editar">Precio coste (€/m²)</th>
+                    <th className="text-center" title="Clic para editar">Peso (kg/m²)</th>
                     <th className="text-center">Última actualización</th>
                   </tr>
                 </thead>
@@ -128,14 +169,55 @@ export default function TablaTarifasCoste() {
                         {row.acabado || <span className="opacity-30">—</span>}
                       </td>
                       <td className="text-center font-mono">{row.espesor}</td>
-                      <td className="text-center font-mono font-semibold text-primary">
-                        {formatCurrency(row.precio)}
+
+                      {/* Precio coste editable */}
+                      <td className="text-center">
+                        {editandoPrecio?.id === row.id ? (
+                          <input
+                            type="number" min="0" step="0.01"
+                            className="input input-xs input-bordered w-24 font-mono text-center"
+                            value={editandoPrecio.value}
+                            onChange={e => setEditandoPrecio(prev => ({ ...prev, value: e.target.value }))}
+                            onBlur={() => handleGuardarPrecio(row)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleGuardarPrecio(row); if (e.key === 'Escape') setEditandoPrecio(null); }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:text-primary font-mono font-semibold text-primary"
+                            title="Clic para editar precio de coste"
+                            onClick={() => setEditandoPrecio({ id: row.id, value: String(row.precio) })}
+                          >
+                            {formatCurrency(row.precio)}
+                          </span>
+                        )}
                       </td>
-                      <td className="text-center font-mono text-sm">
-                        {row.peso > 0
-                          ? row.peso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kg'
-                          : <span className="opacity-30">—</span>}
+
+                      {/* Peso editable */}
+                      <td className="text-center">
+                        {editandoPeso?.id === row.id ? (
+                          <input
+                            type="number" min="0" step="0.01"
+                            className="input input-xs input-bordered w-20 font-mono text-center"
+                            value={editandoPeso.value}
+                            onChange={e => setEditandoPeso(prev => ({ ...prev, value: e.target.value }))}
+                            onBlur={() => handleGuardarPeso(row)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleGuardarPeso(row); if (e.key === 'Escape') setEditandoPeso(null); }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:text-primary font-mono text-sm"
+                            title="Clic para editar peso"
+                            onClick={() => setEditandoPeso({ id: row.id, value: String(row.peso) })}
+                          >
+                            {row.peso > 0
+                              ? row.peso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kg'
+                              : <span className="opacity-30">—</span>}
+                          </span>
+                        )}
                       </td>
+
                       <td className="text-center text-xs text-base-content/50 tabular-nums">
                         {fmtFecha(row.actualizadoEn)}
                       </td>
