@@ -356,6 +356,22 @@ model TarifaMaterial {
   @@unique([material, espesor, color, lonas, acabado])
 }
 
+model TarifaCoste {
+  id            String   @id @default(uuid())
+  material      String
+  espesor       Float
+  precio        Float
+  peso          Float    @default(0)
+  color         String?
+  lonas         Int?
+  acabado       String?
+  actualizadoEn DateTime @default(now()) @updatedAt
+  importacionId String?
+
+  @@unique([material, espesor, color, lonas, acabado])
+  @@index([material])
+}
+
 model TarifaRollo {
   id            String  @id @default(uuid())
   material      String

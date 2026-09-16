@@ -10,7 +10,7 @@ const n = (v) => parseFloat(v) || 0;
  * Si tarifaMaterialId === '__nuevo__': upsert por (material, espesor).
  * Fire-and-forget — llamar con .catch(() => {}).
  */
-export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, gastosRepercutibles, tasaCambio) {
+export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, gastosRepercutibles, tasaCambio, importacionId = null) {
   const bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
   const candidatas = (bobinas ?? []).filter(b =>
     b.tipo === 'BOBINA' && b.tarifaMaterialId && n(b.ancho) > 0 && n(b.longitud) > 0
@@ -42,11 +42,13 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
 
     if (nuevoPrecioM2 <= 0) return;
 
+    let materialNombre, espesorVal, colorVal, lonasVal, acabadoVal;
+
     if (b.tarifaMaterialId === '__nuevo__') {
       // T-74: usar b.material (tipo seleccionado por el usuario) si existe,
       // si no, caer en b.referencia como antes para retrocompatibilidad
-      const materialNombre = b.material?.trim() || b.referencia?.trim();
-      const espesorVal = n(b.espesor);
+      materialNombre = b.material?.trim() || b.referencia?.trim();
+      espesorVal = n(b.espesor);
       if (!materialNombre || espesorVal <= 0) return;
 
       const existente = await db.tarifaMaterial.findFirst({
@@ -54,15 +56,55 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
       });
       if (existente) {
         await db.tarifaMaterial.update({ where: { id: existente.id }, data: { precio: nuevoPrecioM2 } });
+        colorVal   = existente.color ?? null;
+        lonasVal   = existente.lonas ?? null;
+        acabadoVal = existente.acabado ?? null;
       } else {
-        await db.tarifaMaterial.create({
+        const creada = await db.tarifaMaterial.create({
           data: { material: materialNombre, espesor: espesorVal, precio: nuevoPrecioM2, peso: 0 },
         });
+        colorVal   = creada.color ?? null;
+        lonasVal   = creada.lonas ?? null;
+        acabadoVal = creada.acabado ?? null;
       }
     } else {
-      await db.tarifaMaterial.update({
+      const tarifa = await db.tarifaMaterial.update({
         where: { id: b.tarifaMaterialId },
         data: { precio: nuevoPrecioM2 },
+      });
+      materialNombre = tarifa.material;
+      espesorVal     = tarifa.espesor;
+      colorVal       = tarifa.color ?? null;
+      lonasVal       = tarifa.lonas ?? null;
+      acabadoVal     = tarifa.acabado ?? null;
+    }
+
+    // Registrar también en TarifaCoste para historial de costes de importación
+    if (materialNombre && espesorVal > 0) {
+      await db.tarifaCoste.upsert({
+        where: {
+          material_espesor_color_lonas_acabado: {
+            material: materialNombre,
+            espesor:  espesorVal,
+            color:    colorVal,
+            lonas:    lonasVal,
+            acabado:  acabadoVal,
+          },
+        },
+        update: {
+          precio:        nuevoPrecioM2,
+          importacionId: importacionId ?? undefined,
+        },
+        create: {
+          material:      materialNombre,
+          espesor:       espesorVal,
+          color:         colorVal,
+          lonas:         lonasVal,
+          acabado:       acabadoVal,
+          precio:        nuevoPrecioM2,
+          peso:          0,
+          importacionId: importacionId ?? null,
+        },
       });
     }
   }));

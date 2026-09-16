@@ -1,12 +1,13 @@
 "use client";
 import React, { useState } from 'react';
-import { FileSpreadsheet, DollarSign, ScrollText, History } from 'lucide-react';
+import { FileSpreadsheet, TrendingUp, Package, ScrollText, History } from 'lucide-react';
 import TablaTarifas from '@/componentes/productos/TablaTarifas';
+import TablaTarifasCoste from '@/componentes/productos/TablaTarifasCoste';
 import TablaTarifasRollo from '@/componentes/productos/TablaTarifasRollo';
 import LogViewer from '@/componentes/admin/LogViewer';
 
 export default function TarifasPage() {
-  const [activeTab, setActiveTab] = useState('m2');
+  const [activeTab, setActiveTab] = useState('venta');
 
   return (
     <div className="container mx-auto p-4">
@@ -17,11 +18,18 @@ export default function TarifasPage() {
       <div className="overflow-x-auto -mx-4 px-4 mb-6">
         <div className="tabs tabs-boxed gap-1 w-max min-w-full">
           <button
-            className={`tab gap-2 ${activeTab === 'm2' ? 'tab-active' : ''}`}
-            onClick={() => setActiveTab('m2')}
+            className={`tab gap-2 ${activeTab === 'venta' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('venta')}
           >
-            <DollarSign className="w-4 h-4" />
-            <span className="hidden sm:inline">Tarifas por </span>m²
+            <TrendingUp className="w-4 h-4" />
+            <span className="hidden sm:inline">Tarifa de venta por </span>m²
+          </button>
+          <button
+            className={`tab gap-2 ${activeTab === 'coste' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('coste')}
+          >
+            <Package className="w-4 h-4" />
+            <span className="hidden sm:inline">Tarifa de coste por </span>m²
           </button>
           <button
             className={`tab gap-2 ${activeTab === 'rollo' ? 'tab-active' : ''}`}
@@ -41,8 +49,9 @@ export default function TarifasPage() {
         </div>
       </div>
 
-      {activeTab === 'm2' && <TablaTarifas />}
-      {activeTab === 'rollo' && <TablaTarifasRollo />}
+      {activeTab === 'venta'    && <TablaTarifas />}
+      {activeTab === 'coste'    && <TablaTarifasCoste />}
+      {activeTab === 'rollo'    && <TablaTarifasRollo />}
       {activeTab === 'historial' && (
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
