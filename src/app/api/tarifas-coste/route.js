@@ -49,6 +49,6 @@ export async function POST() {
     return NextResponse.json({ ok: true, migrados });
   } catch (error) {
     logApiError(error, 'POST /api/tarifas-coste backfill');
-    return NextResponse.json({ error: 'Error en el backfill' }, { status: 500 });
+    return NextResponse.json({ error: error?.message ?? 'Error en el backfill' }, { status: 500 });
   }
 }
