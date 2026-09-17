@@ -170,6 +170,9 @@ export default function CalculadoraBandasVentasPage() {
 
   const resultado = useMemo(() => {
     if (currentStep !== 'done' || !tarifa) return null;
+    if (vals.confeccion === 'GRAPA' && !modeloGrapa) {
+      return { sinModeloGrapa: true };
+    }
     const ancMm = parseFloat(vals.ancho);
     const larMm = parseFloat(vals.largo);
     const uds = parseInt(vals.unidades, 10) || 1;
@@ -301,6 +304,12 @@ export default function CalculadoraBandasVentasPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {done && resultado?.sinModeloGrapa && (
+          <div role="alert" className="alert alert-warning text-sm">
+            <span>No hay modelo de grapa configurado para ese espesor. Ve a <strong>Configuración → Grapas</strong> y añade el modelo.</span>
           </div>
         )}
 

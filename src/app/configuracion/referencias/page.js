@@ -10,7 +10,7 @@ const columnas = [
 ];
 
 const campos = [
-  { clave: 'nombre',              etiqueta: 'Nombre / Código',    requerido: true, placeholder: 'Ej: EP315/3' },
+  { clave: 'referencia',          etiqueta: 'Referencia / Código', requerido: true, placeholder: 'Ej: EP315/3' },
   { clave: 'ancho',               etiqueta: 'Ancho (mm)',         tipo: 'numero', requerido: true, placeholder: 'Ej: 1000', min: 1, step: '1' },
   { clave: 'lonas',               etiqueta: 'Nº de lonas',        tipo: 'numero', requerido: false, placeholder: 'Ej: 3', min: 1, step: '1' },
   { clave: 'pesoPorMetroLineal',  etiqueta: 'Peso (kg/m lineal)', tipo: 'numero', requerido: false, placeholder: 'Ej: 4.2', min: 0, step: '0.001' },

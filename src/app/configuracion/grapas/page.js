@@ -86,9 +86,10 @@ function SeccionModelosGenericos() {
     try {
       const res = await fetch('/api/modelos-grapa/generar-productos', { method: 'POST' });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || 'Error al generar');
       setResultadoGen(data);
-    } catch {
-      toastError('Error al generar productos de grapa');
+    } catch (err) {
+      toastError('Error al generar productos de grapa: ' + err.message);
     } finally {
       setGenerando(false);
     }
