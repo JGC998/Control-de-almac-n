@@ -1,11 +1,11 @@
 "use client";
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { fetcher } from '@/lib/fetcher';
 import {
   Package, Plus, Calculator, Trash2, ChevronRight,
-  PackageOpen, TrendingUp, Calendar,
+  PackageOpen, TrendingUp, Calendar, Clock,
 } from 'lucide-react';
 
 function fmtFecha(d) {
@@ -123,6 +123,37 @@ export default function ContenedoresPage() {
 
   const todas = importaciones ?? [];
 
+  // Previsión del próximo pedido por proveedor
+  const previsionPorProveedor = useMemo(() => {
+    if (todas.length < 2) return [];
+    const grupos = {};
+    todas.forEach(imp => {
+      const nombre = imp.proveedor?.nombre || 'Sin proveedor';
+      if (!grupos[nombre]) grupos[nombre] = [];
+      grupos[nombre].push(imp);
+    });
+    const hoy = new Date();
+    return Object.entries(grupos)
+      .filter(([, imps]) => imps.length >= 2)
+      .map(([nombre, imps]) => {
+        // Ordenar por fecha de llegada o creación, ascendente
+        const ordenadas = [...imps].sort((a, b) =>
+          new Date(a.fechaLlegada || a.creadaEn) - new Date(b.fechaLlegada || b.creadaEn)
+        );
+        const fechas = ordenadas.map(i => new Date(i.fechaLlegada || i.creadaEn));
+        const intervalos = [];
+        for (let i = 1; i < fechas.length; i++) {
+          intervalos.push((fechas[i] - fechas[i - 1]) / (1000 * 60 * 60 * 24));
+        }
+        const mediasDias = Math.round(intervalos.reduce((s, v) => s + v, 0) / intervalos.length);
+        const ultimaFecha = fechas[fechas.length - 1];
+        const proximaFecha = new Date(ultimaFecha.getTime() + mediasDias * 24 * 60 * 60 * 1000);
+        const diasRestantes = Math.round((proximaFecha - hoy) / (1000 * 60 * 60 * 24));
+        return { nombre, mediasDias, ultimaFecha, proximaFecha, diasRestantes, total: imps.length };
+      })
+      .sort((a, b) => a.diasRestantes - b.diasRestantes);
+  }, [todas]);
+
   // KPIs
   const currentYear = new Date().getFullYear();
   const esteAnio = todas.filter(i => new Date(i.creadaEn).getFullYear() === currentYear);
@@ -183,6 +214,53 @@ export default function ContenedoresPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Previsión próximo pedido */}
+      {previsionPorProveedor.length > 0 && (
+        <details className="group mb-2">
+          <summary className="cursor-pointer flex items-center gap-2 text-sm font-semibold text-base-content/70 hover:text-base-content py-1 select-none">
+            <Clock className="w-4 h-4" />
+            Previsión del próximo pedido
+            <ChevronRight className="w-3.5 h-3.5 ml-auto transition-transform group-open:rotate-90" />
+          </summary>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {previsionPorProveedor.map(p => {
+              const urgente = p.diasRestantes <= 14;
+              const pasado  = p.diasRestantes < 0;
+              return (
+                <div
+                  key={p.nombre}
+                  className={`flex items-start gap-3 p-3 rounded-xl border ${
+                    pasado  ? 'bg-error/5 border-error/30' :
+                    urgente ? 'bg-warning/5 border-warning/30' :
+                    'bg-base-100 border-base-200'
+                  }`}
+                >
+                  <div className={`rounded-lg p-1.5 shrink-0 ${
+                    pasado ? 'bg-error/15 text-error' : urgente ? 'bg-warning/15 text-warning' : 'bg-base-200 text-base-content/50'
+                  }`}>
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{p.nombre}</p>
+                    <p className={`text-sm font-bold ${pasado ? 'text-error' : urgente ? 'text-warning' : 'text-base-content'}`}>
+                      {pasado
+                        ? `Hace ${Math.abs(p.diasRestantes)} días (esperado el ${p.proximaFecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })})`
+                        : p.diasRestantes === 0
+                        ? 'Hoy'
+                        : `En ${p.diasRestantes} días — ${p.proximaFecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                    </p>
+                    <p className="text-xs text-base-content/40">
+                      Intervalo medio: {p.mediasDias} días · {p.total} importaciones
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-base-content/30 mt-2">Estimación basada en el intervalo medio entre importaciones por proveedor.</p>
+        </details>
       )}
 
       {/* Loading */}

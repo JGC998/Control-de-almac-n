@@ -72,6 +72,7 @@ export async function GET(request, { params }) {
         ? db.tarifaCostoHistorial.findMany({
             where: { espesor: { in: uniqueEspesores }, importacionId: { not: id } },
             orderBy: { creadoEn: 'desc' },
+            take: 500,
           })
         : [],
     ]);

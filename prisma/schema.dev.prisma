@@ -387,6 +387,19 @@ model TarifaCostoHistorial {
   @@index([importacionId])
 }
 
+model TarifaVentaHistorial {
+  id       String   @id @default(uuid())
+  material String
+  espesor  Float
+  precio   Float
+  color    String?
+  lonas    Int?
+  acabado  String?
+  creadoEn DateTime @default(now())
+
+  @@index([material, espesor])
+}
+
 model TarifaRollo {
   id            String  @id @default(uuid())
   material      String

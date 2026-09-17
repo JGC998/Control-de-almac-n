@@ -115,6 +115,20 @@ export async function PUT(request) {
 
     await logUpdate('TarifaMaterial', id, tarifaAnterior, updatedTarifa, 'Admin');
 
+    // Registrar en historial si el precio base cambió
+    if (nuevoPrecio != null && nuevoPrecio !== tarifaAnterior?.precio) {
+      db.tarifaVentaHistorial.create({
+        data: {
+          material: updatedTarifa.material,
+          espesor:  updatedTarifa.espesor,
+          precio:   nuevoPrecio,
+          color:    updatedTarifa.color   || null,
+          lonas:    updatedTarifa.lonas   ?? null,
+          acabado:  updatedTarifa.acabado || null,
+        },
+      }).catch(() => {});
+    }
+
     revalidatePath('/tarifas');
     return NextResponse.json(updatedTarifa, { status: 200 });
   } catch (error) {

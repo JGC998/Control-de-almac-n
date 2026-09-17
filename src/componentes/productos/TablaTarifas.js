@@ -1,12 +1,13 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
-import { Download, Settings, Plus, X, Ruler } from 'lucide-react';
+import { Download, Settings, Plus, X, Ruler, History } from 'lucide-react';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toastError } from '@/lib/toast';
+import ModalHistorialVenta from './ModalHistorialVenta';
 
 
 // Anchos predeterminados en mm para la tabla de conversión ML
@@ -33,16 +34,21 @@ export default function TablaTarifas() {
   const [editandoVenta, setEditandoVenta] = useState(null);
   const [guardandoVenta, setGuardandoVenta] = useState(false);
 
+  // Historial de precio de venta
+  const [historialVentaRow, setHistorialVentaRow] = useState(null);
+
   // Sugerencia de precio por margen objetivo
   const [margenObjetivo, setMargenObjetivo] = useState(30);
   const [aplicandoSugerencia, setAplicandoSugerencia] = useState(null); // row.id
+  const aplicandoSugerenciaRef = useRef(false); // guard síncrono contra doble-clic
 
   const handleAplicarSugerencia = async (row, costeM2) => {
-    if (aplicandoSugerencia) return;
+    if (aplicandoSugerenciaRef.current) return;
+    aplicandoSugerenciaRef.current = true;
     const precioSugerido = parseFloat((costeM2 * (1 + margenObjetivo / 100)).toFixed(2));
     setAplicandoSugerencia(row.id);
     try { await guardarCampo(row, { precio: precioSugerido }); }
-    finally { setAplicandoSugerencia(null); }
+    finally { aplicandoSugerenciaRef.current = false; setAplicandoSugerencia(null); }
   };
 
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
@@ -219,6 +225,8 @@ export default function TablaTarifas() {
   if (tarifasError || margenesError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
 
   return (
+    <>
+    <ModalHistorialVenta row={historialVentaRow} onClose={() => setHistorialVentaRow(null)} />
     <div className="card bg-base-100 shadow-xl">
       <div className="card-body">
         <div className="flex justify-between items-center mb-4">
@@ -284,6 +292,7 @@ export default function TablaTarifas() {
                 <th className="text-center text-base-content/50">Coste imp. (€/m²)</th>
                 <th className="text-center text-base-content/50">Margen</th>
                 <th className="text-center">Peso (kg/m²)</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -442,6 +451,15 @@ export default function TablaTarifas() {
                       );
                     })()}
                     <td className="text-center">{row.peso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+                    <td className="text-center">
+                      <button
+                        className="btn btn-ghost btn-xs"
+                        title="Ver historial de precio de venta"
+                        onClick={() => setHistorialVentaRow(row)}
+                      >
+                        <History className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -547,5 +565,6 @@ export default function TablaTarifas() {
         )}
       </div>
     </div>
+    </>
   );
 }

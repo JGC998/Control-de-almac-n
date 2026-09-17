@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingDown, TrendingUp, FileText, Ruler, Scale, Factory, QrCode, Camera } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingDown, TrendingUp, FileText, Ruler, Scale, Factory, QrCode, Camera, BarChart2 } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -59,6 +59,13 @@ export default function HerramientasHub() {
           titulo: 'Semáforo de rentabilidad',
           descripcion: 'Compara el coste real de cada bobina importada con tu tarifa de venta actual. Muestra en verde, amarillo o rojo si estás vendiendo con margen suficiente.',
           accion: 'Analizar importación',
+        },
+        {
+          href: '/herramientas/dashboard-margenes',
+          icon: BarChart2,
+          titulo: 'Dashboard de márgenes',
+          descripcion: 'Vista global de todos los materiales con su coste de importación, precio de venta y margen real. Ordenada de peor a mejor margen para actuar rápido.',
+          accion: 'Ver márgenes',
         },
         {
           href: '/herramientas/comparativa-proveedores',

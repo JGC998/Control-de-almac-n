@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import { PackageSearch, RefreshCw, History } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
@@ -34,29 +34,33 @@ export default function TablaTarifasCoste() {
   // Edición inline precio
   const [editandoPrecio, setEditandoPrecio] = useState(null); // { id, value }
   const [guardandoPrecio, setGuardandoPrecio] = useState(false);
+  const guardandoPrecioRef = useRef(false);
 
   // Edición inline peso
   const [editandoPeso, setEditandoPeso] = useState(null); // { id, value }
   const [guardandoPeso, setGuardandoPeso] = useState(false);
+  const guardandoPesoRef = useRef(false);
 
   const handleGuardarPrecio = async (row) => {
-    if (guardandoPrecio) return;
+    if (guardandoPrecioRef.current) return;
+    guardandoPrecioRef.current = true;
     const nuevo = parseFloat(editandoPrecio.value);
     if (isNaN(nuevo) || nuevo < 0 || nuevo === row.precio) { setEditandoPrecio(null); return; }
     setGuardandoPrecio(true);
     try { await guardarCampo(row.id, { precio: nuevo }); }
     catch (e) { alert(e.message); }
-    finally { setGuardandoPrecio(false); setEditandoPrecio(null); }
+    finally { guardandoPrecioRef.current = false; setGuardandoPrecio(false); setEditandoPrecio(null); }
   };
 
   const handleGuardarPeso = async (row) => {
-    if (guardandoPeso) return;
+    if (guardandoPesoRef.current) return;
+    guardandoPesoRef.current = true;
     const nuevo = parseFloat(editandoPeso.value);
     if (isNaN(nuevo) || nuevo < 0 || nuevo === row.peso) { setEditandoPeso(null); return; }
     setGuardandoPeso(true);
     try { await guardarCampo(row.id, { peso: nuevo }); }
     catch (e) { alert(e.message); }
-    finally { setGuardandoPeso(false); setEditandoPeso(null); }
+    finally { guardandoPesoRef.current = false; setGuardandoPeso(false); setEditandoPeso(null); }
   };
 
   const handleBackfill = async () => {
