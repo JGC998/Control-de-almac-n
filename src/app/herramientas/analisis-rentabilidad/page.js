@@ -339,8 +339,6 @@ export default function AnalisisRentabilidadPage() {
       )}
 
       {!importacionId && !isLoading && !modoComparar && (
-
-      {!importacionId && !isLoading && !modoComparar && (
         <div className="text-center py-16 text-base-content/40">
           <Scale className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p>Selecciona una importación guardada para ver el análisis</p>
