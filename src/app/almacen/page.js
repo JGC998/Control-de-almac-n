@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Warehouse, Layers, Link2, AlignJustify, Package, RectangleHorizontal } from 'lucide-react';
+import { Warehouse, Layers, Link2, AlignJustify, Package, RectangleHorizontal, BarChart3, FlaskConical } from 'lucide-react';
 
 export const metadata = { title: 'Almacén — CRM Taller' };
 
@@ -17,6 +17,20 @@ export default function AlmacenHub() {
           titulo: 'Rollos y materiales',
           descripcion: 'Tarifas de material por m² y por rollo. Consulta y edita precios de venta y coste.',
           accion: 'Ver tarifas',
+        },
+        {
+          href: '/gestion/catalogos/materiales',
+          icon: FlaskConical,
+          titulo: 'Materiales',
+          descripcion: 'Tipos de materiales dados de alta en el catálogo: GOMA, PVC, CAUCHO…',
+          accion: 'Ver materiales',
+        },
+        {
+          href: '/almacen/stock',
+          icon: BarChart3,
+          titulo: 'Stock de rollos',
+          descripcion: 'Inventario físico de rollos por material y espesor: metros disponibles y stock mínimo.',
+          accion: 'Ver stock',
         },
         {
           href: '/almacen/bandas',

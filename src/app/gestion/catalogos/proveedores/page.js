@@ -49,6 +49,7 @@ export default function GestionProveedoresPage() {
       campos={camposProveedor}
       tituloNuevo="Nuevo Proveedor"
       tituloEditar="Editar Proveedor"
+      rutaDetalle="/gestion/catalogos/proveedores"
     />
   );
 }

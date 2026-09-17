@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { DollarSign, FileText, Package, FilePlus, PackagePlus, FileCheck } from 'lucide-react';
+import { DollarSign, FileText, Package, FilePlus, PackagePlus, FileCheck, Layers, Ruler } from 'lucide-react';
 
 export const metadata = { title: 'Ventas — CRM Taller' };
 
@@ -34,6 +34,25 @@ export default function VentasHub() {
               titulo: 'Nuevo pedido',
               descripcion: 'Crea un pedido de cliente directamente o convierte un presupuesto aceptado.',
               accion: 'Crear pedido',
+            },
+          ]
+        },
+        {
+          titulo: 'Calculadoras',
+          items: [
+            {
+              href: '/ventas/calculadora-bandas',
+              icon: Layers,
+              titulo: 'Bandas PVC',
+              descripcion: 'Calcula el precio de una banda PVC paso a paso: espesor, confección, dimensiones.',
+              accion: 'Calcular',
+            },
+            {
+              href: '/ventas/calculadora-metrajes',
+              icon: Ruler,
+              titulo: 'Metrajes',
+              descripcion: 'Precio de material por metros lineales para cualquier material del catálogo.',
+              accion: 'Calcular',
             },
           ]
         },
