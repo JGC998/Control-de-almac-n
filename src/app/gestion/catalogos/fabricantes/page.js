@@ -9,6 +9,7 @@ import { Factory } from 'lucide-react';
 
 const columnasFabricante = [
   { clave: 'nombre', etiqueta: 'Nombre' },
+  { clave: '_count.productos', etiqueta: 'Nº productos' },
 ];
 
 const camposFabricante = [

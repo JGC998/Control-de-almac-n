@@ -7,6 +7,7 @@ import { fabricanteSchema } from '@/lib/validations';
 const manejadores = crearManejadoresCRUD('fabricante', {
   findMany: {
     orderBy: { nombre: 'asc' },
+    include: { _count: { select: { productos: true } } },
   },
   zodSchema: fabricanteSchema,
   mapearCrear: (data) => ({ ...data, nombre: data.nombre.trim().toUpperCase() }),

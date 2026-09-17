@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { BarChart2, TrendingUp, TrendingDown, Minus, AlertTriangle, ArrowUpDown } from 'lucide-react';
+import { BarChart2, TrendingUp, TrendingDown, Minus, AlertTriangle, ArrowUpDown, Printer } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
 
 const fmt = (v, d = 2) => v != null && isFinite(v)
@@ -16,6 +16,12 @@ export default function DashboardMargenesPage() {
   const { data: tarifasCoste, isLoading: loadC } = useSWR('/api/tarifas-coste',  fetcher);
   const [orden, setOrden]         = useState('margen_asc'); // margen_asc | margen_desc | material
   const [filtroAlerta, setFiltroAlerta] = useState(false);
+  const [filtroMaterial, setFiltroMaterial] = useState('');
+
+  const materialesUnicos = useMemo(() => {
+    if (!Array.isArray(tarifas)) return [];
+    return [...new Set(tarifas.map(t => t.material))].sort();
+  }, [tarifas]);
 
   const filas = useMemo(() => {
     if (!Array.isArray(tarifas) || !Array.isArray(tarifasCoste)) return [];
@@ -41,6 +47,7 @@ export default function DashboardMargenesPage() {
 
   const filasFiltradas = useMemo(() => {
     let f = filtroAlerta ? filas.filter(f => f.alerta || f.sinCoste) : filas;
+    if (filtroMaterial) f = f.filter(f => f.tm.material === filtroMaterial);
     switch (orden) {
       case 'margen_asc':   return [...f].sort((a, b) => {
         if (a.sinCoste && !b.sinCoste) return 1;
@@ -75,6 +82,13 @@ export default function DashboardMargenesPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <style>{`
+        @media print {
+          nav, header, .print\\:hidden { display: none !important; }
+          body { background: white !important; }
+          .card { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+        }
+      `}</style>
 
       {/* Cabecera */}
       <div className="flex items-start gap-4">
@@ -126,7 +140,7 @@ export default function DashboardMargenesPage() {
           </div>
 
           {/* Controles */}
-          <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex flex-wrap gap-3 items-center print:hidden">
             <div className="flex items-center gap-2">
               <ArrowUpDown className="w-4 h-4 text-base-content/40" />
               <select
@@ -139,6 +153,14 @@ export default function DashboardMargenesPage() {
                 <option value="material">Por material A→Z</option>
               </select>
             </div>
+            <select
+              className="select select-bordered select-sm"
+              value={filtroMaterial}
+              onChange={e => setFiltroMaterial(e.target.value)}
+            >
+              <option value="">Todos los materiales</option>
+              {materialesUnicos.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -156,6 +178,13 @@ export default function DashboardMargenesPage() {
                 <AlertTriangle className="w-3 h-3" /> {stats.sinCoste} sin coste registrado
               </span>
             )}
+            <button
+              className="btn btn-sm btn-outline ml-auto gap-1.5 print:hidden"
+              onClick={() => window.print()}
+              title="Imprimir / exportar PDF"
+            >
+              <Printer className="w-4 h-4" /> Imprimir
+            </button>
           </div>
 
           {/* Tabla */}

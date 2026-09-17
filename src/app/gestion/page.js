@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Users, DollarSign, Tag, Package, Factory, Layers } from 'lucide-react';
+import { Users, DollarSign, Tag, Factory } from 'lucide-react';
 
 export const metadata = { title: 'Gestión — CRM Taller' };
 
@@ -22,13 +22,6 @@ export default function GestionHub() {
               accion: 'Ver clientes',
             },
             {
-              href: '/gestion/productos',
-              icon: Package,
-              titulo: 'Productos',
-              descripcion: 'Catálogo de productos: bandas, accesorios y bordos. Precios, dimensiones, material y stock.',
-              accion: 'Ver productos',
-            },
-            {
               href: '/gestion/catalogos/proveedores',
               icon: Factory,
               titulo: 'Proveedores',
@@ -40,13 +33,6 @@ export default function GestionHub() {
         {
           titulo: 'Catálogo',
           items: [
-            {
-              href: '/gestion/catalogos/materiales',
-              icon: Layers,
-              titulo: 'Materiales',
-              descripcion: 'Tipos de material: GOMA, PVC, FIELTRO, VERDE… Base de la clasificación y el motor de precios.',
-              accion: 'Gestionar materiales',
-            },
             {
               href: '/gestion/catalogos/familias',
               icon: Tag,

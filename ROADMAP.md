@@ -1,13 +1,13 @@
 # ROADMAP — CRM Taller
 
-> Última actualización: 2026-07-22  
+> Última actualización: 2026-09-17  
 > Generado desde `ideas.txt`
 
 ---
 
 ## 🎯 Visión general
 
-El foco ahora es la **identificación unívoca de productos**: evitar confusiones entre piezas similares (mismo nombre, distinto espesor) creando un código interno auto-generado a partir de los atributos del producto, mostrándolo en todos los puntos de contacto (lista, pedidos, búsqueda) y permitiendo imprimir etiquetas físicas para los troqueles. Como requisito previo, hay que exponer el campo **fabricante** en el formulario de producto, que existe en la base de datos pero nunca se ha mostrado en la interfaz.
+El objetivo de esta ronda es una **remodelación estructural de la navegación**: limpiar menús quitando enlaces que estorban, arreglar las dos herramientas rotas, mejorar visualmente las secciones más usadas (Grapas, Tacos, Tarifa de materiales) y añadir funcionalidad de estadísticas de proveedor al nivel que ya tienen los clientes. A medio plazo, las calculadoras se integran en `/ventas` como formato chat y la configuración se reorganiza en apartados independientes.
 
 ---
 
@@ -15,79 +15,152 @@ El foco ahora es la **identificación unívoca de productos**: evitar confusione
 
 | ID | Tarea | Tipo | Complejidad | Depende de |
 |----|-------|------|-------------|------------|
-| T-01 | Añadir selector de fabricante al formulario de producto | Mejora UI | Pequeña | — |
-| T-02 | Función `generarCodigo(producto)` en `producto-utils.js` con reglas de abreviación | Feature | Pequeña | T-01 |
-| T-03 | Mostrar código interno en la lista de productos (`/gestion/productos`) | Mejora UI | Pequeña | T-02 |
-| T-04 | Mostrar código en `EditorFilaItem` al seleccionar un producto en un pedido | Mejora UI | Pequeña | T-02 |
-| T-05 | Incluir código interno como campo de búsqueda en `ModalBusquedaProductos` | Mejora UI | Pequeña | T-02 |
-| T-06 | Mejorar etiqueta PDF existente para incluir el código interno prominentemente | Mejora | Pequeña | T-02 |
-| T-07 | Imprimir etiquetas en lote desde la selección de la lista de productos | Feature | Media | T-06 |
+| T-01 | Quitar enlace "Calculadora inversa" de /herramientas hub | Limpieza UI | Pequeña | — |
+| T-02 | Quitar enlace "Comparativa reparto de gastos" de /herramientas hub | Limpieza UI | Pequeña | — |
+| T-03 | Quitar enlace "Foto → Cotización (IA)" de /herramientas hub | Limpieza UI | Pequeña | — |
+| T-04 | Quitar enlace "Tacos" de /configuracion hub | Limpieza UI | Pequeña | — |
+| T-05 | Quitar enlace "Materiales" de /configuracion hub | Limpieza UI | Pequeña | — |
+| T-06 | Quitar enlace "Productos" de /gestion hub | Limpieza UI | Pequeña | — |
+| T-07 | Quitar enlace "Materiales" de /gestion hub | Limpieza UI | Pequeña | — |
+| T-08 | Arreglar Semáforo de rentabilidad (/herramientas/analisis-rentabilidad) | Bug | Media | — |
+| T-09 | Arreglar Comparativa de proveedores (/herramientas/comparativa-proveedores) | Bug | Media | — |
+| T-10 | Revisar bugs en Carta de porte (/herramientas/carta-porte) | Bug/QA | Pequeña | — |
+| T-11 | Dashboard de márgenes: añadir filtro por material | Mejora UI | Pequeña | — |
+| T-12 | Dashboard de márgenes: exportar a PDF | Mejora | Media | — |
+| T-13 | Fabricantes: columna "Nº productos" en la tabla de /gestion | Mejora UI | Pequeña | — |
+| T-14 | Grapas: remodelación visual de la sección | Diseño/UI | Media | — |
+| T-15 | Tacos: remodelación visual concordante con Grapas | Diseño/UI | Media | T-14 |
+| T-16 | Tarifa de materiales: remodelación visual | Diseño/UI | Media | — |
+| T-17 | Calculadora PVC: convertir a formato chat y reubicar en /ventas | Feature | Grande | — |
+| T-18 | Calculadora de metrajes: convertir a formato chat y reubicar en /ventas | Feature | Grande | — |
+| T-19 | Proveedores: nueva interfaz tipo ficha-cliente con estadísticas de compra | Feature | Grande | — |
+| T-20 | Configuración: márgenes y referencias como apartados independientes en /configuracion | Refactor | Media | — |
+| T-21 | /almacen — Rollos: mostrar rollos generados volcados a productos | Feature | Media | — |
+| T-22 | /almacen — Materiales: sección que muestra los materiales dados de alta | Feature | Pequeña | — |
 
 ---
 
 ## 🗺️ Fases propuestas
 
-### Fase 1 — Fabricante + código interno visible en todos los puntos
-> Eliminar la confusión entre productos similares con un código auto-generado. Estimación: 2-3 horas.
+### Fase 1 — Limpieza de navegación
+> Quitar todos los enlaces que estorban sin tocar los componentes. Estimación: 1-2 horas.
 
-- [x] **T-01** — Añadir fabricante al formulario de producto  
-  _`FormularioProductoInteligente.js`: cargar `/api/fabricantes` con SWR y añadir un select debajo de Ref. fabricante. El campo `fabricanteId` ya existe en el payload — solo falta la UI._
+- [ ] **T-01** — Quitar "Calculadora inversa" del hub de /herramientas  
+  _En `src/app/herramientas/page.js`: eliminar el objeto del array `items` con href `/calculadora/inversa`. El componente `/calculadora/inversa/page.js` no se borra._
 
-- [x] **T-02** — Función `generarCodigo(producto)` con reglas de abreviación  
-  _Añadida a `src/lib/producto-utils.js`. Formato: `FAM3-SUB4-[FABi|ACBi]-[ESP]mm-[ANCHO×LARGO]`. Ejemplo: `GOm-CIER-MB-8mm-500×1200`._
+- [ ] **T-02** — Quitar "Comparativa reparto de gastos" del hub de /herramientas  
+  _Mismo archivo, eliminar el ítem con href `/herramientas/comparativa-reparto`._
 
-- [x] **T-03** — Código visible en la lista de productos  
-  _`/gestion/productos/page.js`: columna "Código" tras el nombre, generada al vuelo con `generarCodigo()`. Click → copia al portapapeles (icono Check 1.5s)._
+- [ ] **T-03** — Quitar "Foto → Cotización (IA)" del hub de /herramientas  
+  _Mismo archivo, eliminar el ítem con href `/herramientas/foto-cotizacion`._
 
-- [x] **T-04** — Código en `EditorFilaItem` al añadir una línea de pedido  
-  _Badge mono debajo del nombre del producto cuando la línea es de catálogo. API de pedidos y presupuestos ampliada para incluir subfamilia.familia y fabricante en items._
+- [ ] **T-04** — Quitar "Tacos" de /configuracion  
+  _En `src/app/configuracion/page.js` (o el hub correspondiente): quitar el enlace a `/configuracion/tacos`._
 
-- [x] **T-05** — Buscar por código en el modal de búsqueda de productos  
-  _`ModalBusquedaProductos.js`: `generarCodigo(p)` añadido al `matchTexto`. Buscar "8mm 500" ya encuentra la pieza concreta._
+- [ ] **T-05** — Quitar "Materiales" de /configuracion  
+  _Mismo archivo: quitar enlace a `/gestion/catalogos/materiales` o similar._
 
-### Fase 2 — Etiquetas físicas para troqueles
-> Cerrar el ciclo: el código interno imprimible y pegable en las piezas. Estimación: 2-3 horas.
+- [ ] **T-06** — Quitar "Productos" de /gestion  
+  _En el hub de /gestion: quitar el ítem que apunta a `/gestion/productos`._
 
-- [x] **T-06** — Mejorar la etiqueta PDF existente con el código interno  
-  _`generateEtiquetaPDF()` en `pdfGenerator.js`: la barra superior de la etiqueta ahora muestra el código en negrita (7.5pt) en lugar del UUID. El endpoint de etiqueta también incluye subfamilia.familia para que el código sea completo._
+- [ ] **T-07** — Quitar "Materiales" de /gestion  
+  _En el hub de /gestion: quitar el ítem de materiales._
 
-- [x] **T-07** — Imprimir etiquetas en lote desde la lista  
-  _`POST /api/productos/etiquetas-lote` acepta hasta 100 IDs y devuelve un PDF multipágina (100×70mm/página). Botón "Etiquetas (N)" añadido al panel de selección masiva de `/gestion/productos`._
+### Fase 2 — Bugs: herramientas rotas
+> Dejar operativas las dos herramientas que el usuario reporta como no funcionales. Estimación: 2-4 horas.
+
+- [ ] **T-08** — Arreglar Semáforo de rentabilidad  
+  _Inspeccionar qué falla en `/herramientas/analisis-rentabilidad` y la API `/api/importaciones/[id]/analisis-rentabilidad`. Reproducir el error, corregir y verificar que el comparador de dos importaciones también funciona._
+
+- [ ] **T-09** — Arreglar Comparativa de proveedores  
+  _Inspeccionar `/herramientas/comparativa-proveedores` y su API. Comprobar si el problema es de datos (ninguna `BobinaPedido` en DB) o de lógica de la herramienta._
+
+- [ ] **T-10** — Revisar Carta de porte  
+  _El usuario nunca la ha probado. Probar flujo completo: rellenar campos, generar PDF, descargarlo. Corregir cualquier error que aparezca._
+
+### Fase 3 — Quick wins de UI
+> Mejoras de valor visible sin riesgo. Estimación: 2-3 horas.
+
+- [ ] **T-13** — Fabricantes: columna "Nº productos" en la tabla  
+  _En la query de `/api/fabricantes`, añadir `_count: { select: { productos: true } }`. En la tabla de `/gestion`, añadir columna "Productos" con ese número._
+
+- [ ] **T-11** — Dashboard de márgenes: filtro por material  
+  _En `src/app/herramientas/dashboard-margenes/page.js`: añadir un `<select>` con los materiales únicos del array `filas`. El filtro aplica antes de la ordenación._
+
+- [ ] **T-12** — Dashboard de márgenes: imprimir/exportar PDF  
+  _Opción más sencilla: botón "Imprimir" que llame a `window.print()` con una media query `@media print` que oculte controles y expanda la tabla. Alternativa: PDF server-side si se necesita formato más cuidado._
+
+### Fase 4 — Remodelaciones visuales
+> Mejorar el aspecto de tres secciones que lo necesitan. Estimación: 3-5 horas.
+
+- [ ] **T-14** — Grapas: remodelación visual  
+  _Ver el componente actual en `/configuracion/grapas`. Proponer diseño con cards o tabla mejorada antes de implementar._
+
+- [ ] **T-15** — Tacos: remodelación visual (concordante con Grapas)  
+  _Después de T-14, replicar el mismo patrón visual en `/configuracion/tacos`._
+
+- [ ] **T-16** — Tarifa de materiales: remodelación visual  
+  _El usuario pide ideas — ver nota en "Ideas a concretar" abajo._
+
+### Fase 5 — Funcionalidades nuevas
+> Trabajo más largo, requiere diseño previo. Estimación: 2-3 días.
+
+- [ ] **T-19** — Proveedores: ficha con estadísticas de compra  
+  _Crear `/gestion/proveedores/[id]/page.js` al estilo de `/gestion/clientes/[id]`. Estadísticas: total importaciones, gasto acumulado por año, materiales más comprados, historial de precios por material._
+
+- [ ] **T-17** — Calculadora PVC → formato chat en /ventas  
+  _Integrar la lógica de `CalculadoraBandas` como componente de chat (ya existe el patrón en pedidos de clientes). Añadir acceso desde el hub de /ventas._
+
+- [ ] **T-18** — Calculadora de metrajes → formato chat en /ventas  
+  _Mismo patrón que T-17 pero para `CalculadoraMetrajes`._
+
+- [ ] **T-20** — Configuración: reorganizar márgenes y referencias como apartados  
+  _Mover los subapartados de Configuración (Márgenes, Reglas de referencia, etc.) al hub de /configuracion como entradas de primer nivel en lugar de estar anidados. Requiere revisar la navegación actual._
+
+### Fase 6 — /almacen expandido *(futuro)*
+> Completar la sección /almacen con las vistas que faltan.
+
+- [ ] **T-21** — /almacen — Rollos: lista de rollos generados volcados a productos  
+  _Ver si existe ya una tabla de rollos o hay que crearla. Filtros por material y estado (en stock / volcado)._
+
+- [ ] **T-22** — /almacen — Materiales: sección de materiales dados de alta  
+  _Puede ser un enlace directo a `/gestion/catalogos/materiales` o una vista simplificada solo-lectura._
 
 ---
 
 ## ⚡ Quick wins
 
-Tareas pequeñas de impacto inmediato que se pueden resolver en minutos:
+Tareas que se resuelven en minutos y mejoran la navegación de inmediato:
 
-- [ ] **T-01** — Fabricante en formulario: un select con SWR, sin cambio de DB (~30 min)
-- [ ] **T-05** — Búsqueda por código: una línea en el `matchTexto` de `ModalBusquedaProductos` (~10 min, requiere T-02)
+- [ ] **T-01 a T-07** — Limpiar 7 enlaces de menú (~5 min cada uno, sin tocar componentes)
+- [ ] **T-13** — Columna "Nº productos" en Fabricantes (~30 min)
+- [ ] **T-11** — Filtro por material en Dashboard de márgenes (~45 min)
 
 ---
 
 ## 🚧 Dependencias y bloqueos
 
-- **T-02 a T-07** dependen de T-01 solo parcialmente: T-02 puede empezar sin T-01 (el fabricante simplemente sale vacío en el código si no está asignado), pero lo ideal es hacer T-01 primero para que los productos nuevos ya lleven fabricante desde el principio.
-- **T-07** requiere T-06 (la lógica de generación de una etiqueta debe existir antes de hacer el lote).
-- **Reglas de abreviación** (T-02): los nombres exactos de las abreviaciones hay que decidirlos antes de implementar — se propone un sistema en el DESIGN.md pero el usuario puede ajustarlo.
+- **T-15** (Tacos visual) requiere **T-14** (Grapas visual) para mantener coherencia visual.
+- **T-18** requiere que **T-17** esté hecho antes para reutilizar el patrón de chat.
+- **T-16** (Tarifa de materiales) está bloqueada esperando que el usuario concrete qué quiere ver — ver "Ideas a concretar".
+- **T-08** (Semáforo) y **T-09** (Comparativa proveedores): antes de arreglar hay que reproducir el error — puede ser un problema de datos en la DB de producción, no de código.
 
 ---
 
-## 💡 Ideas descartadas o pospuestas
+## 💡 Ideas a concretar antes de implementar
 
-- **Código almacenado en BD** (campo `codigoInterno`): se descarta por ahora a favor de generarlo al vuelo desde los campos existentes. Ventaja: sin migración, siempre consistente con los datos reales. Si en el futuro se necesita indexar por código o filtrarlo server-side, se puede añadir el campo y rellenarlo con una migración de datos.
-- **QR o código de barras en etiqueta**: el QR ya existe en la etiqueta actual (apunta a la ficha del producto). No se añade código de barras por el momento.
+- **T-16 — Tarifa de materiales visual**: el usuario pide explícitamente "dame ideas". Hay que mostrarle opciones antes de codificar. Posibles enfoques: (a) agrupar filas por material con cabecera colapsable, (b) vista de tarjetas con el precio grande y el coste/margen debajo, (c) tabla con color de fondo por nivel de margen. Pendiente de decisión.
+
+- **T-22 — Materiales en /almacen**: ¿es una vista diferente a `/gestion/catalogos/materiales` o solo un enlace? Si es diferente, ¿qué campos/acciones necesita?
 
 ---
 
 ## ✅ Completado anteriormente
-- **T-13**: Documentar /inicio y /ventas en DESIGN.md — `a944c75`
-- **Fase 3**: Guardar metraje en catálogo + generar productos desde tarifas (T-10, T-11) — `ccce4af`
-- **Fase 2**: Filtrado cascada búsqueda (T-07→T-09) + paridad presupuestos (T-12) — `6befd55`
-- **Fase 1**: Limpieza formularios y 3 bugs (T-01→T-06) — `e832c2b`
-- Historial de cliente en formulario de pedido/presupuesto (reemplaza Plantillas) — `2aeceff`
-- Simplificación lista de productos (dos tabs, sin columna Tipo) — `8cfcaf0`
-- 15 fixes de la segunda revisión de código — `9618c67`
+
+- Historial de precios de venta (`TarifaVentaHistorial`), Dashboard de márgenes, Comparador de dos importaciones, Previsión del próximo pedido — `212c553`
+- Fix JSX duplicado en analisis-rentabilidad — `0870cc7`
+- Fase 1+2 de etiquetas: fabricante en formulario, código interno, búsqueda por código, etiqueta PDF mejorada, impresión en lote — varios commits
+- 15 fixes revisión de código, historial cliente en pedidos, simplificación lista productos — varios commits
 
 ---
 
