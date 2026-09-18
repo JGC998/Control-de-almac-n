@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Warehouse, Layers, Link2, AlignJustify, Package, RectangleHorizontal, BarChart3, FlaskConical } from 'lucide-react';
+import { Warehouse, Layers, Link2, AlignJustify, Package, RectangleHorizontal, BarChart3, FlaskConical, Star } from 'lucide-react';
 
 export const metadata = { title: 'Almacén — CRM Taller' };
 
@@ -31,6 +31,13 @@ export default function AlmacenHub() {
           titulo: 'Stock de rollos',
           descripcion: 'Inventario físico de rollos por material y espesor: metros disponibles y stock mínimo.',
           accion: 'Ver stock',
+        },
+        {
+          href: '/almacen/estrellas',
+          icon: Star,
+          titulo: 'Estrellas',
+          descripcion: 'Productos tipo estrella con sus medidas de plancha: cuántas unidades salen de cada tamaño de corte.',
+          accion: 'Ver estrellas',
         },
         {
           href: '/almacen/bandas',

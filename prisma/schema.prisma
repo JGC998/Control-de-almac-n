@@ -400,13 +400,14 @@ model Producto {
   material    Material?    @relation(fields: [materialId], references: [id])
   subfamilia  Subfamilia?  @relation(fields: [subfamiliaId], references: [id])
 
-  itemsPedido     PedidoItem[]
-  itemsPresup     PresupuestoItem[]
-  itemsAlbaran    AlbaranItem[]
-  itemsFactura    FacturaItem[]
-  documentos      Documento[]
-  tarifasCliente  TarifaCliente[]
-  historialCostos HistorialPrecioCosto[]
+  itemsPedido      PedidoItem[]
+  itemsPresup      PresupuestoItem[]
+  itemsAlbaran     AlbaranItem[]
+  itemsFactura     FacturaItem[]
+  documentos       Documento[]
+  tarifasCliente   TarifaCliente[]
+  historialCostos  HistorialPrecioCosto[]
+  estrellaMedidas  EstrellaMedida[]
 
   @@index([nombre])
   @@index([subfamiliaId])
@@ -691,6 +692,20 @@ model FacturaItem {
   producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
 
   @@index([facturaId])
+  @@index([productoId])
+}
+
+model EstrellaMedida {
+  id          Int      @id @default(autoincrement())
+  productoId  String
+  ancho       Float
+  largo       Float
+  cantidad    Int
+  descripcion String?
+  creadoEn    DateTime @default(now())
+
+  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
   @@index([productoId])
 }
 

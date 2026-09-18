@@ -506,6 +506,7 @@ model Producto {
   documentos       Documento[]
   tarifasCliente   TarifaCliente[]
   historialCostos  HistorialPrecioCosto[]
+  estrellaMedidas  EstrellaMedida[]
 
   @@index([nombre])
   @@index([subfamiliaId])
@@ -694,6 +695,20 @@ model ImportacionContenedor {
   @@index([proveedorId])
   @@index([estado])
   @@index([trackingActivo])
+}
+
+model EstrellaMedida {
+  id          Int      @id @default(autoincrement())
+  productoId  String
+  ancho       Float
+  largo       Float
+  cantidad    Int
+  descripcion String?
+  creadoEn    DateTime @default(now())
+
+  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([productoId])
 }
 
 model ConfiguracionEmisor {
