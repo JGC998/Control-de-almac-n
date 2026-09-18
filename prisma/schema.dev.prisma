@@ -409,6 +409,8 @@ model TarifaRollo {
   metrajeMinimo Float   @default(10)
   precioBase    Float
   peso          Float
+  stockMetros   Float   @default(0)
+  stockMinimo   Float?
 
   @@unique([material, espesor, color, ancho])
 }

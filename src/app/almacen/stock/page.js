@@ -1,300 +1,249 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Warehouse, PlusCircle, ArrowRightLeft, MinusCircle, History } from 'lucide-react';
-import MovimientoStockModal from '@/componentes/productos/ModalMovimientoStock'; // Importar el nuevo modal
+import { BarChart3, Pencil, Save, X, AlertTriangle, Package } from 'lucide-react';
+import { fetcher } from '@/lib/fetcher';
+import { toast, toastError } from '@/lib/toast';
 
+function fmtMetros(v) {
+  return v != null ? Number(v).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 1 }) : '0';
+}
 
-export default function AlmacenPage() {
-  const [formData, setFormData] = useState({ material: '', espesor: '', metrosDisponibles: '', proveedor: '', stockMinimo: '' });
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
-  const [withdrawalData, setWithdrawalData] = useState({ stockId: '', material: '', espesor: '', cantidadBobinas: 0, disponibleBobinas: 0, disponibleMetros: 0, referencia: '' });
-  const [error, setError] = useState(null);
+export default function StockRollosPage() {
+  const { data: tarifas, isLoading, error } = useSWR('/api/tarifas-rollo', fetcher);
 
-  // Estado para el modal de historial
-  const [historyModalState, setHistoryModalState] = useState({ isOpen: false, stockId: null, materialNombre: '' });
+  const [editandoId, setEditandoId] = useState(null);
+  const [editForm, setEditForm] = useState({ stockMetros: '', stockMinimo: '' });
+  const [guardando, setGuardando] = useState(false);
+  const [filtroMaterial, setFiltroMaterial] = useState('');
 
-  const { data, error: stockError, isLoading: stockLoading } = useSWR('/api/almacen-stock');
-  const { data: movimientos, error: movError, isLoading: movLoading } = useSWR('/api/movimientos');
+  const materiales = useMemo(() => {
+    if (!tarifas) return [];
+    return [...new Set(tarifas.map(t => t.material))].sort();
+  }, [tarifas]);
 
-  const isLoading = stockLoading || movLoading;
+  const filtrados = useMemo(() => {
+    if (!tarifas) return [];
+    if (!filtroMaterial) return tarifas;
+    return tarifas.filter(t => t.material === filtroMaterial);
+  }, [tarifas, filtroMaterial]);
 
-  // --- Lógica de Modales ---
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
-
-  const openWithdrawalModal = (item) => {
-    setWithdrawalData({
-      stockId: item.id,
-      material: item.material,
-      espesor: item.espesor,
-      cantidad: '', // Cantidad en metros a retirar
-      disponibleMetros: item.metrosDisponibles || 0,
-      referencia: `Salida para Material: ${item.material} ${item.espesor}mm`
+  const abrirEditar = (t) => {
+    setEditandoId(t.id);
+    setEditForm({
+      stockMetros: t.stockMetros != null ? String(t.stockMetros) : '0',
+      stockMinimo: t.stockMinimo != null ? String(t.stockMinimo) : '',
     });
-    setIsWithdrawalModalOpen(true);
-  };
-  const closeWithdrawalModal = () => setIsWithdrawalModalOpen(false);
-
-  // Handlers para el nuevo modal de historial
-  const openHistoryModal = (stockId, materialNombre) => {
-    setHistoryModalState({ isOpen: true, stockId, materialNombre });
-  };
-  const closeHistoryModal = () => {
-    setHistoryModalState({ isOpen: false, stockId: null, materialNombre: '' });
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const cancelarEditar = () => { setEditandoId(null); };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
+  const guardarStock = async (id) => {
+    setGuardando(true);
     try {
-      const res = await fetch('/api/almacen-stock', {
-        method: 'POST',
+      const res = await fetch(`/api/tarifas-rollo/${id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          metrosDisponibles: parseFloat(formData.metrosDisponibles),
-          stockMinimo: parseFloat(formData.stockMinimo)
+          stockMetros: parseFloat(editForm.stockMetros) || 0,
+          stockMinimo: editForm.stockMinimo !== '' ? parseFloat(editForm.stockMinimo) : null,
         }),
       });
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || 'Error al añadir stock');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Error al guardar');
       }
-      mutate('/api/almacen-stock');
-      mutate('/api/movimientos');
-      closeModal();
+      await mutate('/api/tarifas-rollo');
+      setEditandoId(null);
+      toast('Stock actualizado');
     } catch (err) {
-      setError(err.message);
+      toastError(err.message);
+    } finally {
+      setGuardando(false);
     }
   };
 
-  const handleWithdrawalChange = (e) => {
-    const { name, value } = e.target;
-    setWithdrawalData(prev => ({ ...prev, [name]: value }));
-  };
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <span className="loading loading-spinner loading-lg" />
+      </div>
+    );
+  }
 
-  const setMaxQuantity = () => {
-    setWithdrawalData(prev => ({ ...prev, cantidad: (prev.disponibleMetros || 0).toFixed(2) }));
-  };
+  if (error) {
+    return (
+      <div className="p-6">
+        <div role="alert" className="alert alert-error max-w-md">
+          <span>Error al cargar las tarifas de rollo.</span>
+        </div>
+      </div>
+    );
+  }
 
-  const handleWithdrawalSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    const cantidadMetros = parseFloat(withdrawalData.cantidad);
-
-    if (isNaN(cantidadMetros) || cantidadMetros <= 0) {
-      setError('La cantidad de metros a retirar debe ser positiva.');
-      return;
-    }
-    if (cantidadMetros > withdrawalData.disponibleMetros + 0.01) {
-      setError(`No puedes retirar más de ${withdrawalData.disponibleMetros.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} metros.`);
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/almacen-stock?action=salida', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stockId: withdrawalData.stockId,
-          cantidad: cantidadMetros,
-          referencia: withdrawalData.referencia,
-        }),
-      });
-      if (!res.ok) {
-        const errorText = await res.text();
-        try {
-          const errData = JSON.parse(errorText);
-          throw new Error(errData.message || 'Error al dar de baja el stock');
-        } catch {
-          throw new Error(`Error ${res.status}: ${errorText.substring(0, 50)}...`);
-        }
-      }
-
-      await mutate('/api/almacen-stock');
-      await mutate('/api/movimientos');
-      closeWithdrawalModal();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  if (isLoading || !data) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-  if (stockError || movError) return <div className="text-red-500 text-center">Error al cargar datos del almacén.</div>;
+  const bajosMinimo = filtrados.filter(t => (t.stockMinimo ?? 0) > 0 && t.stockMetros < t.stockMinimo);
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 flex items-center"><Warehouse className="mr-2" /> Gestión de Almacén</h1>
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
 
-      <button onClick={openModal} className="btn btn-primary mb-6">
-        <PlusCircle className="w-4 h-4" /> Añadir Stock Manual
-      </button>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 card bg-base-100 shadow-xl">
-          <div className="card-body">
-            <h2 className="card-title">Inventario Actual</h2>
-            <div className="overflow-x-auto max-h-96">
-              <table className="table table-pin-rows table-sm">
-                <thead><tr>
-                  <th>Material</th>
-                  <th>Espesor</th>
-                  <th>Metros Disp.</th>
-                  <th>Mín.</th>
-                  <th>Cant. Bobinas</th>
-                  <th>Costo/m</th>
-                  <th>Proveedor</th>
-                  <th>Acción</th>
-                </tr></thead>
-                <tbody>
-                  {data?.stock?.map(item => {
-                    const bajoMinimo = (item.stockMinimo || 0) > 0 && item.metrosDisponibles < item.stockMinimo;
-                    return (
-                    <tr key={item.id} className={`hover ${bajoMinimo ? 'bg-error/5' : ''}`}>
-                      <td className="font-bold">{item.material}</td>
-                      <td>{item.espesor}</td>
-                      <td className={bajoMinimo ? 'text-error font-bold' : ''}>
-                        {item.metrosDisponibles.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m
-                        {bajoMinimo && <span className="ml-1 badge badge-error badge-xs">bajo mín.</span>}
-                      </td>
-                      <td className="text-sm text-base-content/60">{item.stockMinimo ? `${item.stockMinimo} m` : '—'}</td>
-                      <td>{item.cantidadBobinas || 0}</td>
-                      <td className="font-mono text-sm">
-                        {item.costoMetro != null
-                          ? `${Number(item.costoMetro).toLocaleString('es-ES', {minimumFractionDigits: 4, maximumFractionDigits: 4})} €`
-                          : <span className="opacity-30">—</span>}
-                      </td>
-                      <td>{item.proveedorNombre}</td>
-                      <td className="flex gap-1">
-                        <button
-                          onClick={() => openWithdrawalModal(item)}
-                          className="btn btn-xs btn-error btn-outline"
-                          disabled={item.metrosDisponibles <= 0}
-                        >
-                          <MinusCircle className="w-4 h-4" /> Baja
-                        </button>
-                        <button
-                          onClick={() => openHistoryModal(item.id, `${item.material} ${item.espesor}mm`)}
-                          className="btn btn-xs btn-info btn-outline"
-                        >
-                          <History className="w-4 h-4" /> Historial
-                        </button>
-                      </td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      {/* Header */}
+      <div className="flex items-start gap-4">
+        <div className="p-3 bg-info/10 rounded-xl shrink-0">
+          <BarChart3 className="w-8 h-8 text-info" />
         </div>
-
-        <div className="lg:col-span-1 card bg-base-100 shadow-xl">
-          <div className="card-body">
-            <h2 className="card-title">Movimientos Recientes</h2>
-            <div className="overflow-y-auto max-h-96">
-              <ul className="timeline timeline-vertical">
-                {movimientos?.map((mov, index) => (
-                  <li key={mov.id}>
-                    {index > 0 && <hr />}
-                    <div className="timeline-start">{new Date(mov.fecha).toLocaleDateString()}</div>
-                    <div className="timeline-middle">
-                      <ArrowRightLeft className="w-4 h-4" />
-                    </div>
-                    <div className="timeline-end timeline-box">
-                      <p className="font-bold">{mov.tipo} ({mov.cantidad}m)</p>
-                      <p className="text-xs">{mov.referencia}</p>
-                    </div>
-                    {index < movimientos.length - 1 && <hr />}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold">Stock de rollos</h1>
+          <p className="text-base-content/60 mt-1 text-sm">
+            Metros disponibles por referencia de rollo. Los datos del catálogo vienen de <a href="/tarifas" className="link link-info">Tarifas por rollo</a>.
+          </p>
         </div>
       </div>
 
-
-
-      {/* Modal para Añadir Stock (Entrada) */}
-      {isModalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box">
-            <h3 className="font-bold text-lg">Añadir Stock Manualmente</h3>
-            <form onSubmit={handleSubmit} className="py-4 space-y-4">
-              <input type="text" name="material" value={formData.material} onChange={handleChange} placeholder="Material" className="input input-bordered w-full" required />
-              <input type="text" name="espesor" value={formData.espesor} onChange={handleChange} placeholder="Espesor (mm)" className="input input-bordered w-full" />
-              <input type="number" step="0.01" name="metrosDisponibles" value={formData.metrosDisponibles} onChange={handleChange} placeholder="Metros Disponibles" className="input input-bordered w-full" required />
-              <input type="number" step="0.01" min="0" name="stockMinimo" value={formData.stockMinimo} onChange={handleChange} placeholder="Stock mínimo (metros) — alerta cuando baje de aquí" className="input input-bordered w-full" />
-              <input type="text" name="proveedor" value={formData.proveedor} onChange={handleChange} placeholder="Proveedor (ID o nombre)" className="input input-bordered w-full" />
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-              <div className="modal-action">
-                <button type="button" onClick={closeModal} className="btn">Cancelar</button>
-                <button type="submit" className="btn btn-primary">Añadir</button>
-              </div>
-            </form>
-          </div>
+      {/* Alertas stock bajo mínimo */}
+      {bajosMinimo.length > 0 && (
+        <div role="alert" className="alert alert-warning text-sm">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <span>
+            <strong>{bajosMinimo.length} {bajosMinimo.length === 1 ? 'referencia' : 'referencias'} por debajo del mínimo:</strong>{' '}
+            {bajosMinimo.map(t => `${t.material} ${t.espesor}mm${t.ancho ? ` ${t.ancho}mm` : ''}${t.color ? ` ${t.color}` : ''}`).join(', ')}
+          </span>
         </div>
       )}
 
-      {/* Modal para Dar de Baja Stock (Salida) */}
-      {isWithdrawalModalOpen && (
-        <div className="modal modal-open">
-          <div className="modal-box">
-            <h3 className="font-bold text-lg">Dar de Baja Stock</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Retirando {withdrawalData.material} ({withdrawalData.espesor}mm).
-              <span className="font-semibold text-warning"> Disponibles: {withdrawalData.disponibleMetros?.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) || 0} metros</span>
-            </p>
-            <form onSubmit={handleWithdrawalSubmit} className="py-4 space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  step="0.01"
-                  name="cantidad"
-                  value={withdrawalData.cantidad}
-                  onChange={handleWithdrawalChange}
-                  placeholder="Cantidad de Metros a Retirar"
-                  className="input input-bordered w-full"
-                  required
-                />
-                <button type="button" onClick={() => setWithdrawalData(prev => ({ ...prev, cantidad: prev.disponibleMetros }))} className="btn btn-outline btn-sm whitespace-nowrap">
-                  Baja Total ({withdrawalData.disponibleMetros?.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}m)
-                </button>
-              </div>
+      {/* Filtro material */}
+      <div className="flex items-center gap-3">
+        <select
+          className="select select-bordered select-sm w-auto"
+          value={filtroMaterial}
+          onChange={e => setFiltroMaterial(e.target.value)}
+        >
+          <option value="">Todos los materiales ({tarifas?.length ?? 0})</option>
+          {materiales.map(m => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+        {filtroMaterial && (
+          <span className="text-sm text-base-content/50">{filtrados.length} referencias</span>
+        )}
+      </div>
 
-              <input
-                type="text"
-                name="referencia"
-                value={withdrawalData.referencia}
-                onChange={handleWithdrawalChange}
-                placeholder="Referencia de Salida (Ej: Pedido Cliente #)"
-                className="input input-bordered w-full"
-              />
-              {error && <p className="text-error text-sm">{error}</p>}
-              <div className="modal-action">
-                <button type="button" onClick={closeWithdrawalModal} className="btn">Cancelar</button>
-                <button type="submit" className="btn btn-error">Confirmar Baja</button>
-              </div>
-            </form>
-          </div>
+      {/* Tabla */}
+      <div className="card bg-base-100 shadow border border-base-200">
+        <div className="overflow-x-auto">
+          <table className="table table-sm w-full">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Espesor</th>
+                <th>Ancho</th>
+                <th>Color</th>
+                <th className="text-right">Metros/rollo</th>
+                <th className="text-right">€/m²</th>
+                <th className="text-right font-semibold text-info">Metros en stock</th>
+                <th className="text-right">Mínimo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-12 text-base-content/40">
+                    <Package className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm">No hay tarifas de rollo configuradas.</p>
+                    <p className="text-xs mt-1">
+                      Añade rollos en <a href="/tarifas" className="link">Tarifas → Tarifas por rollo</a>.
+                    </p>
+                  </td>
+                </tr>
+              ) : filtrados.map(t => {
+                const bajoMin = (t.stockMinimo ?? 0) > 0 && t.stockMetros < t.stockMinimo;
+                const editando = editandoId === t.id;
+                return (
+                  <tr key={t.id} className={`hover ${bajoMin ? 'bg-warning/5' : ''}`}>
+                    <td className="font-semibold">{t.material}</td>
+                    <td className="font-mono text-sm">{t.espesor} mm</td>
+                    <td className="font-mono text-sm">{t.ancho ? `${t.ancho} mm` : <span className="opacity-30">—</span>}</td>
+                    <td className="text-sm">{t.color || <span className="opacity-30">—</span>}</td>
+                    <td className="text-right font-mono text-sm">{t.metrajeMinimo} m</td>
+                    <td className="text-right font-mono text-sm">
+                      {t.precioM2 != null
+                        ? `${Number(t.precioM2).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+                        : <span className="opacity-30">—</span>}
+                    </td>
+
+                    {/* Metros en stock — editable inline */}
+                    <td className="text-right">
+                      {editando ? (
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          className="input input-bordered input-xs w-24 text-right font-mono"
+                          value={editForm.stockMetros}
+                          onChange={e => setEditForm(f => ({ ...f, stockMetros: e.target.value }))}
+                          autoFocus
+                        />
+                      ) : (
+                        <span className={`font-mono font-semibold text-sm ${bajoMin ? 'text-warning' : ''}`}>
+                          {fmtMetros(t.stockMetros)} m
+                          {bajoMin && <AlertTriangle className="inline w-3.5 h-3.5 ml-1 text-warning" />}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Mínimo — editable inline */}
+                    <td className="text-right">
+                      {editando ? (
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          className="input input-bordered input-xs w-20 text-right font-mono"
+                          value={editForm.stockMinimo}
+                          placeholder="—"
+                          onChange={e => setEditForm(f => ({ ...f, stockMinimo: e.target.value }))}
+                        />
+                      ) : (
+                        <span className="font-mono text-sm text-base-content/50">
+                          {t.stockMinimo ? `${fmtMetros(t.stockMinimo)} m` : <span className="opacity-30">—</span>}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Acciones */}
+                    <td className="text-right">
+                      {editando ? (
+                        <div className="flex gap-1 justify-end">
+                          <button
+                            className="btn btn-xs btn-info"
+                            onClick={() => guardarStock(t.id)}
+                            disabled={guardando}
+                          >
+                            {guardando ? <span className="loading loading-spinner loading-xs" /> : <Save className="w-3.5 h-3.5" />}
+                          </button>
+                          <button className="btn btn-xs btn-ghost" onClick={cancelarEditar}>
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button className="btn btn-xs btn-ghost" onClick={() => abrirEditar(t)} title="Editar stock">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
-      {historyModalState.isOpen && (
-        <MovimientoStockModal
-          stockId={historyModalState.stockId}
-          materialNombre={historyModalState.materialNombre}
-          onClose={closeHistoryModal}
-        />
-      )}
+      <p className="text-xs text-base-content/40">
+        Para añadir o modificar referencias de rollo ve a{' '}
+        <a href="/tarifas" className="link">Tarifas → Tarifas por rollo</a>.
+        Aquí solo se gestiona el stock físico (metros disponibles y mínimo de alerta).
+      </p>
     </div>
   );
 }

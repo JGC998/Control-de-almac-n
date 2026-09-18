@@ -365,6 +365,8 @@ export const tarifaRolloUpdateSchema = z.object({
   precioBase: z.coerce.number().nonnegative().optional(),
   peso: z.coerce.number().nonnegative().optional(),
   ancho: z.coerce.number().positive().optional().nullable(),
+  stockMetros: z.coerce.number().nonnegative().optional(),
+  stockMinimo: z.coerce.number().nonnegative().optional().nullable(),
 });
 
 // ============================================

@@ -12,7 +12,7 @@ export async function PUT(request, { params }) {
     if (!validation.success) {
       return NextResponse.json({ message: 'Datos inválidos', errors: validation.errors }, { status: 400 });
     }
-    const { metrajeMinimo, precioBase, peso, ancho } = validation.data;
+    const { metrajeMinimo, precioBase, peso, ancho, stockMetros, stockMinimo } = validation.data;
     const tarifaAnterior = await db.tarifaRollo.findUnique({ where: { id } });
     const tarifa = await db.tarifaRollo.update({
       where: { id },
@@ -21,6 +21,8 @@ export async function PUT(request, { params }) {
         ...(precioBase !== undefined && { precioBase }),
         ...(peso !== undefined && { peso }),
         ...(ancho !== undefined && { ancho }),
+        ...(stockMetros !== undefined && { stockMetros }),
+        ...(stockMinimo !== undefined && { stockMinimo }),
       },
     });
     await logUpdate('TarifaRollo', id, tarifaAnterior, tarifa, 'Admin');
