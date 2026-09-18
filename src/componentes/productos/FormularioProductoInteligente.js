@@ -337,8 +337,9 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Error al guardar');
+        let errMsg = 'Error al guardar el producto';
+        try { errMsg = (await res.json()).message || errMsg; } catch { /* respuesta no JSON */ }
+        throw new Error(errMsg);
       }
       const saved = await res.json();
 

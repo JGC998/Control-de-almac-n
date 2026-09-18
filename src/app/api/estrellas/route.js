@@ -20,6 +20,7 @@ export async function GET() {
           include: { familia: { select: { nombre: true, color: true } } },
         },
         material: { select: { nombre: true } },
+        fabricante: { select: { nombre: true } },
         _count: { select: { estrellaMedidas: true } },
       },
       orderBy: { nombre: 'asc' },

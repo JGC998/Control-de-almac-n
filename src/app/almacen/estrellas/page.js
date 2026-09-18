@@ -1,13 +1,37 @@
 "use client";
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { Star, Layers, Ruler, ChevronRight } from 'lucide-react';
+import { Star, Layers, Ruler, ChevronRight, Filter, X } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
 import { formatCurrency } from '@/utils/utilidades';
 
 export default function EstrellasPage() {
   const { data: productos, isLoading, error } = useSWR('/api/estrellas', fetcher);
+
+  const [filtroMaterial, setFiltroMaterial] = useState('');
+  const [filtroFabricante, setFiltroFabricante] = useState('');
+
+  const materiales = useMemo(() => {
+    if (!productos) return [];
+    return [...new Set(productos.map(p => p.material?.nombre).filter(Boolean))].sort();
+  }, [productos]);
+
+  const fabricantes = useMemo(() => {
+    if (!productos) return [];
+    return [...new Set(productos.map(p => p.fabricante?.nombre).filter(Boolean))].sort();
+  }, [productos]);
+
+  const filtrados = useMemo(() => {
+    if (!productos) return [];
+    return productos.filter(p => {
+      if (filtroMaterial && p.material?.nombre !== filtroMaterial) return false;
+      if (filtroFabricante && p.fabricante?.nombre !== filtroFabricante) return false;
+      return true;
+    });
+  }, [productos, filtroMaterial, filtroFabricante]);
+
+  const hayFiltros = filtroMaterial || filtroFabricante;
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -25,6 +49,52 @@ export default function EstrellasPage() {
         </div>
       </div>
 
+      {/* Filtros */}
+      {!isLoading && !error && productos && productos.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter className="w-4 h-4 text-base-content/40 shrink-0" />
+
+          <select
+            className="select select-sm select-bordered w-auto"
+            value={filtroMaterial}
+            onChange={e => setFiltroMaterial(e.target.value)}
+          >
+            <option value="">Todos los materiales</option>
+            {materiales.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+
+          {fabricantes.length > 0 && (
+            <select
+              className="select select-sm select-bordered w-auto"
+              value={filtroFabricante}
+              onChange={e => setFiltroFabricante(e.target.value)}
+            >
+              <option value="">Todos los fabricantes</option>
+              {fabricantes.map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          )}
+
+          {hayFiltros && (
+            <button
+              className="btn btn-xs btn-ghost gap-1"
+              onClick={() => { setFiltroMaterial(''); setFiltroFabricante(''); }}
+            >
+              <X className="w-3 h-3" /> Limpiar
+            </button>
+          )}
+
+          {hayFiltros && (
+            <span className="text-xs text-base-content/40">
+              {filtrados.length} de {productos.length}
+            </span>
+          )}
+        </div>
+      )}
+
       {isLoading && (
         <div className="flex justify-center py-16">
           <span className="loading loading-spinner loading-lg" />
@@ -37,16 +107,20 @@ export default function EstrellasPage() {
         </div>
       )}
 
-      {!isLoading && !error && productos?.length === 0 && (
+      {!isLoading && !error && filtrados.length === 0 && (
         <div className="text-center py-16 text-base-content/40">
           <Star className="w-12 h-12 mx-auto mb-3 opacity-20" />
-          <p className="text-sm">No se encontraron productos con "Estrella" en el nombre o subfamilia.</p>
+          <p className="text-sm">
+            {hayFiltros
+              ? 'No hay estrellas que coincidan con los filtros.'
+              : 'No se encontraron productos con "Estrella" en el nombre o subfamilia.'}
+          </p>
         </div>
       )}
 
-      {!isLoading && !error && productos && productos.length > 0 && (
+      {!isLoading && !error && filtrados.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {productos.map(p => (
+          {filtrados.map(p => (
             <Link
               key={p.id}
               href={`/almacen/estrellas/${p.id}`}
@@ -70,8 +144,8 @@ export default function EstrellasPage() {
                   {p.nombre}
                 </h3>
 
-                {/* Material + espesor */}
-                <div className="flex items-center gap-3 text-xs text-base-content/60">
+                {/* Material + espesor + fabricante */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/60">
                   {p.material?.nombre && (
                     <span className="flex items-center gap-1">
                       <Layers className="w-3 h-3" /> {p.material.nombre}
@@ -81,6 +155,9 @@ export default function EstrellasPage() {
                     <span className="flex items-center gap-1">
                       <Ruler className="w-3 h-3" /> {p.espesor} mm
                     </span>
+                  )}
+                  {p.fabricante?.nombre && (
+                    <span className="text-base-content/40">{p.fabricante.nombre}</span>
                   )}
                 </div>
 
