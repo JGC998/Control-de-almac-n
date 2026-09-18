@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
 import { formatCurrency } from '@/utils/utilidades';
-import { toastError, toastSuccess } from '@/lib/toast';
+import { toastError, toast } from '@/lib/toast';
 
 const FORM_VACIO = { ancho: '', largo: '', cantidad: '', descripcion: '' };
 
@@ -77,7 +77,7 @@ export default function EstrellaFichaPage() {
       if (!res.ok) throw new Error((await res.json()).message || 'Error');
       await mutate(medidasKey);
       cerrarForm();
-      toastSuccess(editandoId ? 'Medida actualizada' : 'Medida añadida');
+      toast(editandoId ? 'Medida actualizada' : 'Medida añadida');
     } catch (err) {
       setErrMsg(err.message);
     } finally {
@@ -91,7 +91,7 @@ export default function EstrellaFichaPage() {
       const res = await fetch(`/api/estrella-medidas/${medidaId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error((await res.json()).message);
       await mutate(medidasKey);
-      toastSuccess('Medida eliminada');
+      toast('Medida eliminada');
     } catch (err) {
       toastError('Error: ' + err.message);
     }
