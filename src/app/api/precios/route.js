@@ -94,7 +94,13 @@ export async function PUT(request) {
           color: data.color || null,
           lonas: data.lonas != null && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
           acabado: data.acabado?.trim() || null,
-          ...(data.preciosVenta !== undefined && { preciosVenta: data.preciosVenta }),
+          ...(data.preciosVenta !== undefined && {
+            preciosVenta: (data.preciosVenta !== null &&
+              typeof data.preciosVenta === 'object' &&
+              !Array.isArray(data.preciosVenta))
+              ? data.preciosVenta
+              : null,
+          }),
         },
       });
 

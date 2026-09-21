@@ -75,9 +75,26 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
         data: { precio: nuevoPrecioM2, importacionId: importacionId ?? undefined },
       });
     } else {
-      await db.tarifaCoste.create({
-        data: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal, precio: nuevoPrecioM2, peso: 0, importacionId: importacionId ?? null },
-      });
+      try {
+        await db.tarifaCoste.create({
+          data: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal, precio: nuevoPrecioM2, peso: 0, importacionId: importacionId ?? null },
+        });
+      } catch (createErr) {
+        // Race condition: otro proceso creó el registro antes — actualizar el existente
+        if (createErr.code === 'P2002') {
+          const concurrent = await db.tarifaCoste.findFirst({
+            where: { material: materialNombre, espesor: espesorVal, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
+          });
+          if (concurrent) {
+            await db.tarifaCoste.update({
+              where: { id: concurrent.id },
+              data: { precio: nuevoPrecioM2, importacionId: importacionId ?? undefined },
+            });
+          }
+        } else {
+          throw createErr;
+        }
+      }
     }
 
     // Registrar en historial (nunca sobreescribe — un registro por importación)

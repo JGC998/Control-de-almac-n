@@ -59,10 +59,11 @@ export default function TablaTarifasRollo() {
     try {
       const res = await fetch('/api/tarifas-rollo/sync', { method: 'POST' });
       const data = await res.json();
-      mutate('/api/tarifas-rollo');
+      if (!res.ok) throw new Error(data.message ?? 'Error al sincronizar');
+      await mutate('/api/tarifas-rollo');
       setResultadoSync(data);
-    } catch {
-      toastError('Error al sincronizar precios');
+    } catch (err) {
+      toastError(err.message || 'Error al sincronizar precios');
     } finally {
       setSincronizando(false);
     }
@@ -74,9 +75,10 @@ export default function TablaTarifasRollo() {
     try {
       const res = await fetch('/api/tarifas-rollo/generar-productos', { method: 'POST' });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? 'Error al generar productos');
       setResultadoGen(data);
-    } catch {
-      toastError('Error al generar productos');
+    } catch (err) {
+      toastError(err.message || 'Error al generar productos');
     } finally {
       setGenerando(false);
     }
@@ -241,7 +243,7 @@ export default function TablaTarifasRollo() {
                       {formatCurrency(pf)}
                       <span className="text-xs text-base-content/50 ml-1">({t.metrajeMinimo}m)</span>
                     </td>
-                    <td>{t.peso.toLocaleString('es-ES', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg</td>
+                    <td>{(t.peso ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg</td>
                   </tr>
                 );
               })}

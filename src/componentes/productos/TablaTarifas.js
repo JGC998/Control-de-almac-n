@@ -9,8 +9,6 @@ import autoTable from "jspdf-autotable";
 import { toastError } from '@/lib/toast';
 import ModalHistorialVenta from './ModalHistorialVenta';
 
-
-// Anchos predeterminados en mm para la tabla de conversión ML
 const ANCHOS_DEFECTO = [300, 400, 500, 600];
 
 export default function TablaTarifas() {
@@ -18,29 +16,18 @@ export default function TablaTarifas() {
   const [anchosML, setAnchosML]                 = useState(ANCHOS_DEFECTO);
   const [nuevoAncho, setNuevoAncho]             = useState('');
 
-  // Edición inline precio base
-  const [editandoPrecio, setEditandoPrecio] = useState(null); // { id, value }
-  const [guardandoPrecio, setGuardandoPrecio] = useState(false);
-
-  // Edición inline lonas
-  const [editandoLonas, setEditandoLonas] = useState(null); // { id, value }
-  const [guardandoLonas, setGuardandoLonas] = useState(false);
-
-  // Edición inline acabado
-  const [editandoAcabado, setEditandoAcabado] = useState(null); // { id, value }
-  const [guardandoAcabado, setGuardandoAcabado] = useState(false);
-
-  // Edición inline precio de venta por margen: { id, margenBase, value }
-  const [editandoVenta, setEditandoVenta] = useState(null);
-  const [guardandoVenta, setGuardandoVenta] = useState(false);
-
-  // Historial de precio de venta
+  const [editandoPrecio, setEditandoPrecio]   = useState(null);
+  const [editandoLonas, setEditandoLonas]     = useState(null);
+  const [editandoAcabado, setEditandoAcabado] = useState(null);
+  const [editandoVenta, setEditandoVenta]     = useState(null);
+  const guardandoPrecioRef  = useRef(false);
+  const guardandoLonasRef   = useRef(false);
+  const guardandoAcabadoRef = useRef(false);
+  const guardandoVentaRef   = useRef(false);
   const [historialVentaRow, setHistorialVentaRow] = useState(null);
-
-  // Sugerencia de precio por margen objetivo
-  const [margenObjetivo, setMargenObjetivo] = useState(30);
-  const [aplicandoSugerencia, setAplicandoSugerencia] = useState(null); // row.id
-  const aplicandoSugerenciaRef = useRef(false); // guard síncrono contra doble-clic
+  const [margenObjetivo, setMargenObjetivo]     = useState(30);
+  const [aplicandoSugerencia, setAplicandoSugerencia] = useState(null);
+  const aplicandoSugerenciaRef = useRef(false);
 
   const handleAplicarSugerencia = async (row, costeM2) => {
     if (aplicandoSugerenciaRef.current) return;
@@ -48,6 +35,7 @@ export default function TablaTarifas() {
     const precioSugerido = parseFloat((costeM2 * (1 + margenObjetivo / 100)).toFixed(2));
     setAplicandoSugerencia(row.id);
     try { await guardarCampo(row, { precio: precioSugerido }); }
+    catch (err) { toastError(err.message || 'Error al aplicar sugerencia'); }
     finally { aplicandoSugerenciaRef.current = false; setAplicandoSugerencia(null); }
   };
 
@@ -57,7 +45,6 @@ export default function TablaTarifas() {
 
   const isLoading = tarifasLoading || margenesLoading;
 
-  // Solo márgenes con multiplicador (no gastoFijo)
   const margenesVenta = useMemo(() => {
     if (!Array.isArray(margenes)) return [];
     return margenes.filter(m => m.tipo !== 'gastoFijo' && m.multiplicador !== 1);
@@ -84,8 +71,6 @@ export default function TablaTarifas() {
     return tarifas.filter(t => t.material === selectedMaterial);
   }, [tarifas, selectedMaterial]);
 
-  // --- Handlers ---
-
   const guardarCampo = async (row, campoData) => {
     const res = await fetch('/api/precios', {
       method: 'PUT',
@@ -108,47 +93,50 @@ export default function TablaTarifas() {
   };
 
   const handleGuardarPrecio = async (row) => {
-    if (guardandoPrecio) return;
+    if (guardandoPrecioRef.current) return;
+    guardandoPrecioRef.current = true;
     const nuevoValor = parseFloat(editandoPrecio.value);
-    if (isNaN(nuevoValor) || nuevoValor === row.precio) { setEditandoPrecio(null); return; }
-    setGuardandoPrecio(true);
+    if (isNaN(nuevoValor) || nuevoValor === row.precio) { guardandoPrecioRef.current = false; setEditandoPrecio(null); return; }
     try { await guardarCampo(row, { precio: nuevoValor }); }
-    finally { setGuardandoPrecio(false); setEditandoPrecio(null); }
+    catch (err) { toastError(err.message || 'Error al guardar precio'); }
+    finally { guardandoPrecioRef.current = false; setEditandoPrecio(null); }
   };
 
   const handleGuardarLonas = async (row) => {
-    if (guardandoLonas) return;
-    const nuevoValor = editandoLonas.value === '' ? null : parseInt(editandoLonas.value, 10);
-    if (nuevoValor === (row.lonas ?? null)) { setEditandoLonas(null); return; }
-    setGuardandoLonas(true);
+    if (guardandoLonasRef.current) return;
+    guardandoLonasRef.current = true;
+    const parsed = parseInt(editandoLonas.value, 10);
+    const nuevoValor = editandoLonas.value === '' ? null : (isNaN(parsed) ? null : parsed);
+    if (nuevoValor === (row.lonas ?? null)) { guardandoLonasRef.current = false; setEditandoLonas(null); return; }
     try { await guardarCampo(row, { lonas: nuevoValor }); }
-    finally { setGuardandoLonas(false); setEditandoLonas(null); }
+    catch (err) { toastError(err.message || 'Error al guardar lonas'); }
+    finally { guardandoLonasRef.current = false; setEditandoLonas(null); }
   };
 
   const handleGuardarAcabado = async (row) => {
-    if (guardandoAcabado) return;
+    if (guardandoAcabadoRef.current) return;
+    guardandoAcabadoRef.current = true;
     const nuevoValor = editandoAcabado.value.trim() || null;
-    if (nuevoValor === (row.acabado ?? null)) { setEditandoAcabado(null); return; }
-    setGuardandoAcabado(true);
+    if (nuevoValor === (row.acabado ?? null)) { guardandoAcabadoRef.current = false; setEditandoAcabado(null); return; }
     try { await guardarCampo(row, { acabado: nuevoValor }); }
-    finally { setGuardandoAcabado(false); setEditandoAcabado(null); }
+    catch (err) { toastError(err.message || 'Error al guardar acabado'); }
+    finally { guardandoAcabadoRef.current = false; setEditandoAcabado(null); }
   };
 
   const handleGuardarVenta = async (row) => {
-    if (guardandoVenta) return;
+    if (guardandoVentaRef.current) return;
+    guardandoVentaRef.current = true;
     const nuevoValor = parseFloat(editandoVenta.value);
-    if (isNaN(nuevoValor) || nuevoValor <= 0) { setEditandoVenta(null); return; }
+    if (isNaN(nuevoValor) || nuevoValor <= 0) { guardandoVentaRef.current = false; setEditandoVenta(null); return; }
     const preciosActuales = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
     const calculado = row.precio * (margenesVenta.find(m => m.base === editandoVenta.margenBase)?.multiplicador ?? 1);
-    // Si el valor coincide con el calculado, borrar la sobreescritura
     const nuevos = Math.abs(nuevoValor - calculado) < 0.001
       ? { ...preciosActuales, [editandoVenta.margenBase]: undefined }
       : { ...preciosActuales, [editandoVenta.margenBase]: nuevoValor };
-    // Limpiar undefined
     Object.keys(nuevos).forEach(k => nuevos[k] === undefined && delete nuevos[k]);
-    setGuardandoVenta(true);
     try { await guardarCampo(row, { preciosVenta: Object.keys(nuevos).length ? nuevos : null }); }
-    finally { setGuardandoVenta(false); setEditandoVenta(null); }
+    catch (err) { toastError(err.message || 'Error al guardar precio de venta'); }
+    finally { guardandoVentaRef.current = false; setEditandoVenta(null); }
   };
 
   const agregarAncho = () => {
@@ -161,20 +149,14 @@ export default function TablaTarifas() {
   const eliminarAncho = (ancho) => setAnchosML(prev => prev.filter(a => a !== ancho));
 
   const handleExportPDF = () => {
-    if (filteredTarifas.length === 0) {
-      toastError('No hay tarifas para exportar.');
-      return;
-    }
+    if (filteredTarifas.length === 0) { toastError('No hay tarifas para exportar.'); return; }
     const doc = new jsPDF({ orientation: 'landscape' });
     const fecha = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const fmt2 = (v) => v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // ── Tabla 1: precios por m² ───────────────────────────────────
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14); doc.setFont("helvetica", "bold");
     doc.text("Tarifas de Materiales — Precio por m²", 14, 16);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8); doc.setFont("helvetica", "normal");
     doc.text(`Filtro: ${selectedMaterial}   ·   Impreso el ${fecha}`, 14, 23);
 
     const ventaCols = margenesVenta.map(m => `${m.descripcion}\n(€/m²)`);
@@ -192,25 +174,20 @@ export default function TablaTarifas() {
         fmt2(row.espesor),
         fmt2(row.precio) + ' €',
         ...ventaVals,
-        fmt2(row.peso) + ' kg',
+        fmt2(row.peso ?? 0) + ' kg',
       ];
     });
 
     autoTable(doc, {
-      head: [colsM2],
-      body: rowsM2,
-      startY: 28,
-      theme: 'grid',
+      head: [colsM2], body: rowsM2, startY: 28, theme: 'grid',
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [245, 245, 245] },
       margin: { left: 14, right: 14 },
     });
 
-    // ── Nota: fórmula metro lineal ────────────────────────────────
     const y2 = doc.lastAutoTable.finalY + 9;
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8); doc.setFont("helvetica", "bold");
     doc.text("Precio en metro lineal:", 14, y2);
     doc.setFont("helvetica", "normal");
     doc.text("Precio ML (€/ml)  =  Precio m² (€/m²)  ×  (ancho en mm ÷ 1000)", 14, y2 + 5);
@@ -221,47 +198,43 @@ export default function TablaTarifas() {
     doc.save(fileName);
   };
 
-  if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
-  if (tarifasError || margenesError) return <div className="text-red-500 text-center">Error al cargar datos.</div>;
+  if (isLoading) return (
+    <div className="flex justify-center items-center py-24">
+      <span className="loading loading-spinner loading-lg" />
+    </div>
+  );
+  if (tarifasError || margenesError) return (
+    <div role="alert" className="alert alert-error max-w-sm">
+      <span>Error al cargar tarifas.</span>
+    </div>
+  );
 
   return (
     <>
-    <ModalHistorialVenta row={historialVentaRow} onClose={() => setHistorialVentaRow(null)} />
-    <div className="card bg-base-100 shadow-xl">
-      <div className="card-body">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="card-title">Tabla de Tarifas por Material</h2>
-          <div className="flex gap-2">
-            <Link href="/configuracion">
-              <button className="btn btn-neutral btn-sm">
-                <Settings className="w-4 h-4" /> Gestionar Precios Base
-              </button>
-            </Link>
-            <button
-              onClick={handleExportPDF}
-              className="btn btn-secondary btn-sm"
-              disabled={filteredTarifas.length === 0}
-            >
-              <Download className="w-4 h-4" /> Imprimir Tarifa
-            </button>
-          </div>
-        </div>
+      <ModalHistorialVenta row={historialVentaRow} onClose={() => setHistorialVentaRow(null)} />
 
-        <div className="flex flex-wrap items-end gap-4 mb-4">
-          <div className="form-control w-full max-w-xs">
-            <label className="label"><span className="label-text font-bold">Filtrar por Material:</span></label>
+      {/* Controls bar */}
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="form-control">
+            <label className="label py-0.5">
+              <span className="label-text text-xs font-semibold">Material</span>
+            </label>
             <select
-              className="select select-bordered"
+              className="select select-bordered select-sm min-w-36"
               value={selectedMaterial}
-              onChange={(e) => setSelectedMaterial(e.target.value)}
+              onChange={e => setSelectedMaterial(e.target.value)}
             >
-              {uniqueMaterials.map(material => (
-                <option key={material} value={material}>{material}</option>
+              {uniqueMaterials.map(m => (
+                <option key={m} value={m}>{m}</option>
               ))}
             </select>
           </div>
+
           <div className="form-control">
-            <label className="label"><span className="label-text text-xs text-base-content/60">Margen objetivo (sugerencias)</span></label>
+            <label className="label py-0.5">
+              <span className="label-text text-xs font-semibold">Margen objetivo</span>
+            </label>
             <div className="flex items-center gap-1">
               <input
                 type="number" min="1" max="200" step="1"
@@ -272,100 +245,181 @@ export default function TablaTarifas() {
               <span className="text-sm text-base-content/50">%</span>
             </div>
           </div>
+
+          {selectedMaterial !== 'Todos' && (
+            <span className="text-xs text-base-content/40 self-end pb-2">
+              {filteredTarifas.length} referencia{filteredTarifas.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
-        <div className="overflow-x-auto max-h-[70vh]">
-          <table className="table table-zebra table-pin-rows table-sm w-full">
+        <div className="flex items-center gap-2 self-end">
+          <Link href="/configuracion">
+            <button className="btn btn-ghost btn-sm gap-1">
+              <Settings className="w-4 h-4" /> Precios base
+            </button>
+          </Link>
+          <button
+            onClick={handleExportPDF}
+            className="btn btn-outline btn-sm gap-1"
+            disabled={filteredTarifas.length === 0}
+          >
+            <Download className="w-4 h-4" /> PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Main table */}
+      <div className="card bg-base-100 shadow border border-base-200 mb-6">
+        <div className="overflow-x-auto">
+          <table className="table table-sm w-full">
             <thead>
-              <tr>
-                <th className="text-center">Material</th>
-                <th className="text-center">Lonas</th>
-                <th className="text-center">Acabado</th>
-                <th className="text-center">Espesor (mm)</th>
-                <th className="text-center" title="Clic para editar">Precio venta base (€/m²)</th>
+              {/* Group header row */}
+              <tr className="border-b-0 text-xs">
+                <th colSpan={4} />
+                {margenesVenta.length > 0 && (
+                  <th
+                    colSpan={margenesVenta.length}
+                    className="text-center bg-primary/8 border-x border-primary/15 py-2"
+                  >
+                    <span className="font-semibold text-primary uppercase tracking-wider text-xs">
+                      Precios de venta
+                    </span>
+                  </th>
+                )}
+                <th colSpan={3} />
+                <th />
+              </tr>
+              {/* Column header row */}
+              <tr className="bg-base-200/50 text-xs">
+                <th>Material</th>
+                <th>Espesor</th>
+                <th>Variante</th>
+                <th className="text-right">
+                  Precio base
+                  <span className="block font-normal opacity-50">€/m²</span>
+                </th>
                 {margenesVenta.map(m => (
-                  <th key={m.base} className="text-center">
-                    <span className="block text-xs font-bold">{m.descripcion}</span>
-                    <span className="block text-xs font-normal opacity-60">×{m.multiplicador}</span>
+                  <th key={m.base} className="text-right bg-primary/5 border-x border-primary/10">
+                    <span className="block font-bold text-base-content/70">{m.descripcion}</span>
+                    <span className="block font-normal opacity-50">×{m.multiplicador}</span>
                   </th>
                 ))}
-                <th className="text-center text-base-content/50">Coste imp. (€/m²)</th>
-                <th className="text-center text-base-content/50">Margen</th>
-                <th className="text-center">Peso (kg/m²)</th>
-                <th></th>
+                <th className="text-right opacity-60">
+                  Coste imp.
+                  <span className="block font-normal">€/m²</span>
+                </th>
+                <th className="text-center opacity-60">Margen</th>
+                <th className="text-right">
+                  Peso
+                  <span className="block font-normal opacity-50">kg/m²</span>
+                </th>
+                <th />
               </tr>
             </thead>
             <tbody>
-              {filteredTarifas?.map(row => {
+              {filteredTarifas.length === 0 ? (
+                <tr>
+                  <td colSpan={8 + margenesVenta.length} className="text-center py-10 text-base-content/40 text-sm">
+                    No hay tarifas para el material seleccionado.
+                  </td>
+                </tr>
+              ) : filteredTarifas.map(row => {
                 const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
+                const key = `${row.material}_${row.espesor}_${row.color ?? ''}_${row.lonas ?? ''}_${row.acabado ?? ''}`;
+                const coste = costesMap[key];
+                const costeM2 = coste?.precio ?? null;
+                const margenPct = costeM2 > 0 ? ((row.precio - costeM2) / costeM2) * 100 : null;
+                const precioSugerido = costeM2 != null
+                  ? parseFloat((costeM2 * (1 + margenObjetivo / 100)).toFixed(2))
+                  : null;
+                const mostrarSugerencia = precioSugerido != null && (margenPct == null || margenPct < margenObjetivo);
+
                 return (
-                  <tr key={row.id} className="hover">
-                    <td className="font-bold text-center">{row.material}</td>
+                  <tr key={row.id} className="hover border-b border-base-200/60">
 
-                    {/* Lonas */}
-                    <td className="text-center">
-                      {editandoLonas?.id === row.id ? (
-                        <input
-                          type="number" min="1" step="1"
-                          className="input input-xs input-bordered w-16 font-mono text-center"
-                          value={editandoLonas.value}
-                          onChange={e => setEditandoLonas(prev => ({ ...prev, value: e.target.value }))}
-                          onBlur={() => handleGuardarLonas(row)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleGuardarLonas(row); if (e.key === 'Escape') setEditandoLonas(null); }}
-                          autoFocus
-                        />
-                      ) : (
-                        <span
-                          className="cursor-pointer hover:text-primary font-mono text-sm"
-                          title="Clic para editar lonas"
-                          onClick={() => setEditandoLonas({ id: row.id, value: row.lonas != null ? String(row.lonas) : '' })}
-                        >
-                          {row.lonas != null ? row.lonas : <span className="opacity-30 text-xs">—</span>}
-                        </span>
-                      )}
+                    {/* Material */}
+                    <td>
+                      <span className="badge badge-ghost badge-sm font-semibold text-xs">
+                        {row.material}
+                      </span>
                     </td>
 
-                    {/* Acabado */}
-                    <td className="text-center">
-                      {editandoAcabado?.id === row.id ? (
-                        <input
-                          type="text"
-                          placeholder="PVC/Tejido…"
-                          className="input input-xs input-bordered w-28 text-center"
-                          value={editandoAcabado.value}
-                          onChange={e => setEditandoAcabado(prev => ({ ...prev, value: e.target.value }))}
-                          onBlur={() => handleGuardarAcabado(row)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleGuardarAcabado(row); if (e.key === 'Escape') setEditandoAcabado(null); }}
-                          autoFocus
-                        />
-                      ) : (
-                        <span
-                          className="cursor-pointer hover:text-primary text-sm"
-                          title="Clic para editar acabado"
-                          onClick={() => setEditandoAcabado({ id: row.id, value: row.acabado ?? '' })}
-                        >
-                          {row.acabado || <span className="opacity-30 text-xs">—</span>}
-                        </span>
-                      )}
+                    {/* Espesor */}
+                    <td>
+                      <span className="font-mono text-sm">{row.espesor} mm</span>
                     </td>
 
-                    <td className="text-center">{row.espesor}</td>
+                    {/* Variante: lonas + acabado como badges editables */}
+                    <td>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {editandoLonas?.id === row.id ? (
+                          <input
+                            type="number" min="1" step="1" autoFocus
+                            className="input input-xs input-bordered w-16 font-mono text-center"
+                            value={editandoLonas.value}
+                            onChange={e => setEditandoLonas(prev => ({ ...prev, value: e.target.value }))}
+                            onBlur={() => handleGuardarLonas(row)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleGuardarLonas(row);
+                              if (e.key === 'Escape') setEditandoLonas(null);
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className={`badge badge-sm cursor-pointer hover:badge-primary transition-colors ${
+                              row.lonas != null ? 'badge-neutral' : 'badge-ghost opacity-40 hover:opacity-100'
+                            }`}
+                            title="Editar lonas"
+                            onClick={() => setEditandoLonas({ id: row.id, value: row.lonas != null ? String(row.lonas) : '' })}
+                          >
+                            {row.lonas != null ? `${row.lonas}L` : '+ lonas'}
+                          </span>
+                        )}
+
+                        {editandoAcabado?.id === row.id ? (
+                          <input
+                            type="text" placeholder="acabado…" autoFocus
+                            className="input input-xs input-bordered w-24 text-center"
+                            value={editandoAcabado.value}
+                            onChange={e => setEditandoAcabado(prev => ({ ...prev, value: e.target.value }))}
+                            onBlur={() => handleGuardarAcabado(row)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleGuardarAcabado(row);
+                              if (e.key === 'Escape') setEditandoAcabado(null);
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className={`badge badge-sm cursor-pointer hover:badge-secondary transition-colors ${
+                              row.acabado ? 'badge-outline' : 'badge-ghost opacity-40 hover:opacity-100'
+                            }`}
+                            title="Editar acabado"
+                            onClick={() => setEditandoAcabado({ id: row.id, value: row.acabado ?? '' })}
+                          >
+                            {row.acabado || '+ acabado'}
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
                     {/* Precio base editable */}
-                    <td className="text-center">
+                    <td className="text-right">
                       {editandoPrecio?.id === row.id ? (
                         <input
-                          type="number" min="0" step="0.01"
-                          className="input input-xs input-bordered w-20 font-mono text-center"
+                          type="number" min="0" step="0.01" autoFocus
+                          className="input input-xs input-bordered w-20 font-mono text-right"
                           value={editandoPrecio.value}
                           onChange={e => setEditandoPrecio(prev => ({ ...prev, value: e.target.value }))}
                           onBlur={() => handleGuardarPrecio(row)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleGuardarPrecio(row); if (e.key === 'Escape') setEditandoPrecio(null); }}
-                          autoFocus
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleGuardarPrecio(row);
+                            if (e.key === 'Escape') setEditandoPrecio(null);
+                          }}
                         />
                       ) : (
                         <span
-                          className="cursor-pointer hover:text-primary font-mono text-sm opacity-70"
+                          className="font-mono text-sm cursor-pointer hover:text-primary transition-colors"
                           title="Clic para editar precio base"
                           onClick={() => setEditandoPrecio({ id: row.id, value: String(row.precio) })}
                         >
@@ -374,7 +428,7 @@ export default function TablaTarifas() {
                       )}
                     </td>
 
-                    {/* Columnas de precio de venta por margen */}
+                    {/* Precios de venta por margen */}
                     {margenesVenta.map(m => {
                       const calculado = row.precio * m.multiplicador;
                       const manual = preciosMap[m.base];
@@ -382,76 +436,78 @@ export default function TablaTarifas() {
                       const valorMostrado = esManual ? manual : calculado;
                       const isEditing = editandoVenta?.id === row.id && editandoVenta?.margenBase === m.base;
                       return (
-                        <td key={m.base} className="text-center">
+                        <td key={m.base} className="text-right bg-primary/5 border-x border-primary/8">
                           {isEditing ? (
                             <input
-                              type="number" min="0" step="0.01"
-                              className="input input-xs input-bordered w-20 font-mono text-center"
+                              type="number" min="0" step="0.01" autoFocus
+                              className="input input-xs input-bordered w-20 font-mono text-right"
                               value={editandoVenta.value}
                               onChange={e => setEditandoVenta(prev => ({ ...prev, value: e.target.value }))}
                               onBlur={() => handleGuardarVenta(row)}
-                              onKeyDown={e => { if (e.key === 'Enter') handleGuardarVenta(row); if (e.key === 'Escape') setEditandoVenta(null); }}
-                              autoFocus
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleGuardarVenta(row);
+                                if (e.key === 'Escape') setEditandoVenta(null);
+                              }}
                             />
                           ) : (
                             <span
-                              className={`cursor-pointer hover:text-primary font-mono text-sm ${esManual ? 'font-bold text-primary' : ''}`}
-                              title={esManual ? 'Precio manual (clic para editar)' : `Calculado: ${calculado.toFixed(2)} € (clic para fijar manualmente)`}
+                              className={`font-mono text-sm cursor-pointer hover:text-primary transition-colors ${
+                                esManual ? 'font-bold text-primary' : ''
+                              }`}
+                              title={esManual
+                                ? 'Precio manual (clic para editar)'
+                                : `Calculado ×${m.multiplicador} (clic para fijar manualmente)`}
                               onClick={() => setEditandoVenta({ id: row.id, margenBase: m.base, value: valorMostrado.toFixed(2) })}
                             >
                               {formatCurrency(valorMostrado)}
-                              {esManual && <span className="text-xs ml-1 opacity-60">✎</span>}
+                              {esManual && <span className="ml-1 opacity-50 text-xs">✎</span>}
                             </span>
                           )}
                         </td>
                       );
                     })}
 
-                    {/* Coste de importación y margen */}
-                    {(() => {
-                      const key = `${row.material}_${row.espesor}_${row.color ?? ''}_${row.lonas ?? ''}_${row.acabado ?? ''}`;
-                      const coste = costesMap[key];
-                      const costeM2 = coste?.precio ?? null;
-                      const margenPct = costeM2 > 0 ? ((row.precio - costeM2) / costeM2) * 100 : null;
-                      const precioSugerido = costeM2 != null
-                        ? parseFloat((costeM2 * (1 + margenObjetivo / 100)).toFixed(2))
-                        : null;
-                      const mostrarSugerencia = precioSugerido != null && (margenPct == null || margenPct < margenObjetivo);
-                      return (
-                        <>
-                          <td className="text-center font-mono text-sm text-base-content/50">
-                            {costeM2 != null ? formatCurrency(costeM2) : <span className="opacity-30">—</span>}
-                          </td>
-                          <td className={`text-center text-sm ${
-                            margenPct == null    ? 'text-base-content/30' :
-                            margenPct >= margenObjetivo ? 'text-success' :
-                            margenPct >= 10      ? 'text-warning' : 'text-error'
-                          }`}>
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span className="font-mono font-bold">
-                                {margenPct != null
-                                  ? `${margenPct >= 0 ? '+' : ''}${margenPct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
-                                  : '—'}
-                              </span>
-                              {mostrarSugerencia && (
-                                <button
-                                  className="btn btn-xs btn-outline btn-warning leading-none"
-                                  title={`Aplicar precio sugerido al ${margenObjetivo}% de margen`}
-                                  disabled={aplicandoSugerencia === row.id}
-                                  onClick={() => handleAplicarSugerencia(row, costeM2)}
-                                >
-                                  {aplicandoSugerencia === row.id
-                                    ? <span className="loading loading-spinner loading-xs" />
-                                    : `→ ${formatCurrency(precioSugerido)}`}
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </>
-                      );
-                    })()}
-                    <td className="text-center">{row.peso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+                    {/* Coste importación */}
+                    <td className="text-right font-mono text-sm text-base-content/40">
+                      {costeM2 != null
+                        ? formatCurrency(costeM2)
+                        : <span className="opacity-25">—</span>}
+                    </td>
+
+                    {/* Margen % como badge de color */}
                     <td className="text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className={`badge badge-sm font-mono font-bold ${
+                          margenPct == null        ? 'badge-ghost opacity-30' :
+                          margenPct >= margenObjetivo ? 'badge-success' :
+                          margenPct >= 10          ? 'badge-warning' : 'badge-error'
+                        }`}>
+                          {margenPct != null
+                            ? `${margenPct >= 0 ? '+' : ''}${margenPct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+                            : '—'}
+                        </span>
+                        {mostrarSugerencia && (
+                          <button
+                            className="btn btn-xs btn-outline btn-warning"
+                            title={`Aplicar precio al ${margenObjetivo}% de margen`}
+                            disabled={aplicandoSugerencia === row.id}
+                            onClick={() => handleAplicarSugerencia(row, costeM2)}
+                          >
+                            {aplicandoSugerencia === row.id
+                              ? <span className="loading loading-spinner loading-xs" />
+                              : `→ ${formatCurrency(precioSugerido)}`}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Peso */}
+                    <td className="text-right font-mono text-sm">
+                      {(row.peso ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                    </td>
+
+                    {/* Historial */}
+                    <td>
                       <button
                         className="btn btn-ghost btn-xs"
                         title="Ver historial de precio de venta"
@@ -465,106 +521,115 @@ export default function TablaTarifas() {
               })}
             </tbody>
           </table>
-          {filteredTarifas.length === 0 && selectedMaterial !== 'Todos' && (
-            <div className="text-center py-4 text-gray-500">No hay tarifas para el material seleccionado.</div>
-          )}
         </div>
-
-        <p className="text-xs text-base-content/40 mt-2">
-          Los precios en <span className="text-primary font-bold">azul negrita</span> están fijados manualmente. El resto se calculan automáticamente (precio base × multiplicador de margen). Clic en cualquier precio para editarlo.
-        </p>
+        <div className="px-4 py-2 border-t border-base-200">
+          <p className="text-xs text-base-content/40">
+            Precios en <span className="text-primary font-semibold">azul</span> están fijados manualmente; el resto se calculan automáticamente (precio base × multiplicador). Clic en cualquier celda para editarla.
+          </p>
+        </div>
       </div>
 
-      {/* ── Conversión a metro lineal ───────────────────────── */}
-      <div className="card-body pt-0 border-t border-base-200">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div>
-            <h3 className="font-bold flex items-center gap-2 text-base">
-              <Ruler className="w-4 h-4 text-primary" /> Conversión a Metro Lineal
-            </h3>
-            <p className="text-xs text-base-content/50 mt-0.5">
-              Precio ML = Precio m² × (ancho mm ÷ 1000) — se incluye en el PDF impreso
-            </p>
-          </div>
-          {/* Añadir ancho */}
-          <div className="flex gap-2 items-center">
-            <input
-              type="number"
-              className="input input-bordered input-sm w-28"
-              placeholder="Ancho mm"
-              value={nuevoAncho}
-              min="1" max="5000" step="1"
-              onChange={e => setNuevoAncho(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && agregarAncho()}
-            />
-            <button className="btn btn-sm btn-primary gap-1" onClick={agregarAncho} disabled={!nuevoAncho}>
-              <Plus className="w-3 h-3" /> Añadir ancho
-            </button>
-          </div>
-        </div>
-
-        {/* Chips de anchos configurados */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          {anchosML.map(ancho => (
-            <span key={ancho} className="badge badge-outline gap-1 pr-1">
-              {ancho} mm
-              <button className="hover:text-error ml-1" onClick={() => eliminarAncho(ancho)}>
-                <X className="w-3 h-3" />
+      {/* ── Conversión a Metro Lineal ───────────────────────────────── */}
+      <div className="card bg-base-100 shadow border border-base-200">
+        <div className="card-body">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
+            <div>
+              <h3 className="font-bold flex items-center gap-2 text-base">
+                <Ruler className="w-4 h-4 text-primary" /> Conversión a Metro Lineal
+              </h3>
+              <p className="text-xs text-base-content/50 mt-0.5">
+                Precio ML = Precio m² × (ancho mm ÷ 1000) — incluido en el PDF
+              </p>
+            </div>
+            <div className="flex gap-2 items-center shrink-0">
+              <input
+                type="number"
+                className="input input-bordered input-sm w-28"
+                placeholder="Ancho mm"
+                value={nuevoAncho}
+                min="1" max="5000" step="1"
+                onChange={e => setNuevoAncho(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && agregarAncho()}
+              />
+              <button
+                className="btn btn-sm btn-primary gap-1"
+                onClick={agregarAncho}
+                disabled={!nuevoAncho}
+              >
+                <Plus className="w-3 h-3" /> Añadir
               </button>
-            </span>
-          ))}
-          {anchosML.length === 0 && (
-            <span className="text-xs text-base-content/30">Añade al menos un ancho para ver la tabla</span>
+            </div>
+          </div>
+
+          {/* Chips de anchos */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {anchosML.map(ancho => (
+              <span key={ancho} className="badge badge-outline gap-1 pr-1">
+                {ancho} mm
+                <button
+                  className="hover:text-error ml-0.5 transition-colors"
+                  onClick={() => eliminarAncho(ancho)}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            {anchosML.length === 0 && (
+              <span className="text-xs text-base-content/30">
+                Añade al menos un ancho para ver la tabla
+              </span>
+            )}
+          </div>
+
+          {anchosML.length > 0 && filteredTarifas.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="table table-sm table-zebra w-full">
+                <thead>
+                  <tr className="text-xs text-base-content/50">
+                    <th>Material</th>
+                    <th className="text-center">Lonas</th>
+                    <th className="text-center">Espesor</th>
+                    {anchosML.flatMap(ancho =>
+                      margenesVenta.map(m => (
+                        <th key={`${ancho}-${m.base}`} className="text-right whitespace-nowrap">
+                          <span className="block font-semibold text-primary">{m.descripcion}</span>
+                          <span className="block text-base-content/40 font-normal">@ {ancho} mm · €/ml</span>
+                        </th>
+                      ))
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTarifas.map(row => {
+                    const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
+                    return (
+                      <tr key={row.id} className="hover">
+                        <td className="font-semibold">{row.material}</td>
+                        <td className="text-center text-sm">{row.lonas ?? <span className="opacity-30">—</span>}</td>
+                        <td className="text-center font-mono text-sm">{row.espesor} mm</td>
+                        {anchosML.flatMap((ancho, ai) =>
+                          margenesVenta.map(m => {
+                            const pm2 = preciosMap[m.base] ?? (row.precio * m.multiplicador);
+                            const ml  = pm2 * (ancho / 1000);
+                            return (
+                              <td
+                                key={`${ancho}-${m.base}`}
+                                className={`text-right font-mono font-semibold${ai % 2 === 0 ? ' bg-primary/5' : ''}`}
+                              >
+                                {ml.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                              </td>
+                            );
+                          })
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-
-        {/* Tabla de previsualización */}
-        {anchosML.length > 0 && filteredTarifas.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="table table-sm table-zebra w-full">
-              <thead>
-                <tr className="text-xs uppercase text-base-content/50">
-                  <th>Material</th>
-                  <th>Lonas</th>
-                  <th>Espesor</th>
-                  {anchosML.flatMap(ancho =>
-                    margenesVenta.map(m => (
-                      <th key={`${ancho}-${m.base}`} className="text-right whitespace-nowrap">
-                        <span className="block font-semibold text-primary">{m.descripcion}</span>
-                        <span className="block text-base-content/40 font-normal">@ {ancho} mm (€/ml)</span>
-                      </th>
-                    ))
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTarifas.map(row => {
-                  const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
-                  return (
-                    <tr key={row.id} className="hover">
-                      <td className="font-bold">{row.material}</td>
-                      <td className="text-center">{row.lonas ?? '—'}</td>
-                      <td className="text-center font-mono">{row.espesor} mm</td>
-                      {anchosML.flatMap((ancho, ai) =>
-                        margenesVenta.map(m => {
-                          const pm2 = preciosMap[m.base] ?? (row.precio * m.multiplicador);
-                          const ml  = pm2 * (ancho / 1000);
-                          return (
-                            <td key={`${ancho}-${m.base}`} className={`text-right font-mono font-semibold${ai % 2 === 0 ? ' bg-primary/5' : ''}`}>
-                              {ml.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                            </td>
-                          );
-                        })
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
-    </div>
     </>
   );
 }

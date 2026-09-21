@@ -320,7 +320,7 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
                             (form.lonas === 'null' ? null : form.lonas !== '' ? parseInt(form.lonas, 10) : null) ??
                             productoAEditar?.lonas   ?? null,
       precioUnitario:       parseFloat(form.precioUnitario) || 0,
-      costoUnitario:        parseFloat(form.costoUnitario)  || 0,
+      ...(form.costoUnitario !== '' && { costoUnitario: parseFloat(form.costoUnitario) || 0 }),
       pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
       referenciaFabricante: form.referenciaFabricante || null,
       subfamiliaId:         form.subfamiliaId ?? null,

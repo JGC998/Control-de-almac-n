@@ -60,9 +60,22 @@ export async function POST() {
       if (existing) {
         await db.tarifaCoste.update({ where: { id: existing.id }, data: { precio: t.precio, peso: t.peso } });
       } else {
-        await db.tarifaCoste.create({
-          data: { material: t.material, espesor: t.espesor, precio: t.precio, peso: t.peso, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
-        });
+        try {
+          await db.tarifaCoste.create({
+            data: { material: t.material, espesor: t.espesor, precio: t.precio, peso: t.peso, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
+          });
+        } catch (createErr) {
+          if (createErr.code === 'P2002') {
+            const concurrent = await db.tarifaCoste.findFirst({
+              where: { material: t.material, espesor: t.espesor, color: colorVal, lonas: lonasVal, acabado: acabadoVal },
+            });
+            if (concurrent) {
+              await db.tarifaCoste.update({ where: { id: concurrent.id }, data: { precio: t.precio, peso: t.peso } });
+            }
+          } else {
+            throw createErr;
+          }
+        }
       }
       migrados++;
     }
