@@ -131,8 +131,8 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
   const getDisplayValue = (item, key) => {
     let displayValue = item[key];
 
-    if (endpoint.includes('referencias') && key === 'nombre') {
-      displayValue = item.referencia;
+    if (endpoint.includes('referencias') && key === 'referencia') {
+      displayValue = item.nombre || item.referencia || null;
     }
 
     if (typeof displayValue === 'number' && key !== 'lonas' && !key.toLowerCase().includes('lonas')) {
