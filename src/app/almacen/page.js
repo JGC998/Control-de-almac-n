@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Warehouse, Layers, Link2, AlignJustify, Package, RectangleHorizontal, BarChart3, FlaskConical, Star } from 'lucide-react';
+import { Warehouse, Layers, Link2, AlignJustify, Package, RectangleHorizontal, BarChart3, FlaskConical, Star, Cable } from 'lucide-react';
 
 export const metadata = { title: 'Almacén — CRM Taller' };
 
@@ -38,6 +38,13 @@ export default function AlmacenHub() {
           titulo: 'Estrellas',
           descripcion: 'Productos tipo estrella con sus medidas de plancha: cuántas unidades salen de cada tamaño de corte.',
           accion: 'Ver estrellas',
+        },
+        {
+          href: '/almacen/tarifas-correas',
+          icon: Cable,
+          titulo: 'Tarifas de correas',
+          descripcion: 'Precio de venta por m² y por metro lineal para cada referencia de bobina transportadora.',
+          accion: 'Ver tarifas',
         },
         {
           href: '/almacen/bandas',
