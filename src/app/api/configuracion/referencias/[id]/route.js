@@ -11,7 +11,7 @@ export async function PUT(request, { params }) {
     const updatedItem = await db.referenciaBobina.update({
       where: { id },
       data: {
-        referencia: data.nombre,
+        referencia: data.referencia ?? data.nombre,
         ancho: data.ancho != null && data.ancho !== '' && !isNaN(parseFloat(data.ancho)) ? parseFloat(data.ancho) : null,
         lonas: data.lonas != null && data.lonas !== '' && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
         pesoPorMetroLineal: data.pesoPorMetroLineal != null && data.pesoPorMetroLineal !== '' && !isNaN(parseFloat(data.pesoPorMetroLineal)) ? parseFloat(data.pesoPorMetroLineal) : null,
