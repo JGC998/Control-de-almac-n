@@ -2,9 +2,9 @@
 import React, { useState, useMemo, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Download, Settings, Link2, Unlink } from 'lucide-react';
+import { ArrowLeft, Download, Settings, Link2, Unlink, Zap } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
-import { toastError } from '@/lib/toast';
+import { toastError, toastSuccess } from '@/lib/toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -69,6 +69,7 @@ export default function TarifasCorreasPage() {
   const guardandoRef = useRef(false);
   const [filtro, setFiltro] = useState('');
   const [soloVinculadas, setSoloVinculadas] = useState(false);
+  const [autoVinculando, setAutoVinculando] = useState(false);
 
   const tarifasGoma = useMemo(() => {
     if (!Array.isArray(todasTarifas)) return [];
@@ -106,6 +107,36 @@ export default function TarifasCorreasPage() {
   }, [refs, filtro, soloVinculadas]);
 
   const vinculadas = useMemo(() => (refs ?? []).filter(r => r.espesoreGoma != null), [refs]);
+
+  const handleAutoVincular = async () => {
+    if (!Array.isArray(refs) || tarifasGoma.length === 0) return;
+    setAutoVinculando(true);
+    const sinVincular = refs.filter(r => r.espesoreGoma == null && r.lonas != null);
+    let ok = 0, ambiguas = 0;
+    for (const ref of sinVincular) {
+      const matches = tarifasGoma.filter(t => t.lonas != null && Number(t.lonas) === Number(ref.lonas));
+      if (matches.length === 1) {
+        try {
+          const res = await fetch(`${API_REFS}/${ref.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ espesoreGoma: matches[0].espesor }),
+          });
+          if (res.ok) ok++;
+        } catch { /* continúa */ }
+      } else if (matches.length > 1) {
+        ambiguas++;
+      }
+    }
+    await mutate(API_REFS);
+    setAutoVinculando(false);
+    const msg = ok > 0
+      ? `${ok} referencia${ok !== 1 ? 's' : ''} vinculada${ok !== 1 ? 's' : ''} automáticamente${ambiguas > 0 ? ` · ${ambiguas} ambigua${ambiguas !== 1 ? 's' : ''} (varias GOMA con mismo nº lonas)` : ''}`
+      : ambiguas > 0
+        ? `Sin cambios — ${ambiguas} referencia${ambiguas !== 1 ? 's' : ''} con lonas ambiguas, selecciona manualmente`
+        : 'Todas las referencias ya estaban vinculadas o no tienen lonas definidas';
+    ok > 0 ? toastSuccess(msg) : toastError(msg);
+  };
 
   const handleExportPDF = () => {
     const exportables = lista.filter(r => r.espesoreGoma != null && gomaMap[r.espesoreGoma]);
@@ -197,6 +228,17 @@ export default function TarifasCorreasPage() {
               <Settings className="w-4 h-4" /> Referencias
             </button>
           </Link>
+          <button
+            onClick={handleAutoVincular}
+            disabled={autoVinculando || !Array.isArray(refs) || refs.filter(r => r.espesoreGoma == null && r.lonas != null).length === 0}
+            className="btn btn-secondary btn-sm gap-1"
+            title="Vincula automáticamente cada referencia a la tarifa GOMA con el mismo número de lonas (solo cuando hay una única coincidencia)"
+          >
+            {autoVinculando
+              ? <span className="loading loading-spinner loading-xs" />
+              : <Zap className="w-4 h-4" />}
+            Auto-vincular
+          </button>
           <button
             onClick={handleExportPDF}
             disabled={vinculadas.length === 0}
