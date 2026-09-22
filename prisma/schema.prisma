@@ -228,7 +228,7 @@ model ReferenciaBobina {
   ancho              Float?
   lonas              Float?
   pesoPorMetroLineal Float?
-  precioM2           Float?
+  espesoreGoma       Float?
   bobinas            BobinaPedido[]
 
   @@unique([referencia, ancho, lonas])

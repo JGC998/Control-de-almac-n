@@ -1,2 +1,2 @@
--- AlterTable: añadir precio por m² a ReferenciaBobina
-ALTER TABLE `ReferenciaBobina` ADD COLUMN `precioM2` DOUBLE NULL;
+-- AlterTable: añadir vínculo a espesor de GOMA en ReferenciaBobina
+ALTER TABLE `ReferenciaBobina` ADD COLUMN `espesoreGoma` DOUBLE NULL;

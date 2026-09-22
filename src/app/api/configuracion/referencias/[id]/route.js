@@ -15,7 +15,7 @@ export async function PUT(request, { params }) {
         ancho: data.ancho != null && data.ancho !== '' && !isNaN(parseFloat(data.ancho)) ? parseFloat(data.ancho) : null,
         lonas: data.lonas != null && data.lonas !== '' && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
         pesoPorMetroLineal: data.pesoPorMetroLineal != null && data.pesoPorMetroLineal !== '' && !isNaN(parseFloat(data.pesoPorMetroLineal)) ? parseFloat(data.pesoPorMetroLineal) : null,
-        ...(data.precioM2 !== undefined && { precioM2: data.precioM2 != null && !isNaN(parseFloat(data.precioM2)) ? parseFloat(data.precioM2) : null }),
+        ...(data.espesoreGoma !== undefined && { espesoreGoma: data.espesoreGoma != null && !isNaN(parseFloat(data.espesoreGoma)) ? parseFloat(data.espesoreGoma) : null }),
       },
     });
     return NextResponse.json(updatedItem);

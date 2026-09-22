@@ -2,164 +2,179 @@
 import React, { useState, useMemo, useRef } from 'react';
 import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Download, Settings, Check, X } from 'lucide-react';
+import { ArrowLeft, Download, Settings, Link2, Unlink } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
-import { formatCurrency } from '@/utils/utilidades';
 import { toastError } from '@/lib/toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const API = '/api/configuracion/referencias';
+const API_REFS = '/api/configuracion/referencias';
 
 function fmt2(n) {
   return (n ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function PrecioCell({ row, editando, setEditando, guardandoRef, onSaved }) {
-  const [val, setVal] = useState('');
-  const inputRef = useRef(null);
+// Celda con select de espesor GOMA — auto-guarda al cambiar
+function VinculoCell({ row, tarifasGoma, guardandoRef }) {
+  const [guardando, setGuardando] = useState(false);
 
-  const abrir = () => {
-    if (editando) return;
-    setVal(row.precioM2 != null ? String(row.precioM2) : '');
-    setEditando({ id: row.id, value: '' });
-    setTimeout(() => inputRef.current?.focus(), 30);
-  };
-
-  const guardar = async () => {
+  const handleChange = async (valor) => {
     if (guardandoRef.current) return;
     guardandoRef.current = true;
-    const parsed = parseFloat(val);
-    const nuevo = val === '' ? null : (isNaN(parsed) ? null : parsed);
-    if (nuevo === (row.precioM2 ?? null)) { guardandoRef.current = false; setEditando(null); return; }
+    setGuardando(true);
+    const espesor = valor === '' ? null : parseFloat(valor);
     try {
-      const res = await fetch(`${API}/${row.id}`, {
+      const res = await fetch(`${API_REFS}/${row.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ precioM2: nuevo }),
+        body: JSON.stringify({ espesoreGoma: espesor }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error al guardar');
-      await mutate(API);
-      onSaved?.();
+      await mutate(API_REFS);
     } catch (err) {
-      toastError(err.message || 'Error al guardar precio');
+      toastError(err.message || 'Error al guardar vínculo');
     } finally {
       guardandoRef.current = false;
-      setEditando(null);
+      setGuardando(false);
     }
   };
 
-  const cancelar = () => { setEditando(null); };
-
-  const activo = editando?.id === row.id;
-
-  if (activo) {
-    return (
-      <div className="flex items-center gap-1">
-        <input
-          ref={inputRef}
-          type="number"
-          className="input input-xs input-bordered w-24 font-mono"
-          value={val}
-          min={0}
-          step="0.01"
-          onChange={e => setVal(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') guardar(); if (e.key === 'Escape') cancelar(); }}
-          autoFocus
-        />
-        <button onClick={guardar} className="btn btn-xs btn-success btn-circle"><Check className="w-3 h-3" /></button>
-        <button onClick={cancelar} className="btn btn-xs btn-ghost btn-circle"><X className="w-3 h-3" /></button>
-      </div>
-    );
-  }
-
   return (
-    <button
-      onClick={abrir}
-      className={`font-mono text-sm px-2 py-0.5 rounded hover:bg-base-200 transition-colors w-full text-left ${row.precioM2 == null ? 'text-base-content/30 italic' : 'text-primary font-semibold'}`}
-    >
-      {row.precioM2 != null ? `${fmt2(row.precioM2)} €` : '— sin precio'}
-    </button>
+    <div className="flex items-center gap-1.5">
+      {row.espesoreGoma != null
+        ? <Link2 className="w-3.5 h-3.5 text-success shrink-0" />
+        : <Unlink className="w-3.5 h-3.5 text-base-content/25 shrink-0" />
+      }
+      <select
+        className={`select select-xs border-0 bg-transparent focus:bg-base-200 w-full max-w-[220px] ${guardando ? 'opacity-50' : ''}`}
+        value={row.espesoreGoma != null ? String(row.espesoreGoma) : ''}
+        onChange={e => handleChange(e.target.value)}
+        disabled={guardando}
+      >
+        <option value="">Sin vincular</option>
+        {tarifasGoma.map(t => (
+          <option key={t.id} value={String(t.espesor)}>
+            {t.espesor} mm{t.lonas ? ` · ${t.lonas}L` : ''} — {fmt2(t.precio)} €/m²
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 
 export default function TarifasCorreasPage() {
-  const { data: refs, isLoading } = useSWR(API, fetcher);
-  const [editando, setEditando] = useState(null);
+  const { data: refs, isLoading: refsLoading } = useSWR(API_REFS, fetcher);
+  const { data: todasTarifas, isLoading: tarifasLoading } = useSWR('/api/precios', fetcher);
   const guardandoRef = useRef(false);
   const [filtro, setFiltro] = useState('');
+  const [soloVinculadas, setSoloVinculadas] = useState(false);
+
+  const tarifasGoma = useMemo(() => {
+    if (!Array.isArray(todasTarifas)) return [];
+    return todasTarifas
+      .filter(t => t.material === 'GOMA' && t.espesor != null)
+      // Una entrada por espesor (la primera si hay variantes por acabado/color)
+      .reduce((acc, t) => {
+        if (!acc.find(x => x.espesor === t.espesor)) acc.push(t);
+        return acc;
+      }, [])
+      .sort((a, b) => a.espesor - b.espesor);
+  }, [todasTarifas]);
+
+  // Mapa rápido espesor → tarifa GOMA
+  const gomaMap = useMemo(() => {
+    const m = {};
+    tarifasGoma.forEach(t => { m[t.espesor] = t; });
+    return m;
+  }, [tarifasGoma]);
 
   const lista = useMemo(() => {
     if (!Array.isArray(refs)) return [];
     return [...refs]
       .filter(r => {
         const nombre = r.nombre || r.referencia || '';
-        return filtro === '' || nombre.toLowerCase().includes(filtro.toLowerCase());
+        const passNombre = filtro === '' || nombre.toLowerCase().includes(filtro.toLowerCase());
+        const passVinculo = !soloVinculadas || r.espesoreGoma != null;
+        return passNombre && passVinculo;
       })
       .sort((a, b) => {
         const na = (a.nombre || a.referencia || '').localeCompare(b.nombre || b.referencia || '', 'es');
         if (na !== 0) return na;
         return (a.ancho ?? 0) - (b.ancho ?? 0);
       });
-  }, [refs, filtro]);
+  }, [refs, filtro, soloVinculadas]);
 
-  const conPrecio = useMemo(() => lista.filter(r => r.precioM2 != null), [lista]);
+  const vinculadas = useMemo(() => (refs ?? []).filter(r => r.espesoreGoma != null), [refs]);
 
   const handleExportPDF = () => {
-    if (conPrecio.length === 0) { toastError('No hay referencias con precio para exportar.'); return; }
+    const exportables = lista.filter(r => r.espesoreGoma != null && gomaMap[r.espesoreGoma]);
+    if (exportables.length === 0) { toastError('Vincula al menos una referencia a una tarifa GOMA primero.'); return; }
+
     const doc = new jsPDF({ orientation: 'portrait' });
     const fecha = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18); doc.setFont('helvetica', 'bold');
     doc.text('Tarifa de Correas Transportadoras', 14, 18);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(120);
-    doc.text(`Actualizada el ${fecha}`, 14, 25);
-    doc.text('Precios en euros · IVA no incluido', 14, 30);
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100);
+    doc.text(`Actualizada el ${fecha}  ·  Precios en euros  ·  IVA no incluido`, 14, 25);
     doc.setTextColor(0);
 
-    const rows = conPrecio.map(r => {
-      const anchoM = (r.ancho ?? 0) / 1000;
-      const precioML = r.precioM2 != null ? r.precioM2 * anchoM : null;
-      return [
-        r.nombre || r.referencia || '—',
-        r.ancho != null ? `${r.ancho} mm` : '—',
-        r.lonas != null ? String(r.lonas) : '—',
-        r.pesoPorMetroLineal != null ? `${fmt2(r.pesoPorMetroLineal)} kg/m` : '—',
-        `${fmt2(r.precioM2)} €/m²`,
-        precioML != null ? `${fmt2(precioML)} €/m` : '—',
-      ];
+    // Agrupar por espesor GOMA
+    const grupos = {};
+    exportables.forEach(r => {
+      const key = r.espesoreGoma;
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(r);
     });
 
-    autoTable(doc, {
-      head: [['Referencia', 'Ancho', 'Lonas', 'Peso', '€/m²', '€/m lineal']],
-      body: rows,
-      startY: 36,
-      theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
-      columnStyles: {
-        0: { fontStyle: 'bold' },
-        4: { halign: 'right', fontStyle: 'bold' },
-        5: { halign: 'right', textColor: [40, 100, 180] },
-      },
-      alternateRowStyles: { fillColor: [247, 248, 250] },
-      margin: { left: 14, right: 14 },
-    });
+    let startY = 32;
+    Object.entries(grupos)
+      .sort(([a], [b]) => parseFloat(a) - parseFloat(b))
+      .forEach(([espesor, filas]) => {
+        const tarifa = gomaMap[parseFloat(espesor)];
+        const lLabel = tarifa.lonas ? ` · ${tarifa.lonas}L` : '';
+        doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+        doc.text(`GOMA ${espesor} mm${lLabel}  —  ${fmt2(tarifa.precio)} €/m²`, 14, startY + 4);
+        startY += 2;
 
-    const suffix = new Date().toISOString().slice(0, 10);
-    doc.save(`tarifa-correas-${suffix}.pdf`);
+        const rows = filas.map(r => {
+          const anchoM = (r.ancho ?? 0) / 1000;
+          const precioML = tarifa.precio * anchoM;
+          return [
+            r.nombre || r.referencia || '—',
+            r.ancho != null ? `${r.ancho} mm` : '—',
+            r.lonas != null ? String(r.lonas) : '—',
+            r.pesoPorMetroLineal != null ? `${fmt2(r.pesoPorMetroLineal)} kg/m` : '—',
+            `${fmt2(tarifa.precio)} €/m²`,
+            `${fmt2(precioML)} €/m`,
+          ];
+        });
+
+        autoTable(doc, {
+          head: [['Referencia', 'Ancho', 'Lonas', 'Peso', '€/m²', '€/m lineal']],
+          body: rows,
+          startY: startY + 4,
+          theme: 'grid',
+          styles: { fontSize: 8.5, cellPadding: 2.5 },
+          headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
+          columnStyles: {
+            0: { fontStyle: 'bold' },
+            4: { halign: 'right' },
+            5: { halign: 'right', fontStyle: 'bold', textColor: [40, 100, 200] },
+          },
+          alternateRowStyles: { fillColor: [247, 248, 250] },
+          margin: { left: 14, right: 14 },
+        });
+
+        startY = doc.lastAutoTable.finalY + 8;
+      });
+
+    doc.save(`tarifa-correas-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <span className="loading loading-spinner loading-lg" />
-      </div>
-    );
+  if (refsLoading || tarifasLoading) {
+    return <div className="flex items-center justify-center h-64"><span className="loading loading-spinner loading-lg" /></div>;
   }
 
   return (
@@ -173,50 +188,71 @@ export default function TarifasCorreasPage() {
         <div className="flex-1">
           <h1 className="text-xl font-bold">Tarifas de correas</h1>
           <p className="text-sm text-base-content/50">
-            Establece el precio de venta por m² para cada referencia de bobina. Haz clic en el precio para editarlo.
+            Vincula cada referencia a un espesor de GOMA para obtener el precio/m² y precio/m lineal automáticamente.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <Link href="/configuracion/referencias">
             <button className="btn btn-ghost btn-sm gap-1">
-              <Settings className="w-4 h-4" /> Gestionar referencias
+              <Settings className="w-4 h-4" /> Referencias
             </button>
           </Link>
           <button
             onClick={handleExportPDF}
-            disabled={conPrecio.length === 0}
+            disabled={vinculadas.length === 0}
             className="btn btn-primary btn-sm gap-1"
-            title={conPrecio.length === 0 ? 'Añade precio a alguna referencia primero' : `Exportar ${conPrecio.length} referencia(s) con precio`}
+            title={vinculadas.length === 0 ? 'Vincula referencias primero' : `Exportar ${vinculadas.length} referencia(s) vinculada(s)`}
           >
             <Download className="w-4 h-4" /> Imprimir tarifa
           </button>
         </div>
       </div>
 
+      {/* Aviso si no hay tarifas GOMA */}
+      {tarifasGoma.length === 0 && (
+        <div role="alert" className="alert alert-warning text-sm">
+          No hay tarifas de material GOMA configuradas. Ve a <Link href="/tarifas" className="link">Gestión de Tarifas</Link> y añade entradas para GOMA.
+        </div>
+      )}
+
       {/* Stats */}
       <div className="stats shadow w-full">
         <div className="stat py-3">
           <div className="stat-title">Referencias totales</div>
-          <div className="stat-value text-2xl">{lista.length}</div>
+          <div className="stat-value text-2xl">{(refs ?? []).length}</div>
         </div>
         <div className="stat py-3">
-          <div className="stat-title">Con precio asignado</div>
-          <div className="stat-value text-2xl text-success">{conPrecio.length}</div>
+          <div className="stat-title">Vinculadas a GOMA</div>
+          <div className="stat-value text-2xl text-success">{vinculadas.length}</div>
         </div>
         <div className="stat py-3">
-          <div className="stat-title">Sin precio</div>
-          <div className="stat-value text-2xl text-warning">{lista.length - conPrecio.length}</div>
+          <div className="stat-title">Espesores GOMA disponibles</div>
+          <div className="stat-value text-2xl text-info">{tarifasGoma.length}</div>
         </div>
       </div>
 
-      {/* Filtro */}
-      <input
-        type="text"
-        className="input input-bordered input-sm w-full max-w-xs"
-        placeholder="Buscar referencia…"
-        value={filtro}
-        onChange={e => setFiltro(e.target.value)}
-      />
+      {/* Filtros */}
+      <div className="flex gap-3 items-center flex-wrap">
+        <input
+          type="text"
+          className="input input-bordered input-sm w-56"
+          placeholder="Buscar referencia…"
+          value={filtro}
+          onChange={e => setFiltro(e.target.value)}
+        />
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm checkbox-success"
+            checked={soloVinculadas}
+            onChange={e => setSoloVinculadas(e.target.checked)}
+          />
+          Solo vinculadas
+        </label>
+        <span className="text-xs text-base-content/40 ml-auto">
+          {lista.length} referencia{lista.length !== 1 ? 's' : ''}
+        </span>
+      </div>
 
       {/* Tabla */}
       <div className="card bg-base-100 shadow">
@@ -228,38 +264,50 @@ export default function TarifasCorreasPage() {
                 <th className="text-right">Ancho</th>
                 <th className="text-right">Lonas</th>
                 <th className="text-right">Peso</th>
-                <th>Precio / m²</th>
-                <th className="text-right text-primary">Precio / m lineal</th>
+                <th>Vínculo GOMA</th>
+                <th className="text-right">€/m²</th>
+                <th className="text-right text-primary">€/m lineal</th>
               </tr>
             </thead>
             <tbody>
               {lista.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-10 text-base-content/40">
-                    {filtro ? 'Sin resultados para ese filtro.' : 'No hay referencias de bobina. Crea algunas en Configuración → Referencias.'}
+                  <td colSpan={7} className="text-center py-10 text-base-content/40">
+                    {filtro || soloVinculadas ? 'Sin resultados.' : 'No hay referencias. Crea algunas en Configuración → Referencias.'}
                   </td>
                 </tr>
               ) : lista.map(row => {
+                const tarifa = row.espesoreGoma != null ? gomaMap[row.espesoreGoma] : null;
+                const precioM2 = tarifa?.precio ?? null;
                 const anchoM = (row.ancho ?? 0) / 1000;
-                const precioML = row.precioM2 != null && row.ancho ? row.precioM2 * anchoM : null;
+                const precioML = precioM2 != null && row.ancho ? precioM2 * anchoM : null;
+
                 return (
                   <tr key={row.id} className="hover">
-                    <td className="font-semibold">{row.nombre || row.referencia || <span className="text-base-content/30 italic">sin nombre</span>}</td>
-                    <td className="text-right font-mono text-sm">{row.ancho != null ? `${row.ancho} mm` : <span className="opacity-40">—</span>}</td>
-                    <td className="text-right font-mono text-sm">{row.lonas != null ? row.lonas : <span className="opacity-40">—</span>}</td>
-                    <td className="text-right font-mono text-sm">{row.pesoPorMetroLineal != null ? `${fmt2(row.pesoPorMetroLineal)} kg/m` : <span className="opacity-40">—</span>}</td>
-                    <td>
-                      <PrecioCell
-                        row={row}
-                        editando={editando}
-                        setEditando={setEditando}
-                        guardandoRef={guardandoRef}
-                      />
+                    <td className="font-semibold">
+                      {row.nombre || row.referencia || <span className="text-base-content/30 italic">sin nombre</span>}
+                    </td>
+                    <td className="text-right font-mono text-sm">
+                      {row.ancho != null ? `${row.ancho} mm` : <span className="opacity-40">—</span>}
+                    </td>
+                    <td className="text-right font-mono text-sm">
+                      {row.lonas != null ? row.lonas : <span className="opacity-40">—</span>}
+                    </td>
+                    <td className="text-right font-mono text-sm">
+                      {row.pesoPorMetroLineal != null ? `${fmt2(row.pesoPorMetroLineal)} kg/m` : <span className="opacity-40">—</span>}
+                    </td>
+                    <td className="min-w-[200px]">
+                      <VinculoCell row={row} tarifasGoma={tarifasGoma} guardandoRef={guardandoRef} />
+                    </td>
+                    <td className="text-right font-mono text-sm">
+                      {precioM2 != null
+                        ? <span className="font-semibold">{fmt2(precioM2)} €</span>
+                        : <span className="opacity-25">—</span>}
                     </td>
                     <td className="text-right font-mono font-bold text-primary">
                       {precioML != null
                         ? `${fmt2(precioML)} €`
-                        : <span className="opacity-30 text-xs font-normal">—</span>}
+                        : <span className="opacity-25 font-normal text-xs">—</span>}
                     </td>
                   </tr>
                 );
@@ -267,9 +315,9 @@ export default function TarifasCorreasPage() {
             </tbody>
           </table>
         </div>
-        {conPrecio.length > 0 && (
+        {vinculadas.length > 0 && (
           <div className="px-4 py-2 border-t border-base-200 text-xs text-base-content/40">
-            Precio/m lineal = €/m² × ancho(m). Haz clic en cualquier precio para editarlo.
+            €/m lineal = precio tarifa GOMA × ancho (m). Los precios se actualizan automáticamente cuando cambias la tarifa en Gestión de Tarifas.
           </div>
         )}
       </div>
