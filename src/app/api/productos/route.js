@@ -80,10 +80,9 @@ export async function GET(request) {
       });
     }
 
-    // Comportamiento legado: cap de seguridad para evitar full-table scans
+    // Comportamiento legado: sin cap, devuelve todos los productos
     const productos = await db.producto.findMany({
       where: whereClause,
-      take: 500,
       orderBy: { nombre: 'asc' },
       include: {
         fabricante: true,

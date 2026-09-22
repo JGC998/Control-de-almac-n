@@ -81,7 +81,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null);
   // FRONT-02: Carga lazy — solo se piden productos cuando el modal de búsqueda está abierto.
   // Evita cargar 500 productos en memoria en cada montaje del formulario.
-  const { data: todosProductos } = useSWR(productSearchState.isOpen ? '/api/productos?limit=500' : null);
+  const { data: todosProductos } = useSWR(productSearchState.isOpen ? '/api/productos' : null);
   const { data: config } = useSWR('/api/config');
   const { data: tarifasCliente } = useSWR(clienteId ? `/api/tarifas-cliente?clienteId=${clienteId}` : null);
 
@@ -184,7 +184,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       setItems(newItems);
     }
     setModalState(null);
-    mutate('/api/productos?limit=500');
+    mutate('/api/productos');
   };
 
   const handleMetrajeAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario, detallesTecnicos }) => {
