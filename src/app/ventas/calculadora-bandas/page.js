@@ -44,12 +44,10 @@ export default function CalculadoraBandasVentasPage() {
   const [done, setDone] = useState(false);
   const bottomRef = useRef(null);
 
-  // Scroll to bottom on new message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [historial, done]);
 
-  // Derive the cascade options from current vals
   const espesores = useMemo(() => {
     if (!tarifas) return [];
     return [...new Set(tarifas.filter(t => t.material === 'PVC').map(t => String(t.espesor)))]
@@ -83,7 +81,6 @@ export default function CalculadoraBandasVentasPage() {
   const cOptions = useMemo(() => [...new Set(tarifasA.map(t => t.color == null ? '__std' : t.color))], [tarifasA]);
   const needsColor = cOptions.length > 1;
 
-  // Determine current step
   const currentStep = useMemo(() => {
     if (!tarifas) return null;
     if (!vals.espesor) return 'espesor';
@@ -148,9 +145,7 @@ export default function CalculadoraBandasVentasPage() {
     },
   }), [espesores, lOptions, aOptions, cOptions]);
 
-  // Tacos and grapa for price calc
   const modelos = modelosData?.modelos ?? [];
-  const mermaGrapaPct = modelosData?.mermaGrapaPct ?? 20;
 
   const modeloGrapa = useMemo(() => {
     if (!vals.espesor || !modelos.length) return null;
@@ -208,11 +203,20 @@ export default function CalculadoraBandasVentasPage() {
     return value;
   };
 
-  const handleConfirm = () => {
+  // Selects confirman directamente al hacer clic
+  const handleSelectOption = (value) => {
+    if (!currentStep || currentStep === 'done') return;
+    const pregunta = stepConfig[currentStep]?.pregunta ?? '';
+    const respLabel = labelFor(currentStep, value);
+    setHistorial(prev => [...prev, { pregunta, respuesta: respLabel }]);
+    setVals(prev => ({ ...prev, [currentStep]: value }));
+  };
+
+  // Números confirman con Enter o botón →
+  const handleConfirmNumber = () => {
     if (!inputVal || !currentStep || currentStep === 'done') return;
     const pregunta = stepConfig[currentStep]?.pregunta ?? '';
-    const respLabel = labelFor(currentStep, inputVal);
-    setHistorial(prev => [...prev, { pregunta, respuesta: respLabel }]);
+    setHistorial(prev => [...prev, { pregunta, respuesta: inputVal }]);
     setVals(prev => ({ ...prev, [currentStep]: inputVal }));
     setInputVal('');
   };
@@ -276,7 +280,16 @@ export default function CalculadoraBandasVentasPage() {
           <ChatBubble key={i} pregunta={h.pregunta} respuesta={h.respuesta} />
         ))}
 
-        {done && resultado && (
+        {/* Pregunta actual como burbuja en el chat */}
+        {cfg && !done && historial.length > 0 && (
+          <div className="flex justify-start">
+            <div className="bg-base-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-xs text-sm">
+              {cfg.pregunta}
+            </div>
+          </div>
+        )}
+
+        {done && resultado && !resultado.sinModeloGrapa && (
           <div className="flex justify-start">
             <div className="card bg-primary/5 border border-primary/20 w-full max-w-sm">
               <div className="card-body py-3 px-4 gap-1">
@@ -322,26 +335,20 @@ export default function CalculadoraBandasVentasPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input area */}
+      {/* Input area — solo opciones, sin repetir la pregunta */}
       {!done && cfg && (
         <div className="shrink-0 px-4 py-3 border-t border-base-200 bg-base-100">
-          <p className="text-sm font-medium mb-2">{cfg.pregunta}</p>
           {cfg.tipo === 'select' ? (
             <div className="flex flex-wrap gap-2">
               {cfg.opciones.map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => { setInputVal(opt.value); }}
-                  className={`btn btn-sm ${inputVal === opt.value ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
+                  onClick={() => handleSelectOption(opt.value)}
+                  className="btn btn-sm btn-ghost border border-base-300 hover:btn-primary"
                 >
                   {opt.label}
                 </button>
               ))}
-              {inputVal && (
-                <button onClick={handleConfirm} className="btn btn-sm btn-primary ml-auto">
-                  Confirmar →
-                </button>
-              )}
             </div>
           ) : (
             <div className="flex gap-2">
@@ -353,11 +360,11 @@ export default function CalculadoraBandasVentasPage() {
                 step={cfg.step ?? 'any'}
                 value={inputVal}
                 onChange={e => setInputVal(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+                onKeyDown={e => e.key === 'Enter' && handleConfirmNumber()}
                 autoFocus
               />
               <button
-                onClick={handleConfirm}
+                onClick={handleConfirmNumber}
                 disabled={!inputVal || parseFloat(inputVal) <= 0}
                 className="btn btn-sm btn-primary"
               >

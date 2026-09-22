@@ -57,7 +57,7 @@ export default function CalculadoraMetrajesVentasPage() {
   const margenesOpciones = useMemo(() => {
     const base = [{ value: '__ninguno', label: 'Sin margen' }];
     if (!margenes) return base;
-    return [...base, ...margenes.map(m => ({ value: m.id, label: m.nombre }))];
+    return [...base, ...margenes.map(m => ({ value: m.id, label: m.descripcion ?? m.nombre ?? m.id }))];
   }, [margenes]);
 
   const currentStep = useMemo(() => {
@@ -151,11 +151,20 @@ export default function CalculadoraMetrajesVentasPage() {
     return value;
   };
 
-  const handleConfirm = () => {
+  // Selects confirman directamente al hacer clic
+  const handleSelectOption = (value) => {
+    if (!currentStep || currentStep === 'done') return;
+    const pregunta = stepConfig[currentStep]?.pregunta ?? '';
+    const respLabel = labelFor(currentStep, value);
+    setHistorial(prev => [...prev, { pregunta, respuesta: respLabel }]);
+    setVals(prev => ({ ...prev, [currentStep]: value }));
+  };
+
+  // Números confirman con Enter o botón →
+  const handleConfirmNumber = () => {
     if (!inputVal || !currentStep || currentStep === 'done') return;
     const pregunta = stepConfig[currentStep]?.pregunta ?? '';
-    const respLabel = labelFor(currentStep, inputVal);
-    setHistorial(prev => [...prev, { pregunta, respuesta: respLabel }]);
+    setHistorial(prev => [...prev, { pregunta, respuesta: inputVal }]);
     setVals(prev => ({ ...prev, [currentStep]: inputVal }));
     setInputVal('');
   };
@@ -219,6 +228,15 @@ export default function CalculadoraMetrajesVentasPage() {
           <ChatBubble key={i} pregunta={h.pregunta} respuesta={h.respuesta} />
         ))}
 
+        {/* Pregunta actual como burbuja en el chat */}
+        {cfg && !done && historial.length > 0 && (
+          <div className="flex justify-start">
+            <div className="bg-base-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-xs text-sm">
+              {cfg.pregunta}
+            </div>
+          </div>
+        )}
+
         {done && resultado && (
           <div className="flex justify-start">
             <div className="card bg-secondary/5 border border-secondary/20 w-full max-w-sm">
@@ -259,26 +277,20 @@ export default function CalculadoraMetrajesVentasPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input area */}
+      {/* Input area — solo opciones, sin repetir la pregunta */}
       {!done && cfg && (
         <div className="shrink-0 px-4 py-3 border-t border-base-200 bg-base-100">
-          <p className="text-sm font-medium mb-2">{cfg.pregunta}</p>
           {cfg.tipo === 'select' ? (
             <div className="flex flex-wrap gap-2">
               {cfg.opciones.map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => setInputVal(opt.value)}
-                  className={`btn btn-sm ${inputVal === opt.value ? 'btn-secondary' : 'btn-ghost border border-base-300'}`}
+                  onClick={() => handleSelectOption(opt.value)}
+                  className="btn btn-sm btn-ghost border border-base-300 hover:btn-secondary"
                 >
                   {opt.label}
                 </button>
               ))}
-              {inputVal && (
-                <button onClick={handleConfirm} className="btn btn-sm btn-secondary ml-auto">
-                  Confirmar →
-                </button>
-              )}
             </div>
           ) : (
             <div className="flex gap-2">
@@ -290,11 +302,11 @@ export default function CalculadoraMetrajesVentasPage() {
                 step={cfg.step ?? 'any'}
                 value={inputVal}
                 onChange={e => setInputVal(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+                onKeyDown={e => e.key === 'Enter' && handleConfirmNumber()}
                 autoFocus
               />
               <button
-                onClick={handleConfirm}
+                onClick={handleConfirmNumber}
                 disabled={!inputVal || parseFloat(inputVal) <= 0}
                 className="btn btn-sm btn-secondary"
               >
