@@ -4,7 +4,7 @@ import useSWR, { mutate } from 'swr';
 import Link from 'next/link';
 import { ArrowLeft, Download, Settings, Link2, Unlink, Zap } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
-import { toastError, toastSuccess } from '@/lib/toast';
+import { toastError, toast } from '@/lib/toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -135,7 +135,7 @@ export default function TarifasCorreasPage() {
       : ambiguas > 0
         ? `Sin cambios — ${ambiguas} referencia${ambiguas !== 1 ? 's' : ''} con lonas ambiguas, selecciona manualmente`
         : 'Todas las referencias ya estaban vinculadas o no tienen lonas definidas';
-    ok > 0 ? toastSuccess(msg) : toastError(msg);
+    ok > 0 ? toast(msg, 'success') : toastError(msg);
   };
 
   const handleExportPDF = () => {
