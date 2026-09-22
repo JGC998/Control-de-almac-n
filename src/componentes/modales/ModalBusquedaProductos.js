@@ -101,7 +101,7 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
                     </label>
                     <span className="ml-auto text-xs text-base-content/40">
                         {filtrados.length} resultado{filtrados.length !== 1 ? 's' : ''}
-                        {items.length > 0 && ` de ${items.length}`}
+                        {items.length > 0 && filtrados.length !== items.length && ` de ${items.length} en catálogo`}
                     </span>
                 </div>
 

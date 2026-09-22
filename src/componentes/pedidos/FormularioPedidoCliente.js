@@ -81,7 +81,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   const { data: margenes, error: margenesError } = useSWR(isMarginRequired ? '/api/pricing/margenes' : null);
   // FRONT-02: Carga lazy — solo se piden productos cuando el modal de búsqueda está abierto.
   // Evita cargar 500 productos en memoria en cada montaje del formulario.
-  const { data: todosProductos } = useSWR(productSearchState.isOpen ? '/api/productos?limit=200' : null);
+  const { data: todosProductos } = useSWR(productSearchState.isOpen ? '/api/productos?limit=500' : null);
   const { data: config } = useSWR('/api/config');
   const { data: tarifasCliente } = useSWR(clienteId ? `/api/tarifas-cliente?clienteId=${clienteId}` : null);
 
@@ -184,7 +184,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       setItems(newItems);
     }
     setModalState(null);
-    mutate('/api/productos?limit=200');
+    mutate('/api/productos?limit=500');
   };
 
   const handleMetrajeAñadido = ({ descripcion, unidades, precioUnitario, pesoUnitario, detallesTecnicos }) => {
@@ -317,7 +317,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
       if (dup) { setIsBandaCatalogoOpen(false); setBandaPendiente({ item: newItem, duplicadoDesc: dup.descripcion }); return; }
       addItemSmart(newItem);
     } else {
-      setItems(prev => [...prev, {
+      addItemSmart({
         id: Date.now() + Math.random(),
         descripcion: product.nombre,
         quantity: 1,
@@ -325,7 +325,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         productoId: product.id,
         producto: product,
         pesoUnitario: product.pesoUnitario || 0,
-      }]);
+      });
     }
     setIsBandaCatalogoOpen(false);
   };
