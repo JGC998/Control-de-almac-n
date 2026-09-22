@@ -12,9 +12,9 @@ export async function PUT(request, { params }) {
       where: { id },
       data: {
         referencia: data.referencia ?? data.nombre,
-        ancho: data.ancho != null && data.ancho !== '' && !isNaN(parseFloat(data.ancho)) ? parseFloat(data.ancho) : null,
-        lonas: data.lonas != null && data.lonas !== '' && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null,
-        pesoPorMetroLineal: data.pesoPorMetroLineal != null && data.pesoPorMetroLineal !== '' && !isNaN(parseFloat(data.pesoPorMetroLineal)) ? parseFloat(data.pesoPorMetroLineal) : null,
+        ...(data.ancho !== undefined && { ancho: data.ancho != null && data.ancho !== '' && !isNaN(parseFloat(data.ancho)) ? parseFloat(data.ancho) : null }),
+        ...(data.lonas !== undefined && { lonas: data.lonas != null && data.lonas !== '' && !isNaN(parseInt(data.lonas, 10)) ? parseInt(data.lonas, 10) : null }),
+        ...(data.pesoPorMetroLineal !== undefined && { pesoPorMetroLineal: data.pesoPorMetroLineal != null && data.pesoPorMetroLineal !== '' && !isNaN(parseFloat(data.pesoPorMetroLineal)) ? parseFloat(data.pesoPorMetroLineal) : null }),
         ...(data.espesoreGoma !== undefined && { espesoreGoma: data.espesoreGoma != null && !isNaN(parseFloat(data.espesoreGoma)) ? parseFloat(data.espesoreGoma) : null }),
       },
     });
