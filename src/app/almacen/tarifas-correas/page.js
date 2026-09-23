@@ -217,7 +217,7 @@ export default function TarifasCorreasPage() {
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">Tarifas de correas</h1>
+          <h1 className="text-xl font-bold">Tarifa metrajes</h1>
           <p className="text-sm text-base-content/50">
             Vincula cada referencia a un espesor de GOMA para obtener el precio/m² y precio/m lineal automáticamente.
           </p>
