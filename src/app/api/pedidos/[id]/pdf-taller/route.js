@@ -32,7 +32,7 @@ export async function GET(request, { params }) {
         db.config.findUnique({ where: { key: 'iva_rate' } }),
       ]);
       margenRule = regla;
-      if (ivaConfig) ivaRate = parseFloat(ivaConfig.value) / 100;
+      if (ivaConfig) { const raw = parseFloat(ivaConfig.value); ivaRate = raw > 1 ? raw / 100 : raw; }
     }
 
     const pdfBuffer = await generateTallerPDF(order, { valorado, pedidoUrl, margenRule, ivaRate });

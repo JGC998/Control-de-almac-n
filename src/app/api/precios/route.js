@@ -123,7 +123,7 @@ export async function PUT(request) {
 
     // Registrar en historial si el precio base cambió
     if (nuevoPrecio != null && nuevoPrecio !== tarifaAnterior?.precio) {
-      db.tarifaVentaHistorial.create({
+      await db.tarifaVentaHistorial.create({
         data: {
           material: updatedTarifa.material,
           espesor:  updatedTarifa.espesor,

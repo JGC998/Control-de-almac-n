@@ -86,6 +86,7 @@ export async function POST(request) {
       calculatedItems.push({
         ...item,
         unitPrice: parseFloat(precioFinal.toFixed(2)),
+        finalPrice: parseFloat(precioFinal.toFixed(2)),
       });
     }
 

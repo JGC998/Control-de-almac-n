@@ -119,7 +119,8 @@ export async function sincronizarSesion(sesion) {
       return { ok: false, razon: err.error || `Error ${res.status}` };
     }
 
-    const data = await res.json();
+    const data = await res.json().catch(() => null);
+    if (!data?.id) return { ok: false, razon: 'Respuesta inesperada del servidor' };
     const actualizada = { ...sesion, realId: data.id, pendientes: 0 };
     await guardarSesion(actualizada);
     return { ok: true, sesion: actualizada };

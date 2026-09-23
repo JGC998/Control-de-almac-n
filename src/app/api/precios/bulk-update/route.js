@@ -39,12 +39,14 @@ export async function POST(request) {
     const BATCH = 100;
     for (let i = 0; i < tarifas.length; i += BATCH) {
       await db.$transaction(
-        tarifas.slice(i, i + BATCH).map(t =>
-          db.tarifaMaterial.update({
-            where: { id: t.id },
-            data: { precio: Number((Number(t.precio) * factor).toFixed(4)) },
-          })
-        )
+        tarifas.slice(i, i + BATCH)
+          .filter(t => t.precio != null)
+          .map(t =>
+            db.tarifaMaterial.update({
+              where: { id: t.id },
+              data: { precio: Number((Number(t.precio) * factor).toFixed(4)) },
+            })
+          )
       );
     }
 

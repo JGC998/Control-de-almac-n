@@ -9,18 +9,21 @@ const MARGENES_TTL = 5 * 60 * 1000; // 5 minutos
 let _margenesCache = null;
 let _margenesCacheTs = 0;
 let _margenesPromise = null;
+let _margenesGen = 0; // evita que un fetch en vuelo sobreescriba una invalidación posterior
 
 export async function getMargenes() {
   const now = Date.now();
   if (_margenesCache && now - _margenesCacheTs < MARGENES_TTL) return _margenesCache;
   if (_margenesPromise) return _margenesPromise;
+  const gen = ++_margenesGen;
   _margenesPromise = db.reglaMargen.findMany().then(data => {
-    _margenesCache = data;
-    _margenesCacheTs = Date.now();
+    if (gen === _margenesGen) {
+      _margenesCache = data;
+      _margenesCacheTs = Date.now();
+    }
     _margenesPromise = null;
     return data;
   }).catch(e => {
-    // Limpiar la promesa para que el próximo intento reintente la query
     _margenesPromise = null;
     throw e;
   });
@@ -30,6 +33,7 @@ export async function getMargenes() {
 export function clearMargenesCache() {
   _margenesCache = null;
   _margenesCacheTs = 0;
+  _margenesGen++;
 }
 
 // ── Caché del coste de vulcanizado (costeVulcanizadoMetro) ──────────────

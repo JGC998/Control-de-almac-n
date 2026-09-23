@@ -11,7 +11,8 @@ import { logApiError } from '@/lib/logger';
 export async function actualizarPrecioGrapas(bovinasRaw, totalBobinasEUR, gastosRepercutibles, tasaCambio, importacionId) {
   const bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
   const grapas = (bobinas ?? []).filter(b =>
-    b.tipo === 'GRAPA' && (b.referencia || b.modeloGrapaId) && parseFloat(b.paresPorCaja) > 0 && parseFloat(b.ancho) > 0
+    b.tipo === 'GRAPA' && (b.referencia || b.modeloGrapaId) &&
+    parseFloat(b.paresPorCaja) > 0 && parseFloat(b.ancho) > 0 && parseFloat(b.numRollos) > 0
   );
   if (grapas.length === 0) return;
 
@@ -22,7 +23,7 @@ export async function actualizarPrecioGrapas(bovinasRaw, totalBobinasEUR, gastos
   for (const b of grapas) {
     try {
       const precio     = parseFloat(b.precio)        || 0;
-      const numCajas   = Math.max(parseFloat(b.numRollos)    || 1, 1);
+      const numCajas   = Math.max(parseFloat(b.numRollos), 1);
       const paresPorCaja = Math.round(parseFloat(b.paresPorCaja));
       const anchoPar     = Math.round(parseFloat(b.ancho));
 

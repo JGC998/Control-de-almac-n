@@ -36,17 +36,33 @@ export async function PUT(request, { params }) {
     }
 
     const anterior = await db.tarifaMaterial.findUnique({ where: { id } });
-    const updatedItem = await db.tarifaMaterial.update({
-      where: { id },
-      data: {
-        material: material.nombre,
-        espesor: validation.data.espesor,
-        precio: validation.data.precio,
-        peso: validation.data.peso,
-        color: validation.data.color,
-        lonas: validation.data.lonas,
-        acabado: validation.data.acabado,
-      },
+    const nuevoPrecio = validation.data.precio;
+    const updatedItem = await db.$transaction(async (tx) => {
+      const tarifa = await tx.tarifaMaterial.update({
+        where: { id },
+        data: {
+          material: material.nombre,
+          espesor: validation.data.espesor,
+          precio: nuevoPrecio,
+          peso: validation.data.peso,
+          color: validation.data.color,
+          lonas: validation.data.lonas,
+          acabado: validation.data.acabado,
+        },
+      });
+      if (nuevoPrecio != null && nuevoPrecio !== anterior?.precio) {
+        const rollos = await tx.tarifaRollo.findMany({
+          where: { material: tarifa.material, espesor: tarifa.espesor },
+        });
+        await Promise.all(rollos.map(r => {
+          if (!r.ancho) return Promise.resolve();
+          return tx.tarifaRollo.update({
+            where: { id: r.id },
+            data: { precioBase: nuevoPrecio * (r.ancho / 1000) * r.metrajeMinimo },
+          });
+        }));
+      }
+      return tarifa;
     });
     logUpdate('TarifaMaterial', id, anterior, updatedItem, 'Admin').catch(() => {});
     return NextResponse.json(updatedItem);

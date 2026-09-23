@@ -12,12 +12,16 @@ export async function GET(request, { params }) {
     const doceAtras = new Date();
     doceAtras.setMonth(doceAtras.getMonth() - 12);
 
-    const [cliente, pedidos, presupuestos, margenes, totalAgg, numPedidosTotal, numPresupuestosTotal, pedidosItems] = await Promise.all([
+    const [cliente, pedidos, pedidosMensuales, presupuestos, margenes, totalAgg, numPedidosTotal, numPresupuestosTotal, pedidosItems] = await Promise.all([
       db.cliente.findUnique({ where: { id } }),
       db.pedido.findMany({
         where: { clienteId: id },
         orderBy: { fechaCreacion: 'desc' },
         take: 50,
+      }),
+      db.pedido.findMany({
+        where: { clienteId: id, estado: { notIn: ['Cancelado', 'Borrador'] }, fechaCreacion: { gte: doceAtras } },
+        select: { total: true, fechaCreacion: true, estado: true },
       }),
       db.presupuesto.findMany({
         where: { clienteId: id },
@@ -68,9 +72,8 @@ export async function GET(request, { params }) {
       d.setMonth(d.getMonth() - i);
       const añoMes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label  = d.toLocaleString('es-ES', { month: 'short', year: '2-digit' });
-      const total  = pedidos
+      const total  = pedidosMensuales
         .filter(p => {
-          if (['Cancelado', 'Borrador'].includes(p.estado)) return false;
           const fm = new Date(p.fechaCreacion);
           return `${fm.getFullYear()}-${String(fm.getMonth() + 1).padStart(2, '0')}` === añoMes;
         })

@@ -628,8 +628,9 @@ function GestionTarifasRollo({ margenes }) {
     setSaving(true);
     setMessage(null);
     try {
-      await Promise.all(
-        Object.entries(editedData).map(([id, changes]) => {
+      const entries = Object.entries(editedData);
+      const results = await Promise.allSettled(
+        entries.map(([id, changes]) => {
           const payload = { ...changes };
           if ('ancho' in payload) {
             payload.ancho = payload.ancho !== '' ? parseFloat(payload.ancho) : null;
@@ -638,12 +639,19 @@ function GestionTarifasRollo({ margenes }) {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-          }).then(r => { if (!r.ok) throw new Error(); });
+          }).then(r => { if (!r.ok) throw new Error(); return id; });
         })
       );
-      setEditedData({});
-      setMessage({ type: 'success', text: 'Cambios guardados correctamente' });
-      mutate('/api/tarifas-rollo');
+      const okIds = results.flatMap((r, i) => r.status === 'fulfilled' ? [entries[i][0]] : []);
+      const failCount = results.filter(r => r.status === 'rejected').length;
+      setEditedData(prev => {
+        const next = { ...prev };
+        okIds.forEach(id => delete next[id]);
+        return next;
+      });
+      await mutate('/api/tarifas-rollo');
+      if (failCount > 0) setMessage({ type: 'error', text: `${failCount} fila(s) no se pudieron guardar` });
+      else setMessage({ type: 'success', text: 'Cambios guardados correctamente' });
     } catch {
       setMessage({ type: 'error', text: 'Error al guardar los cambios' });
     } finally {

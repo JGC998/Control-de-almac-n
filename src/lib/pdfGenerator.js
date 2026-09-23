@@ -714,8 +714,8 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         // Pre-cálculo del margen para la versión valorada
         const multiplicador = margenRule?.multiplicador ?? 1;
         const gastoFijoTotal = margenRule?.gastoFijo ?? 0;
-        const totalUnidades = (order.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
-        const gastoFijoUnitario = totalUnidades > 0 ? gastoFijoTotal / totalUnidades : 0;
+        const totalUnidades = (order.items || []).filter(i => i.productoId).reduce((sum, i) => sum + (i.quantity || 0), 0) || 1;
+        const gastoFijoUnitario = gastoFijoTotal / totalUnidades;
 
         // Helpers para columnas técnicas del producto
         const dash = '—';

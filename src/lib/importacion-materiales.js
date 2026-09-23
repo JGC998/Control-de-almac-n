@@ -16,7 +16,7 @@ const n = (v) => parseFloat(v) || 0;
 export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, gastosRepercutibles, tasaCambio, importacionId = null) {
   const bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
   const candidatas = (bobinas ?? []).filter(b =>
-    b.tipo === 'BOBINA' && b.tarifaMaterialId && n(b.ancho) > 0 && n(b.longitud) > 0
+    b.tipo === 'BOBINA' && b.tarifaMaterialId && n(b.ancho) > 0 && n(b.longitud) > 0 && n(b.numRollos) > 0
   );
   if (candidatas.length === 0) return;
 
@@ -26,7 +26,7 @@ export async function actualizarPrecioMateriales(bovinasRaw, totalBobinasEUR, ga
 
   const resultados = await Promise.allSettled(candidatas.map(async (b) => {
     const precio    = n(b.precio);
-    const numRollos = Math.max(n(b.numRollos), 1);
+    const numRollos = Math.max(n(b.numRollos), 0);
     const longitud  = n(b.longitud);
     const anchoM    = n(b.ancho) / 1000;
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logApiError } from '@/lib/logger';
+import { handlePrismaError } from '@/lib/manejadores-api';
 import { familiaSchema } from '@/lib/validations';
 import { revalidatePath } from 'next/cache';
 
@@ -31,7 +32,6 @@ export async function POST(request) {
     revalidatePath('/gestion/catalogos/familias');
     return NextResponse.json(familia, { status: 201 });
   } catch (error) {
-    logApiError(error, 'POST /api/familias');
-    return NextResponse.json({ message: 'Error al crear familia' }, { status: 500 });
+    return handlePrismaError(error, { conflict: 'Ya existe una familia con ese nombre.' });
   }
 }

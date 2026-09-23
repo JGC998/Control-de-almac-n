@@ -38,14 +38,17 @@ export async function POST(request, { params }) {
 
         const multiplicador = marginRule?.multiplicador || 1;
         const gastoFijoTotal = marginRule?.gastoFijo || 0;
-        const totalQuantity = (quote.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
-        const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
+        const totalQtyConProducto = (quote.items || []).filter(i => i.productoId).reduce((sum, i) => sum + (i.quantity || 0), 0) || 1;
+        const gastoFijoUnitarioProrrateado = gastoFijoTotal / totalQtyConProducto;
 
         const itemsCalculados = quote.items.map(item => ({
             ...item,
             unitPriceVenta: ((item.unitPrice || 0) * multiplicador) + gastoFijoUnitarioProrrateado,
             totalVentaItem: (((item.unitPrice || 0) * multiplicador) + gastoFijoUnitarioProrrateado) * (item.quantity || 0)
         }));
+
+        const subtotalVenta = itemsCalculados.reduce((sum, i) => sum + i.totalVentaItem, 0);
+        const totalVenta = parseFloat((subtotalVenta * (1 + ivaRate)).toFixed(2));
 
         const pdfBuffer = await generateBudgetPDF({ ...quote, items: itemsCalculados }, ivaRate);
         const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
@@ -57,7 +60,7 @@ export async function POST(request, { params }) {
             html: getPresupuestoTemplate({
                 clienteNombre: quote.cliente?.nombre || 'Cliente',
                 numero: quote.numero,
-                total: (quote.total || 0).toFixed(2)
+                total: totalVenta.toFixed(2)
             }),
             attachments: [
                 {

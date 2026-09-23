@@ -40,7 +40,7 @@ export async function POST(request) {
 
       // Actualización atómica para evitar TOCTOU (doble click / dos pestañas)
       const marcado = await tx.presupuesto.updateMany({
-        where: { id: presupuestoId, estado: { notIn: ['Aceptado', 'Rechazado', 'Cancelado'] } },
+        where: { id: presupuestoId, estado: { notIn: ['Rechazado', 'Cancelado'] } },
         data: { estado: 'Aceptado' },
       });
       if (marcado.count === 0) {

@@ -88,9 +88,8 @@ export async function POST(request) {
           data: { tipo: 'SALIDA', cantidad: -metrosADescontar, stockId },
         });
 
-        if (newMetros <= 0.01) {
-          await tx.stock.delete({ where: { id: stockId } });
-        }
+        // No borrar el stock: el movimiento recién creado tiene FK stockId.
+        // Dejar la fila con metrosDisponibles = 0 (stock exhausto visible en UI).
       });
 
       // N-05: Notificar si el stock resultante está por debajo del mínimo (incluso si fue borrado = 0 m)
@@ -129,6 +128,7 @@ export async function POST(request) {
             metrosDisponibles: parseFloat(data.metrosDisponibles),
             proveedorId: data.proveedor || null,
             cantidadBobinas: parseInt(data.cantidadBobinas, 10) || 1,
+            costoMetro: parseFloat(data.costoMetro) || 0,
           },
         });
         await tx.movimientoStock.create({

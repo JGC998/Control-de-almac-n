@@ -95,9 +95,9 @@ export default function TablaTarifasRollo() {
     doc.text(`Filtro: ${selectedMaterial}   ·   ${margenText}   ·   Impreso el ${fecha}`, 14, 23);
     const columns = ['Material', 'Espesor', 'Ancho', 'Color', 'Metros/rollo', '€/m² (tarifa)', 'Precio base rollo', 'Precio final rollo', 'Kilos/rollo'];
     const rows = filteredTarifas.map(t => {
-      const precioBase = t.precioM2 != null && t.ancho
+      const precioBase = (t.precioM2 != null && t.ancho
         ? t.precioM2 * (t.ancho / 1000) * t.metrajeMinimo
-        : t.precioBase;
+        : t.precioBase) ?? 0;
       const pf = precioBase * (selectedMargin?.multiplicador || 1);
       return [
         t.material, `${t.espesor} mm`, t.ancho ? `${t.ancho} mm` : '—', t.color || '—',
@@ -217,9 +217,9 @@ export default function TablaTarifasRollo() {
                 <tr><td colSpan={9} className="text-center py-8 text-base-content/40">Sin tarifas de rollo disponibles</td></tr>
               ) : filteredTarifas.map(t => {
                 // Precio base siempre calculado desde TarifaMaterial
-                const precioBase = t.precioM2 != null && t.ancho
+                const precioBase = (t.precioM2 != null && t.ancho
                   ? t.precioM2 * (t.ancho / 1000) * t.metrajeMinimo
-                  : t.precioBase;
+                  : t.precioBase) ?? 0;
                 const pf = precioBase * (selectedMargin?.multiplicador || 1);
                 const desincronizado = t.precioM2 != null && t.ancho && Math.abs(precioBase - t.precioBase) >= 0.01;
                 return (
