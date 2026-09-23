@@ -27,14 +27,16 @@ export default function ModalMetrajeMaterial({ isOpen, onClose, onAñadir }) {
     if (!isOpen) return;
     fetch('/api/tarifas-material-opciones')
       .then(r => r.json())
-      .then(d => setMateriales(d.materiales ?? []));
+      .then(d => setMateriales(d.materiales ?? []))
+      .catch(e => console.error('[ModalMetrajeMaterial] tarifas-material-opciones:', e));
     fetch('/api/materiales')
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d)) {
           materialesMapRef.current = Object.fromEntries(d.map(m => [m.nombre, m.id]));
         }
-      });
+      })
+      .catch(e => console.error('[ModalMetrajeMaterial] materiales:', e));
   }, [isOpen]);
 
   const resetCampos = () => {

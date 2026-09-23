@@ -13,7 +13,7 @@ export default function StockRollosPage() {
   const [filtroMaterial, setFiltroMaterial] = useState('');
 
   const selectedMargin = useMemo(
-    () => margenes?.find(m => m.id === selectedMarginId) ?? null,
+    () => margenes?.find(m => String(m.id) === selectedMarginId) ?? null,
     [margenes, selectedMarginId],
   );
 
@@ -167,7 +167,7 @@ export default function StockRollosPage() {
                       {formatCurrency(precioFinal)}
                     </td>
                     <td className="text-right font-mono text-sm">
-                      {Number(t.peso).toLocaleString('es-ES', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg
+                      {t.peso != null ? `${Number(t.peso).toLocaleString('es-ES', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg` : '—'}
                     </td>
                   </tr>
                 );

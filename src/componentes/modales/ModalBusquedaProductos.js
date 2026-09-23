@@ -7,7 +7,13 @@ export default function ModalBusquedaProductos({ abierto, alCerrar, alSelecciona
     const [busqueda, setBusqueda] = useState(busquedaInicial);
 
     useEffect(() => {
-        if (abierto) setBusqueda(busquedaInicial);
+        if (abierto) {
+            setBusqueda(busquedaInicial);
+            setFiltroMaterial('');
+            setFiltroEspesor('');
+            setFiltroAcabado('');
+            setSoloConPrecio(false);
+        }
     }, [abierto]); // eslint-disable-line react-hooks/exhaustive-deps
     const [filtroMaterial, setFiltroMaterial] = useState('');
     const [filtroEspesor, setFiltroEspesor]   = useState('');

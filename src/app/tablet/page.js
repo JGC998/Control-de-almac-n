@@ -674,7 +674,7 @@ function TabRecepcion() {
   // Finalizar y abrir en calculadora
   const handleFinalizar = () => {
     if (!sesion?.realId) return;
-    window.open(`/herramientas/calculadora-contenedor`, '_blank');
+    window.open(`/herramientas/calculadora-contenedor?cargar=${sesion.realId}`, '_blank');
   };
 
   // Borrar sesión local (con confirmación)

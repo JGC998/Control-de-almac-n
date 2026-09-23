@@ -98,7 +98,9 @@ export function crearManejadoresCRUD(modelName, options = {}, revalidationPath) 
         .catch(e => logApiError(e, 'Audit Log failed'));
 
       if (revalidationPath) revalidatePath(revalidationPath);
-      return NextResponse.json(newRecord, { status: 201 });
+      // SEC-09: costoUnitario nunca se expone en respuestas API
+      const { costoUnitario: _c, ...publicRecord } = newRecord;
+      return NextResponse.json(publicRecord, { status: 201 });
     } catch (e) {
       return manejarErrorApi(e);
     }

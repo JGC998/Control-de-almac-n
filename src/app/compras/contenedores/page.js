@@ -32,7 +32,7 @@ function TarjetaImportacion({ imp, onDelete }) {
   const numBobinas = contarBobinas(imp.bobinas);
 
   // Coste total aproximado: totalBobinasEUR (ya en EUR) + gastosRepercutibles
-  const costeEUR = (imp.totalBobinasEUR && imp.tasaCambio)
+  const costeEUR = (imp.totalBobinasEUR != null && imp.tasaCambio != null)
     ? imp.totalBobinasEUR * imp.tasaCambio + (imp.gastosRepercutibles || 0)
     : null;
 

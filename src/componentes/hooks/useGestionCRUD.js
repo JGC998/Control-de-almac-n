@@ -192,9 +192,17 @@ export function useGestionCRUD({
 
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
-                if (errorData.errors && Array.isArray(errorData.errors)) {
+                if (errorData.errors) {
                     const porCampo = {};
-                    errorData.errors.forEach(e => { if (e.field) porCampo[e.field] = e.message; });
+                    if (Array.isArray(errorData.errors)) {
+                        // formato [{field, message}]
+                        errorData.errors.forEach(e => { if (e.field) porCampo[e.field] = e.message; });
+                    } else if (typeof errorData.errors === 'object') {
+                        // formato Zod flatten: { fieldName: string[] }
+                        Object.entries(errorData.errors).forEach(([field, msgs]) => {
+                            porCampo[field] = Array.isArray(msgs) ? msgs[0] : msgs;
+                        });
+                    }
                     setErroresCampos(porCampo);
                 }
                 throw new Error(errorData.message || `Error al ${esEdicion ? 'actualizar' : 'crear'}`);

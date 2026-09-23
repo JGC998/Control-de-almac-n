@@ -54,6 +54,9 @@ export default function ModalConfiguracionTacos({ isOpen, onClose, onConfirm, an
 
         // Cantidad de tacos = largo de banda / paso
         const cantidadTacos = Math.floor(largoMm / pasoMm);
+        if (cantidadTacos === 0) {
+            return { isValid: false, errorMessage: 'El paso entre tacos supera el largo de la banda' };
+        }
 
         // Metros lineales totales
         const metrosLineales = longitudTacoM * cantidadTacos;

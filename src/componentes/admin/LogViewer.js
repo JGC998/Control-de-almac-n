@@ -174,10 +174,10 @@ export default function LogViewer({ defaultEntity = '' }) {
                                     <td className="whitespace-nowrap">
                                         <div className="flex flex-col">
                                             <span className="font-medium">
-                                                {format(new Date(log.createdAt), 'dd MMM yyyy', { locale: es })}
+                                                {log.createdAt ? format(new Date(log.createdAt), 'dd MMM yyyy', { locale: es }) : '—'}
                                             </span>
                                             <span className="text-xs text-gray-500">
-                                                {format(new Date(log.createdAt), 'HH:mm:ss')}
+                                                {log.createdAt ? format(new Date(log.createdAt), 'HH:mm:ss') : ''}
                                             </span>
                                         </div>
                                     </td>

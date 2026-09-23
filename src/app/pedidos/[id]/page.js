@@ -208,7 +208,7 @@ export default function PedidoDetalle() {
         const errData = await res.json();
         throw new Error(errData.message || 'Error al actualizar estado');
       }
-      mutate(`/api/pedidos/${id}`);
+      mutate();
     } catch (err) {
       setError(err.message);
     }
@@ -223,7 +223,7 @@ export default function PedidoDetalle() {
         body: JSON.stringify({ sinFacturacion: nuevoValor }),
       });
       if (!res.ok) throw new Error('Error al actualizar');
-      mutate(`/api/pedidos/${id}`);
+      mutate();
       toast(nuevoValor ? 'Pedido marcado como sin facturación' : 'Pedido marcado para facturación normal', nuevoValor ? 'info' : 'success');
     } catch (err) {
       setError(err.message);

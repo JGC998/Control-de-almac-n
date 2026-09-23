@@ -115,8 +115,9 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   };
 
   const handleBobinaChange = (index, field, value) => {
-    const newBobinas = [...formData.bobinas];
-    newBobinas[index][field] = value;
+    const newBobinas = formData.bobinas.map((b, i) =>
+      i === index ? { ...b, [field]: value } : b
+    );
     setFormData(prev => ({ ...prev, bobinas: newBobinas }));
   };
 

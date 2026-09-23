@@ -55,7 +55,7 @@ export default function EditorItem({
     };
 
     // Calcular subtotal si tiene quantity y unitPrice
-    const subtotal = item.quantity && item.unitPrice
+    const subtotal = item.quantity != null && item.quantity !== '' && item.unitPrice != null && item.unitPrice !== ''
         ? (Number(item.quantity) * Number(item.unitPrice)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : null;
 

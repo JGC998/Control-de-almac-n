@@ -33,7 +33,7 @@ const PedidoCard = ({ pedido, onReceive, onDelete, onViewDetails }) => {
     const gastos = parseFloat(pedido.gastosTotales) || 0;
     const valorTotalMercanciaEUR = pedido.bobinas.reduce((acc, b) => {
         const precioBaseEUR = (parseFloat(b.precioMetro) || 0) * (esImportacion ? tasa : 1);
-        return acc + precioBaseEUR * (parseFloat(b.largo) || 0);
+        return acc + precioBaseEUR * (parseFloat(b.largo) || 0) * (parseInt(b.cantidad) || 1);
     }, 0);
     const calcularCostoFinalMetro = (bobina) => {
         const metrosTotales = (parseFloat(bobina.largo) || 0) * (parseInt(bobina.cantidad) || 1);

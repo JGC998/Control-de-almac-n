@@ -80,7 +80,7 @@ function calcularItems(bobs, tc) {
 
 function comparar(contenedor) {
   const tc     = n(contenedor.tasaCambio) || 1;
-  const gastos = n(contenedor.suplidos) + n(contenedor.exentos);
+  const gastos = n(contenedor.sujetos) + n(contenedor.exentos) + (n(contenedor.suplidos) - n(contenedor.ivaAduana ?? 0));
 
   const rawBobs = typeof contenedor.bobinas === 'string'
     ? JSON.parse(contenedor.bobinas)

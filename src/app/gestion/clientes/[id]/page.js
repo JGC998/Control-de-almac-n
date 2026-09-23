@@ -36,7 +36,8 @@ function SeccionTarifas({ clienteId }) {
 
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar esta tarifa?')) return;
-    await fetch(`/api/tarifas-cliente?id=${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/tarifas-cliente?id=${id}`, { method: 'DELETE' });
+    if (!res.ok) { setError((await res.json().catch(() => ({}))).error || 'Error al eliminar'); return; }
     mutate();
   };
 

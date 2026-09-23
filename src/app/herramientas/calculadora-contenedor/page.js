@@ -695,9 +695,9 @@ function CalculadoraContenedorPage() {
       setNextId(bobs.length + 1);
       // BUG-05: los borradores tienen tasaCambio=0 — usar el default en lugar de cero
       setTasaCambio(imp.tasaCambio > 0 ? String(imp.tasaCambio) : '0.9300');
-      setSuplidos(String(imp.suplidos));
-      setExentos(String(imp.exentos));
-      setSujetos(String(imp.sujetos));
+      setSuplidos(String(imp.suplidos ?? 0));
+      setExentos(String(imp.exentos ?? 0));
+      setSujetos(String(imp.sujetos ?? 0));
       setIvaAduana(String(imp.ivaAduana ?? 0));
       setPesoTotalKg(imp.pesoTotalKg > 0 ? String(imp.pesoTotalKg) : '');
       setVolumenM3(imp.volumenM3 > 0 ? String(imp.volumenM3) : '');

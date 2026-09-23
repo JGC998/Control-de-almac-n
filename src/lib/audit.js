@@ -93,7 +93,8 @@ function getChanges(oldData, newData) {
     if (!oldData || !newData) return null;
 
     const changes = {};
-    Object.keys(newData).forEach(key => {
+    const allKeys = new Set([...Object.keys(oldData), ...Object.keys(newData)]);
+    allKeys.forEach(key => {
         if (JSON.stringify(oldData[key]) !== JSON.stringify(newData[key])) {
             changes[key] = {
                 from: oldData[key],

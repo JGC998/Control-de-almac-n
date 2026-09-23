@@ -153,7 +153,7 @@ export default function BusquedaGlobal({ open, onClose }) {
             </div>
           )}
 
-          {!isLoading && !searchError && query.length >= 2 && !hayResultados && (
+          {!isLoading && !searchError && debouncedQuery.length >= 2 && !hayResultados && (
             <div className="py-10 text-center text-base-content/40 text-sm">
               Sin resultados para <span className="font-medium text-base-content/70">&quot;{query}&quot;</span>
             </div>

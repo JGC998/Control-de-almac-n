@@ -20,9 +20,10 @@ function parsearEtiqueta(texto) {
   // Compactar dígitos consecutivos separados solo por espacios es arriesgado
   // porque puede unir cosas que no deben unirse. Usamos el texto original
   // para la lógica de líneas y un texto pre-procesado para los regex numéricos.
-  const textoNum = texto
-    .replace(/(\d)\s+(\d)/g, '$1$2')       // "1 5 0" → "150"
-    .replace(/(\d)\s*[,]\s*(\d)/g, '$1.$2'); // "1,5" → "1.5"
+  // Aplicar en bucle para compactar "1 5 0 0" correctamente (g no re-scanea)
+  let textoNum = texto.replace(/(\d)\s*[,]\s*(\d)/g, '$1.$2');
+  let _prev;
+  do { _prev = textoNum; textoNum = textoNum.replace(/(\d)\s+(\d)/g, '$1$2'); } while (textoNum !== _prev);
 
   // Metros lineales: "500m", "500 m", "500LM", "500 ML", "500metros"
   // Excluir "mm" (dos m consecutivas)

@@ -157,11 +157,14 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     if (index === null) return;
 
     const newItems = [...items];
-    newItems[index].descripcion = product.nombre;
-    newItems[index].productoId = product.id;
-    newItems[index].unitPrice = parseFloat(product.precioUnitario) || 0;
-    newItems[index].costoUnitario = parseFloat(product.costoUnitario) || 0;
-    newItems[index].producto = product;
+    newItems[index] = {
+      ...newItems[index],
+      descripcion: product.nombre,
+      productoId: product.id,
+      unitPrice: parseFloat(product.precioUnitario) || 0,
+      costoUnitario: parseFloat(product.costoUnitario) || 0,
+      producto: product,
+    };
 
     setItems(newItems);
     setProductSearchState({ isOpen: false, rowIndex: null, initialSearch: '' });
@@ -177,10 +180,13 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
     const index = items.findIndex(item => item.id === modalState.itemId);
     if (index !== -1) {
       const newItems = [...items];
-      newItems[index].descripcion = newProduct.nombre;
-      newItems[index].productoId = newProduct.id;
-      newItems[index].unitPrice = parseFloat(newProduct.precioUnitario) || 0;
-      newItems[index].producto = newProduct;
+      newItems[index] = {
+        ...newItems[index],
+        descripcion: newProduct.nombre,
+        productoId: newProduct.id,
+        unitPrice: parseFloat(newProduct.precioUnitario) || 0,
+        producto: newProduct,
+      };
       setItems(newItems);
     }
     setModalState(null);

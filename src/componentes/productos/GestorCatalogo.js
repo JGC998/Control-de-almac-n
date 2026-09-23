@@ -27,7 +27,7 @@ export default function GestorCatalogo({ title, endpoint, columns, initialForm }
     if (item) {
       const editData = {};
       Object.keys(initialForm).forEach(key => {
-        editData[key] = item[key] || initialForm[key];
+        editData[key] = item[key] ?? initialForm[key];
       });
       // Lógica para manejar referencias de bobina (nombre = referencia)
       if (item.referencia) {

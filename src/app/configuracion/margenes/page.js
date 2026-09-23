@@ -553,7 +553,7 @@ function GestionTarifasRollo({ margenes }) {
   const [loadingM2, setLoadingM2] = useState(false);
 
   const selectedMargin = useMemo(
-    () => margenes?.find(m => m.id === selectedMarginId) || null,
+    () => margenes?.find(m => String(m.id) === selectedMarginId) || null,
     [margenes, selectedMarginId]
   );
 
