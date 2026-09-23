@@ -38,16 +38,22 @@ export async function POST(request) {
   try {
     const data = await request.json();
     const refValue = data.referencia || data.nombre;
-    if (!refValue) {
-      return NextResponse.json({ error: 'El nombre de la Referencia de Bobina es requerido.' }, { status: 400 });
+    const parsed = refSchema.safeParse({
+      referencia: refValue,
+      ancho: data.ancho,
+      lonas: data.lonas,
+      pesoPorMetroLineal: data.pesoPorMetroLineal,
+    });
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     }
 
     const newRef = await db.referenciaBobina.create({
       data: {
-        referencia: refValue,
-        ancho: getSafeNumber(data.ancho),
-        lonas: getSafeNumber(data.lonas),
-        pesoPorMetroLineal: getSafeNumber(data.pesoPorMetroLineal),
+        referencia: parsed.data.referencia,
+        ancho: parsed.data.ancho ?? null,
+        lonas: parsed.data.lonas ?? null,
+        pesoPorMetroLineal: parsed.data.pesoPorMetroLineal ?? null,
       },
     });
     return NextResponse.json(newRef, { status: 201 });

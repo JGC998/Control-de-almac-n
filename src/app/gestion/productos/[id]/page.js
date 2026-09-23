@@ -436,7 +436,7 @@ export default function ProductoDetallePage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <div className="text-xs text-base-content/60 uppercase font-bold tracking-wider">Precio</div>
-                <div className="text-3xl sm:text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario))} €</div>
+                <div className="text-3xl sm:text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario ?? 0))} €</div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <a
@@ -521,7 +521,7 @@ export default function ProductoDetallePage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 content-start">
-              <InfoCard title="Precio Unitario" value={formatValue(parseFloat(producto.precioUnitario))} unit="€" icon={DollarSign} />
+              <InfoCard title="Precio Unitario" value={formatValue(parseFloat(producto.precioUnitario ?? 0))} unit="€" icon={DollarSign} />
               <InfoCard title="Peso Unitario" value={formatValue(parseFloat(producto.pesoUnitario ?? 0))} unit="kg" icon={List} />
             </div>
           </div>

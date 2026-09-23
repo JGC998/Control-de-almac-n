@@ -13,6 +13,8 @@ const grapaPatchSchema = z.object({
 export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
+    const numId = parseInt(id, 10);
+    if (isNaN(numId)) return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
     const body = await request.json();
     const parsed = grapaPatchSchema.safeParse(body);
     if (!parsed.success) {
@@ -20,7 +22,7 @@ export async function PATCH(request, { params }) {
     }
     const { nombre, fabricante, descripcion, precioMetro } = parsed.data;
     const updated = await db.grapa.update({
-      where: { id: parseInt(id) },
+      where: { id: numId },
       data: {
         ...(nombre !== undefined && { nombre: nombre.trim() }),
         ...(fabricante !== undefined && { fabricante: fabricante?.trim() || null }),
@@ -37,9 +39,14 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    await db.grapa.delete({ where: { id: parseInt(id) } });
+    const numId = parseInt(id, 10);
+    if (isNaN(numId)) return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
+    await db.grapa.delete({ where: { id: numId } });
     return NextResponse.json({ message: 'Grapa eliminada correctamente' });
   } catch (error) {
-    return handlePrismaError(error, { notFound: 'Grapa no encontrada' });
+    return handlePrismaError(error, {
+      notFound: 'Grapa no encontrada',
+      hasRelated: 'No se puede eliminar: la grapa está referenciada en pedidos o presupuestos',
+    });
   }
 }

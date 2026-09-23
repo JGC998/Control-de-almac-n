@@ -195,10 +195,13 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     setOpciones(prev => ({ ...prev, acabados: [], colores: [], lonasOpciones: [], tarifa: null, tarifas: [] }));
     setTarifaEncontrada(false);
     if (!espesor || !form.material) return;
+    let cancelled = false;
     setCargando(true);
     try {
       const r = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(form.material)}&espesor=${espesor}`);
+      if (cancelled) return;
       const d = await r.json();
+      if (cancelled) return;
       const tarifas  = d.tarifas ?? [];
       const acabados = d.acabados ?? [];
       const colores  = d.colores  ?? [];
@@ -218,10 +221,11 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       // Si hay colores sin acabados → mostrar selector de color (PVC)
       // Si hay lonas → mostrar selector de lonas (CARAMELO)
     } catch {
-      setError('No se pudieron cargar las tarifas para ese espesor.');
+      if (!cancelled) setError('No se pudieron cargar las tarifas para ese espesor.');
     } finally {
-      setCargando(false);
+      if (!cancelled) setCargando(false);
     }
+    return () => { cancelled = true; };
   }, [form.material]);
 
   // Acabado → filtra tarifas, obtiene colores, auto-aplica si solo hay una

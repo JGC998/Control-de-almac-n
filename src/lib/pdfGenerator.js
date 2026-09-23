@@ -238,7 +238,9 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
             .map(item => {
                 if (!item.detallesTecnicos) return null;
                 try {
-                    return { quantity: item.quantity, dt: JSON.parse(item.detallesTecnicos) };
+                    const dt = JSON.parse(item.detallesTecnicos);
+                    if (dt.tipo === 'metraje') return null;
+                    return { quantity: item.quantity, dt };
                 } catch { return null; }
             })
             .filter(Boolean);

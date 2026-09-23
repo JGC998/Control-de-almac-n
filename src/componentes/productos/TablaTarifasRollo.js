@@ -105,7 +105,7 @@ export default function TablaTarifasRollo() {
         t.precioM2 != null ? `${t.precioM2.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : '—',
         `${precioBase.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
         `${pf.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        `${t.peso.toLocaleString('es-ES', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`,
+        `${(t.peso ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`,
       ];
     });
     autoTable(doc, {

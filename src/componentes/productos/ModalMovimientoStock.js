@@ -35,12 +35,12 @@ export default function MovimientoStockModal({ stockId, materialNombre, onClose 
                     <tr key={mov.id} className="hover">
                       <td>{new Date(mov.fecha).toLocaleDateString('es-ES')}</td>
                       <td>
-                        <span className={`badge ${mov.tipo.toUpperCase().includes('ENTRADA') ? 'badge-success' : 'badge-error'}`}>
+                        <span className={`badge ${(mov.tipo ?? '').toUpperCase().includes('ENTRADA') ? 'badge-success' : 'badge-error'}`}>
                           {mov.tipo}
                         </span>
                       </td>
-                      <td className={`text-right font-bold ${mov.tipo.toUpperCase().includes('ENTRADA') ? 'text-success' : 'text-error'}`}>
-                        {mov.tipo.toUpperCase().includes('ENTRADA') ? '+' : '-'}{mov.cantidad.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m
+                      <td className={`text-right font-bold ${(mov.tipo ?? '').toUpperCase().includes('ENTRADA') ? 'text-success' : 'text-error'}`}>
+                        {(mov.tipo ?? '').toUpperCase().includes('ENTRADA') ? '+' : '-'}{mov.cantidad.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} m
                       </td>
                       <td className="text-xs italic opacity-70">{mov.referencia}</td>
                     </tr>

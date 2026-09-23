@@ -33,7 +33,7 @@ const ClientEditModal = ({ cliente, isOpen, onClose, onUpdate }) => {
         direccion: cliente.direccion || '',
       });
     }
-  }, [cliente]);
+  }, [cliente, isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

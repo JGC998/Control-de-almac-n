@@ -164,8 +164,13 @@ export default function BandasPVCPage() {
 
   const handleEliminar = async (id, nombre) => {
     if (!confirm(`¿Eliminar la banda "${nombre}"?`)) return;
-    await fetch(`/api/productos/${id}`, { method: 'DELETE' });
-    mutate('/api/productos?q=BANDA_PVC&limit=500');
+    try {
+      const res = await fetch(`/api/productos/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).message) || `Error ${res.status}`);
+      mutate('/api/productos?q=BANDA_PVC&limit=500');
+    } catch (e) {
+      alert(e.message || 'Error al eliminar la banda');
+    }
   };
 
   const hayFiltros = cascade.hayFiltrosActivos || busqueda.trim();

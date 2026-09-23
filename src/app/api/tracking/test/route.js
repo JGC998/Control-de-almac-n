@@ -44,7 +44,8 @@ export async function POST(request) {
     const scheduleBarco = nombreBarco ? await buscarScheduleBarco(nombreBarco).catch(() => null) : null;
 
     const mensaje     = formatearMensajeTracking(imp, tracking.ultimoEvento, tracking.eta, scheduleBarco);
-    const resultados  = await enviarWhatsApp(mensaje);
+    const _resultados = await enviarWhatsApp(mensaje);
+    const resultados  = Array.isArray(_resultados) ? _resultados : [];
     const ok          = resultados.some(r => r.ok);
 
     return NextResponse.json({

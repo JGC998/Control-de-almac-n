@@ -189,6 +189,7 @@ export default function ContenedorDetalle() {
   }, [imp?.id]);
 
   const handleActualizar = async () => {
+    if (actualizando) return;
     setActualizando(true);
     setErrorTracking(null);
     try {
@@ -273,11 +274,15 @@ export default function ContenedorDetalle() {
     if (!confirm('¿Marcar este contenedor como recibido? Se desactivará el tracking automático.')) return;
     setMarcandoRecibido(true);
     try {
-      await fetch(`/api/importaciones/${id}`, {
+      const res = await fetch(`/api/importaciones/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: 'RECIBIDO', trackingActivo: false }),
       });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || `Error ${res.status}`);
+      }
       mutate();
     } finally {
       setMarcandoRecibido(false);

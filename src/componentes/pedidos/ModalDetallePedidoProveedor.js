@@ -11,13 +11,13 @@ export default function PedidoProveedorDetalleModal({ pedido, onClose }) {
     const esImportacion = pedido.tipo === 'IMPORTACION';
 
     // 1. Calcular el valor total real de la mercancía (incluyendo cantidades)
-    const valorTotalMercanciaEUR = pedido.bobinas.reduce((acc, b) => {
+    const valorTotalMercanciaEUR = (pedido.bobinas ?? []).reduce((acc, b) => {
       const cantidad = parseInt(b.cantidad) || 1; // <--- AÑADIDO
       const precioBaseEUR = (b.precioMetro || 0) * (esImportacion ? tasa : 1);
       return acc + (precioBaseEUR * (b.largo || 0) * cantidad); // <--- AÑADIDO MULTIPLICADOR
     }, 0);
 
-    return pedido.bobinas.map(b => {
+    return (pedido.bobinas ?? []).map(b => {
       const metrosPorBobina = parseFloat(b.largo) || 0;
       const cantidad = parseInt(b.cantidad) || 1; // <--- AÑADIDO
       const totalMetrosLinea = metrosPorBobina * cantidad; // Metros totales de esta referencia
