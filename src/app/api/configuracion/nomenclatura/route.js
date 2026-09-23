@@ -17,7 +17,9 @@ export async function GET() {
   try {
     const row = await db.config.findUnique({ where: { key: CONFIG_KEY } });
     if (!row) return NextResponse.json(DEFAULT_NOMENCLATURA);
-    return NextResponse.json({ ...DEFAULT_NOMENCLATURA, ...JSON.parse(row.value) });
+    let parsed = {};
+    try { parsed = JSON.parse(row.value) || {}; } catch { /* usa defaults */ }
+    return NextResponse.json({ ...DEFAULT_NOMENCLATURA, ...parsed });
   } catch (error) {
     logApiError(error, 'GET /api/configuracion/nomenclatura');
     return NextResponse.json({ message: 'Error al obtener nomenclatura' }, { status: 500 });

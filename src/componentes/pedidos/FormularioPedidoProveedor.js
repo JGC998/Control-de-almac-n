@@ -49,7 +49,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       numeroContenedor: data.numeroContenedor || '',
       naviera: data.naviera || '',
       fechaLlegadaEstimada: data.fechaLlegadaEstimada ? new Date(data.fechaLlegadaEstimada) : null,
-      bobinas: data.bobinas.map(b => ({
+      bobinas: (data.bobinas ?? []).map(b => ({
         ...b,
         referenciaId: b.referenciaId || '',
         referenciaNombre: b.referencia?.referencia || b.referencia?.nombre || '',
@@ -232,6 +232,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
       router.push('/proveedores');
     } catch (err) {
       setError(err.message);
+    } finally {
       setIsLoading(false);
     }
   };

@@ -1,10 +1,14 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { X, Search, Plus, ArrowRight } from 'lucide-react';
 import { formatarProducto, generarCodigo } from '@/lib/producto-utils';
 
 export default function ModalBusquedaProductos({ abierto, alCerrar, alSeleccionar, alCrearNuevo, items = [], busquedaInicial = '' }) {
     const [busqueda, setBusqueda] = useState(busquedaInicial);
+
+    useEffect(() => {
+        if (abierto) setBusqueda(busquedaInicial);
+    }, [abierto]); // eslint-disable-line react-hooks/exhaustive-deps
     const [filtroMaterial, setFiltroMaterial] = useState('');
     const [filtroEspesor, setFiltroEspesor]   = useState('');
     const [filtroAcabado, setFiltroAcabado]   = useState('');

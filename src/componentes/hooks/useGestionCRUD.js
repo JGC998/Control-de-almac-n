@@ -123,12 +123,14 @@ export function useGestionCRUD({
             ? transformarParaEditar(entidad)
             : { ...camposIniciales };
 
-        // Mapear campos de la entidad al formulario
-        Object.keys(camposIniciales).forEach(clave => {
-            if (entidad[clave] !== undefined) {
-                datosFormulario[clave] = entidad[clave] ?? '';
-            }
-        });
+        // Mapear campos solo cuando no hay transformación personalizada
+        if (!transformarParaEditar) {
+            Object.keys(camposIniciales).forEach(clave => {
+                if (entidad[clave] !== undefined) {
+                    datosFormulario[clave] = entidad[clave] ?? '';
+                }
+            });
+        }
 
         setFormData(datosFormulario);
         setIsModalOpen(true);

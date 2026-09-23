@@ -19,7 +19,10 @@ function VinculoCell({ row, tarifasGoma, guardandoRef }) {
   const [guardando, setGuardando] = useState(false);
 
   const handleChange = async (valor) => {
-    if (guardandoRef.current) return;
+    if (guardandoRef.current) {
+      toastError('Espera a que termine de guardarse el cambio anterior');
+      return;
+    }
     guardandoRef.current = true;
     setGuardando(true);
     const espesor = valor === '' ? null : parseFloat(valor);
