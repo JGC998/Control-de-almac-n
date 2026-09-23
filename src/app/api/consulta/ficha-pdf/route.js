@@ -88,8 +88,8 @@ export async function POST(request) {
 
     if (tipo === 'calculo' || tipo === 'calculo_banda') {
       const { dims, ancho, largo, area_m2, material, espesor, conf } = datos;
-      const ancho_mm = ancho ?? (dims ? String(dims).split(/[x×]/i)[0] : null);
-      const largo_mm = largo ?? (dims ? String(dims).split(/[x×]/i)[1] : null);
+      const ancho_mm = ancho ?? dims?.ancho ?? null;
+      const largo_mm = largo ?? dims?.largo ?? null;
 
       if (ancho_mm) filas.push(['Ancho', `${fmtN(ancho_mm, 0)} mm`]);
       if (largo_mm) filas.push(['Largo', `${fmtN(largo_mm, 0)} mm`]);

@@ -22,9 +22,14 @@ export async function GET() {
     const settingsList = await db.config.findMany({
       where: { key: { in: ALLOWED_CONFIG_KEYS } },
     });
+    const NUMERIC_CONFIG_KEYS = new Set(['iva_rate', 'longitud_barra_tacos', 'costeVulcanizadoMetro']);
     const configObject = settingsList.reduce((acc, setting) => {
-      const numValue = parseFloat(setting.value);
-      acc[setting.key] = isNaN(numValue) ? setting.value : numValue;
+      if (NUMERIC_CONFIG_KEYS.has(setting.key)) {
+        const numValue = parseFloat(setting.value);
+        acc[setting.key] = isNaN(numValue) ? setting.value : numValue;
+      } else {
+        acc[setting.key] = setting.value;
+      }
       return acc;
     }, {});
     return NextResponse.json(configObject);

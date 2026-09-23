@@ -29,21 +29,22 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ message: 'Documento no encontrado' }, { status: 404 });
     }
 
-    // 2. Eliminar el registro de la base de datos
-    await db.documento.delete({
-      where: { id: id },
-    });
-
-    // 3. Eliminar el archivo físico del disco (si existe)
+    // 2. Validar ruta ANTES de eliminar de BD (evitar estado inconsistente)
     if (documento.rutaArchivo) {
-      // La ruta se guarda como /planos/nombre.pdf, necesitamos el path completo.
       const filePath = path.join(process.cwd(), 'public', documento.rutaArchivo);
-      // SEC — Prevenir path traversal: verificar que la ruta resultante está dentro de /public/planos/
       const allowedBase = path.join(process.cwd(), 'public', 'planos');
       if (!filePath.startsWith(allowedBase) || documento.rutaArchivo.includes('..')) {
         logApiError(new Error(`Path traversal bloqueado: ${documento.rutaArchivo}`), 'DOC-DELETE');
         return NextResponse.json({ message: 'Ruta de archivo inválida' }, { status: 400 });
       }
+    }
+
+    // 3. Eliminar registro de BD
+    await db.documento.delete({ where: { id: id } });
+
+    // 4. Eliminar archivo físico (si existe)
+    if (documento.rutaArchivo) {
+      const filePath = path.join(process.cwd(), 'public', documento.rutaArchivo);
       try {
         await fs.unlink(filePath);
 

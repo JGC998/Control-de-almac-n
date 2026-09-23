@@ -84,8 +84,10 @@ export async function POST(request) {
         // Solo el código/nombre del puerto — sin fecha, para que ETA→ATA no dispare un segundo mensaje
         const clavePos         = posicionActual ? (posicionActual.portCode ?? posicionActual.puerto) : null;
         // Al transbordo reseteamos ultimaPosicionBarco para empezar fresco con el nuevo barco
-        const posAnterior      = hayTransbordo ? null : imp.ultimaPosicionBarco;
-        const hayNuevaPosicion = clavePos && clavePos !== posAnterior;
+        // Normalizar: refresh-positions guarda JSON, comparar solo el código de puerto
+        const _storedPos = (() => { try { return JSON.parse(imp.ultimaPosicionBarco); } catch { return null; } })();
+        const posAnteriorCode = hayTransbordo ? null : (_storedPos?.portCode ?? _storedPos?.puerto ?? imp.ultimaPosicionBarco);
+        const hayNuevaPosicion = clavePos && clavePos !== posAnteriorCode;
 
         await db.importacionContenedor.update({
           where: { id: imp.id },
@@ -98,7 +100,7 @@ export async function POST(request) {
             ...(tracking.eta        && { etaEstimada: new Date(tracking.eta) }),
             // No sobreescribir nombre manual del usuario con el código corto extraído
             ...(nombreBarcoNuevo && !esNombreManual && { nombreBarco: nombreBarcoNuevo }),
-            ...(clavePos            && { ultimaPosicionBarco: clavePos }),
+            ...(clavePos            && { ultimaPosicionBarco: JSON.stringify({ portCode: clavePos, at: ahora.toISOString() }) }),
           },
         });
 

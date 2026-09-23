@@ -38,6 +38,10 @@ export async function PUT(request) {
       select: { costePale: true, costeFilm: true, costeFleje: true, costePrecinto: true },
     });
 
+    if (!oldConfig) {
+      return NextResponse.json({ error: `Tipo "${tipo}" no encontrado` }, { status: 404 });
+    }
+
     const updatedData = { costePale, costeFilm, costeFleje, costePrecinto };
 
     const updated = await db.configPaletizado.update({

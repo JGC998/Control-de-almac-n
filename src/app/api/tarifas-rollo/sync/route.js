@@ -18,6 +18,7 @@ export async function POST() {
 
     for (const r of rollos) {
       if (!r.ancho) continue;
+      if (!r.metrajeMinimo) continue;
       const matches = materiales.filter(m => m.material === r.material && m.espesor === r.espesor);
       const match = matches.find(m => m.acabado == null) ?? matches[0] ?? null;
       if (!match) continue;

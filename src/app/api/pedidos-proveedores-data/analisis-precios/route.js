@@ -57,6 +57,7 @@ export async function GET(request) {
     const byProveedor = {};
 
     for (const pedido of pedidos) {
+      if (!pedido.proveedor) continue;
       const pId  = pedido.proveedor.id;
       const pNom = pedido.proveedor.nombre;
       if (!byProveedor[pId]) {

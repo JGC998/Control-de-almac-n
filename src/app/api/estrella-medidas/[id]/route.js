@@ -7,6 +7,11 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const { ancho, largo, cantidad, descripcion } = await request.json();
+    if (ancho == null || largo == null || cantidad == null ||
+        !Number.isFinite(parseFloat(ancho)) || !Number.isFinite(parseFloat(largo)) ||
+        !Number.isFinite(parseInt(cantidad, 10))) {
+      return NextResponse.json({ message: 'ancho, largo y cantidad son obligatorios y deben ser numéricos' }, { status: 400 });
+    }
     const medida = await db.estrellaMedida.update({
       where: { id: parseInt(id, 10) },
       data: {

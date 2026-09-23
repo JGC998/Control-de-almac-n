@@ -15,8 +15,10 @@ export async function GET(request) {
     }
     try {
         const { searchParams } = new URL(request.url);
-        const page = parseInt(searchParams.get('page') || '1', 10);
-        const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 1000);
+        const rawPage = parseInt(searchParams.get('page') || '1', 10);
+        const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+        const rawLimit = parseInt(searchParams.get('limit') || '50', 10);
+        const limit = Math.min(Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 50, 1000);
         const entity = searchParams.get('entity');
         const action = searchParams.get('action');
         const dateFrom = searchParams.get('dateFrom');
@@ -27,10 +29,15 @@ export async function GET(request) {
         if (action) where.action = action;
         if (dateFrom || dateTo) {
             where.createdAt = {};
-            if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+            if (dateFrom) {
+                const d = new Date(dateFrom);
+                if (isNaN(d.getTime())) return NextResponse.json({ error: 'dateFrom inválido' }, { status: 400 });
+                where.createdAt.gte = d;
+            }
             if (dateTo) {
                 const end = new Date(dateTo);
-                end.setHours(23, 59, 59, 999);
+                if (isNaN(end.getTime())) return NextResponse.json({ error: 'dateTo inválido' }, { status: 400 });
+                end.setUTCHours(23, 59, 59, 999);
                 where.createdAt.lte = end;
             }
         }

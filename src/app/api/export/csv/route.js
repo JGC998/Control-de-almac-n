@@ -10,7 +10,7 @@ export async function GET(request) {
     try {
         // Rate limit: 10 exportaciones/min por IP
         const ip = getClientIp(request);
-        const rl = checkRateLimit(ip, 10);
+        const rl = checkRateLimit(`export:${ip}`, 10);
         if (!rl.allowed) {
           return NextResponse.json(
             { message: 'Demasiadas peticiones. Espera un momento.' },

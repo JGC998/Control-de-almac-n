@@ -41,7 +41,7 @@ export async function GET(request) {
         const byMonth = {};
         for (const p of pedidos) {
           const d = new Date(p.fechaCreacion);
-          const key = String(d.getMonth() + 1).padStart(2, '0');
+          const key = String(d.getUTCMonth() + 1).padStart(2, '0');
           if (!byMonth[key]) byMonth[key] = { mes: key, totalVentas: 0, numPedidos: 0 };
           byMonth[key].totalVentas += Number(p.total ?? 0);
           byMonth[key].numPedidos += 1;
@@ -139,7 +139,7 @@ export async function GET(request) {
 
       const whereVP = { estado: { notIn: EXCLUIDOS }, fechaCreacion: { gte: parseFechaVP(desde) ?? defaultDesde } };
       const hastaVP = parseFechaVP(hasta);
-      if (hastaVP) { hastaVP.setHours(23,59,59,999); whereVP.fechaCreacion.lte = hastaVP; }
+      if (hastaVP) { hastaVP.setUTCHours(23,59,59,999); whereVP.fechaCreacion.lte = hastaVP; }
 
       // Cargamos pedidos con sus ítems y el total (precio de venta con IVA).
       // La venta estimada por ítem = proporción del coste del ítem × total sin IVA del pedido.
@@ -188,7 +188,7 @@ export async function GET(request) {
         const desdeDate = parseFecha(desde);
         const hastaDate = parseFecha(hasta);
         if (desdeDate) where.fechaCreacion.gte = desdeDate;
-        if (hastaDate) { hastaDate.setHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
+        if (hastaDate) { hastaDate.setUTCHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
       }
 
       const pedidos = await db.pedido.findMany({
@@ -252,7 +252,7 @@ export async function GET(request) {
         const desdeDate = parseFechaMargen(desde);
         const hastaDate = parseFechaMargen(hasta);
         if (desdeDate) where.fechaCreacion.gte = desdeDate;
-        if (hastaDate) { hastaDate.setHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
+        if (hastaDate) { hastaDate.setUTCHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
       }
 
       const pedidos = await db.pedido.findMany({
@@ -298,7 +298,7 @@ export async function GET(request) {
       if (desdeRentDate || hastaRentDate) {
         whereRent.fechaCreacion = {};
         if (desdeRentDate) whereRent.fechaCreacion.gte = desdeRentDate;
-        if (hastaRentDate) { hastaRentDate.setHours(23,59,59,999); whereRent.fechaCreacion.lte = hastaRentDate; }
+        if (hastaRentDate) { hastaRentDate.setUTCHours(23,59,59,999); whereRent.fechaCreacion.lte = hastaRentDate; }
       } else {
         const currentYearRent = new Date().getFullYear();
         whereRent.fechaCreacion = { gte: new Date(`${currentYearRent}-01-01T00:00:00.000Z`) };
@@ -363,7 +363,7 @@ export async function GET(request) {
         const desdeDate = parseFecha(desde);
         const hastaDate = parseFecha(hasta);
         if (desdeDate) where.fechaCreacion.gte = desdeDate;
-        if (hastaDate) { hastaDate.setHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
+        if (hastaDate) { hastaDate.setUTCHours(23,59,59,999); where.fechaCreacion.lte = hastaDate; }
       } else {
         where.fechaCreacion = { gte: new Date(`${new Date().getFullYear()}-01-01T00:00:00.000Z`) };
       }
@@ -504,7 +504,7 @@ export async function GET(request) {
         const byMatMes = {};
 
         for (const pedido of pedidos) {
-          const mes = String(new Date(pedido.fechaCreacion).getMonth() + 1).padStart(2, '0');
+          const mes = String(new Date(pedido.fechaCreacion).getUTCMonth() + 1).padStart(2, '0');
           const totalSinIVA = Number(pedido.total ?? 0) / (1 + IVA_MAT);
           const totalCostePedido = pedido.items.reduce(
             (s, i) => s + Number(i.quantity ?? 0) * Number(i.unitPrice ?? 0), 0

@@ -76,7 +76,10 @@ export async function PUT(request, { params }) {
 
       return tx.pedidoProveedor.findUnique({
         where: { id },
-        include: { bobinas: true },
+        include: {
+          bobinas: { include: { referencia: true } },
+          proveedor: true,
+        },
       });
     });
 

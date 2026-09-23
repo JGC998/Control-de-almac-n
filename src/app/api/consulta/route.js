@@ -753,7 +753,8 @@ export async function POST(request) {
       db.config.findUnique({ where: { key: 'iva_rate' } }),
     ]);
     const materialesDB = tarifasDB.map(r => r.material);
-    const ivaRate      = cfgIva ? parseFloat(cfgIva.value) / 100 : 0.21;
+    const _rawIva = cfgIva ? parseFloat(cfgIva.value) : NaN;
+    const ivaRate = Number.isFinite(_rawIva) ? (_rawIva > 1 ? _rawIva / 100 : _rawIva) : 0.21;
 
     let intencion = intencionHint ?? null;
     let ent       = null;

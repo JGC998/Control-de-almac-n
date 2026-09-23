@@ -19,7 +19,12 @@ export async function POST(request) {
 
     // Comparación en tiempo constante para evitar timing attacks
     if (expected) {
-      const pinBuf = Buffer.from(String(pin).padEnd(expected.length).slice(0, expected.length));
+      const pinStr = String(pin);
+      // Rechazar longitud incorrecta ANTES del pad/slice para evitar bypass con prefijo válido
+      if (pinStr.length !== expected.length) {
+        return NextResponse.json({ message: 'PIN incorrecto' }, { status: 401 });
+      }
+      const pinBuf = Buffer.from(pinStr);
       const expBuf = Buffer.from(expected);
       const valid = pinBuf.length === expBuf.length && crypto.timingSafeEqual(pinBuf, expBuf);
       if (!valid) {

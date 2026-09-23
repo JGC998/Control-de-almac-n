@@ -36,9 +36,10 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    await db.modeloGrapa.delete({ where: { id: parseInt(id) } });
+    // Soft-delete para preservar historial de precios
+    await db.modeloGrapa.update({ where: { id: parseInt(id) }, data: { activo: false } });
     clearModelosGrapaCache();
-    return NextResponse.json({ message: 'Modelo eliminado correctamente' });
+    return NextResponse.json({ message: 'Modelo desactivado correctamente' });
   } catch (error) {
     return handlePrismaError(error, { notFound: 'Modelo de grapa no encontrado' });
   }

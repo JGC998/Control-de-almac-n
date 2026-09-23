@@ -20,7 +20,8 @@ export async function GET(request) {
     }
 
     const limitParam = searchParams.get('limit');
-    const take = Math.min(parseInt(limitParam || '100', 10), 500);
+    const parsedLimit = parseInt(limitParam || '100', 10);
+    const take = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 500) : 100;
 
     const movimientos = await db.movimientoStock.findMany({
       where: whereClause,

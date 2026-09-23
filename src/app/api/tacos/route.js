@@ -51,6 +51,9 @@ export async function PUT(request) {
     );
     return NextResponse.json({ message: `${results.length} tacos actualizados`, updated: results });
   } catch (error) {
+    if (error.code === 'P2025') {
+      return NextResponse.json({ message: 'Uno o más tacos no encontrados' }, { status: 404 });
+    }
     logApiError(error, 'Error al actualizar tacos:');
     return NextResponse.json({ message: 'Error al actualizar los tacos' }, { status: 500 });
   }
