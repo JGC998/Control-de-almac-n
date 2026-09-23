@@ -63,7 +63,7 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
     try {
         const doc = new jsPDF();
         const client = quote.cliente;
-        const { address, phone } = await getEmisorInfo();
+        const { nombre, nif, address, phone } = await getEmisorInfo();
 
         // --- Añadir Logo (cacheado en memoria) ---
         const logoBase64 = await getLogoBase64();
@@ -77,9 +77,11 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         doc.text("PRESUPUESTO", 14, 22);
 
         doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(address, 200, 38, { align: 'right' });
-        doc.text(`Teléfono: ${phone}`, 200, 44, { align: 'right' });
+        let emisorY = 32;
+        if (nombre) { doc.setFont("helvetica", "bold"); doc.text(nombre, 200, emisorY, { align: 'right' }); emisorY += 6; doc.setFont("helvetica", "normal"); }
+        if (nif)    { doc.text(`NIF: ${nif}`, 200, emisorY, { align: 'right' }); emisorY += 6; }
+        doc.text(address, 200, emisorY, { align: 'right' }); emisorY += 6;
+        doc.text(`Teléfono: ${phone}`, 200, emisorY, { align: 'right' });
 
         // --- Info Presupuesto ---
         doc.setFontSize(12);

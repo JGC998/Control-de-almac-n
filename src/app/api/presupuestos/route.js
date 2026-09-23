@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getNextNumber } from '@/lib/sequence';
 import { presupuestoSchema } from '@/lib/validations';
 import { serializeDecimals } from '@/lib/manejadores-api';
+import { getIvaRate } from '@/lib/config-cache';
 
 // GET /api/presupuestos - Obtiene todos los presupuestos con paginación opcional
 export async function GET(request) {
@@ -71,8 +72,7 @@ export async function POST(request) {
     const { clienteId, items, estado, marginId, notas } = validation.data;
 
     // BACK-01: Recalcular totales en servidor para no confiar en valores del cliente
-    const configIva = await db.config.findUnique({ where: { key: 'iva_rate' } });
-    const taxRate = configIva ? parseFloat(configIva.value) / 100 : 0.21;
+    const taxRate = await getIvaRate();
     const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0).toFixed(2));
     const tax = parseFloat((subtotal * taxRate).toFixed(2));
     const total = parseFloat((subtotal + tax).toFixed(2));

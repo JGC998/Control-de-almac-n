@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { handlePrismaError } from '@/lib/manejadores-api';
 import { pedidoSchema } from '@/lib/validations';
+import { getIvaRate } from '@/lib/config-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,8 +74,7 @@ export async function PUT(request, { params: paramsPromise }) {
     const { clienteId, items, notas, estado, marginId, presupuestoId, fechaEntrega } = parsed.data;
 
     // Recalcular totales en servidor con IVA desde Config
-    const configIva = await db.config.findUnique({ where: { key: 'iva_rate' } });
-    const taxRate = configIva ? parseFloat(configIva.value) / 100 : 0.21;
+    const taxRate = await getIvaRate();
     const subtotal = parseFloat(items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0).toFixed(2));
     const tax = parseFloat((subtotal * taxRate).toFixed(2));
     const total = parseFloat((subtotal + tax).toFixed(2));
