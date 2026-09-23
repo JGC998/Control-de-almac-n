@@ -36,8 +36,9 @@ export async function GET() {
 
         const longitud = parseFloat(b.longitud) || 0;
         const numRollos = parseFloat(b.numRollos) || 1;
-        // BUG-08: la calculadora guarda el precio en b.precio, no b.usdPorMetro
-        const usdPorMetro = parseFloat(b.precio ?? b.usdPorMetro) || 0;
+        const anchoM = (parseFloat(b.ancho) || 0) / 1000;
+        const rawPrecio = parseFloat(b.precio ?? b.usdPorMetro) || 0;
+        const usdPorMetro = (b.unidadPrecio === 'SQM' && anchoM > 0) ? rawPrecio * anchoM : rawPrecio;
         const totalMetrosBobina = longitud * numRollos;
         const subtotalEUR = usdPorMetro * totalMetrosBobina * imp.tasaCambio;
         const proporcion = totalBobinasEUR > 0 ? subtotalEUR / totalBobinasEUR : 0;

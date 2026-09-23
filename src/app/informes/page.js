@@ -835,7 +835,7 @@ function MargenReal() {
   const params = new URLSearchParams({ tipo: 'margen-real' });
   if (desde) params.set('desde', desde);
   if (hasta) params.set('hasta', hasta);
-  const { data, isLoading } = useSWR(`/api/informes?${params}`);
+  const { data, isLoading, error } = useSWR(`/api/informes?${params}`);
 
   const pedidos = data?.pedidos ?? [];
   const reglas  = data?.reglasMargenes ?? [];
@@ -906,6 +906,7 @@ function MargenReal() {
       )}
 
       {isLoading && <div className="flex justify-center py-8"><span className="loading loading-spinner" /></div>}
+      {error && <div role="alert" className="alert alert-error"><span>Error al cargar los datos. Inténtalo de nuevo.</span></div>}
 
       {/* KPIs de resumen */}
       {resumen && (

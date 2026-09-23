@@ -26,7 +26,7 @@ export async function GET(request, { params }) {
           select: {
             fechaCreacion: true,
             numero: true,
-            reglaMargen: { select: { multiplicador: true } },
+            marginId: true,
           },
         },
       },
@@ -34,10 +34,16 @@ export async function GET(request, { params }) {
       take: 5000,
     });
 
+    const marginIds = [...new Set(items.map(i => i.pedido.marginId).filter(Boolean))];
+    const reglas = marginIds.length
+      ? await db.reglaMargen.findMany({ where: { id: { in: marginIds } } })
+      : [];
+    const reglaMap = Object.fromEntries(reglas.map(r => [r.id, r]));
+
     // Agrupar por descripcion aplicando el margen para obtener el precio de venta real
     const byDesc = {};
     for (const item of items) {
-      const mult = item.pedido.reglaMargen?.multiplicador ?? 1;
+      const mult = (item.pedido.marginId ? reglaMap[item.pedido.marginId]?.multiplicador : null) ?? 1;
       const precioVenta = Number(item.unitPrice) * Number(mult);
       const key = item.productoId || item.descripcion;
       if (!byDesc[key]) {

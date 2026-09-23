@@ -10,7 +10,7 @@ function ModalAnadirPedido({ item, onClose, onSuccess }) {
     const [adding, setAdding]   = useState(false);
     const [addError, setAddError] = useState(null);
 
-    const { data: result } = useSWR('/api/pedidos?limit=200', null, { revalidateOnFocus: false });
+    const { data: result } = useSWR('/api/pedidos?limit=200', { revalidateOnFocus: false });
     const pedidos = (result?.data || result || []).filter(p => {
         if (p.estado === 'Cancelado' || p.estado === 'Facturado') return false;
         if (!query) return true;

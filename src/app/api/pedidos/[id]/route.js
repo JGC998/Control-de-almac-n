@@ -71,7 +71,7 @@ export async function PUT(request, { params: paramsPromise }) {
     if (!parsed.success) {
       return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
     }
-    const { clienteId, items, notas, estado, marginId, presupuestoId, fechaEntrega } = parsed.data;
+    const { clienteId, items, notas, estado, marginId, presupuestoId, fechaEntrega, sinFacturacion } = parsed.data;
 
     // Recalcular totales en servidor con IVA desde Config
     const taxRate = await getIvaRate();
@@ -111,6 +111,7 @@ export async function PUT(request, { params: paramsPromise }) {
           marginId: marginId,
           presupuestoId: presupuestoId,
           fechaEntrega: fechaEntrega !== undefined ? (fechaEntrega ? new Date(fechaEntrega) : null) : undefined,
+          ...(sinFacturacion !== undefined ? { sinFacturacion } : {}),
         },
         include: {
           cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, tier: true } },

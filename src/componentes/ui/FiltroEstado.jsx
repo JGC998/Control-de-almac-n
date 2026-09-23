@@ -9,7 +9,11 @@ export default function FiltroEstado() {
     const handleChange = (e) => {
         const nuevoEstado = e.target.value;
         const params = new URLSearchParams(searchParams);
-        params.set('estado', nuevoEstado);
+        if (nuevoEstado && nuevoEstado !== 'todos') {
+            params.set('estado', nuevoEstado);
+        } else {
+            params.delete('estado');
+        }
         params.set('page', '1');
         router.push(`?${params.toString()}`);
     };
@@ -17,10 +21,10 @@ export default function FiltroEstado() {
     return (
         <select
             className="select select-bordered w-full max-w-xs"
-            value={estadoActual || 'Pendiente'}
+            value={estadoActual}
             onChange={handleChange}
         >
-            <option value="todos">Todos los estados</option>
+            <option value="">Todos los estados</option>
             <option value="Pendiente">Pendiente</option>
             <option value="Facturado">Facturado</option>
             <option value="Cancelado">Cancelado</option>

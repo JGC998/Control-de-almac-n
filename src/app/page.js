@@ -128,7 +128,7 @@ function PanelFacturasPendientes({ datos }) {
                 </div>
                 <div className="text-right shrink-0 ml-2">
                   <p className={`text-sm font-semibold ${f.vencida ? 'text-error' : ''}`}>
-                    {f.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    {(f.total ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </p>
                   {f.fechaVencimiento && (
                     <p className={`text-xs ${f.vencida ? 'text-error' : 'text-base-content/40'}`}>

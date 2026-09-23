@@ -72,7 +72,7 @@ export default function CalculadoraPage() {
 
     if (!tarifa) return { isValid: false, errorMessage: 'Tarifa no encontrada' };
 
-    const multiplicador = selectedMargin?.multiplicador || 1;
+    const multiplicador = selectedMargin?.multiplicador ?? 1;
     const gastoFijoTotal = selectedMargin?.gastoFijo || 0;
 
     const anchoMetros = anchoMm / 1000;

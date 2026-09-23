@@ -26,7 +26,8 @@ export async function POST(request) {
 
     const valorTotalMercanciaEUR = pedido.bobinas.reduce((acc, b) => {
       const precioBaseEUR = (b.precioMetro || 0) * (esImportacion ? tasa : 1);
-      return acc + (precioBaseEUR * (b.largo || 0));
+      const cantidad = parseInt(b.cantidad, 10) || 1;
+      return acc + (precioBaseEUR * (b.largo || 0) * cantidad);
     }, 0);
 
     const bobinaData = pedido.bobinas.map((bobina) => {

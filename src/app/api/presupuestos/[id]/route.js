@@ -99,7 +99,24 @@ export async function PUT(request, { params }) {
         });
       }
 
-      return tx.presupuesto.findUnique({ where: { id }, include: { items: true } });
+      return tx.presupuesto.findUnique({
+        where: { id },
+        include: {
+          items: {
+            select: {
+              id: true, descripcion: true, quantity: true, unitPrice: true, pesoUnitario: true, detallesTecnicos: true, productoId: true,
+              producto: {
+                select: {
+                  id: true, nombre: true, referenciaFabricante: true,
+                  espesor: true, ancho: true, largo: true, acabado: true,
+                  subfamilia: { select: { nombre: true, familia: { select: { nombre: true, color: true } } } },
+                  fabricante: { select: { nombre: true } },
+                },
+              },
+            },
+          },
+        },
+      });
     });
 
     revalidatePath('/presupuestos'); // Invalidate the list page

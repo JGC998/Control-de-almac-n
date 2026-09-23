@@ -16,10 +16,12 @@ export default function Toaster() {
   const dismiss = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
   useEffect(() => {
-    return subscribeToasts(({ id, msg, type, duration }) => {
+    const timers = [];
+    const unsub = subscribeToasts(({ id, msg, type, duration }) => {
       setToasts(prev => [...prev, { id, msg, type }]);
-      setTimeout(() => dismiss(id), duration);
+      timers.push(setTimeout(() => dismiss(id), duration));
     });
+    return () => { unsub(); timers.forEach(clearTimeout); };
   }, []);
 
   if (!toasts.length) return null;
