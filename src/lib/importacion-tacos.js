@@ -18,25 +18,29 @@ export async function actualizarPrecioTacos(bovinasRaw, totalBobinasEUR, gastosR
   const gastos  = parseFloat(gastosRepercutibles) || 0;
   const totalEUR = parseFloat(totalBobinasEUR)   || 0;
 
-  for (const b of tacos) {
-    try {
-      const precio      = parseFloat(b.precio)   || 0;
-      const totalMetros = parseFloat(b.longitud)  || 0;
-      if (totalMetros <= 0) continue;
+  const resultados = await Promise.allSettled(tacos.map(async (b) => {
+    const precio      = parseFloat(b.precio)   || 0;
+    const totalMetros = parseFloat(b.longitud)  || 0;
+    if (totalMetros <= 0) return;
 
-      const subtotalEUR   = precio * totalMetros * tc;
-      const proporcion    = totalEUR > 0 ? subtotalEUR / totalEUR : 0;
-      const costeFinalEUR = subtotalEUR + gastos * proporcion;
-      if (costeFinalEUR <= 0) continue;
+    const subtotalEUR   = precio * totalMetros * tc;
+    const proporcion    = totalEUR > 0 ? subtotalEUR / totalEUR : 0;
+    const costeFinalEUR = subtotalEUR + gastos * proporcion;
+    if (costeFinalEUR <= 0) return;
 
-      const nuevoPrecio = Math.round((costeFinalEUR / totalMetros) * 100000) / 100000;
+    const nuevoPrecio = Math.round((costeFinalEUR / totalMetros) * 100000) / 100000;
 
-      await db.taco.update({
-        where: { id: parseInt(b.tacoId, 10) },
-        data: { precioMetro: nuevoPrecio },
-      });
-    } catch (e) {
-      logApiError(e, `actualizarPrecioTacos:tacoId=${b.tacoId}`);
-    }
+    await db.taco.update({
+      where: { id: parseInt(b.tacoId, 10) },
+      data: { precioMetro: nuevoPrecio },
+    });
+  }));
+
+  const fallidos = resultados.filter(r => r.status === 'rejected');
+  if (fallidos.length > 0) {
+    logApiError(
+      new Error(`${fallidos.length}/${tacos.length} tacos no actualizados`),
+      'actualizarPrecioTacos'
+    );
   }
 }

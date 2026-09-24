@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useMemo } from 'react';
 import { PlusCircle, Edit, Trash2, Download } from 'lucide-react';
 
 import { useGestionCRUD } from '../hooks';
@@ -95,10 +95,14 @@ export default function PaginaGestion({
     className = '',
 }) {
     // Generar campos iniciales automáticamente si no se proporcionan
-    const camposInicialesGenerados = camposIniciales || campos.reduce((acc, campo) => {
-        acc[campo.clave] = campo.valorInicial ?? '';
-        return acc;
-    }, {});
+    const camposInicialesGenerados = useMemo(
+        () => camposIniciales || campos.reduce((acc, campo) => {
+            acc[campo.clave] = campo.valorInicial ?? '';
+            return acc;
+        }, {}),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [camposIniciales, campos]
+    );
 
     // Hook de gestión CRUD
     const {

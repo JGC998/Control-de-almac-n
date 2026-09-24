@@ -579,8 +579,8 @@ function CalculadoraContenedorPage() {
 
   const tc = n(tasaCambio);
 
-  // --- Cálculos artículos ---
-  const bobinasCals = bobinas.map(b => {
+  // --- Cálculos artículos — memoizados para no recalcular al abrir/cerrar modales ---
+  const bobinasCals = useMemo(() => bobinas.map(b => {
     const tipo = b.tipo || 'BOBINA';
     const precio = n(b.precio ?? b.usdPorMetro);
     const numRollos = Math.max(n(b.numRollos), 1);
@@ -611,11 +611,11 @@ function CalculadoraContenedorPage() {
 
     const subtotalEUR = subtotalUSD * tc;
     return { ...b, tipo, longitud, numRollos, anchoM, usdPorMetro, totalMetrosBobina, subtotalUSD, subtotalEUR };
-  });
+  }), [bobinas, tasaCambio]);
 
-  const totalBobinasUSD = bobinasCals.reduce((s, b) => s + b.subtotalUSD, 0);
+  const totalBobinasUSD = useMemo(() => bobinasCals.reduce((s, b) => s + b.subtotalUSD, 0), [bobinasCals]);
   const totalBobinasEUR = totalBobinasUSD * tc;
-  const totalMetros = bobinasCals.reduce((s, b) => s + b.totalMetrosBobina, 0);
+  const totalMetros = useMemo(() => bobinasCals.reduce((s, b) => s + b.totalMetrosBobina, 0), [bobinasCals]);
 
   // --- Gastos ---
   const supl = n(suplidos);
@@ -640,7 +640,7 @@ function CalculadoraContenedorPage() {
   const ocupacion40ft = volM3 > 0 ? Math.min(100, (volM3 / 67) * 100) : 0;
 
   // --- Prorrateo por valor ---
-  const bobinasFinal = bobinasCals.map(b => {
+  const bobinasFinal = useMemo(() => bobinasCals.map(b => {
     if (totalBobinasEUR === 0 || b.subtotalEUR === 0) {
       return { ...b, proporcion: 0, gastosProrrateados: 0, costeFinalEUR: b.subtotalEUR, costePorMetro: 0, pesoEstimadoKg: kgPorMetro > 0 ? b.totalMetrosBobina * kgPorMetro : null };
     }
@@ -650,7 +650,7 @@ function CalculadoraContenedorPage() {
     const costePorMetro = b.totalMetrosBobina > 0 ? costeFinalEUR / b.totalMetrosBobina : 0;
     const pesoEstimadoKg = kgPorMetro > 0 ? b.totalMetrosBobina * kgPorMetro : null;
     return { ...b, proporcion, gastosProrrateados, costeFinalEUR, costePorMetro, pesoEstimadoKg };
-  });
+  }), [bobinasCals, totalBobinasEUR, gastosRepercutibles, kgPorMetro]);
 
   const handleBobinaChange = (id, field, value) => {
     setBobinas(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));

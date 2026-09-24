@@ -31,16 +31,16 @@ const PresupuestoTotalsAndItems = ({ quote, margenes, config }) => {
   const totalFinal = subtotalVentaFinal + taxFinal;
 
   // --- CÁLCULO DEL PRECIO UNITARIO DE VENTA POR ITEM ---
+  // Hoistamos totalQuantity fuera del map para evitar O(N²) (reduce por cada item)
+  const totalQuantity = (quote.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+  const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
+
   const calculatedItems = (quote.items || []).map(item => {
     const costoUnitario = item.unitPrice || 0;
     const cantidad = item.quantity || 1;
 
     // 3a. Calcular la parte del margen sobre el costo unitario
     const margenUnitario = (costoUnitario * (multiplicador - 1));
-
-    // 3b. Prorratear el Gasto Fijo total entre TODAS las unidades del pedido
-    const totalQuantity = (quote.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
-    const gastoFijoUnitarioProrrateado = totalQuantity > 0 ? (gastoFijoTotal / totalQuantity) : 0;
 
     // 3c. Precio Unitario de Venta
     const precioUnitarioVenta = costoUnitario + margenUnitario + gastoFijoUnitarioProrrateado;

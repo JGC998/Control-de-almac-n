@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { Truck, Info, Settings, Search, CheckCircle, X } from 'lucide-react';
@@ -11,12 +11,14 @@ function ModalAnadirPedido({ item, onClose, onSuccess }) {
     const [addError, setAddError] = useState(null);
 
     const { data: result } = useSWR('/api/pedidos?limit=200', { revalidateOnFocus: false });
-    const pedidos = (result?.data || result || []).filter(p => {
+    const pedidos = useMemo(() =>
+      (result?.data || result || []).filter(p => {
         if (p.estado === 'Cancelado' || p.estado === 'Facturado') return false;
         if (!query) return true;
         const q = query.toLowerCase();
         return p.numero?.toLowerCase().includes(q) || p.cliente?.nombre?.toLowerCase().includes(q);
-    });
+      }),
+    [result, query]);
 
     const handleAnadir = async (pedido) => {
         setAdding(true);

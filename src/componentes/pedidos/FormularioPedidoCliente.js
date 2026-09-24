@@ -113,7 +113,10 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   };
 
   // --- LÓGICA DE MÁRGENES ---
-  const filteredMargenes = margenes?.filter(m => m.base !== 'GENERAL_FALLBACK') || [];
+  const filteredMargenes = useMemo(
+    () => margenes?.filter(m => m.base !== 'GENERAL_FALLBACK') || [],
+    [margenes]
+  );
   const handleMarginChange = (marginId) => setSelectedMarginId(marginId);
 
   // --- LÓGICA DE ITEMS ---

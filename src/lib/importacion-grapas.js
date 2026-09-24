@@ -50,22 +50,24 @@ export async function actualizarPrecioGrapas(bovinasRaw, totalBobinasEUR, gastos
 
       const precioAnterior = modelo.precioPor100mm;
 
-      await db.modeloGrapa.update({
-        where: { id: modelo.id },
-        data: { precioPor100mm: nuevoPrecio },
-      });
-
-      await db.historialPrecioGrapa.create({
-        data: {
-          modeloGrapaId:          modelo.id,
-          precioPor100mmAnterior: precioAnterior,
-          precioPor100mmNuevo:    nuevoPrecio,
-          costePorCaja,
-          anchoPar,
-          paresPorCaja,
-          importacionId:          importacionId ?? null,
-        },
-      });
+      // update y create son independientes entre sí (ambos usan modelo.id) → paralelo
+      await Promise.all([
+        db.modeloGrapa.update({
+          where: { id: modelo.id },
+          data: { precioPor100mm: nuevoPrecio },
+        }),
+        db.historialPrecioGrapa.create({
+          data: {
+            modeloGrapaId:          modelo.id,
+            precioPor100mmAnterior: precioAnterior,
+            precioPor100mmNuevo:    nuevoPrecio,
+            costePorCaja,
+            anchoPar,
+            paresPorCaja,
+            importacionId:          importacionId ?? null,
+          },
+        }),
+      ]);
     } catch (e) {
       logApiError(e, `actualizarPrecioGrapas:${b.referencia}`);
     }

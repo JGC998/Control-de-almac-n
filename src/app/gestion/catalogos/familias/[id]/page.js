@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
@@ -15,13 +15,17 @@ export default function FamiliaDetallePage() {
   if (isLoading) return <div className="flex justify-center items-center h-64"><span className="loading loading-spinner loading-lg" /></div>;
   if (!familia)  return <div className="text-center py-20 text-error">Familia no encontrada.</div>;
 
-  const productos = (familia.subfamilias ?? []).flatMap(s =>
-    (s.productos ?? []).map(p => ({ ...p, subfamiliaNombre: s.nombre }))
-  );
+  const productos = useMemo(() =>
+    (familia.subfamilias ?? []).flatMap(s =>
+      (s.productos ?? []).map(p => ({ ...p, subfamiliaNombre: s.nombre }))
+    ), [familia]);
 
-  const activos   = productos.filter(p => p.activo);
-  const inactivos = productos.filter(p => !p.activo);
-  const visibles  = subfiltro === 'activos' ? activos : subfiltro === 'inactivos' ? inactivos : productos;
+  const activos   = useMemo(() => productos.filter(p => p.activo), [productos]);
+  const inactivos = useMemo(() => productos.filter(p => !p.activo), [productos]);
+  const visibles  = useMemo(
+    () => subfiltro === 'activos' ? activos : subfiltro === 'inactivos' ? inactivos : productos,
+    [subfiltro, activos, inactivos, productos],
+  );
 
   return (
     <div className="container mx-auto p-6 max-w-5xl">

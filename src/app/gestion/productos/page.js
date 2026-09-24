@@ -128,7 +128,11 @@ export default function GestionProductosPage() {
 
   const productosActivos    = dataActivos?.data    ?? [];
   const productosArchivados = dataArchivados?.data ?? [];
-  const productos = tab === 'activos' ? productosActivos : productosArchivados;
+  // Memoizar para que filtrados no recompute al cambiar estado de modales/selección
+  const productos = useMemo(
+    () => (tab === 'activos' ? dataActivos : dataArchivados)?.data ?? [],
+    [dataActivos, dataArchivados, tab]
+  );
 
   const [modalAbierto, setModalAbierto]         = useState(false);
   const [productoEditando, setProductoEditando] = useState(null);

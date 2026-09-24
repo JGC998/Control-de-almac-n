@@ -57,6 +57,42 @@ import { Entrada, Selector, AreaTexto, CampoFormulario, Boton } from '../primiti
  *     error={errorGuardado}
  * />
  */
+// ── Utilidades puras (sin estado ni props) ────────────────────────────────────
+
+function normalizarOpciones(opciones) {
+    if (!Array.isArray(opciones)) return [];
+    return opciones.map(opcion => {
+        if (typeof opcion === 'string') {
+            return { valor: opcion, etiqueta: opcion };
+        }
+        return {
+            valor: opcion.valor ?? opcion.value ?? opcion.id,
+            etiqueta: opcion.etiqueta ?? opcion.label ?? opcion.nombre ?? opcion.name,
+        };
+    });
+}
+
+function generarEtiqueta(clave) {
+    return clave
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim();
+}
+
+// FE-18: clases estáticas — Tailwind elimina en build las clases construidas con template literals
+const GRID_COLS = { 1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-4' };
+
+function getClaseAncho(ancho) {
+    switch (ancho) {
+        case 'full':  return 'col-span-full';
+        case 'half':  return 'col-span-1';
+        case 'third': return 'col-span-1';
+        default:      return '';
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function FormularioEntidad({
     titulo = null,
     campos = [],
@@ -85,29 +121,6 @@ export default function FormularioEntidad({
             // Si es un valor directo (para componentes personalizados)
             alCambiar({ target: { name: campo.clave, value: evento } });
         }
-    };
-
-    // Normalizar opciones de selector
-    const normalizarOpciones = (opciones) => {
-        if (!Array.isArray(opciones)) return [];
-
-        return opciones.map(opcion => {
-            if (typeof opcion === 'string') {
-                return { valor: opcion, etiqueta: opcion };
-            }
-            return {
-                valor: opcion.valor ?? opcion.value ?? opcion.id,
-                etiqueta: opcion.etiqueta ?? opcion.label ?? opcion.nombre ?? opcion.name,
-            };
-        });
-    };
-
-    // Generar etiqueta automática desde la clave
-    const generarEtiqueta = (clave) => {
-        return clave
-            .replace(/([A-Z])/g, ' $1')
-            .replace(/^./, str => str.toUpperCase())
-            .trim();
     };
 
     // Renderizar un campo según su tipo
@@ -224,8 +237,6 @@ export default function FormularioEntidad({
         );
     };
 
-    // FE-18: clases estáticas — Tailwind elimina en build las clases construidas con template literals
-    const GRID_COLS = { 1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-4' };
     const getLayoutClasses = () => {
         switch (layout) {
             case 'grid':
@@ -234,20 +245,6 @@ export default function FormularioEntidad({
                 return 'space-y-2';
             default:
                 return 'space-y-4';
-        }
-    };
-
-    // Calcular clase de ancho para campo
-    const getClaseAncho = (ancho) => {
-        switch (ancho) {
-            case 'full':
-                return 'col-span-full';
-            case 'half':
-                return 'col-span-1';
-            case 'third':
-                return 'col-span-1';
-            default:
-                return '';
         }
     };
 

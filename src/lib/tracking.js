@@ -91,10 +91,13 @@ function prefijo(num) {
 function esYangMing(num) { return PREFIJOS_YM.has(prefijo(num)); }
 function esMSC(num)      { return PREFIJOS_MSC.has(prefijo(num)); }
 
+// Compilada una sola vez — "22/07/2026" o "22/07/2026 10:00"
+const RE_FECHA_MSC = /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/;
+
 // Convierte "22/07/2026" o "22/07/2026 10:00" → ISO string
 function parseFechaMSC(str) {
   if (!str) return null;
-  const m = str.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  const m = str.trim().match(RE_FECHA_MSC);
   if (!m) return null;
   const [, dd, mm, yyyy, hh = '00', min = '00'] = m;
   const d = new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}:00Z`);

@@ -8,8 +8,11 @@ import ModalConfiguracionTacos from './ModalConfiguracionTacos';
 import PreviewBandaPVC from './PreviewBandaPVC';
 
 
+const SELECTED_MATERIAL = 'PVC';
+const COLOR_ABR = { AZUL: 'AZ', BLANCO: 'BL', NEGRO: 'NG', VERDE: 'VD' };
+
 export default function CalculadoraBandas({ onAddItem, className = "" }) {
-    const [selectedMaterial] = useState('PVC');
+    const selectedMaterial = SELECTED_MATERIAL;
     const [selectedEspesor, setSelectedEspesor] = useState('');
     const [selectedLonas, setSelectedLonas] = useState('');
     const [selectedAcabado, setSelectedAcabado] = useState('');
@@ -26,8 +29,6 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
     const [guardandoCatalogo, setGuardandoCatalogo] = useState(false);
     const [catalogoGuardado, setCatalogoGuardado] = useState(false);
-
-    const COLOR_ABR = { AZUL: 'AZ', BLANCO: 'BL', NEGRO: 'NG', VERDE: 'VD' };
 
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
     const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');

@@ -154,16 +154,21 @@ export default function ContenedoresPage() {
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
   }, [todas]);
 
-  // KPIs
-  const currentYear = new Date().getFullYear();
-  const esteAnio = todas.filter(i => new Date(i.creadaEn).getFullYear() === currentYear);
-  const costeAnual = esteAnio.reduce((s, i) => {
-    const c = i.totalBobinasEUR
-      ? i.totalBobinasEUR + (i.gastosRepercutibles || 0)
-      : 0;
-    return s + c;
-  }, 0);
-  const ultimaFecha = todas[0]?.fechaLlegada || todas[0]?.creadaEn;
+  // KPIs — memoizados para no recalcular al cambiar mostrarTodas
+  const { esteAnio, costeAnual, ultimaFecha } = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const anio = todas.filter(i => new Date(i.creadaEn).getFullYear() === currentYear);
+    return {
+      esteAnio: anio,
+      costeAnual: anio.reduce((s, i) => {
+        const c = i.totalBobinasEUR
+          ? i.totalBobinasEUR + (i.gastosRepercutibles || 0)
+          : 0;
+        return s + c;
+      }, 0),
+      ultimaFecha: todas[0]?.fechaLlegada || todas[0]?.creadaEn,
+    };
+  }, [todas]);
 
   // Mostrar las 8 más recientes por defecto, resto bajo "Ver todas"
   const VISIBLE = 8;

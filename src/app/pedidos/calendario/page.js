@@ -41,7 +41,8 @@ export default function CalendarioEntregasPage() {
   const [semanaIdx, setSemanaIdx] = useState(0); // semana relativa a hoy
 
   const { data, isLoading } = useSWR('/api/pedidos?page=1&limit=500');
-  const pedidos = (data?.data ?? []).filter(p => p.fechaEntrega);
+  // Memoizar para que pedidosPorFecha (que depende de pedidos) se beneficie realmente
+  const pedidos = useMemo(() => (data?.data ?? []).filter(p => p.fechaEntrega), [data]);
 
   const pedidosPorFecha = useMemo(() => {
     const mapa = {};
@@ -82,9 +83,13 @@ export default function CalendarioEntregasPage() {
 
   const mesNombre = new Date(año, mes).toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
-  const pedidosPendientes = pedidos.filter(p =>
-    new Date(p.fechaEntrega) >= hoy && !['Completado','Cancelado'].includes(p.estado)
-  ).sort((a, b) => new Date(a.fechaEntrega) - new Date(b.fechaEntrega)).slice(0, 5);
+  const pedidosPendientes = useMemo(() => {
+    const now = new Date();
+    return pedidos
+      .filter(p => new Date(p.fechaEntrega) >= now && !['Completado','Cancelado'].includes(p.estado))
+      .sort((a, b) => new Date(a.fechaEntrega) - new Date(b.fechaEntrega))
+      .slice(0, 5);
+  }, [pedidos]);
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">

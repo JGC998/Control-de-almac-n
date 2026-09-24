@@ -19,8 +19,8 @@ function GestionTacos() {
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState(null);
 
-  const tacosRectos = tacos?.filter(t => t.tipo === 'RECTO') || [];
-  const tacosInclinados = tacos?.filter(t => t.tipo === 'INCLINADO') || [];
+  const tacosRectos = useMemo(() => tacos?.filter(t => t.tipo === 'RECTO') ?? [], [tacos]);
+  const tacosInclinados = useMemo(() => tacos?.filter(t => t.tipo === 'INCLINADO') ?? [], [tacos]);
   const hasChanges = Object.keys(editedPrices).length > 0;
 
   const getCurrentPrice = (taco) =>

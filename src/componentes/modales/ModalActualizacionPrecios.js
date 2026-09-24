@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AlertTriangle, TrendingUp, Save, X, CheckCircle } from 'lucide-react';
 
 export default function BulkPriceUpdateModal({ isOpen, onClose, materiales = [], onSuccess }) {
@@ -49,7 +49,10 @@ export default function BulkPriceUpdateModal({ isOpen, onClose, materiales = [],
         setConfirmando(false);
     };
 
-    const uniqueMaterialNames = [...new Set(materiales?.map(m => m.nombre) || [])].sort();
+    const uniqueMaterialNames = useMemo(
+        () => [...new Set(materiales?.map(m => m.nombre) || [])].sort(),
+        [materiales]
+    );
 
     return (
         <div className="modal modal-open z-[9999]">

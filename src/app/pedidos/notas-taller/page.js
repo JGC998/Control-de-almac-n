@@ -144,7 +144,7 @@ export default function NotasTaller() {
     nif: config?.empresa_nif || '',
   };
 
-  const pedidos = pedidosResp?.data ?? [];
+  const pedidos = useMemo(() => pedidosResp?.data ?? [], [pedidosResp]);
 
   const filteredPedidos = useMemo(() => {
     if (!search.trim()) return pedidos;

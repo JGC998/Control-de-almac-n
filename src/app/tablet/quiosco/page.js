@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import { RefreshCw, Clock } from 'lucide-react';
 
@@ -189,10 +189,10 @@ export default function QuioscoPage() {
   }, [pedidos, mutate, avanzandoId]);
 
   // Agrupar por estado
-  const columnas = TALLER_ESTADOS.reduce((acc, estado) => {
+  const columnas = useMemo(() => TALLER_ESTADOS.reduce((acc, estado) => {
     acc[estado] = pedidos.filter(p => p.tallerEstado === estado);
     return acc;
-  }, {});
+  }, {}), [pedidos]);
 
   const totalActivos = pedidos.length;
 

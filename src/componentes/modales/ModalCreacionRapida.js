@@ -92,17 +92,19 @@ export const BaseQuickCreateModal = ({ isOpen, onClose, onCreated, title, endpoi
   );
 };
 
+// Campos estáticos: no dependen de props ni estado → módulo level para evitar recreación en cada render
+const QUICK_PRODUCT_FIELDS = [
+  { name: 'nombre', type: 'text', required: true, placeholder: 'Nombre del Producto' },
+  { name: 'descripcion', type: 'text', placeholder: 'Descripción (Opcional)' },
+  { name: 'precio', type: 'number', required: true, placeholder: 'Precio Base (€)' },
+  { name: 'stock', type: 'number', placeholder: 'Stock Inicial' }
+  // Podríamos añadir selectores para fabricante, material, tarifa, si BaseQuickCreateModal los soportara.
+  // Por simplicidad para este fix rápido, usamos campos de texto o números básicos.
+  // Si se requiere más complejidad, habría que extender BaseQuickCreateModal o hacer un form custom.
+];
+
 // --- Componente Específico: Formulario Rápido de Producto ---
 export default function QuickProductForm({ isOpen, onClose, onCreated, catalogos, initialReference }) {
-  const fields = [
-    { name: 'nombre', type: 'text', required: true, placeholder: 'Nombre del Producto' },
-    { name: 'descripcion', type: 'text', placeholder: 'Descripción (Opcional)' },
-    { name: 'precio', type: 'number', required: true, placeholder: 'Precio Base (€)' },
-    { name: 'stock', type: 'number', placeholder: 'Stock Inicial' }
-    // Podríamos añadir selectores para fabricante, material, tarifa, si BaseQuickCreateModal los soportara.
-    // Por simplicidad para este fix rápido, usamos campos de texto o números básicos.
-    // Si se requiere más complejidad, habría que extender BaseQuickCreateModal o hacer un form custom.
-  ];
 
   // Si quisiéramos pre-llenar el nombre con la referencia inicial:
   // Pero BaseQuickCreateModal no acepta initialValues dinámicos fácilmente en su estado actual sin un refactor mayor.
@@ -115,7 +117,7 @@ export default function QuickProductForm({ isOpen, onClose, onCreated, catalogos
       onCreated={onCreated}
       title="Producto"
       endpoint="/api/productos"
-      fields={fields}
+      fields={QUICK_PRODUCT_FIELDS}
       cacheKey="/api/productos"
     />
   );

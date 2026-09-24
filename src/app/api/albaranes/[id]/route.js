@@ -62,12 +62,14 @@ export async function PATCH(request, { params }) {
     const { id } = await params;
     const data = await request.json();
 
-    const albaran = await db.albaran.findUnique({ where: { id } });
+    const albaran = await db.albaran.findUnique({
+      where: { id },
+      include: { factura: { select: { id: true } } },
+    });
     if (!albaran) return NextResponse.json({ message: 'No encontrado' }, { status: 404 });
 
     // No permitir modificar si ya tiene factura
-    const tieneFact = await db.factura.findFirst({ where: { albaranId: id } });
-    if (tieneFact) return NextResponse.json({ message: 'No se puede modificar un albarán facturado' }, { status: 422 });
+    if (albaran.factura) return NextResponse.json({ message: 'No se puede modificar un albarán facturado' }, { status: 422 });
 
     const updated = await db.albaran.update({
       where: { id },

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { AlignJustify, Plus, Trash2, Save, X, Pencil } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
@@ -25,10 +25,12 @@ export default function TacosPage() {
   const [guardandoPrecio, setGuardandoPrecio] = useState(false);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
-  const grupos = TIPOS.map(t => ({
-    ...t,
-    items: (tacos ?? []).filter(x => x.tipo === t.valor).sort((a, b) => a.altura - b.altura),
-  }));
+  const grupos = useMemo(() =>
+    TIPOS.map(t => ({
+      ...t,
+      items: (tacos ?? []).filter(x => x.tipo === t.valor).sort((a, b) => a.altura - b.altura),
+    })),
+  [tacos]);
 
   const abrirForm = () => { setForm(FORM_VACIO); setErrMsg(''); setMostrarForm(true); };
   const cerrarForm = () => { setMostrarForm(false); setErrMsg(''); };

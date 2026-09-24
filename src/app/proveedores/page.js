@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Truck, PlusCircle, CheckSquare, PackageOpen, Edit, Anchor, Eye, Trash2, Clock, Archive } from 'lucide-react';
 import Link from 'next/link';
@@ -193,12 +193,14 @@ export default function ProveedoresPage() {
     };
 
     // Filtramos primero por TAB (Nacional/Importacion)
-    const safePedidos = pedidos?.data ?? [];
-    const pedidosDelTab = safePedidos.filter(p => p.tipo === activeTab);
+    const pedidosDelTab = useMemo(
+      () => (pedidos?.data ?? []).filter(p => p.tipo === activeTab),
+      [pedidos, activeTab],
+    );
 
     // Dentro del Tab, separamos en Pendientes y Recibidos
-    const pendientes = pedidosDelTab.filter(p => p.estado !== 'Recibido');
-    const recibidos = pedidosDelTab.filter(p => p.estado === 'Recibido');
+    const pendientes = useMemo(() => pedidosDelTab.filter(p => p.estado !== 'Recibido'), [pedidosDelTab]);
+    const recibidos = useMemo(() => pedidosDelTab.filter(p => p.estado === 'Recibido'), [pedidosDelTab]);
 
     if (isLoading) return <div className="flex justify-center items-center h-screen"><span className="loading loading-spinner loading-lg"></span></div>;
     if (pedidosError) return <div className="text-error text-center">Error al cargar los pedidos a proveedores.</div>;

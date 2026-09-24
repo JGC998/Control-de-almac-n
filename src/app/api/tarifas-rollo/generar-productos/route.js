@@ -15,6 +15,21 @@ export async function POST() {
 
     const materialMap = Object.fromEntries(materialesDB.map(m => [m.nombre, m.id]));
 
+    // Pre-cargar todos los productos ROLLO existentes en una sola query (evita N+1)
+    const nombresRollos = rollos
+      .filter(r => r.ancho && r.precioBase > 0)
+      .map(r => {
+        const base = `${r.material} ${r.espesor}mm ROLLO ${r.ancho}mm`;
+        return r.color ? `${base} ${r.color}` : base;
+      });
+    const productosExistentes = nombresRollos.length > 0
+      ? await db.producto.findMany({
+          where: { nombre: { in: nombresRollos } },
+          select: { id: true, nombre: true, precioUnitario: true },
+        })
+      : [];
+    const existenteMap = new Map(productosExistentes.map(p => [p.nombre, p]));
+
     let creados = 0;
     let actualizados = 0;
     let sinPrecio = 0;
@@ -30,10 +45,7 @@ export async function POST() {
 
       const materialId = materialMap[rollo.material] ?? null;
 
-      const existente = await db.producto.findFirst({
-        where: { nombre },
-        select: { id: true, precioUnitario: true },
-      });
+      const existente = existenteMap.get(nombre) ?? null;
 
       if (!existente) {
         await db.producto.create({

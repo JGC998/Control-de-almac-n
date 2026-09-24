@@ -9,7 +9,8 @@ import { ContenedorCargando } from '@/componentes/ui';
 export default function ClasificarPage() {
   const { data, isLoading, error } = useSWR('/api/productos?page=1&limit=500');
   const { data: familias = [] } = useSWR('/api/familias');
-  const productos = data?.data ?? [];
+  // Memoizar para que filtrados y sinClasificarTotal no recomputen cuando cambia otro estado
+  const productos = useMemo(() => data?.data ?? [], [data]);
 
   const [modo, setModo] = useState('sello'); // 'sello' | 'seleccion'
   const [subfamiliaId, setSubfamiliaId] = useState(null);

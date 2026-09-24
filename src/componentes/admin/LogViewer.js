@@ -12,7 +12,7 @@ import { fetcher } from '@/lib/fetcher';
 
 export default function LogViewer({ defaultEntity = '' }) {
     const [page, setPage] = useState(1);
-    const [limit] = useState(20);
+    const limit = 20;
     const [entityFilter, setEntityFilter] = useState(defaultEntity);
     const [actionFilter, setActionFilter] = useState('');
     const [dateFrom, setDateFrom] = useState('');

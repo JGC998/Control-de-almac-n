@@ -1,8 +1,31 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import { Package, Truck, Calculator, Info } from 'lucide-react';
 
+const TIPOLOGIA_LABELS = {
+    parcel: 'PARCEL',
+    miniQuarter: 'MINI QUARTER',
+    quarter: 'QUARTER',
+    miniLight: 'MINI LIGHT',
+    half: 'HALF',
+    light: 'LIGHT',
+    megaLight: 'MEGA LIGHT',
+    full: 'FULL',
+    megaFull: 'MEGA FULL'
+};
+
+const TIPOLOGIA_LIMITES = {
+    parcel:      'Medio Palé · peso ≤ 100 kg · altura ≤ 150 cm',
+    miniQuarter: 'peso ≤ 175 kg · altura ≤ 80 cm',
+    quarter:     'peso ≤ 350 kg · altura ≤ 100 cm',
+    miniLight:   'peso ≤ 300 kg · altura ≤ 220 cm',
+    half:        'peso ≤ 650 kg · altura ≤ 140 cm',
+    light:       'peso ≤ 500 kg · altura ≤ 245 cm',
+    megaLight:   'peso ≤ 750 kg · altura ≤ 220 cm',
+    full:        'peso ≤ 900 kg · altura ≤ 200 cm',
+    megaFull:    'supera límites anteriores',
+};
 
 export default function CalculadoraLogistica({ onAddToOrder }) {
     const [provincia, setProvincia] = useState('');
@@ -17,11 +40,14 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
 
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/logistica/tarifas');
 
-    const provincias = tarifas?.map(t => t.provincia).sort() || [];
+    const provincias = useMemo(
+        () => tarifas?.map(t => t.provincia).sort() || [],
+        [tarifas]
+    );
 
-    // Filtrar provincias basado en el input
-    const provinciasFiltradas = provincias.filter(p =>
-        p.toLowerCase().includes(provinciaInput.toLowerCase())
+    const provinciasFiltradas = useMemo(
+        () => provincias.filter(p => p.toLowerCase().includes(provinciaInput.toLowerCase())),
+        [provincias, provinciaInput]
     );
 
     const handleSelectProvincia = (prov) => {
@@ -63,30 +89,6 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
     };
 
     const isValid = provincia && peso && altura && parseFloat(peso) > 0 && parseFloat(altura) > 0;
-
-    const tipologiaLabels = {
-        parcel: 'PARCEL',
-        miniQuarter: 'MINI QUARTER',
-        quarter: 'QUARTER',
-        miniLight: 'MINI LIGHT',
-        half: 'HALF',
-        light: 'LIGHT',
-        megaLight: 'MEGA LIGHT',
-        full: 'FULL',
-        megaFull: 'MEGA FULL'
-    };
-
-    const tipologiaLimites = {
-        parcel:      'Medio Palé · peso ≤ 100 kg · altura ≤ 150 cm',
-        miniQuarter: 'peso ≤ 175 kg · altura ≤ 80 cm',
-        quarter:     'peso ≤ 350 kg · altura ≤ 100 cm',
-        miniLight:   'peso ≤ 300 kg · altura ≤ 220 cm',
-        half:        'peso ≤ 650 kg · altura ≤ 140 cm',
-        light:       'peso ≤ 500 kg · altura ≤ 245 cm',
-        megaLight:   'peso ≤ 750 kg · altura ≤ 220 cm',
-        full:        'peso ≤ 900 kg · altura ≤ 200 cm',
-        megaFull:    'supera límites anteriores',
-    };
 
     return (
         <div className="card bg-base-100 shadow-xl">
@@ -260,12 +262,12 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
                                     <div className="flex justify-between text-xs opacity-70 pl-6">
                                         <span>• Tipología seleccionada:</span>
                                         <span className="badge badge-sm badge-outline font-semibold">
-                                            {tipologiaLabels[resultado.tipologia] || resultado.tipologia}
+                                            {TIPOLOGIA_LABELS[resultado.tipologia] || resultado.tipologia}
                                         </span>
                                     </div>
-                                    {tipologiaLimites[resultado.tipologia] && (
+                                    {TIPOLOGIA_LIMITES[resultado.tipologia] && (
                                         <div className="text-xs opacity-50 pl-6 italic">
-                                            ({tipologiaLimites[resultado.tipologia]})
+                                            ({TIPOLOGIA_LIMITES[resultado.tipologia]})
                                         </div>
                                     )}
                                     <div className="flex justify-between text-xs opacity-70 pl-6">
@@ -298,7 +300,7 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
                                             descripcion: `Envío ${tipoPale} a ${provincia}`,
                                             quantity: 1,
                                             unitPrice: resultado.costeTotal,
-                                            detalles: `${peso}kg, ${altura}cm - ${tipologiaLabels[resultado.tipologia]}`
+                                            detalles: `${peso}kg, ${altura}cm - ${TIPOLOGIA_LABELS[resultado.tipologia]}`
                                         })}
                                     >
                                         <Package className="w-4 h-4" />

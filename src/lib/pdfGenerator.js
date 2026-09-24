@@ -15,6 +15,15 @@ const fmtN = (v, dec = 2) => {
     : (0).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 };
 
+// Formatea milímetros sin decimales (es-ES) — e.g. 1200 → "1.200"
+const fmtMmVal = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
+
+// Parsea detallesTecnicos JSON de un item de pedido/presupuesto; null si no existe o está malformado
+function parseDetTecnicos(item) {
+  try { return item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; }
+  catch { return null; }
+}
+
 // Fallbacks para cuando ConfiguracionEmisor / Config no estén configurados
 const COMPANY_ADDRESS_FALLBACK = '';
 const COMPANY_PHONE_FALLBACK   = '';
@@ -133,33 +142,29 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         // SI NO, usamos 'unitPrice' como fallback (aunque sea costo, si no hay más info).
 
         const dash = '—';
-        const parseDet = (item) => {
-            try { return item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; } catch { return null; }
-        };
         const getBudgetDescripcion = (item) => {
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             if (det?.material && det?.tipoPieza) return det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
             return item.descripcion || item.producto?.nombre || '';
         };
         const getBudgetMaterial = (item) => {
             if (item.producto?.material?.nombre) return item.producto.material.nombre;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             return det?.material || (det?.dimensiones ? 'PVC' : dash);
         };
         const getBudgetEspesor = (item) => {
             if (item.producto?.espesor != null) return `${item.producto.espesor}mm`;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             return det?.dimensiones?.espesor != null ? `${det.dimensiones.espesor}mm` : dash;
         };
-        const fmtMmVal = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
         const getBudgetAncho = (item) => {
             if (item.producto?.ancho != null) return `${fmtMmVal(item.producto.ancho)}mm`;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             return det?.dimensiones?.ancho != null ? `${fmtMmVal(det.dimensiones.ancho)}mm` : dash;
         };
         const getBudgetLargo = (item) => {
             if (item.producto?.largo != null) return `${fmtMmVal(item.producto.largo)}mm`;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             return det?.dimensiones?.largo != null ? `${fmtMmVal(det.dimensiones.largo)}mm` : dash;
         };
 
@@ -721,12 +726,8 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
 
         // Helpers para columnas técnicas del producto
         const dash = '—';
-        const parseDet = (item) => {
-            try { return item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; }
-            catch { return null; }
-        };
         const getDescripcion = (item) => {
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             if (det?.material && det?.tipoPieza) {
                 return det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
             }
@@ -735,29 +736,28 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         const getRefFab     = (item) => item.producto?.referenciaFabricante || dash;
         const getFabricante = (item) => {
             if (item.producto?.fabricante?.nombre) return item.producto.fabricante.nombre;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             if (det?.material) return client?.nombre || dash; // caucho/metraje → cliente del pedido
             return dash;
         };
         const getMaterial    = (item) => {
             if (item.producto?.material?.nombre) return item.producto.material.nombre;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             return det?.material || (det?.dimensiones ? 'PVC' : dash);
         };
         const getEspesor = (item) => {
             if (item.producto?.espesor != null) return `${item.producto.espesor}mm`;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             return det?.dimensiones?.espesor != null ? `${det.dimensiones.espesor}mm` : dash;
         };
-        const fmtMmVal = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
         const getAncho = (item) => {
             if (item.producto?.ancho != null) return `${fmtMmVal(item.producto.ancho)}mm`;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             return det?.dimensiones?.ancho != null ? `${fmtMmVal(det.dimensiones.ancho)}mm` : dash;
         };
         const getLargo = (item) => {
             if (item.producto?.largo != null) return `${fmtMmVal(item.producto.largo)}mm`;
-            const det = parseDet(item);
+            const det = parseDetTecnicos(item);
             return det?.dimensiones?.largo != null ? `${fmtMmVal(det.dimensiones.largo)}mm` : dash;
         };
 

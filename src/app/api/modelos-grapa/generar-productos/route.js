@@ -10,6 +10,24 @@ export async function POST() {
   try {
     const modelos = await db.modeloGrapa.findMany({ where: { activo: true } });
 
+    // Pre-cargar todos los productos GRAPA existentes en una sola query (evita N+1)
+    const nombresGrapas = [];
+    for (const modelo of modelos) {
+      const anchos = Array.isArray(modelo.anchosDisponibles) && modelo.anchosDisponibles.length > 0
+        ? modelo.anchosDisponibles : [];
+      for (const ancho of anchos) {
+        const precio = parseFloat(((ancho / 100) * modelo.precioPor100mm).toFixed(4));
+        if (precio > 0) nombresGrapas.push(`GRAPA ${modelo.nombre} ${ancho}mm`);
+      }
+    }
+    const productosGrapaExistentes = nombresGrapas.length > 0
+      ? await db.producto.findMany({
+          where: { nombre: { in: nombresGrapas }, referenciaFabricante: null },
+          select: { id: true, nombre: true, precioUnitario: true },
+        })
+      : [];
+    const existenteGrapaMap = new Map(productosGrapaExistentes.map(p => [p.nombre, p]));
+
     let creados = 0;
     let actualizados = 0;
     let omitidos = 0;
@@ -27,10 +45,7 @@ export async function POST() {
 
         const nombre = `GRAPA ${modelo.nombre} ${ancho}mm`;
 
-        const existente = await db.producto.findFirst({
-          where: { nombre, referenciaFabricante: null },
-          select: { id: true, precioUnitario: true },
-        });
+        const existente = existenteGrapaMap.get(nombre) ?? null;
 
         if (!existente) {
           await db.producto.create({
