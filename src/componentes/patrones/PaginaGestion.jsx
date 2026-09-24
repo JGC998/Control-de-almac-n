@@ -1,6 +1,5 @@
 "use client";
 import React from 'react';
-import Link from 'next/link';
 import { PlusCircle, Edit, Trash2, Download } from 'lucide-react';
 
 import { useGestionCRUD } from '../hooks';

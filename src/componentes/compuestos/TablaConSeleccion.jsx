@@ -3,8 +3,7 @@
 import { useState, useCallback, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CheckSquare, Square, Download, CheckCircle, XCircle, Trash2, X } from 'lucide-react';
-import { toastError } from '@/lib/toast';
+import { Download, CheckCircle, XCircle, X } from 'lucide-react';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 // ── Utilidades ───────────────────────────────────────────────────────────────

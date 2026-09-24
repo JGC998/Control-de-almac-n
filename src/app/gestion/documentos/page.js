@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import { FileText, PlusCircle, Edit, Trash2, ExternalLink, Upload, Search, Package, Plus, X, ArrowRight } from 'lucide-react';

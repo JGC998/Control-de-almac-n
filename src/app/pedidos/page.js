@@ -63,7 +63,7 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
     }
   }
 
-  const [pedidos, total, totalFacturables, totalInternos, margenes, ivaConfig] = await Promise.all([
+  const [pedidos, total, margenes, ivaConfig] = await Promise.all([
     db.pedido.findMany({
       where,
       skip,
@@ -72,8 +72,6 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
       orderBy: { fechaCreacion: 'desc' },
     }),
     db.pedido.count({ where }),
-    db.pedido.count({ where: { sinFacturacion: false } }),
-    db.pedido.count({ where: { sinFacturacion: true } }),
     db.reglaMargen.findMany(),
     db.config.findUnique({ where: { key: 'iva_rate' } }),
   ]);

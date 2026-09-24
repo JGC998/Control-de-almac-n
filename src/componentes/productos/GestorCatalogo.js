@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { PlusCircle, Edit, Trash2, Save, X } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, X } from 'lucide-react';
 import TablaGenerica from '@/componentes/ui/TablaGenerica';
 import { toastError } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';

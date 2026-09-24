@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useRef } from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import useSWR, { mutate as globalMutate } from 'swr';
+import useSWR from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Tag, Info, List, Edit, QrCode, TrendingUp, Trash2, Camera, X, ZoomIn, Printer, FileText, ExternalLink, Ruler } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Info, List, Edit, TrendingUp, Trash2, Camera, X, ZoomIn, Printer, FileText, ExternalLink, Ruler } from 'lucide-react';
 import { toastError, toast } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Plus, Ban, ReceiptText, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Plus, Ban, ClipboardList } from 'lucide-react';
 import { toast, toastError } from '@/lib/toast';
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
@@ -209,22 +209,6 @@ export default function PedidoDetalle() {
         throw new Error(errData.message || 'Error al actualizar estado');
       }
       mutate();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleToggleSinFacturacion = async () => {
-    const nuevoValor = !order.sinFacturacion;
-    try {
-      const res = await fetch(`/api/pedidos/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sinFacturacion: nuevoValor }),
-      });
-      if (!res.ok) throw new Error('Error al actualizar');
-      mutate();
-      toast(nuevoValor ? 'Pedido marcado como sin facturación' : 'Pedido marcado para facturación normal', nuevoValor ? 'info' : 'success');
     } catch (err) {
       setError(err.message);
     }

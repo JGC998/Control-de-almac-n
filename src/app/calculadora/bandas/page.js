@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Calculator, Download, Trash2, FileText, ClipboardList } from 'lucide-react';
+import { Calculator, Download, Trash2, ClipboardList } from 'lucide-react';
 import { formatCurrency, formatWeight } from '@/utils/utilidades';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -31,7 +31,6 @@ export default function CalculadoraBandasPage() {
                 reader.readAsDataURL(blob);
             });
         } catch (e) {
-            console.warn("No se pudo cargar el logo:", e);
             return null;
         }
     };
@@ -123,8 +122,7 @@ export default function CalculadoraBandasPage() {
 
         if (!isTaller) {
             doc.setFontSize(10);
-            const subtotal = totales.precio; // Asumimos que precioTotal ya incluye todo para simplicidad en calculadora
-            // Nota: En calculadora, el precioTotal es final (con IVA o sin IVA segun logica). 
+            // Nota: En calculadora, el precioTotal es final (con IVA o sin IVA segun logica).
             // Asumiremos que es BASE IMPONIBLE para seguir logica CRM o TOTAL. 
             // Para simplificar y dado que es borrador:
 

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
-import { Link2, Plus, Pencil, Trash2, Save, X, Settings, History, Package, ChevronDown } from 'lucide-react';
+import { Link2, Plus, Pencil, Trash2, Save, X, Settings, History, Package } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
 import { toastError } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';

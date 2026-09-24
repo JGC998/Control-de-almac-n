@@ -32,7 +32,7 @@ export default function CalculadoraPage() {
   // 1. Cargar datos
   const { data: tarifas, error: tarifasError, isLoading: tarifasLoading } = useSWR('/api/precios');
   const { data: materiales, error: materialesError, isLoading: materialesLoading } = useSWR('/api/materiales');
-  const { data: margenes, error: margenesError, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
+  const { data: margenes, isLoading: margenesLoading } = useSWR('/api/pricing/margenes');
 
   const isLoading = tarifasLoading || materialesLoading || margenesLoading;
 

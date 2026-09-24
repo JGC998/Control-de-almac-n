@@ -5,7 +5,7 @@ import { Settings, Save, Package, Truck, AlertCircle, CheckCircle, Download } fr
 import Link from 'next/link';
 
 
-function ConfigPaletizadoForm({ config, onSave }) {
+function ConfigPaletizadoForm({ config }) {
     const [formData, setFormData] = useState(config);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);

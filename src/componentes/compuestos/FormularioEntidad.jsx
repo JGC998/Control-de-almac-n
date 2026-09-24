@@ -2,7 +2,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Entrada, Selector, AreaTexto, CampoFormulario, Boton } from '../primitivos';
-import { Alerta } from '../primitivos';
 
 /**
  * Componente FormularioEntidad - Genera formularios dinámicos basados en configuración

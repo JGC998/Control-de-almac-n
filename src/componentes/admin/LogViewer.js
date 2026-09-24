@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import useSWR from 'swr';
 import {
-    Search, Filter, Clock, FileText, User,
+    Clock, FileText, User,
     ChevronLeft, ChevronRight, Activity
 } from 'lucide-react';
 import { format } from 'date-fns';

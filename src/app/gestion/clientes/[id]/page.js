@@ -1,9 +1,9 @@
 "use client";
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import useSWR, { mutate as globalMutate } from 'swr';
+import useSWR from 'swr';
 import Link from 'next/link';
-import { User, FileText, Package, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, TrendingUp, TrendingDown, ShoppingCart, Receipt, DollarSign, History, Plus, Trash2, ChevronDown, ChevronUp, BarChart2, Star } from 'lucide-react';
+import { User, Edit, ArrowLeft, Mail, Phone, MapPin, Tag, TrendingUp, TrendingDown, ShoppingCart, Receipt, DollarSign, History, Plus, Trash2, ChevronDown, ChevronUp, BarChart2, Star } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import ClientEditModal from '@/componentes/modales/ModalEditarCliente';
 import { formatCurrency } from '@/utils/utilidades';

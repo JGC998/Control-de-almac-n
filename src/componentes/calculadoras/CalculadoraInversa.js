@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR from 'swr';
-import { Calculator, DollarSign, ArrowDown, Info } from 'lucide-react';
+import { Calculator, DollarSign, Info } from 'lucide-react';
 
 
 export default function CalculadoraInversa() {

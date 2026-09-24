@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { AlignJustify, Plus, Trash2, Save, X, Pencil } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
-import { toastError, toastSuccess } from '@/lib/toast';
+import { toastError } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import { fetcher } from '@/lib/fetcher';
 

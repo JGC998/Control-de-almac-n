@@ -97,7 +97,6 @@ function TablaComparativa({ data1, data2, imp1, imp2, importaciones }) {
 export default function AnalisisRentabilidadPage() {
   const { data: importaciones } = useSWR('/api/importaciones', fetcher);
   const [importacionId, setImportacionId] = useState('');
-  const [abierto, setAbierto] = useState(false);
   const [modoComparar, setModoComparar] = useState(false);
   const [importacionId2, setImportacionId2] = useState('');
 

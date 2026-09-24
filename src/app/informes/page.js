@@ -1052,7 +1052,6 @@ function PrevisionVentas() {
     }
 
     // Build chart data: historical + bridge + projection
-    const lastReal = completed[completed.length - 1];
     const chartHist = completed.map((p, i) => ({
       label: p.label,
       ventas: p.totalVentas,

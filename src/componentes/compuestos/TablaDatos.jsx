@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Search, Inbox } from 'lucide-react';
+import { Inbox } from 'lucide-react';
 
 /**
  * Componente TablaDatos - Tabla genérica para listados (Server Component)

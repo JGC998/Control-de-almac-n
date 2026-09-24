@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { Scale, TrendingUp, TrendingDown, Info, ChevronDown } from 'lucide-react';
+import { Scale, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
 
 // ─────────────────────────────────────────────────────────────

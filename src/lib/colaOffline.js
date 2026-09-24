@@ -62,7 +62,6 @@ export async function guardarSesion(sesion) {
       tx.onerror    = () => rej(tx.error);
     });
   } catch (e) {
-    console.warn('[colaOffline] No se pudo guardar sesión:', e);
   }
 }
 

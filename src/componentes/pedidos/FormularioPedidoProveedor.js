@@ -69,7 +69,7 @@ export default function PedidoProveedorForm({ tipo, initialData = null }) {
   const { data: proveedores } = useSWR('/api/proveedores');
   const { data: materiales, error: matError } = useSWR('/api/materiales');
   const { data: referencias } = useSWR('/api/configuracion/referencias');
-  const { data: tarifas, error: tarifasError } = useSWR('/api/precios');
+  const { data: tarifas } = useSWR('/api/precios');
 
   const pvcColors = ['Blanco', 'Verde', 'Azul', 'Rojo'];
 

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useRouter } from 'next/navigation';
 import { Plus, X, Save, Search, Ruler, Package, Scissors, Zap } from 'lucide-react';
@@ -485,7 +485,6 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
                   {clienteId && <button type="button" onClick={handleClearClient} className="btn btn-square btn-ghost text-error"><X className="w-4 h-4" /></button>}
                   <button type="button" className="btn btn-square btn-primary"><Search className="w-4 h-4" /></button>
                 </div>
-                {/* {!clienteId && <span className="text-xs text-gray-500 mt-1 ml-1">Clic para buscar o crear</span>} */}
                 {clienteId && tarifasCliente?.length > 0 && (
                   <div className="mt-2 p-2 bg-primary/5 border border-primary/20 rounded-lg">
                     <p className="text-xs font-semibold text-primary mb-1">Tarifas pactadas con este cliente:</p>

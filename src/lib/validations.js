@@ -56,9 +56,6 @@ export const tarifaClienteUpdateSchema = z.object({
   activa: z.boolean().optional(),
 });
 
-// Tipos válidos de artículo en una importación de contenedor
-const TIPOS_ARTICULO = ['BOBINA', 'TACO', 'GRAPA', 'MAQUINA', 'ESTRELLA', 'OTRO'];
-
 const articuloContenedorSchema = z.object({
   id: z.number(),
   tipo: z.enum(['BOBINA', 'TACO', 'GRAPA', 'MAQUINA', 'ESTRELLA', 'OTRO']).default('BOBINA'),

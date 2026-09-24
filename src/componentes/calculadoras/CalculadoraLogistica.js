@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import useSWR from 'swr';
-import { Package, Truck, Calculator, Info, Settings } from 'lucide-react';
+import { Package, Truck, Calculator, Info } from 'lucide-react';
 
 
 export default function CalculadoraLogistica({ onAddToOrder }) {

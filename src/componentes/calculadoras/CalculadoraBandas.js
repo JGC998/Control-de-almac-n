@@ -100,7 +100,6 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     }, [selectedEspesor, selectedAcabado, selectedColor, tarifaSeleccionada, ancho, largo, tipoConfeccion, configuracionTacos]);
 
     const todosModelosGrapa = modelosGrapaData?.modelos ?? [];
-    const mermaGrapaPct = modelosGrapaData?.mermaGrapaPct ?? 20;
 
     // Modelos compatibles según espesor + tipo seleccionado
     const modelosCompatibles = useMemo(() => {

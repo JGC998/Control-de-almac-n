@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import {
   QrCode, Printer, Plus, Trash2, Home, ShoppingCart, FileText,

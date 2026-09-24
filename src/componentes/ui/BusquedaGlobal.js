@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
-import Link from 'next/link';
-import { Search, User, Package, FileText, X, ArrowRight, Receipt } from 'lucide-react';
+import { Search, User, Package, FileText, X, ArrowRight } from 'lucide-react';
 
 const TYPE_CONFIG = {
   cliente:      { label: 'Cliente',      icon: User,     color: 'text-blue-500',   getPath: r => `/gestion/clientes/${r.id}`,  getText: r => r.nombre, getSub: r => r.email },
