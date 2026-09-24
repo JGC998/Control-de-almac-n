@@ -47,7 +47,8 @@ export async function POST(request) {
     }
 
     const nomRow = await db.config.findUnique({ where: { key: 'nomenclatura' } });
-    const nomConfig = nomRow ? JSON.parse(nomRow.value) : {};
+    let nomConfig = {};
+    try { if (nomRow) nomConfig = JSON.parse(nomRow.value); } catch { /* config malformed → usar defaults */ }
 
     const buffer = await generateEtiquetasLoteA4PDF(itemsConProducto, nomConfig);
     const total  = itemsConProducto.reduce((s, it) => s + it.cantidad, 0);

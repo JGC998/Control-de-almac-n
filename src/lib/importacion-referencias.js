@@ -10,7 +10,13 @@ import { logApiError } from '@/lib/logger';
  * Fire-and-forget — llamar con .catch(() => {}).
  */
 export async function sincronizarReferencias(bovinasRaw) {
-  const bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
+  let bobinas;
+  try {
+    bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
+  } catch (e) {
+    logApiError(e, 'sincronizarReferencias:parse');
+    return;
+  }
   if (!Array.isArray(bobinas)) return;
 
   const candidatas = bobinas.filter(b => b.tipo === 'BOBINA' && b.referencia?.trim());

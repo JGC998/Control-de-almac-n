@@ -9,7 +9,13 @@ import { logApiError } from '@/lib/logger';
  * Fire-and-forget — llamar con .catch(() => {}).
  */
 export async function actualizarPrecioGrapas(bovinasRaw, totalBobinasEUR, gastosRepercutibles, tasaCambio, importacionId) {
-  const bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
+  let bobinas;
+  try {
+    bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
+  } catch (e) {
+    logApiError(e, 'actualizarPrecioGrapas:parse');
+    return;
+  }
   const grapas = (bobinas ?? []).filter(b =>
     b.tipo === 'GRAPA' && (b.referencia || b.modeloGrapaId) &&
     parseFloat(b.paresPorCaja) > 0 && parseFloat(b.ancho) > 0 && parseFloat(b.numRollos) > 0
@@ -50,24 +56,23 @@ export async function actualizarPrecioGrapas(bovinasRaw, totalBobinasEUR, gastos
 
       const precioAnterior = modelo.precioPor100mm;
 
-      // update y create son independientes entre sí (ambos usan modelo.id) → paralelo
-      await Promise.all([
-        db.modeloGrapa.update({
-          where: { id: modelo.id },
-          data: { precioPor100mm: nuevoPrecio },
-        }),
-        db.historialPrecioGrapa.create({
-          data: {
-            modeloGrapaId:          modelo.id,
-            precioPor100mmAnterior: precioAnterior,
-            precioPor100mmNuevo:    nuevoPrecio,
-            costePorCaja,
-            anchoPar,
-            paresPorCaja,
-            importacionId:          importacionId ?? null,
-          },
-        }),
-      ]);
+      // Secuencial: primero update, luego create — si update falla (P2025 en race condition),
+      // no se crea un historial huérfano.
+      await db.modeloGrapa.update({
+        where: { id: modelo.id },
+        data: { precioPor100mm: nuevoPrecio },
+      });
+      await db.historialPrecioGrapa.create({
+        data: {
+          modeloGrapaId:          modelo.id,
+          precioPor100mmAnterior: precioAnterior,
+          precioPor100mmNuevo:    nuevoPrecio,
+          costePorCaja,
+          anchoPar,
+          paresPorCaja,
+          importacionId:          importacionId ?? null,
+        },
+      });
     } catch (e) {
       logApiError(e, `actualizarPrecioGrapas:${b.referencia}`);
     }

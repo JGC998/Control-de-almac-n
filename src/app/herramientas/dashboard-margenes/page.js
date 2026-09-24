@@ -62,7 +62,7 @@ export default function DashboardMargenesPage() {
       case 'material':     return [...f].sort((a, b) => a.tm.material.localeCompare(b.tm.material) || a.tm.espesor - b.tm.espesor);
       default: return f;
     }
-  }, [filas, orden, filtroAlerta]);
+  }, [filas, orden, filtroAlerta, filtroMaterial]);
 
   const stats = useMemo(() => {
     const conMargen = filas.filter(f => f.margen != null);

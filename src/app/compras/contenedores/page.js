@@ -155,8 +155,8 @@ export default function ContenedoresPage() {
   }, [todas]);
 
   // KPIs — memoizados para no recalcular al cambiar mostrarTodas
+  const currentYear = new Date().getFullYear();
   const { esteAnio, costeAnual, ultimaFecha } = useMemo(() => {
-    const currentYear = new Date().getFullYear();
     const anio = todas.filter(i => new Date(i.creadaEn).getFullYear() === currentYear);
     return {
       esteAnio: anio,

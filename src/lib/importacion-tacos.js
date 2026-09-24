@@ -8,7 +8,13 @@ import { logApiError } from '@/lib/logger';
  * Fire-and-forget — llamar con .catch(() => {}).
  */
 export async function actualizarPrecioTacos(bovinasRaw, totalBobinasEUR, gastosRepercutibles, tasaCambio) {
-  const bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
+  let bobinas;
+  try {
+    bobinas = typeof bovinasRaw === 'string' ? JSON.parse(bovinasRaw) : bovinasRaw;
+  } catch (e) {
+    logApiError(e, 'actualizarPrecioTacos:parse');
+    return;
+  }
   const tacos = (bobinas ?? []).filter(b =>
     b.tipo === 'TACO' && b.tacoId && parseFloat(b.longitud) > 0 && parseFloat(b.precio) > 0
   );
