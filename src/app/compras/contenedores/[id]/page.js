@@ -7,6 +7,7 @@ import { fetcher } from '@/lib/fetcher';
 import {
   ArrowLeft, RefreshCw, MapPin, Package, Calendar,
   Ship, PackageCheck, Calculator, AlertTriangle, Anchor, Navigation, Pencil, MessageCircle,
+  TrendingUp, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
 // Coordenadas de los principales puertos en rutas China–España
@@ -134,6 +135,8 @@ export default function ContenedorDetalle() {
   const { data: imp, isLoading, mutate } = useSWR(id ? `/api/importaciones/${id}` : null, fetcher);
   const { data: tarifasCoste }    = useSWR('/api/tarifas-coste', fetcher);
   const { data: tarifasMaterial } = useSWR('/api/precios', fetcher);
+  const { data: impactoTarifas }  = useSWR(id ? `/api/importaciones/${id}/impacto-tarifas` : null, fetcher);
+  const [impactoExpandido, setImpactoExpandido] = useState(false);
 
   const alertasMateriales = useMemo(() => {
     if (!imp?.bobinas || !Array.isArray(tarifasCoste) || !Array.isArray(tarifasMaterial)) return [];
@@ -783,6 +786,66 @@ export default function ContenedorDetalle() {
         </div>
       ) : null}
 
+      {/* Impacto en tarifas de coste */}
+      {impactoTarifas?.entradas?.length > 0 && (
+        <div className="card bg-base-100 shadow border border-base-200">
+          <button
+            className="card-body py-4 flex flex-row items-center justify-between w-full text-left"
+            onClick={() => setImpactoExpandido(v => !v)}
+          >
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-success" />
+              <span className="font-semibold">Impacto en tarifas de coste</span>
+              <span className="badge badge-success badge-sm">{impactoTarifas.entradas.length} material{impactoTarifas.entradas.length !== 1 ? 'es' : ''}</span>
+            </div>
+            {impactoExpandido
+              ? <ChevronUp className="w-4 h-4 text-base-content/40" />
+              : <ChevronDown className="w-4 h-4 text-base-content/40" />
+            }
+          </button>
+
+          {impactoExpandido && (
+            <div className="px-6 pb-5 space-y-3">
+              <p className="text-sm text-base-content/60 -mt-2 mb-3">
+                Materiales cuyo precio de coste fue establecido por esta importación, y productos afectados.
+              </p>
+              {impactoTarifas.entradas.map(e => (
+                <div key={e.id} className="border border-base-200 rounded-xl p-4">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
+                    <span className="font-semibold text-sm">{e.material}</span>
+                    <span className="badge badge-outline badge-sm">{e.espesor} mm</span>
+                    {e.color && <span className="badge badge-ghost badge-sm">{e.color}</span>}
+                    {e.lonas != null && <span className="badge badge-ghost badge-sm">{e.lonas} lonas</span>}
+                    {e.acabado && <span className="badge badge-ghost badge-sm">{e.acabado}</span>}
+                    <span className="font-mono text-sm text-success ml-auto">
+                      {e.precio.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}/kg
+                    </span>
+                    {e.tarifaActivaVigente
+                      ? <span className="badge badge-success badge-sm">Tarifa activa</span>
+                      : <span className="badge badge-ghost badge-sm">Superada</span>
+                    }
+                  </div>
+                  {e.productos.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {e.productos.map(p => (
+                        <Link
+                          key={p.id}
+                          href={`/gestion/productos/${p.id}`}
+                          className="badge badge-neutral badge-sm hover:badge-primary transition-colors"
+                        >
+                          {p.nombre}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-base-content/40 mt-1">Sin productos activos vinculados a este material/espesor.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   );

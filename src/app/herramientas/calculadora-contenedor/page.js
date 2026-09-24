@@ -1890,13 +1890,13 @@ function CalculadoraContenedorPage() {
                   <span className="font-mono">{fmtEur(gastosRepercutibles)}</span>
                 </div>
                 {ivaDuana > 0 && (
-                  <div className="flex justify-between text-sm text-warning/70 text-xs">
+                  <div className="flex justify-between text-base-content/60 text-xs">
                     <span className="flex items-center gap-1"><Info className="w-3 h-3" /> IVA Aduana (deducible, descontado)</span>
                     <span className="font-mono">−{fmtEur(ivaDuana)}</span>
                   </div>
                 )}
                 {ivaGeneral > 0 && (
-                  <div className="flex justify-between text-sm text-base-content/30 text-xs">
+                  <div className="flex justify-between text-base-content/60 text-xs">
                     <span>IVA General 21% (deducible, no repercute)</span>
                     <span className="font-mono">{fmtEur(ivaGeneral)}</span>
                   </div>

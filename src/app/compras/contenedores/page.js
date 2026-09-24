@@ -31,9 +31,9 @@ function TarjetaImportacion({ imp, onDelete }) {
   const esBorrador = imp.estado === 'BORRADOR';
   const numBobinas = contarBobinas(imp.bobinas);
 
-  // Coste total aproximado: totalBobinasEUR (ya en EUR) + gastosRepercutibles
-  const costeEUR = (imp.totalBobinasEUR != null && imp.tasaCambio != null)
-    ? imp.totalBobinasEUR * imp.tasaCambio + (imp.gastosRepercutibles || 0)
+  // Coste producto: totalBobinasEUR ya está en EUR, solo sumamos gastos repercutibles
+  const costeEUR = imp.totalBobinasEUR != null
+    ? imp.totalBobinasEUR + (imp.gastosRepercutibles || 0)
     : null;
 
   const titulo = imp.descripcion || imp.numContenedor || imp.numFactura || 'Sin descripción';
@@ -158,8 +158,8 @@ export default function ContenedoresPage() {
   const currentYear = new Date().getFullYear();
   const esteAnio = todas.filter(i => new Date(i.creadaEn).getFullYear() === currentYear);
   const costeAnual = esteAnio.reduce((s, i) => {
-    const c = (i.totalBobinasEUR && i.tasaCambio)
-      ? i.totalBobinasEUR * i.tasaCambio + (i.gastosRepercutibles || 0)
+    const c = i.totalBobinasEUR
+      ? i.totalBobinasEUR + (i.gastosRepercutibles || 0)
       : 0;
     return s + c;
   }, 0);

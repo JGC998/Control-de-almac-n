@@ -5,6 +5,7 @@ import { importacionContenedorSchema } from '@/lib/validations';
 import { actualizarPrecioGrapas } from '@/lib/importacion-grapas';
 import { actualizarPrecioMateriales } from '@/lib/importacion-materiales';
 import { actualizarPrecioTacos } from '@/lib/importacion-tacos';
+import { sincronizarReferencias } from '@/lib/importacion-referencias';
 
 // PATCH /api/importaciones/[id] — actualización parcial (estado, trackingActivo)
 export async function PATCH(request, { params }) {
@@ -89,6 +90,7 @@ export async function PUT(request, { params }) {
     actualizarPrecioGrapas(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio, id).catch(err => logApiError(err, 'PUT /api/importaciones/[id]:actualizarPrecioGrapas'));
     actualizarPrecioMateriales(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio, id).catch(err => logApiError(err, 'PUT /api/importaciones/[id]:actualizarPrecioMateriales'));
     actualizarPrecioTacos(registro.bobinas, registro.totalBobinasEUR, registro.gastosRepercutibles, registro.tasaCambio).catch(err => logApiError(err, 'PUT /api/importaciones/[id]:actualizarPrecioTacos'));
+    sincronizarReferencias(registro.bobinas).catch(err => logApiError(err, 'PUT /api/importaciones/[id]:sincronizarReferencias'));
     return NextResponse.json(registro);
   } catch (error) {
     logApiError(error, 'PUT /api/importaciones/[id]');

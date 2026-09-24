@@ -13,9 +13,22 @@ const refSchema = z.object({
 export const dynamic = 'force-dynamic';
 
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get('q')?.trim() || '';
+
+    const where = q
+      ? {
+          OR: [
+            { referencia: { contains: q } },
+            { nombre: { contains: q } },
+          ],
+        }
+      : undefined;
+
     const referencias = await db.referenciaBobina.findMany({
+      where,
       orderBy: { referencia: 'asc' },
       take: 2000,
     });
