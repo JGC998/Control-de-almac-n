@@ -12,14 +12,6 @@ const refSchema = z.object({
 
 export const dynamic = 'force-dynamic';
 
-// Función para obtener un número de forma segura o null si es inválido/vacío
-const getSafeNumber = (value) => {
-    if (value === null || value === undefined || value === '') {
-        return null;
-    }
-    const num = parseFloat(value);
-    return isNaN(num) ? null : num;
-};
 
 export async function GET() {
   try {

@@ -46,9 +46,9 @@ export async function POST(request) {
   const data = await request.json();
     if (action === 'salida') {
       // --- Lógica de SALIDA (Baja de Stock por Metros) ---
-      const { stockId, cantidad, cantidadBobinasToDiscard, referencia } = data;
+      const { stockId, cantidad } = data;
 
-      // Soportar ambos: 'cantidad' (metros) o 'cantidadBobinasToDiscard' (bobinas)
+      // Soportar 'cantidad' en metros
       let metrosADescontar = parseFloat(cantidad) || 0;
 
       if (!stockId || (isNaN(metrosADescontar) || metrosADescontar <= 0)) {

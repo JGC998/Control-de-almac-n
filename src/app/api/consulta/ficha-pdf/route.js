@@ -52,7 +52,6 @@ export async function POST(request) {
     }
 
     // Header empresa
-    const nombreEmpresa = emisor?.nombre || 'Taller';
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.text('FICHA DE CÁLCULO', 14, 20);

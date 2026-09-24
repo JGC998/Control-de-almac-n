@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { logApiError } from '@/lib/logger';
+
 import { db } from '@/lib/db';
 import { handlePrismaError } from '@/lib/manejadores-api';
 

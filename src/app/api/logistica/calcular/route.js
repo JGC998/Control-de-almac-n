@@ -138,7 +138,7 @@ export async function POST(request) {
     } catch (error) {
         logApiError(error, 'Error en cálculo logístico:');
         return NextResponse.json(
-            { error: 'Error interno del servidor', details: undefined },
+            { error: 'Error interno del servidor' },
             { status: 500 }
         );
     }
