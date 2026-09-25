@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingUp, FileText, Ruler, Factory, QrCode, BarChart2 } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingUp, FileText, Ruler, Factory, QrCode, BarChart2, Timer } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -66,6 +66,13 @@ export default function HerramientasHub() {
           titulo: 'Accesos rápidos QR',
           descripcion: 'Genera códigos QR para las páginas más usadas. Imprímelos y pégalos en el taller para abrir cualquier sección desde el móvil de un escaneo.',
           accion: 'Generar QR codes',
+        },
+        {
+          href: '/herramientas/estadisticas-pedidos',
+          icon: Timer,
+          titulo: 'Estadísticas de pedidos',
+          descripcion: 'Tiempo medio de fabricación por pedido: desde la creación hasta la entrega. Desglosado por familia de producto, tamaño del pedido y tendencia mensual.',
+          accion: 'Ver estadísticas',
         },
       ]}
     />

@@ -169,6 +169,9 @@ export async function PATCH(request, { params: paramsPromise }) {
     if (updates.estado && ESTADOS_PEDIDO.includes(updates.estado)) allowed.estado = updates.estado;
     if (updates.tallerEstado && TALLER_ESTADOS.includes(updates.tallerEstado)) {
       allowed.tallerEstado = updates.tallerEstado;
+      if (updates.tallerEstado === 'Entregado') {
+        allowed.fechaCompletado = new Date();
+      }
     }
 
     if (!Object.keys(allowed).length) {
