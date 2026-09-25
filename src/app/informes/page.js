@@ -3,12 +3,12 @@ import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, Legend, LineChart, Line,
+  CartesianGrid, Legend, LineChart, Line, Cell,
 } from 'recharts';
 import {
   BarChart2, Users, Package, Download, TrendingUp,
   TrendingDown, Clock, ShoppingCart, FileText, AlertCircle, Printer,
-  DollarSign, Package2, AlertTriangle, Layers, Activity,
+  DollarSign, Package2, AlertTriangle, Layers, Activity, Timer, ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/utilidades';
@@ -1364,27 +1364,219 @@ function VentasPorMaterial() {
   );
 }
 
-// ── Página ───────────────────────────────────────────────────────────────────
-const TABS = [
-  { id: 'mensuales',    label: 'Ventas por Mes',    icon: BarChart2,    component: VentasMensuales },
-  { id: 'clientes',    label: 'Top Clientes',       icon: Users,        component: TopClientes },
-  { id: 'por-cliente', label: 'Por Cliente',        icon: FileText,     component: VentasPorCliente },
-  { id: 'productos',   label: 'Por Producto',       icon: Package,      component: VentasPorProducto },
-  { id: 'seguimiento', label: 'Sin Respuesta',      icon: AlertCircle,  component: PresupuestosSinRespuesta },
-  { id: 'margen',      label: 'Margen por Pedido',  icon: DollarSign,   component: MargenPedidos },
-  { id: 'rentabilidad',label: 'Rentabilidad',       icon: TrendingUp,   component: RentabilidadClientes },
-  { id: 'precios-imp', label: 'Precios Importación',icon: Package2,     component: HistoricoPrecios },
-  { id: 'margen-real', label: 'Margen Real',        icon: AlertTriangle,component: MargenReal },
-  { id: 'material',   label: 'Por Material',        icon: Layers,       component: VentasPorMaterial },
-  { id: 'prevision',  label: 'Previsión',           icon: Activity,     component: PrevisionVentas },
-];
+// ── Tiempos de pedido ────────────────────────────────────────────────────────
+function TiemposPedido() {
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [familia, setFamilia] = useState('');
 
-export default function InformesPage() {
-  const [activeTab, setActiveTab] = useState('mensuales');
-  const ActiveComponent = TABS.find(t => t.id === activeTab)?.component ?? VentasMensuales;
+  const params = useMemo(() => {
+    const p = new URLSearchParams();
+    if (desde) p.set('desde', desde);
+    if (hasta) p.set('hasta', hasta);
+    if (familia) p.set('familia', familia);
+    return p.toString();
+  }, [desde, hasta, familia]);
+
+  const { data, isLoading } = useSWR(
+    `/api/pedidos/estadisticas-tiempo${params ? `?${params}` : ''}`
+  );
+
+  function fmtFecha(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function fmtMes(iso) {
+    const [y, m] = iso.split('-');
+    return new Date(y, m - 1).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+  }
+
+  const sinDatos = !isLoading && (data?.total ?? 0) === 0;
 
   return (
-    <div className="container mx-auto p-6 max-w-5xl">
+    <div>
+      <div className="flex flex-wrap gap-3 mb-5 items-center">
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-base-content/60">Desde</span>
+          <input type="date" className="input input-sm input-bordered" value={desde} onChange={e => setDesde(e.target.value)} />
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-base-content/60">Hasta</span>
+          <input type="date" className="input input-sm input-bordered" value={hasta} onChange={e => setHasta(e.target.value)} />
+        </label>
+        {data?.familias?.length > 0 && (
+          <select className="select select-sm select-bordered" value={familia} onChange={e => setFamilia(e.target.value)}>
+            <option value="">Todas las familias</option>
+            {data.familias.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        )}
+        {(desde || hasta || familia) && (
+          <button className="btn btn-ghost btn-sm" onClick={() => { setDesde(''); setHasta(''); setFamilia(''); }}>
+            Limpiar
+          </button>
+        )}
+      </div>
+
+      {isLoading && <div className="flex justify-center py-12"><span className="loading loading-dots loading-lg" /></div>}
+
+      {sinDatos && (
+        <div className="text-center py-16 text-base-content/30">
+          <Timer className="w-12 h-12 mx-auto mb-3 opacity-20" />
+          <p className="font-medium">Sin datos todavía</p>
+          <p className="text-sm mt-1">Las estadísticas aparecen cuando los pedidos se marcan como <strong>Entregado</strong> en la vista de taller.</p>
+        </div>
+      )}
+
+      {!isLoading && data?.total > 0 && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+            <div className="stat bg-base-200 rounded-xl py-3">
+              <div className="stat-title text-xs">Pedidos completados</div>
+              <div className="stat-value text-lg">{data.total}</div>
+            </div>
+            <div className="stat bg-base-200 rounded-xl py-3">
+              <div className="stat-title text-xs">Tiempo medio</div>
+              <div className="stat-value text-lg">{data.mediaDias} días</div>
+              <div className="stat-desc">Mediana: {data.mediana} días</div>
+            </div>
+            <div className="stat bg-base-200 rounded-xl py-3">
+              <div className="stat-title text-xs">Rango</div>
+              <div className="stat-value text-lg">
+                {Math.min(...data.detalle.map(d => d.dias))}–{Math.max(...data.detalle.map(d => d.dias))} d
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {data.porFamilia.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold mb-2">Media por familia</p>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.porFamilia} layout="vertical" margin={{ left: 8, right: 24 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" unit=" d" tick={{ fontSize: 11 }} />
+                      <YAxis dataKey="familia" type="category" width={110} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={v => [`${v} días`, 'Media']} />
+                      <Bar dataKey="mediaDias" radius={[0, 4, 4, 0]}>
+                        {data.porFamilia.map((entry, i) => (
+                          <Cell key={i} fill={entry.color ?? '#570DF8'} fillOpacity={0.75} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+            {data.tendencia.length > 1 && (
+              <div>
+                <p className="text-sm font-semibold mb-2">Tendencia mensual</p>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.tendencia} margin={{ left: 0, right: 16 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="mes" tickFormatter={fmtMes} tick={{ fontSize: 11 }} />
+                      <YAxis unit=" d" tick={{ fontSize: 11 }} />
+                      <Tooltip labelFormatter={fmtMes} formatter={(v, _, { payload }) => [`${v} días (${payload?.count} pedidos)`, 'Media']} />
+                      <Line type="monotone" dataKey="mediaDias" stroke="#570DF8" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {data.porTamano.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+              {data.porTamano.map(t => (
+                <div key={t.label} className="stat bg-base-200 rounded-xl py-3">
+                  <div className="stat-title text-xs">{t.label}</div>
+                  <div className="stat-value text-lg">{t.mediaDias} días</div>
+                  <div className="stat-desc">{t.count} pedidos</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="table table-sm w-full">
+              <thead>
+                <tr><th>Pedido</th><th>Familia</th><th>Ítems</th><th>Completado</th><th className="text-right">Días</th></tr>
+              </thead>
+              <tbody>
+                {data.detalle.map(p => (
+                  <tr key={p.id} className="hover">
+                    <td><Link href={`/pedidos/${p.id}`} className="link link-hover font-mono text-xs">{p.numero}</Link></td>
+                    <td className="text-sm">{p.familia}</td>
+                    <td className="text-sm tabular-nums">{p.numItems}</td>
+                    <td className="text-sm text-base-content/60">{fmtFecha(p.fechaCompletado)}</td>
+                    <td className="text-right">
+                      <span className={`badge badge-sm ${p.dias <= 3 ? 'badge-success' : p.dias <= 7 ? 'badge-warning' : 'badge-error'}`}>
+                        {p.dias}d
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Estructura de navegación ─────────────────────────────────────────────────
+const SECTIONS = [
+  {
+    group: 'Ventas',
+    icon: BarChart2,
+    items: [
+      { id: 'mensuales',  label: 'Por mes',       icon: BarChart2,  component: VentasMensuales },
+      { id: 'material',   label: 'Por material',  icon: Layers,     component: VentasPorMaterial },
+      { id: 'productos',  label: 'Por producto',  icon: Package,    component: VentasPorProducto },
+      { id: 'prevision',  label: 'Previsión',     icon: Activity,   component: PrevisionVentas },
+    ],
+  },
+  {
+    group: 'Clientes',
+    icon: Users,
+    items: [
+      { id: 'clientes',     label: 'Ranking',         icon: Users,       component: TopClientes },
+      { id: 'por-cliente',  label: 'Por cliente',     icon: FileText,    component: VentasPorCliente },
+      { id: 'rentabilidad', label: 'Rentabilidad',    icon: TrendingUp,  component: RentabilidadClientes },
+      { id: 'seguimiento',  label: 'Sin respuesta',   icon: AlertCircle, component: PresupuestosSinRespuesta },
+    ],
+  },
+  {
+    group: 'Rentabilidad',
+    icon: DollarSign,
+    items: [
+      { id: 'margen',      label: 'Por pedido',       icon: DollarSign,    component: MargenPedidos },
+      { id: 'margen-real', label: 'Margen real',      icon: AlertTriangle, component: MargenReal },
+      { id: 'precios-imp', label: 'Precios import.',  icon: Package2,      component: HistoricoPrecios },
+    ],
+  },
+  {
+    group: 'Producción',
+    icon: Timer,
+    items: [
+      { id: 'tiempos', label: 'Tiempos de pedido', icon: Timer, component: TiemposPedido },
+    ],
+  },
+];
+
+const ALL_ITEMS = SECTIONS.flatMap(s => s.items);
+
+export default function InformesPage() {
+  const [activeId, setActiveId] = useState('mensuales');
+  const active = ALL_ITEMS.find(i => i.id === activeId) ?? ALL_ITEMS[0];
+  const ActiveComponent = active.component;
+
+  return (
+    <div className="container mx-auto p-6 max-w-6xl">
+
+      {/* Cabecera */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <BarChart2 className="w-7 h-7" /> Informes
@@ -1394,24 +1586,68 @@ export default function InformesPage() {
         </button>
       </div>
 
+      {/* KPIs globales */}
       <KPICards />
 
-      <div role="tablist" className="tabs tabs-bordered mb-6">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            role="tab"
-            className={`tab gap-2 ${activeTab === tab.id ? 'tab-active font-semibold' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
+      {/* Select móvil */}
+      <div className="md:hidden mb-4">
+        <select
+          className="select select-bordered w-full"
+          value={activeId}
+          onChange={e => setActiveId(e.target.value)}
+        >
+          {SECTIONS.map(s => (
+            <optgroup key={s.group} label={s.group}>
+              {s.items.map(item => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
       </div>
 
-      <div className="bg-base-100 shadow-xl rounded-xl p-6">
-        <ActiveComponent />
+      {/* Layout sidebar + contenido */}
+      <div className="flex gap-6 items-start">
+
+        {/* Sidebar — solo desktop */}
+        <aside className="hidden md:block w-48 shrink-0 sticky top-4">
+          {SECTIONS.map(section => (
+            <div key={section.group} className="mb-5">
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-base-content/40 px-2 mb-1.5">
+                <section.icon className="w-3.5 h-3.5" />
+                {section.group}
+              </p>
+              {section.items.map(item => (
+                <button
+                  key={item.id}
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors text-left mb-0.5
+                    ${activeId === item.id
+                      ? 'bg-primary text-primary-content font-semibold'
+                      : 'hover:bg-base-200 text-base-content'}`}
+                  onClick={() => setActiveId(item.id)}
+                >
+                  <item.icon className="w-3.5 h-3.5 shrink-0" />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </aside>
+
+        {/* Contenido principal */}
+        <main className="flex-1 min-w-0">
+          {/* Migas */}
+          <div className="flex items-center gap-1 text-xs text-base-content/40 mb-3">
+            <span>{SECTIONS.find(s => s.items.some(i => i.id === activeId))?.group}</span>
+            <ChevronRight className="w-3 h-3" />
+            <span className="text-base-content/70 font-medium">{active.label}</span>
+          </div>
+
+          <div className="bg-base-100 shadow-sm border border-base-200 rounded-xl p-6">
+            <ActiveComponent />
+          </div>
+        </main>
+
       </div>
     </div>
   );
