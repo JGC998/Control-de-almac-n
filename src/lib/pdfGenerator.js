@@ -870,11 +870,11 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             styles: { fontSize: 9, cellPadding: 2.5 },
             headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold', fontSize: 7 },
             columnStyles: colStyles,
-            willDrawCell: (data) => {
+            didParseCell: (data) => {
                 if (data.section === 'body') {
                     data.cell.styles.fillColor = (rowMaterialGroup[data.row.index] % 2 === 0)
                         ? [255, 255, 255]
-                        : [236, 241, 247];
+                        : [220, 232, 248];
                 }
             },
         });
