@@ -764,9 +764,27 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         // Columna Detalles: solo para valorado (cortes, metrajes, etc.)
         const getDetalles = (item) => formatDetallesTecnicos(item);
 
-        for (const item of order.items || []) {
+        // Ordenar items por material → descripción alfabética
+        const itemsOrdenados = [...(order.items || [])].sort((a, b) => {
+            const matA = getMaterial(a).toLowerCase();
+            const matB = getMaterial(b).toLowerCase();
+            if (matA !== matB) return matA.localeCompare(matB, 'es');
+            const descA = (a.descripcion || a.producto?.nombre || '').toLowerCase();
+            const descB = (b.descripcion || b.producto?.nombre || '').toLowerCase();
+            return descA.localeCompare(descB, 'es');
+        });
+
+        // Índice de grupo de material por fila (para zebra por grupo)
+        const rowMaterialGroup = [];
+        let _currentMat = null;
+        let _groupIdx = -1;
+
+        for (const item of itemsOrdenados) {
             const qty           = item.quantity || 0;
             const costoUnitario = item.unitPrice || 0;
+            const _mat = getMaterial(item);
+            if (_mat !== _currentMat) { _currentMat = _mat; _groupIdx++; }
+            rowMaterialGroup.push(_groupIdx);
             // Fallback al peso del producto si el item no tiene peso guardado
             const peso       = item.pesoUnitario || item.producto?.pesoUnitario || 0;
             const pesoLinea  = qty * peso;
@@ -852,6 +870,13 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             styles: { fontSize: 9, cellPadding: 2.5 },
             headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold', fontSize: 7 },
             columnStyles: colStyles,
+            willDrawCell: (data) => {
+                if (data.section === 'body') {
+                    data.cell.styles.fillColor = (rowMaterialGroup[data.row.index] % 2 === 0)
+                        ? [255, 255, 255]
+                        : [236, 241, 247];
+                }
+            },
         });
 
         let finalY = doc.lastAutoTable.finalY + 7;

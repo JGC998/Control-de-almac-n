@@ -1,6 +1,6 @@
 # ROADMAP — CRM Taller
 
-> Última actualización: 2026-09-17  
+> Última actualización: 2026-09-25  
 > Generado desde `ideas.txt`
 
 ---
@@ -37,6 +37,9 @@ El objetivo de esta ronda es una **remodelación estructural de la navegación**
 | T-20 | Configuración: márgenes y referencias como apartados independientes en /configuracion | Refactor | Media | — |
 | T-21 | /almacen — Rollos: mostrar rollos generados volcados a productos | Feature | Media | — |
 | T-22 | /almacen — Materiales: sección que muestra los materiales dados de alta | Feature | Pequeña | — |
+| T-23 | Añadir campo `fechaCompletado` al modelo `Pedido` en schema Prisma | DB | Pequeña | — |
+| T-24 | API `GET /api/pedidos/estadisticas-tiempo` — tiempos y promedios por material y nº productos | Backend | Media | T-23 |
+| T-25 | Nueva página `/herramientas/estadisticas-pedidos` — dashboard con KPIs, tabla y gráficos | Frontend | Media | T-24 |
 
 ---
 
@@ -128,6 +131,20 @@ El objetivo de esta ronda es una **remodelación estructural de la navegación**
 
 ---
 
+### Fase 7 — Estadísticas de tiempo de pedido *(nuevo)*
+> Medir cuánto tarda en completarse cada pedido y ofrecer estadísticas de rendimiento de taller. Estimación: 1-2 días.
+
+- [ ] **T-23** — Añadir `fechaCompletado DateTime?` al modelo `Pedido`  
+  _En `prisma/schema.dev.prisma` y `prisma/schema.prisma`: añadir el campo. En la API `PUT /api/pedidos/[id]`, cuando el estado cambie a "completado" o "entregado", registrar automáticamente `fechaCompletado = new Date()` si aún no está relleno. Ejecutar `prisma db push`._
+
+- [ ] **T-24** — API `GET /api/pedidos/estadisticas-tiempo`  
+  _Devuelve: tiempo medio de pedido en días (global), desglosado por material de los ítems del pedido y por tramos de tamaño (1-3 productos, 4-10, >10). Calcula `fechaCompletado - creadoEn`. Solo incluye pedidos con `fechaCompletado != null`. Parámetros de query opcionales: `?desde=`, `?hasta=`, `?material=`._
+
+- [ ] **T-25** — Página `/herramientas/estadisticas-pedidos`  
+  _Dashboard con: KPIs en la cabecera (tiempo medio global, pedidos completados este año, tasa de completado), gráfico de barras por material (Recharts), tabla detallada con filtros de fecha y material, columna "Tiempo (días)" calculada del lado cliente. Accesible desde el hub `/herramientas`._
+
+---
+
 ## ⚡ Quick wins
 
 Tareas que se resuelven en minutos y mejoran la navegación de inmediato:
@@ -144,6 +161,9 @@ Tareas que se resuelven en minutos y mejoran la navegación de inmediato:
 - **T-18** requiere que **T-17** esté hecho antes para reutilizar el patrón de chat.
 - **T-16** (Tarifa de materiales) está bloqueada esperando que el usuario concrete qué quiere ver — ver "Ideas a concretar".
 - **T-08** (Semáforo) y **T-09** (Comparativa proveedores): antes de arreglar hay que reproducir el error — puede ser un problema de datos en la DB de producción, no de código.
+- **T-24** requiere **T-23** — sin `fechaCompletado` en la DB no hay datos que analizar.
+- **T-25** requiere **T-24** — la página consume la API de estadísticas.
+- **T-23 a T-25** producirán estadísticas vacías hasta que los primeros pedidos se completen con el nuevo campo — normal en el primer mes de uso.
 
 ---
 
