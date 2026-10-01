@@ -18,7 +18,7 @@ export async function GET(request, { params }) {
         numero: true,
         fechaCreacion: true,
         subtotal: true,
-        reglaMargen: { select: { multiplicador: true, descripcion: true } },
+        reglaMargen: { select: { multiplicador: true, gastoFijo: true } },
         items: { select: { unitPrice: true, quantity: true } },
       },
       orderBy: { fechaCreacion: 'asc' },
@@ -29,8 +29,16 @@ export async function GET(request, { params }) {
     }
 
     const pedidosConMargen = pedidos.map(p => {
+      const mult          = p.reglaMargen?.multiplicador || 1;
+      const gastoFijo     = p.reglaMargen?.gastoFijo || 0;
+      const totalQty      = p.items.reduce((s, i) => s + Number(i.quantity), 0);
+      const gastoFijoPorU = totalQty > 0 ? gastoFijo / totalQty : 0;
+
+      // costeTotal = precio base antes del margen (lo que almacena unitPrice)
       const costeTotal = p.items.reduce((sum, it) => sum + Number(it.unitPrice) * Number(it.quantity), 0);
-      const ventaTotal = Number(p.subtotal);
+      // ventaTotal = precio real cobrado al cliente (base × multiplicador + gastoFijo distribuido)
+      const ventaTotal = p.items.reduce((sum, it) =>
+        sum + (Number(it.unitPrice) * mult + gastoFijoPorU) * Number(it.quantity), 0);
       const beneficio  = ventaTotal - costeTotal;
       const margenPct  = ventaTotal > 0 ? (beneficio / ventaTotal) * 100 : 0;
       return {

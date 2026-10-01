@@ -176,6 +176,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
   const handleOpenCreateProduct = (searchTerm) => {
     const rowIndex = productSearchState.rowIndex;
     setProductSearchState({ isOpen: false, rowIndex: null, initialSearch: '' });
+    if (rowIndex === null || !items[rowIndex]) return;
     setModalState({ type: 'QUICK_PRODUCT', itemId: items[rowIndex].id, initialName: searchTerm });
   };
 
@@ -445,6 +446,7 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
         if (onSuccess) onSuccess(savedData);
         setIsLoading(false);
       } else {
+        setIsLoading(false);
         isSubmittingRef.current = false;
         router.push(formType === 'PRESUPUESTO' ? `/presupuestos/${savedData.id}` : `/pedidos/${savedData.id}`);
       }

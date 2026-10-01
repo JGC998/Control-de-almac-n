@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
 import { Plus, Info, Layers, Link2, BookmarkPlus, Check, Calculator } from 'lucide-react';
 import { toastError } from '@/lib/toast';
@@ -29,6 +29,9 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
     const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
     const [guardandoCatalogo, setGuardandoCatalogo] = useState(false);
     const [catalogoGuardado, setCatalogoGuardado] = useState(false);
+    const catalogoGuardadoTimerRef = useRef(null);
+
+    useEffect(() => () => { if (catalogoGuardadoTimerRef.current) clearTimeout(catalogoGuardadoTimerRef.current); }, []);
 
     const { data: tarifas, isLoading: tarifasLoading } = useSWR('/api/precios');
     const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
@@ -269,7 +272,8 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
             }
             await mutate(key => typeof key === 'string' && key.startsWith('/api/productos'));
             setCatalogoGuardado(true);
-            setTimeout(() => setCatalogoGuardado(false), 3000);
+            if (catalogoGuardadoTimerRef.current) clearTimeout(catalogoGuardadoTimerRef.current);
+            catalogoGuardadoTimerRef.current = setTimeout(() => setCatalogoGuardado(false), 3000);
         } catch (err) {
             toastError(`No se pudo guardar en el catálogo: ${err.message}`);
         } finally {
