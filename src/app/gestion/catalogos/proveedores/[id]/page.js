@@ -18,8 +18,10 @@ const fmtFecha = (d) => d
   : '—';
 
 const ESTADO_BADGE = {
-  PENDIENTE:  'badge-warning',
-  ENVIADO:    'badge-info',
+  BORRADOR:   'badge-ghost',
+  PEDIDO:     'badge-warning',
+  TRANSITO:   'badge-info',
+  ADUANA:     'badge-warning',
   RECIBIDO:   'badge-success',
   CANCELADO:  'badge-error',
 };
@@ -90,7 +92,7 @@ export default function ProveedorFichaPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="stat bg-base-100 shadow rounded-xl py-3">
           <div className="stat-title text-xs flex items-center gap-1">
-            <Package className="w-3.5 h-3.5" /> Pedidos
+            <Package className="w-3.5 h-3.5" /> Importaciones
           </div>
           <div className="stat-value text-2xl">{stats.totalPedidos}</div>
           {stats.primerPedido && (
@@ -146,11 +148,11 @@ export default function ProveedorFichaPage() {
         <div className="card-body py-4">
           <h2 className="card-title text-base flex items-center gap-2">
             <Package className="w-5 h-5 text-secondary" />
-            Últimos pedidos
+            Últimas importaciones
           </h2>
 
           {ultimosPedidos.length === 0 ? (
-            <p className="text-sm text-base-content/40 py-4">Sin pedidos registrados para este proveedor.</p>
+            <p className="text-sm text-base-content/40 py-4">Sin importaciones registradas para este proveedor.</p>
           ) : (
             <div className="overflow-x-auto mt-2">
               <table className="table table-sm w-full">
