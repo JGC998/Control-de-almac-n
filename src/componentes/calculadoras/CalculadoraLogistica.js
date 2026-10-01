@@ -147,6 +147,7 @@ export default function CalculadoraLogistica({ onAddToOrder }) {
                                         setShowProvincias(true);
                                     }}
                                     onFocus={() => setShowProvincias(true)}
+                                    onBlur={() => setTimeout(() => setShowProvincias(false), 150)}
                                     placeholder="Escribe para buscar..."
                                 />
                                 {showProvincias && provinciaInput && provinciasFiltradas.length > 0 && (

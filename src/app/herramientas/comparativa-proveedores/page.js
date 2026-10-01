@@ -150,9 +150,6 @@ export default function ComparativaProveedoresPage() {
               <tbody>
                 {data.proveedores.map((p, i) => {
                   const esMasBarato = i === 0; // ya viene ordenado por precio ascendente
-                  const variacion = p.puntos.length >= 2
-                    ? p.puntos[p.puntos.length - 1].precioMetro - p.puntos[0].precioMetro
-                    : 0;
                   return (
                     <tr key={p.proveedorId} className={`hover ${esMasBarato ? 'bg-success/5' : ''}`}>
                       <td>

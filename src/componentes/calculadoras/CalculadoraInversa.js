@@ -25,7 +25,7 @@ export default function CalculadoraInversa() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     targetPrice: parseFloat(targetPrice),
-                    quantity: parseInt(quantity),
+                    quantity: parseInt(quantity, 10),
                     marginId: selectedMarginId
                 })
             });
@@ -45,7 +45,7 @@ export default function CalculadoraInversa() {
         }
     };
 
-    const isValid = targetPrice && quantity && parseFloat(targetPrice) > 0 && parseInt(quantity) > 0 && selectedMarginId;
+    const isValid = targetPrice && quantity && parseFloat(targetPrice) > 0 && parseInt(quantity, 10) > 0 && selectedMarginId;
 
     return (
         <div className="card bg-base-100 shadow-xl max-w-2xl mx-auto">

@@ -73,6 +73,8 @@ export async function POST(request) {
           if (margenClienteRule) {
             margenAplicar = margenClienteRule.multiplicador;
             gastoFijoTotalAplicar = margenClienteRule.gastoFijo || 0;
+          } else {
+            margenAplicar = 1.0; // tier sin regla asignada → sin margen adicional
           }
         } else {
           margenAplicar = 1.0;

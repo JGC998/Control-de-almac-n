@@ -50,7 +50,7 @@ export async function GET(request) {
     return NextResponse.json({
       kpiData,
       nivelesStock: productosBajoStock
-        .filter(item => (item.stockMinimo ?? 0) > 0 && item.metrosDisponibles < item.stockMinimo)
+        .filter(item => (item.stockMinimo ?? 0) > 0 && (item.metrosDisponibles ?? -1) < item.stockMinimo)
         .map(item => ({
           id: item.id,
           material: item.material,

@@ -287,6 +287,8 @@ export default function ContenedorDetalle() {
         throw new Error(d.message || `Error ${res.status}`);
       }
       mutate();
+    } catch (err) {
+      alert(err.message || 'Error al marcar como recibido');
     } finally {
       setMarcandoRecibido(false);
     }

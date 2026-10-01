@@ -60,7 +60,7 @@ export function generarCodigo(producto, config = {}) {
       segs.push(fabNombre.replace(/\s+/g, '').slice(0, fabricanteChars).toUpperCase());
     } else {
       const iniciales = fabNombre.trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('');
-      segs.push(iniciales);
+      if (iniciales) segs.push(iniciales);
     }
   } else if (producto.acabado) {
     segs.push(producto.acabado.slice(0, acabadoChars).toUpperCase());

@@ -181,7 +181,12 @@ export async function PATCH(request, { params: paramsPromise }) {
     const updated = await db.pedido.update({ where: { id }, data: allowed });
     revalidatePath('/pedidos');
     revalidatePath(`/pedidos/${id}`);
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      subtotal: updated.subtotal ? Number(updated.subtotal) : 0,
+      tax:      updated.tax      ? Number(updated.tax)      : 0,
+      total:    updated.total    ? Number(updated.total)    : 0,
+    });
   } catch (error) {
     return handlePrismaError(error, { notFound: 'Pedido no encontrado' });
   }
