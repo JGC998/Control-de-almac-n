@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import {
   Warehouse, Package, FileText, Truck, Calculator, Users, Settings,
   Layers, Factory, ChevronDown, Menu, X, DollarSign,
-  FilePlus, PackagePlus, Ship, TrendingDown, LogOut, Package2, Search, FileCheck, Boxes
+  FilePlus, PackagePlus, Ship, TrendingDown, LogOut, Package2, Search, FileCheck, Boxes, Zap
 } from 'lucide-react';
 import BarraBusqueda from '@/componentes/ui/BarraBusqueda';
 import BusquedaGlobal from '@/componentes/ui/BusquedaGlobal';
@@ -23,6 +23,7 @@ const NAV = [
       {
         titulo: 'Crear',
         links: [
+          { href: '/ventas/presupuesto-rapido', label: 'Presupuesto rápido', icon: Zap },
           { href: '/presupuestos/nuevo', label: 'Nuevo presupuesto', icon: FilePlus },
           { href: '/pedidos/nuevo',      label: 'Nuevo pedido',      icon: PackagePlus },
           { href: '/albaranes/nuevo',    label: 'Nuevo albarán',     icon: FileCheck },
