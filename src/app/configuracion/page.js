@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Settings, DollarSign, Truck, ScrollText, Hash, Link2 } from 'lucide-react';
+import { Settings, DollarSign, Truck, ScrollText, Hash, Link2, MessageCircle } from 'lucide-react';
 
 export const metadata = { title: 'Configuración — CRM Taller' };
 
@@ -38,6 +38,13 @@ export default function ConfiguracionHub() {
           titulo: 'Nomenclatura',
           descripcion: 'Personaliza los alias de familias, el número de caracteres de cada segmento y el modo de abreviatura del fabricante en los códigos automáticos.',
           accion: 'Configurar nomenclatura',
+        },
+        {
+          href: '/configuracion/whatsapp',
+          icon: MessageCircle,
+          titulo: 'WhatsApp presupuestos',
+          descripcion: 'Número al que se envían los presupuestos rápidos por WhatsApp vía CallMeBot.',
+          accion: 'Configurar WhatsApp',
         },
         {
           href: '/configuracion/audit-log',

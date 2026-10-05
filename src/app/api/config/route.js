@@ -14,6 +14,7 @@ const ALLOWED_CONFIG_KEYS = [
   'empresa_email', 'empresa_direccion', 'empresa_cp', 'empresa_ciudad',
   'empresa_provincia', 'empresa_pais', 'empresa_web', 'empresa_logo',
   'longitud_barra_tacos', 'costeVulcanizadoMetro',
+  'whatsapp_presupuesto_phone', 'whatsapp_presupuesto_apikey',
 ];
 
 // GET /api/config - Obtiene la configuración como un objeto (solo claves permitidas)

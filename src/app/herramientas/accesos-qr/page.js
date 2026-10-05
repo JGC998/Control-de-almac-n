@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import {
   QrCode, Printer, Plus, Trash2, Home, ShoppingCart, FileText,
   Package, Settings, Truck, Tablet, Users, Factory, Calculator,
-  Ruler, BarChart2, Tag,
+  Ruler, BarChart2, Tag, Zap,
 } from 'lucide-react';
 
 const ACCESOS_DEFECTO = [
@@ -21,10 +21,11 @@ const ACCESOS_DEFECTO = [
   { id: 'tablet',          label: 'Vista tablet / OCR',      path: '/tablet',                         icon: 'Tablet',      color: 'badge-ghost' },
   { id: 'calc-bandas',     label: 'Calculadora bandas PVC',  path: '/calculadora/bandas',             icon: 'Calculator',  color: 'badge-error' },
   { id: 'calc-metrajes',   label: 'Calculadora metrajes',    path: '/calculadora/metrajes',           icon: 'Ruler',       color: 'badge-error' },
+  { id: 'presup-rapido',   label: 'Presupuesto Rápido',       path: '/ventas/presupuesto-rapido',      icon: 'Zap',         color: 'badge-success' },
   { id: 'configuracion',   label: 'Configuración',           path: '/configuracion',                  icon: 'Settings',    color: 'badge-ghost' },
 ];
 
-const ICONOS = { Home, ShoppingCart, FileText, Package, Settings, Truck, Tablet, Users, Factory, Calculator, Ruler, BarChart2, Tag };
+const ICONOS = { Home, ShoppingCart, FileText, Package, Settings, Truck, Tablet, Users, Factory, Calculator, Ruler, BarChart2, Tag, Zap };
 
 function TarjetaQR({ item, baseUrl, onEliminar }) {
   const [qrSrc, setQrSrc] = useState('');
