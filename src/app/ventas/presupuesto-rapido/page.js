@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import {
-  FileText, Search, Trash2, Plus, Copy, Send, Save,
+  FileText, Search, Trash2, Plus, Copy, Share2, Save,
   CheckCircle2, AlertCircle, ChevronDown, X, ArrowLeft,
 } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
@@ -55,7 +55,6 @@ export default function PresupuestoRapidoPage() {
 
   const [status, setStatus] = useState(null); // { type, text }
   const [saving, setSaving] = useState(false);
-  const [sending, setSending] = useState(false);
 
   const margenSeleccionado = useMemo(
     () => margenes.find(m => String(m.id) === String(selectedMarginId)) || null,
@@ -107,6 +106,27 @@ export default function PresupuestoRapidoPage() {
 
   const handleEliminar = (id) => setLineas(prev => prev.filter(l => l.id !== id));
 
+  const handleCompartir = async () => {
+    if (!lineas.length) { setStatus({ type: 'error', text: 'Añade al menos un producto.' }); return; }
+    const titulo = cliente ? `Presupuesto — ${cliente}` : 'Presupuesto rápido';
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: titulo, text: mensaje });
+      } catch (err) {
+        if (err.name !== 'AbortError') setStatus({ type: 'error', text: 'No se pudo compartir.' });
+      }
+    } else {
+      // fallback escritorio → portapapeles
+      try {
+        await navigator.clipboard.writeText(mensaje);
+        setStatus({ type: 'success', text: 'Texto copiado al portapapeles.' });
+        setTimeout(() => setStatus(null), 3000);
+      } catch {
+        setStatus({ type: 'error', text: 'No se pudo copiar.' });
+      }
+    }
+  };
+
   const handleCopiar = async () => {
     try {
       await navigator.clipboard.writeText(mensaje);
@@ -115,29 +135,6 @@ export default function PresupuestoRapidoPage() {
       setStatus({ type: 'error', text: 'No se pudo copiar. Inténtalo de nuevo.' });
     }
     setTimeout(() => setStatus(null), 3000);
-  };
-
-  const handleEnviar = async () => {
-    if (!lineas.length) { setStatus({ type: 'error', text: 'Añade al menos un producto.' }); return; }
-    setSending(true);
-    setStatus(null);
-    try {
-      const res = await fetch('/api/herramientas/whatsapp-presupuesto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setStatus({ type: 'error', text: data.error || 'Error al enviar WhatsApp.' });
-      } else {
-        setStatus({ type: 'success', text: '✅ Presupuesto enviado por WhatsApp.' });
-      }
-    } catch {
-      setStatus({ type: 'error', text: 'Error de conexión.' });
-    } finally {
-      setSending(false);
-    }
   };
 
   const handleGuardar = async () => {
@@ -323,19 +320,17 @@ export default function PresupuestoRapidoPage() {
             <button
               onClick={handleCopiar}
               disabled={!lineas.length}
-              className="btn btn-outline flex-1 gap-1.5 btn-sm sm:btn-md"
+              className="btn btn-outline gap-1.5 btn-sm sm:btn-md"
+              title="Copiar texto"
             >
-              <Copy className="w-4 h-4" /> Copiar
+              <Copy className="w-4 h-4" />
             </button>
             <button
-              onClick={handleEnviar}
-              disabled={!lineas.length || sending}
+              onClick={handleCompartir}
+              disabled={!lineas.length}
               className="btn btn-success flex-1 gap-1.5 btn-sm sm:btn-md"
             >
-              {sending
-                ? <span className="loading loading-spinner loading-xs" />
-                : <Send className="w-4 h-4" />}
-              Enviar
+              <Share2 className="w-4 h-4" /> Compartir
             </button>
             <button
               onClick={handleGuardar}
