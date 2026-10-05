@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { DollarSign, FileText, Package, FilePlus, PackagePlus, FileCheck, Layers, Ruler } from 'lucide-react';
+import { DollarSign, FileText, Package, FilePlus, PackagePlus, FileCheck, Layers, Ruler, Zap } from 'lucide-react';
 
 export const metadata = { title: 'Ventas — CRM Taller' };
 
@@ -14,6 +14,13 @@ export default function VentasHub() {
         {
           titulo: 'Crear nuevo documento',
           items: [
+            {
+              href: '/ventas/presupuesto-rapido',
+              icon: Zap,
+              titulo: 'Presupuesto rápido',
+              descripcion: 'Crea y comparte un presupuesto al instante desde el móvil. Búsqueda de productos, precio con margen y envío por WhatsApp.',
+              accion: 'Abrir',
+            },
             {
               href: '/albaranes/nuevo',
               icon: FileCheck,
