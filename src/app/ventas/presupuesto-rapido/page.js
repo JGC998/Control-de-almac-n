@@ -106,6 +106,24 @@ export default function PresupuestoRapidoPage() {
 
   const handleEliminar = (id) => setLineas(prev => prev.filter(l => l.id !== id));
 
+  // Funciona en HTTP (sin HTTPS) usando execCommand como fallback
+  const copiarTexto = (texto) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(texto);
+    }
+    return new Promise((resolve, reject) => {
+      const el = document.createElement('textarea');
+      el.value = texto;
+      el.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(el);
+      ok ? resolve() : reject(new Error('execCommand failed'));
+    });
+  };
+
   const handleCompartir = async () => {
     if (!lineas.length) { setStatus({ type: 'error', text: 'Añade al menos un producto.' }); return; }
     const titulo = cliente ? `Presupuesto — ${cliente}` : 'Presupuesto rápido';
@@ -116,9 +134,8 @@ export default function PresupuestoRapidoPage() {
         if (err.name !== 'AbortError') setStatus({ type: 'error', text: 'No se pudo compartir.' });
       }
     } else {
-      // fallback escritorio → portapapeles
       try {
-        await navigator.clipboard.writeText(mensaje);
+        await copiarTexto(mensaje);
         setStatus({ type: 'success', text: 'Texto copiado al portapapeles.' });
         setTimeout(() => setStatus(null), 3000);
       } catch {
@@ -129,10 +146,10 @@ export default function PresupuestoRapidoPage() {
 
   const handleCopiar = async () => {
     try {
-      await navigator.clipboard.writeText(mensaje);
+      await copiarTexto(mensaje);
       setStatus({ type: 'success', text: 'Texto copiado al portapapeles.' });
     } catch {
-      setStatus({ type: 'error', text: 'No se pudo copiar. Inténtalo de nuevo.' });
+      setStatus({ type: 'error', text: 'No se pudo copiar.' });
     }
     setTimeout(() => setStatus(null), 3000);
   };
