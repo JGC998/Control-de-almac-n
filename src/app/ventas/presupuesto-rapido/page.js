@@ -1,10 +1,11 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
+import QRCode from 'qrcode';
 import {
   FileText, Search, Trash2, Plus, Copy, Share2, Save,
-  CheckCircle2, AlertCircle, ChevronDown, X, ArrowLeft,
+  CheckCircle2, AlertCircle, ChevronDown, X, ArrowLeft, QrCode,
 } from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
 import ModalBusquedaProductos from '@/componentes/modales/ModalBusquedaProductos';
@@ -36,7 +37,53 @@ ${lineasTxt}
 ─────────────────────
 Subtotal: ${fmtE(subtotal)}
 IVA (${pct}%): ${fmtE(iva)}
-*TOTAL: ${fmtE(total)}*`
+TOTAL: ${fmtE(total)}`
+  );
+}
+
+// ──────────────────── Modal QR ────────────────────
+function ModalQR({ mensaje, onCerrar, onCopiar, copiado }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || !mensaje) return;
+    QRCode.toCanvas(canvasRef.current, mensaje, {
+      width: 260,
+      margin: 2,
+      errorCorrectionLevel: 'L',
+      color: { dark: '#1a1a2e', light: '#ffffff' },
+    }).catch(() => {});
+  }, [mensaje]);
+
+  return (
+    <div className="modal modal-open z-50">
+      <div className="modal-box max-w-sm flex flex-col items-center gap-4 py-6">
+        <div className="flex items-center justify-between w-full">
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            <QrCode className="w-5 h-5 text-success" /> Compartir presupuesto
+          </h3>
+          <button onClick={onCerrar} className="btn btn-sm btn-circle btn-ghost">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-sm text-base-content/60 text-center -mt-2">
+          Escanea con tu móvil para leer el presupuesto completo
+        </p>
+
+        <canvas ref={canvasRef} className="rounded-xl shadow border border-base-300" />
+
+        <button
+          onClick={onCopiar}
+          className={`btn w-full gap-2 ${copiado ? 'btn-success' : 'btn-outline'}`}
+        >
+          {copiado
+            ? <><CheckCircle2 className="w-4 h-4" /> ¡Copiado!</>
+            : <><Copy className="w-4 h-4" /> Copiar texto</>}
+        </button>
+      </div>
+      <div className="modal-backdrop" onClick={onCerrar} />
+    </div>
   );
 }
 
@@ -48,12 +95,14 @@ export default function PresupuestoRapidoPage() {
 
   const ivaRate = config?.iva_rate > 1 ? config.iva_rate / 100 : (config?.iva_rate || 0.21);
 
-  const [cliente,      setCliente]      = useState('');
-  const [lineas,       setLineas]       = useState([]);   // { id, productoId, nombre, basePrice, precioVenta, qty }
+  const [cliente,          setCliente]          = useState('');
+  const [lineas,           setLineas]           = useState([]);
   const [selectedMarginId, setSelectedMarginId] = useState('');
-  const [modalAbierto, setModalAbierto] = useState(false);
+  const [modalAbierto,     setModalAbierto]     = useState(false);
+  const [modalQR,          setModalQR]          = useState(false);
+  const [copiado,          setCopiado]          = useState(false);
 
-  const [status, setStatus] = useState(null); // { type, text }
+  const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const margenSeleccionado = useMemo(
@@ -61,7 +110,6 @@ export default function PresupuestoRapidoPage() {
     [margenes, selectedMarginId],
   );
 
-  // Recalcular precios cuando cambia el margen
   const totalQty = lineas.reduce((s, l) => s + l.qty, 0);
 
   const lineasCalculadas = useMemo(() =>
@@ -90,23 +138,22 @@ export default function PresupuestoRapidoPage() {
       return;
     }
     setLineas(prev => [...prev, {
-      id:         Date.now(),
-      productoId: producto.id,
-      nombre:     producto.nombre || generarCodigo(producto),
-      basePrice:  parseFloat(producto.precioUnitario) || 0,
+      id:          Date.now(),
+      productoId:  producto.id,
+      nombre:      producto.nombre || generarCodigo(producto),
+      basePrice:   parseFloat(producto.precioUnitario) || 0,
       precioVenta: parseFloat(producto.precioUnitario) || 0,
-      qty:        1,
+      qty:         1,
     }]);
   }, [lineas]);
 
-  const handleQty = (id, val) => {
+  const handleQty      = (id, val) => {
     const n = Math.max(1, parseInt(val, 10) || 1);
     setLineas(prev => prev.map(l => l.id === id ? { ...l, qty: n } : l));
   };
-
   const handleEliminar = (id) => setLineas(prev => prev.filter(l => l.id !== id));
 
-  // Funciona en HTTP (sin HTTPS) usando execCommand como fallback
+  // Copiar compatible con HTTP (sin HTTPS)
   const copiarTexto = (texto) => {
     if (navigator.clipboard && window.isSecureContext) {
       return navigator.clipboard.writeText(texto);
@@ -124,23 +171,31 @@ export default function PresupuestoRapidoPage() {
     });
   };
 
+  const handleCopiarEnModal = async () => {
+    try {
+      await copiarTexto(mensaje);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      setStatus({ type: 'error', text: 'No se pudo copiar.' });
+      setModalQR(false);
+    }
+  };
+
   const handleCompartir = async () => {
     if (!lineas.length) { setStatus({ type: 'error', text: 'Añade al menos un producto.' }); return; }
-    const titulo = cliente ? `Presupuesto — ${cliente}` : 'Presupuesto rápido';
+    // Móvil con Web Share → menú nativo del sistema
     if (navigator.share) {
+      const titulo = cliente ? `Presupuesto — ${cliente}` : 'Presupuesto rápido';
       try {
         await navigator.share({ title: titulo, text: mensaje });
       } catch (err) {
         if (err.name !== 'AbortError') setStatus({ type: 'error', text: 'No se pudo compartir.' });
       }
     } else {
-      try {
-        await copiarTexto(mensaje);
-        setStatus({ type: 'success', text: 'Texto copiado al portapapeles.' });
-        setTimeout(() => setStatus(null), 3000);
-      } catch {
-        setStatus({ type: 'error', text: 'No se pudo copiar.' });
-      }
+      // Escritorio → modal con QR + botón copiar
+      setCopiado(false);
+      setModalQR(true);
     }
   };
 
@@ -248,10 +303,7 @@ export default function PresupuestoRapidoPage() {
             <div className="card-body py-3 px-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-base-content/50 uppercase tracking-wide">Productos</span>
-                <button
-                  onClick={() => setModalAbierto(true)}
-                  className="btn btn-success btn-sm gap-1.5"
-                >
+                <button onClick={() => setModalAbierto(true)} className="btn btn-success btn-sm gap-1.5">
                   <Plus className="w-4 h-4" /> Añadir
                 </button>
               </div>
@@ -273,9 +325,7 @@ export default function PresupuestoRapidoPage() {
                     <p className="text-xs text-base-content/50 mt-0.5">
                       {fmtE(l.precioVenta)} /ud
                       {margenSeleccionado && l.basePrice > 0 && (
-                        <span className="ml-1.5 opacity-60">
-                          (base {fmtE(l.basePrice)})
-                        </span>
+                        <span className="ml-1.5 opacity-60">(base {fmtE(l.basePrice)})</span>
                       )}
                     </p>
                   </div>
@@ -332,7 +382,8 @@ export default function PresupuestoRapidoPage() {
         </div>
 
         {/* Barra de acciones flotante */}
-        <div className="fixed bottom-0 left-0 right-0 bg-base-100 border-t border-base-300 px-4 z-30" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))', paddingTop: '0.75rem' }}>
+        <div className="fixed bottom-0 left-0 right-0 bg-base-100 border-t border-base-300 px-4 z-30"
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))', paddingTop: '0.75rem' }}>
           <div className="max-w-lg mx-auto flex gap-2">
             <button
               onClick={handleCopiar}
@@ -354,9 +405,7 @@ export default function PresupuestoRapidoPage() {
               disabled={!lineas.length || saving}
               className="btn btn-primary flex-1 gap-1.5 btn-sm sm:btn-md"
             >
-              {saving
-                ? <span className="loading loading-spinner loading-xs" />
-                : <Save className="w-4 h-4" />}
+              {saving ? <span className="loading loading-spinner loading-xs" /> : <Save className="w-4 h-4" />}
               Guardar
             </button>
           </div>
@@ -369,6 +418,15 @@ export default function PresupuestoRapidoPage() {
         alSeleccionar={handleSelectProducto}
         items={productos}
       />
+
+      {modalQR && (
+        <ModalQR
+          mensaje={mensaje}
+          onCerrar={() => setModalQR(false)}
+          onCopiar={handleCopiarEnModal}
+          copiado={copiado}
+        />
+      )}
     </>
   );
 }
