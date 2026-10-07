@@ -133,7 +133,7 @@ export const pedidoSchema = z.object({
     presupuestoId: z.string().uuid().optional().nullable(),
     notas: z.string().optional().nullable(),
     sinFacturacion: z.boolean().optional(),
-    fechaEntrega: z.string().optional().nullable(),
+    fechaEntrega: z.preprocess(v => (v === '' ? null : v), z.string().datetime({ offset: true }).optional().nullable()),
 });
 
 // ============================================
