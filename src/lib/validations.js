@@ -325,7 +325,7 @@ export const pedidoProveedorSchema = z.object({
     numeroFactura: z.string().optional().nullable(),
     numeroContenedor: z.string().optional().nullable(),
     naviera: z.string().optional().nullable(),
-    fechaLlegadaEstimada: z.string().optional().nullable(),
+    fechaLlegadaEstimada: z.preprocess(v => (v === '' ? null : v), z.string().datetime({ offset: true }).optional().nullable()),
 });
 
 // ============================================
