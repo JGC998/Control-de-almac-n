@@ -248,10 +248,12 @@ export default function PresupuestoRapidoPage() {
 
   // ── guardar → devuelve el id ──
   const guardarPresupuesto = async () => {
+    // No guardamos marginId: los unitPrice ya tienen el margen aplicado (precioVenta).
+    // Si guardásemos marginId, el generador de PDF volvería a multiplicar por el margen
+    // y el PDF mostraría precios incorrectos (doble aplicación del margen).
     const payload = {
-      notas:    cliente || undefined,
-      marginId: selectedMarginId ? Number(selectedMarginId) : undefined,
-      estado:   'Borrador',
+      notas:  cliente || undefined,
+      estado: 'Borrador',
       items: lineasCalculadas.map(l => ({
         descripcion: l.nombre,
         quantity:    l.qty,

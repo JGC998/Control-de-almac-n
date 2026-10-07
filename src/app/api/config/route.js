@@ -17,6 +17,9 @@ const ALLOWED_CONFIG_KEYS = [
   'whatsapp_presupuesto_phone', 'whatsapp_presupuesto_apikey',
 ];
 
+// Claves que se enmascaran en GET (se confirma que están configuradas, pero no se expone el valor)
+const MASKED_CONFIG_KEYS = new Set(['whatsapp_presupuesto_apikey']);
+
 // GET /api/config - Obtiene la configuración como un objeto (solo claves permitidas)
 export async function GET() {
   try {
@@ -25,7 +28,10 @@ export async function GET() {
     });
     const NUMERIC_CONFIG_KEYS = new Set(['iva_rate', 'longitud_barra_tacos', 'costeVulcanizadoMetro']);
     const configObject = settingsList.reduce((acc, setting) => {
-      if (NUMERIC_CONFIG_KEYS.has(setting.key)) {
+      if (MASKED_CONFIG_KEYS.has(setting.key)) {
+        // Devolver booleano: true = configurado, false = vacío. Nunca el valor real.
+        acc[setting.key] = setting.value && setting.value.trim().length > 0 ? '***configurado***' : '';
+      } else if (NUMERIC_CONFIG_KEYS.has(setting.key)) {
         const numValue = parseFloat(setting.value);
         acc[setting.key] = isNaN(numValue) ? setting.value : numValue;
       } else {

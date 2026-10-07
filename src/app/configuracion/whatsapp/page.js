@@ -15,24 +15,28 @@ export default function ConfigWhatsAppPage() {
   const [testing, setTesting] = useState(false);
   const [msg,     setMsg]     = useState(null); // { type: 'success'|'error', text }
 
+  const apikeyConfigurada = config?.whatsapp_presupuesto_apikey === '***configurado***';
+
   useEffect(() => {
     if (config) {
-      setPhone(config.whatsapp_presupuesto_phone  || '');
-      setApikey(config.whatsapp_presupuesto_apikey || '');
+      setPhone(config.whatsapp_presupuesto_phone || '');
+      // No rellenamos el campo con el valor enmascarado; el usuario solo escribe si quiere cambiarla
+      if (!apikeyConfigurada) setApikey(config.whatsapp_presupuesto_apikey || '');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
 
   const handleSave = async () => {
     setSaving(true);
     setMsg(null);
     try {
+      const payload = { whatsapp_presupuesto_phone: phone.trim() };
+      // Solo guardamos la apikey si el usuario escribió un valor nuevo (no vacío)
+      if (apikey.trim()) payload.whatsapp_presupuesto_apikey = apikey.trim();
       const res = await fetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          whatsapp_presupuesto_phone:  phone.trim(),
-          whatsapp_presupuesto_apikey: apikey.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error((await res.json()).message || 'Error al guardar');
       await mutate();
@@ -45,7 +49,7 @@ export default function ConfigWhatsAppPage() {
   };
 
   const handleTest = async () => {
-    if (!phone || !apikey) {
+    if (!phone || (!apikey && !apikeyConfigurada)) {
       setMsg({ type: 'error', text: 'Guarda primero el número y la apikey.' });
       return;
     }
@@ -70,7 +74,7 @@ export default function ConfigWhatsAppPage() {
     }
   };
 
-  const configured = phone && apikey;
+  const configured = phone && (apikey || apikeyConfigurada);
 
   return (
     <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-6">
@@ -130,12 +134,15 @@ export default function ConfigWhatsAppPage() {
           <div className="form-control">
             <label className="label">
               <span className="label-text font-medium">API Key de CallMeBot</span>
+              {apikeyConfigurada && !apikey && (
+                <span className="label-text-alt text-success font-semibold">✓ Ya configurada</span>
+              )}
             </label>
             <div className="relative">
               <input
                 type={showKey ? 'text' : 'password'}
                 className="input input-bordered w-full font-mono pr-12"
-                placeholder="123456"
+                placeholder={apikeyConfigurada ? 'Escribe aquí para cambiarla' : '123456'}
                 value={apikey}
                 onChange={e => setApikey(e.target.value)}
               />
@@ -163,7 +170,7 @@ export default function ConfigWhatsAppPage() {
               {saving ? <span className="loading loading-spinner loading-sm" /> : null}
               Guardar
             </button>
-            <button onClick={handleTest} disabled={testing || !phone || !apikey} className="btn btn-outline gap-2">
+            <button onClick={handleTest} disabled={testing || !phone || (!apikey && !apikeyConfigurada)} className="btn btn-outline gap-2">
               {testing ? <span className="loading loading-spinner loading-sm" /> : <Send className="w-4 h-4" />}
               Probar
             </button>

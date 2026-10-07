@@ -132,7 +132,7 @@ export async function PUT(request) {
           lonas:    updatedTarifa.lonas   ?? null,
           acabado:  updatedTarifa.acabado || null,
         },
-      }).catch(() => {});
+      }).catch(err => logApiError(err, 'historial precio venta'));
     }
 
     revalidatePath('/tarifas');
