@@ -38,14 +38,18 @@ export async function POST(request, { params }) {
 
         const multiplicador = marginRule?.multiplicador || 1;
         const gastoFijoTotal = marginRule?.gastoFijo || 0;
-        const totalQtyConProducto = (quote.items || []).filter(i => i.productoId).reduce((sum, i) => sum + (i.quantity || 0), 0) || 1;
-        const gastoFijoUnitarioProrrateado = gastoFijoTotal / totalQtyConProducto;
+        const totalQuantity = (quote.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+        const gastoFijoUnitario = totalQuantity > 0 ? gastoFijoTotal / totalQuantity : 0;
 
-        const itemsCalculados = quote.items.map(item => ({
-            ...item,
-            unitPriceVenta: ((item.unitPrice || 0) * multiplicador) + gastoFijoUnitarioProrrateado,
-            totalVentaItem: (((item.unitPrice || 0) * multiplicador) + gastoFijoUnitarioProrrateado) * (item.quantity || 0)
-        }));
+        const itemsCalculados = quote.items.map(item => {
+            const costoUnitario = item.unitPrice || 0;
+            const precioUnitarioVenta = (costoUnitario * multiplicador) + gastoFijoUnitario;
+            return {
+                ...item,
+                unitPriceVenta: precioUnitarioVenta,
+                totalVentaItem: precioUnitarioVenta * (item.quantity || 0),
+            };
+        });
 
         const subtotalVenta = itemsCalculados.reduce((sum, i) => sum + i.totalVentaItem, 0);
         const totalVenta = parseFloat((subtotalVenta * (1 + ivaRate)).toFixed(2));

@@ -284,10 +284,16 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
                 doc.setTextColor(0, 0, 0);
                 y += 13;
 
-                const precioMaterial = dt.precioMaterial ?? 0;
-                const costeVulcanizado = dt.costeVulcanizado ?? 0;
-                const costeTacos = dt.costeTacos ?? 0;
-                const precioUnitario = precioMaterial + costeVulcanizado + costeTacos;
+                const precioMaterialBase = dt.precioMaterial ?? 0;
+                const costeVulcanizadoBase = dt.costeVulcanizado ?? 0;
+                const costeTacosBase = dt.costeTacos ?? 0;
+                const precioBaseDesglose = precioMaterialBase + costeVulcanizadoBase + costeTacosBase;
+                // Escalar componentes al precio de venta real (con margen aplicado)
+                const precioUnitario = item.unitPriceVenta ?? precioBaseDesglose;
+                const factor = precioBaseDesglose > 0 ? precioUnitario / precioBaseDesglose : 1;
+                const precioMaterial = precioMaterialBase * factor;
+                const costeVulcanizado = costeVulcanizadoBase * factor;
+                const costeTacos = costeTacosBase * factor;
                 const precioTotal = precioUnitario * item.quantity;
 
                 const bandaRows = [
