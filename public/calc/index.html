@@ -352,9 +352,10 @@ function onMMat() {
 // ── Bandas cascades ───────────────────────────────────────────────────────────
 function onBEsp() {
   if(!D) return;
-  const esp=parseFloat($('b-esp').value);
-  if(!esp){hideBVar();calcB();return;}
-  const ts=D.tarifas.filter(t=>t.material==='PVC'&&Math.abs(t.espesor-esp)<0.001);
+  const espStr=$('b-esp').value;
+  if(!espStr){hideBVar();calcB();return;}
+  const esp=parseFloat(espStr);
+  const ts=D.tarifas.filter(t=>t.material==='PVC'&&Math.abs(Number(t.espesor)-esp)<0.001);
 
   const lOpts=[...new Set(ts.map(t=>t.lonas==null?'__':String(t.lonas)))];
   if(lOpts.length>1){
@@ -415,8 +416,9 @@ function setBConf(c){
 // ── Resolve tarifa for banda ──────────────────────────────────────────────────
 function resolveBTarifa(){
   if(!D) return null;
-  const esp=parseFloat($('b-esp').value); if(!esp) return null;
-  let ts=D.tarifas.filter(t=>t.material==='PVC'&&Math.abs(t.espesor-esp)<0.001);
+  const espStr=$('b-esp').value; if(!espStr) return null;
+  const esp=parseFloat(espStr);
+  let ts=D.tarifas.filter(t=>t.material==='PVC'&&Math.abs(Number(t.espesor)-esp)<0.001);
   if(!ts.length) return null; if(ts.length===1) return ts[0];
   const lonas=$('b-lonas').value, acab=$('b-acab').value, color=$('b-color').value;
   const lOpts=[...new Set(ts.map(t=>t.lonas==null?'__':String(t.lonas)))];
@@ -432,8 +434,8 @@ function resolveBTarifa(){
 function calcP(){
   const el=$('p-res');
   if(!D){empty(el,'Sin datos. Pulsa Sync cuando tengas WiFi.');return;}
-  const tarId=parseInt($('p-tar').value)||null;
-  const tar=tarId?D.tarifas.find(t=>t.id===tarId):null;
+  const tarId=$('p-tar').value||null;
+  const tar=tarId?D.tarifas.find(t=>String(t.id)===tarId):null;
   const ancho=parseFloat($('p-ancho').value), largo=parseFloat($('p-largo').value);
   const cant=parseInt($('p-cant').value)||1;
   if(!tar||!ancho||!largo||ancho<=0||largo<=0){empty(el);return;}
@@ -456,8 +458,8 @@ function calcP(){
 function calcM(){
   const el=$('m-res');
   if(!D){empty(el,'Sin datos. Pulsa Sync cuando tengas WiFi.');return;}
-  const tarId=parseInt($('m-tar').value)||null;
-  const tar=tarId?D.tarifas.find(t=>t.id===tarId):null;
+  const tarId=$('m-tar').value||null;
+  const tar=tarId?D.tarifas.find(t=>String(t.id)===tarId):null;
   const ancho=parseFloat($('m-ancho').value), metros=parseFloat($('m-metros').value);
   if(!tar||!ancho||!metros||ancho<=0||metros<=0){empty(el);return;}
   const area=(ancho/1000)*metros;
