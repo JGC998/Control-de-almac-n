@@ -2,10 +2,10 @@
 // Estrategia: Network-first para navegación; Cache-first para assets estáticos.
 // Las llamadas a /api/* siempre van a la red (nunca se cachean).
 
-const CACHE = 'crm-tablet-v1';
+const CACHE = 'crm-v2';
 
 // Páginas a pre-cachear en la instalación
-const PRECACHE = ['/tablet'];
+const PRECACHE = ['/tablet', '/calc/index.html'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

@@ -213,146 +213,105 @@ export default function TablaTarifas() {
     <>
       <ModalHistorialVenta row={historialVentaRow} onClose={() => setHistorialVentaRow(null)} />
 
-      {/* Controls bar */}
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="form-control">
-            <label className="label py-0.5">
-              <span className="label-text text-xs font-semibold">Material</span>
-            </label>
-            <select
-              className="select select-bordered select-sm min-w-36"
-              value={selectedMaterial}
-              onChange={e => setSelectedMaterial(e.target.value)}
-            >
-              {uniqueMaterials.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-control">
-            <label className="label py-0.5">
-              <span className="label-text text-xs font-semibold">Margen objetivo</span>
-            </label>
-            <div className="flex items-center gap-1">
-              <input
-                type="number" min="1" max="200" step="1"
-                className="input input-bordered input-sm w-20 font-mono"
-                value={margenObjetivo}
-                onChange={e => setMargenObjetivo(Math.max(1, parseInt(e.target.value) || 30))}
-              />
-              <span className="text-sm text-base-content/50">%</span>
+      <div className="card bg-base-100 shadow-xl mb-6">
+        <div className="card-body">
+          <div className="flex justify-between items-start mb-4 gap-3 flex-wrap">
+            <div>
+              <h2 className="card-title">Tarifa de venta por m²</h2>
+              <p className="text-sm text-base-content/50 mt-0.5">
+                Clic en cualquier celda para editar. Los precios en azul están fijados manualmente.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link href="/configuracion">
+                <button className="btn btn-ghost btn-sm gap-1">
+                  <Settings className="w-4 h-4" /> Precios base
+                </button>
+              </Link>
+              <button
+                onClick={handleExportPDF}
+                className="btn btn-outline btn-sm gap-1"
+                disabled={filteredTarifas.length === 0}
+              >
+                <Download className="w-4 h-4" /> PDF
+              </button>
             </div>
           </div>
 
-          {selectedMaterial !== 'Todos' && (
-            <span className="text-xs text-base-content/40 self-end pb-2">
-              {filteredTarifas.length} referencia{filteredTarifas.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            <div className="form-control w-full max-w-xs">
+              <label className="label py-0">
+                <span className="label-text font-bold">Filtrar por Material:</span>
+              </label>
+              <select
+                className="select select-bordered"
+                value={selectedMaterial}
+                onChange={e => setSelectedMaterial(e.target.value)}
+              >
+                {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div className="form-control">
+              <label className="label py-0">
+                <span className="label-text font-bold">Margen objetivo:</span>
+              </label>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number" min="1" max="200" step="1"
+                  className="input input-bordered w-20 font-mono"
+                  value={margenObjetivo}
+                  onChange={e => setMargenObjetivo(Math.max(1, parseInt(e.target.value) || 30))}
+                />
+                <span className="text-sm text-base-content/50">%</span>
+              </div>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-2 self-end">
-          <Link href="/configuracion">
-            <button className="btn btn-ghost btn-sm gap-1">
-              <Settings className="w-4 h-4" /> Precios base
-            </button>
-          </Link>
-          <button
-            onClick={handleExportPDF}
-            className="btn btn-outline btn-sm gap-1"
-            disabled={filteredTarifas.length === 0}
-          >
-            <Download className="w-4 h-4" /> PDF
-          </button>
-        </div>
-      </div>
-
-      {/* Main table */}
-      <div className="card bg-base-100 shadow border border-base-200 mb-6">
-        <div className="overflow-x-auto">
-          <table className="table table-sm w-full">
-            <thead>
-              {/* Group header row */}
-              <tr className="border-b-0 text-xs">
-                <th colSpan={4} />
-                {margenesVenta.length > 0 && (
-                  <th
-                    colSpan={margenesVenta.length}
-                    className="text-center bg-primary/8 border-x border-primary/15 py-2"
-                  >
-                    <span className="font-semibold text-primary uppercase tracking-wider text-xs">
-                      Precios de venta
-                    </span>
-                  </th>
-                )}
-                <th colSpan={3} />
-                <th />
-              </tr>
-              {/* Column header row */}
-              <tr className="bg-base-200/50 text-xs">
-                <th>Material</th>
-                <th>Espesor</th>
-                <th>Variante</th>
-                <th className="text-right">
-                  Precio base
-                  <span className="block font-normal opacity-50">€/m²</span>
-                </th>
-                {margenesVenta.map(m => (
-                  <th key={m.base} className="text-right bg-primary/5 border-x border-primary/10">
-                    <span className="block font-bold text-base-content/70">{m.descripcion}</span>
-                    <span className="block font-normal opacity-50">×{m.multiplicador}</span>
-                  </th>
-                ))}
-                <th className="text-right opacity-60">
-                  Coste imp.
-                  <span className="block font-normal">€/m²</span>
-                </th>
-                <th className="text-center opacity-60">Margen</th>
-                <th className="text-right">
-                  Peso
-                  <span className="block font-normal opacity-50">kg/m²</span>
-                </th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTarifas.length === 0 ? (
+          <div className="overflow-x-auto max-h-[70vh]">
+            <table className="table table-zebra table-pin-rows table-sm w-full">
+              <thead>
                 <tr>
-                  <td colSpan={8 + margenesVenta.length} className="text-center py-10 text-base-content/40 text-sm">
-                    No hay tarifas para el material seleccionado.
-                  </td>
+                  <th className="text-center">Material</th>
+                  <th className="text-center">Lonas</th>
+                  <th className="text-center">Acabado</th>
+                  <th className="text-center">Espesor (mm)</th>
+                  <th className="text-center">Precio base (€/m²)</th>
+                  {margenesVenta.map(m => (
+                    <th key={m.base} className="text-center">
+                      <span className="block font-bold">{m.descripcion}</span>
+                      <span className="block font-normal opacity-50">×{m.multiplicador}</span>
+                    </th>
+                  ))}
+                  <th className="text-center opacity-60">Coste imp. (€/m²)</th>
+                  <th className="text-center opacity-60">Margen</th>
+                  <th className="text-center">Peso (kg/m²)</th>
+                  <th></th>
                 </tr>
-              ) : filteredTarifas.map(row => {
-                const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
-                const key = `${row.material}_${row.espesor}_${row.color ?? ''}_${row.lonas ?? ''}_${row.acabado ?? ''}`;
-                const coste = costesMap[key];
-                const costeM2 = coste?.precio ?? null;
-                const margenPct = costeM2 > 0 ? ((row.precio - costeM2) / costeM2) * 100 : null;
-                const precioSugerido = costeM2 != null
-                  ? parseFloat((costeM2 * (1 + margenObjetivo / 100)).toFixed(2))
-                  : null;
-                const mostrarSugerencia = precioSugerido != null && (margenPct == null || margenPct < margenObjetivo);
-
-                return (
-                  <tr key={row.id} className="hover border-b border-base-200/60">
-
-                    {/* Material */}
-                    <td>
-                      <span className="badge badge-ghost badge-sm font-semibold text-xs">
-                        {row.material}
-                      </span>
+              </thead>
+              <tbody>
+                {filteredTarifas.length === 0 ? (
+                  <tr>
+                    <td colSpan={9 + margenesVenta.length} className="text-center py-10 text-base-content/40 text-sm">
+                      No hay tarifas para el material seleccionado.
                     </td>
+                  </tr>
+                ) : filteredTarifas.map(row => {
+                  const preciosMap = (typeof row.preciosVenta === 'object' && row.preciosVenta) ? row.preciosVenta : {};
+                  const key = `${row.material}_${row.espesor}_${row.color ?? ''}_${row.lonas ?? ''}_${row.acabado ?? ''}`;
+                  const coste = costesMap[key];
+                  const costeM2 = coste?.precio ?? null;
+                  const margenPct = costeM2 > 0 ? ((row.precio - costeM2) / costeM2) * 100 : null;
+                  const precioSugerido = costeM2 != null
+                    ? parseFloat((costeM2 * (1 + margenObjetivo / 100)).toFixed(2))
+                    : null;
+                  const mostrarSugerencia = precioSugerido != null && (margenPct == null || margenPct < margenObjetivo);
 
-                    {/* Espesor */}
-                    <td>
-                      <span className="font-mono text-sm">{row.espesor} mm</span>
-                    </td>
+                  return (
+                    <tr key={row.id} className="hover">
+                      <td className="font-bold text-center">{row.material}</td>
 
-                    {/* Variante: lonas + acabado como badges editables */}
-                    <td>
-                      <div className="flex items-center gap-1 flex-wrap">
+                      {/* Lonas editable */}
+                      <td className="text-center font-mono text-sm">
                         {editandoLonas?.id === row.id ? (
                           <input
                             type="number" min="1" step="1" autoFocus
@@ -367,16 +326,17 @@ export default function TablaTarifas() {
                           />
                         ) : (
                           <span
-                            className={`badge badge-sm cursor-pointer hover:badge-primary transition-colors ${
-                              row.lonas != null ? 'badge-neutral' : 'badge-ghost opacity-40 hover:opacity-100'
-                            }`}
-                            title="Editar lonas"
+                            className="cursor-pointer hover:text-primary transition-colors"
+                            title="Clic para editar lonas"
                             onClick={() => setEditandoLonas({ id: row.id, value: row.lonas != null ? String(row.lonas) : '' })}
                           >
-                            {row.lonas != null ? `${row.lonas}L` : '+ lonas'}
+                            {row.lonas != null ? row.lonas : <span className="opacity-30">—</span>}
                           </span>
                         )}
+                      </td>
 
+                      {/* Acabado editable */}
+                      <td className="text-center text-sm">
                         {editandoAcabado?.id === row.id ? (
                           <input
                             type="text" placeholder="acabado…" autoFocus
@@ -391,146 +351,141 @@ export default function TablaTarifas() {
                           />
                         ) : (
                           <span
-                            className={`badge badge-sm cursor-pointer hover:badge-secondary transition-colors ${
-                              row.acabado ? 'badge-outline' : 'badge-ghost opacity-40 hover:opacity-100'
-                            }`}
-                            title="Editar acabado"
+                            className="cursor-pointer hover:text-secondary transition-colors"
+                            title="Clic para editar acabado"
                             onClick={() => setEditandoAcabado({ id: row.id, value: row.acabado ?? '' })}
                           >
-                            {row.acabado || '+ acabado'}
+                            {row.acabado || <span className="opacity-30">—</span>}
                           </span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Precio base editable */}
-                    <td className="text-right">
-                      {editandoPrecio?.id === row.id ? (
-                        <input
-                          type="number" min="0" step="0.01" autoFocus
-                          className="input input-xs input-bordered w-20 font-mono text-right"
-                          value={editandoPrecio.value}
-                          onChange={e => setEditandoPrecio(prev => ({ ...prev, value: e.target.value }))}
-                          onBlur={() => handleGuardarPrecio(row)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleGuardarPrecio(row);
-                            if (e.key === 'Escape') setEditandoPrecio(null);
-                          }}
-                        />
-                      ) : (
-                        <span
-                          className="font-mono text-sm cursor-pointer hover:text-primary transition-colors"
-                          title="Clic para editar precio base"
-                          onClick={() => setEditandoPrecio({ id: row.id, value: String(row.precio) })}
-                        >
-                          {formatCurrency(row.precio)}
-                        </span>
-                      )}
-                    </td>
+                      {/* Espesor */}
+                      <td className="text-center font-mono">{row.espesor}</td>
 
-                    {/* Precios de venta por margen */}
-                    {margenesVenta.map(m => {
-                      const calculado = row.precio * m.multiplicador;
-                      const manual = preciosMap[m.base];
-                      const esManual = manual != null;
-                      const valorMostrado = esManual ? manual : calculado;
-                      const isEditing = editandoVenta?.id === row.id && editandoVenta?.margenBase === m.base;
-                      return (
-                        <td key={m.base} className="text-right bg-primary/5 border-x border-primary/8">
-                          {isEditing ? (
-                            <input
-                              type="number" min="0" step="0.01" autoFocus
-                              className="input input-xs input-bordered w-20 font-mono text-right"
-                              value={editandoVenta.value}
-                              onChange={e => setEditandoVenta(prev => ({ ...prev, value: e.target.value }))}
-                              onBlur={() => handleGuardarVenta(row)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') handleGuardarVenta(row);
-                                if (e.key === 'Escape') setEditandoVenta(null);
-                              }}
-                            />
-                          ) : (
-                            <span
-                              className={`font-mono text-sm cursor-pointer hover:text-primary transition-colors ${
-                                esManual ? 'font-bold text-primary' : ''
-                              }`}
-                              title={esManual
-                                ? 'Precio manual (clic para editar)'
-                                : `Calculado ×${m.multiplicador} (clic para fijar manualmente)`}
-                              onClick={() => setEditandoVenta({ id: row.id, margenBase: m.base, value: valorMostrado.toFixed(2) })}
-                            >
-                              {formatCurrency(valorMostrado)}
-                              {esManual && <span className="ml-1 opacity-50 text-xs">✎</span>}
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
-
-                    {/* Coste importación */}
-                    <td className="text-right font-mono text-sm text-base-content/40">
-                      {costeM2 != null
-                        ? formatCurrency(costeM2)
-                        : <span className="opacity-25">—</span>}
-                    </td>
-
-                    {/* Margen % como badge de color */}
-                    <td className="text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className={`badge badge-sm font-mono font-bold ${
-                          margenPct == null        ? 'badge-ghost opacity-30' :
-                          margenPct >= margenObjetivo ? 'badge-success' :
-                          margenPct >= 10          ? 'badge-warning' : 'badge-error'
-                        }`}>
-                          {margenPct != null
-                            ? `${margenPct >= 0 ? '+' : ''}${margenPct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
-                            : '—'}
-                        </span>
-                        {mostrarSugerencia && (
-                          <button
-                            className="btn btn-xs btn-outline btn-warning"
-                            title={`Aplicar precio al ${margenObjetivo}% de margen`}
-                            disabled={aplicandoSugerencia === row.id}
-                            onClick={() => handleAplicarSugerencia(row, costeM2)}
+                      {/* Precio base editable */}
+                      <td className="text-center">
+                        {editandoPrecio?.id === row.id ? (
+                          <input
+                            type="number" min="0" step="0.01" autoFocus
+                            className="input input-xs input-bordered w-20 font-mono text-center"
+                            value={editandoPrecio.value}
+                            onChange={e => setEditandoPrecio(prev => ({ ...prev, value: e.target.value }))}
+                            onBlur={() => handleGuardarPrecio(row)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleGuardarPrecio(row);
+                              if (e.key === 'Escape') setEditandoPrecio(null);
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className="font-mono font-semibold text-primary cursor-pointer hover:text-primary transition-colors"
+                            title="Clic para editar precio base"
+                            onClick={() => setEditandoPrecio({ id: row.id, value: String(row.precio) })}
                           >
-                            {aplicandoSugerencia === row.id
-                              ? <span className="loading loading-spinner loading-xs" />
-                              : `→ ${formatCurrency(precioSugerido)}`}
-                          </button>
+                            {formatCurrency(row.precio)}
+                          </span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Peso */}
-                    <td className="text-right font-mono text-sm">
-                      {(row.peso ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
-                    </td>
+                      {/* Precios de venta por margen */}
+                      {margenesVenta.map(m => {
+                        const calculado = row.precio * m.multiplicador;
+                        const manual = preciosMap[m.base];
+                        const esManual = manual != null;
+                        const valorMostrado = esManual ? manual : calculado;
+                        const isEditing = editandoVenta?.id === row.id && editandoVenta?.margenBase === m.base;
+                        return (
+                          <td key={m.base} className="text-center">
+                            {isEditing ? (
+                              <input
+                                type="number" min="0" step="0.01" autoFocus
+                                className="input input-xs input-bordered w-20 font-mono text-center"
+                                value={editandoVenta.value}
+                                onChange={e => setEditandoVenta(prev => ({ ...prev, value: e.target.value }))}
+                                onBlur={() => handleGuardarVenta(row)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleGuardarVenta(row);
+                                  if (e.key === 'Escape') setEditandoVenta(null);
+                                }}
+                              />
+                            ) : (
+                              <span
+                                className={`font-mono text-sm cursor-pointer hover:text-primary transition-colors ${esManual ? 'font-bold text-primary' : ''}`}
+                                title={esManual ? 'Precio manual (clic para editar)' : `Calculado ×${m.multiplicador} (clic para fijar manualmente)`}
+                                onClick={() => setEditandoVenta({ id: row.id, margenBase: m.base, value: valorMostrado.toFixed(2) })}
+                              >
+                                {formatCurrency(valorMostrado)}
+                                {esManual && <span className="ml-1 opacity-50 text-xs">✎</span>}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
 
-                    {/* Historial */}
-                    <td>
-                      <button
-                        className="btn btn-ghost btn-xs"
-                        title="Ver historial de precio de venta"
-                        onClick={() => setHistorialVentaRow(row)}
-                      >
-                        <History className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-4 py-2 border-t border-base-200">
-          <p className="text-xs text-base-content/40">
-            Precios en <span className="text-primary font-semibold">azul</span> están fijados manualmente; el resto se calculan automáticamente (precio base × multiplicador). Clic en cualquier celda para editarla.
-          </p>
+                      {/* Coste importación */}
+                      <td className="text-center font-mono text-sm text-base-content/40">
+                        {costeM2 != null ? formatCurrency(costeM2) : <span className="opacity-25">—</span>}
+                      </td>
+
+                      {/* Margen % como badge de color */}
+                      <td className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`badge badge-sm font-mono font-bold ${
+                            margenPct == null        ? 'badge-ghost opacity-30' :
+                            margenPct >= margenObjetivo ? 'badge-success' :
+                            margenPct >= 10          ? 'badge-warning' : 'badge-error'
+                          }`}>
+                            {margenPct != null
+                              ? `${margenPct >= 0 ? '+' : ''}${margenPct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+                              : '—'}
+                          </span>
+                          {mostrarSugerencia && (
+                            <button
+                              className="btn btn-xs btn-outline btn-warning"
+                              title={`Aplicar precio al ${margenObjetivo}% de margen`}
+                              disabled={aplicandoSugerencia === row.id}
+                              onClick={() => handleAplicarSugerencia(row, costeM2)}
+                            >
+                              {aplicandoSugerencia === row.id
+                                ? <span className="loading loading-spinner loading-xs" />
+                                : `→ ${formatCurrency(precioSugerido)}`}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Peso */}
+                      <td className="text-center font-mono text-sm">
+                        {(row.peso ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                      </td>
+
+                      {/* Historial */}
+                      <td className="text-center">
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          title="Ver historial de precio de venta"
+                          onClick={() => setHistorialVentaRow(row)}
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-2">
+            <p className="text-xs text-base-content/40">
+              Precios en <span className="text-primary font-semibold">azul</span> están fijados manualmente; el resto se calculan automáticamente (precio base × multiplicador). Clic en cualquier celda para editarla.
+            </p>
+          </div>
         </div>
       </div>
 
       {/* ── Conversión a Metro Lineal ───────────────────────────────── */}
-      <div className="card bg-base-100 shadow border border-base-200">
+      <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
             <div>

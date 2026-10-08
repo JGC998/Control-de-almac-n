@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Calculadora</title>
+  <meta name="theme-color" content="#1e40af">
+  <link rel="manifest" href="/calc/manifest.json">
+  <style>
+    :root {
+      --bg: #f1f5f9; --surface: #fff; --surface2: #f8fafc; --border: #e2e8f0;
+      --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+      --primary: #1e40af; --primary-l: #dbeafe; --primary-fg: #fff;
+      --ok: #15803d; --ok-bg: #dcfce7; --warn: #b45309; --warn-bg: #fef3c7;
+      --err: #b91c1c; --r: 12px; --r2: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
+      --tabh: 62px; --hdrh: 54px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:#0f172a; --surface:#1e293b; --surface2:#263044; --border:#334155;
+        --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+        --primary:#3b82f6; --primary-l:#1e3a5f;
+        --ok:#4ade80; --ok-bg:#14532d; --warn:#fbbf24; --warn-bg:#451a03;
+        --shadow:0 1px 4px rgba(0,0,0,.3);
+      }
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+      background:var(--bg);color:var(--text);
+      display:flex;flex-direction:column;
+      font-size:16px;line-height:1.5;
+      -webkit-font-smoothing:antialiased;
+    }
+    /* Header */
+    header{
+      position:sticky;top:0;z-index:10;
+      background:var(--primary);color:var(--primary-fg);
+      height:var(--hdrh);display:flex;align-items:center;
+      justify-content:space-between;padding:0 16px;
+      box-shadow:0 2px 8px rgba(0,0,0,.25);
+    }
+    header h1{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
+    .sync-row{display:flex;align-items:center;gap:6px}
+    .dot{width:8px;height:8px;border-radius:50%;background:#86efac;flex-shrink:0}
+    .dot.off{background:#fca5a5}.dot.ing{background:#fde68a;animation:blink 1s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+    .sync-lbl{font-size:.68rem;opacity:.85}
+    .btn-sync{
+      background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
+      color:#fff;padding:5px 11px;border-radius:6px;font-size:.75rem;
+      cursor:pointer;white-space:nowrap;font-family:inherit;
+    }
+    .btn-sync:active{background:rgba(255,255,255,.28)}
+    .btn-sync:disabled{opacity:.5;cursor:not-allowed}
+    /* Main */
+    main{
+      flex:1;overflow-y:auto;padding:14px 16px;
+      padding-bottom:calc(var(--tabh) + 14px + env(safe-area-inset-bottom));
+    }
+    /* Panels */
+    .panel{display:none}.panel.on{display:block}
+    /* Cards */
+    .card{
+      background:var(--surface);border-radius:var(--r);
+      box-shadow:var(--shadow);padding:14px;margin-bottom:10px;
+    }
+    .card-ttl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px}
+    /* Fields */
+    .field{margin-bottom:10px}.field:last-child{margin-bottom:0}
+    label{display:block;font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:3px}
+    select,input[type=number]{
+      width:100%;padding:10px 12px;border:1.5px solid var(--border);
+      border-radius:var(--r2);background:var(--surface);color:var(--text);
+      font-size:1rem;font-family:inherit;outline:none;transition:border-color .15s;
+      -webkit-appearance:none;appearance:none;
+    }
+    select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M6 8 0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+    select:focus,input[type=number]:focus{border-color:var(--primary)}
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .hidden{display:none!important}
+    /* Segmented control */
+    .seg{display:flex;border:1.5px solid var(--border);border-radius:var(--r2);overflow:hidden}
+    .seg-btn{
+      flex:1;padding:9px 4px;border:none;border-right:1px solid var(--border);
+      background:transparent;color:var(--text2);font-size:.8rem;
+      font-family:inherit;font-weight:600;cursor:pointer;transition:background .12s,color .12s;
+    }
+    .seg-btn:last-child{border-right:none}
+    .seg-btn.on{background:var(--primary);color:#fff}
+    /* Result */
+    .result{background:var(--surface2);border:2px solid var(--border);border-radius:var(--r);padding:16px;text-align:center}
+    .result.ok{border-color:var(--primary);background:var(--primary-l)}
+    .result-n{font-size:2.3rem;font-weight:800;color:var(--primary);letter-spacing:-.03em;line-height:1.1}
+    .result-lbl{font-size:.75rem;color:var(--text2);margin-top:2px}
+    .result-brk{margin-top:10px;font-size:.78rem;color:var(--text2);text-align:left}
+    .result-brk div{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)}
+    .result-brk div:last-child{border-bottom:none}
+    .result-empty{color:var(--text3);font-size:.875rem;padding:8px 0}
+    .result-err{color:var(--err);font-size:.8rem;padding:8px 0}
+    /* Tab bar */
+    nav.tabs{
+      position:fixed;bottom:0;left:0;right:0;
+      height:calc(var(--tabh) + env(safe-area-inset-bottom));
+      padding-bottom:env(safe-area-inset-bottom);
+      background:var(--surface);border-top:1px solid var(--border);
+      display:flex;z-index:10;box-shadow:0 -2px 8px rgba(0,0,0,.06);
+    }
+    .tab-btn{
+      flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:2px;border:none;background:transparent;cursor:pointer;
+      color:var(--text3);font-size:.63rem;font-weight:600;font-family:inherit;
+      text-transform:uppercase;letter-spacing:.05em;padding:8px 4px;transition:color .12s;
+    }
+    .tab-btn.on{color:var(--primary)}
+    .tab-btn svg{width:22px;height:22px;stroke-width:2}
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Calculadora</h1>
+    <div class="sync-row">
+      <div class="dot ing" id="dot"></div>
+      <span class="sync-lbl" id="lbl">Cargando…</span>
+    </div>
+  </div>
+  <button class="btn-sync" id="btnSync" onclick="syncData()">↻ Sync</button>
+</header>
+
+<main>
+  <!-- ─── PIEZAS ─── -->
+  <div id="tab-piezas" class="panel on">
+    <div class="card">
+      <div class="card-ttl">Material</div>
+      <div class="field">
+        <label>Material</label>
+        <select id="p-mat" onchange="onPMat()"><option value="">Seleccionar…</option></select>
+      </div>
+      <div class="field">
+        <label>Espesor / variante</label>
+        <select id="p-tar" onchange="calcP()"><option value="">—</option></select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Dimensiones</div>
+      <div class="g2">
+        <div class="field"><label>Ancho (mm)</label><input type="number" id="p-ancho" min="1" placeholder="0" oninput="calcP()"></div>
+        <div class="field"><label>Largo (mm)</label><input type="number" id="p-largo" min="1" placeholder="0" oninput="calcP()"></div>
+      </div>
+      <div class="field"><label>Cantidad</label><input type="number" id="p-cant" min="1" value="1" oninput="calcP()"></div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Margen de venta</div>
+      <div class="field">
+        <select id="p-mrg" onchange="calcP()"><option value="">Sin margen (precio coste)</option></select>
+      </div>
+    </div>
+    <div class="card result" id="p-res"><div class="result-empty">Completa los datos para calcular</div></div>
+  </div>
+
+  <!-- ─── METRAJES ─── -->
+  <div id="tab-metrajes" class="panel">
+    <div class="card">
+      <div class="card-ttl">Material</div>
+      <div class="field">
+        <label>Material</label>
+        <select id="m-mat" onchange="onMMat()"><option value="">Seleccionar…</option></select>
+      </div>
+      <div class="field">
+        <label>Espesor / variante</label>
+        <select id="m-tar" onchange="calcM()"><option value="">—</option></select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Medidas</div>
+      <div class="g2">
+        <div class="field"><label>Ancho (mm)</label><input type="number" id="m-ancho" min="1" placeholder="0" oninput="calcM()"></div>
+        <div class="field"><label>Metros</label><input type="number" id="m-metros" min="0.01" step="0.01" placeholder="0" oninput="calcM()"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Margen de venta</div>
+      <div class="field">
+        <select id="m-mrg" onchange="calcM()"><option value="">Sin margen (precio coste)</option></select>
+      </div>
+    </div>
+    <div class="card result" id="m-res"><div class="result-empty">Completa los datos para calcular</div></div>
+  </div>
+
+  <!-- ─── BANDAS PVC ─── -->
+  <div id="tab-bandas" class="panel">
+    <div class="card">
+      <div class="card-ttl">PVC — Selección</div>
+      <div class="field">
+        <label>Espesor</label>
+        <select id="b-esp" onchange="onBEsp()"><option value="">Seleccionar espesor…</option></select>
+      </div>
+      <div id="b-lonas-f" class="field hidden">
+        <label>Lonas</label>
+        <select id="b-lonas" onchange="onBVar()"><option value="">Seleccionar…</option></select>
+      </div>
+      <div id="b-acab-f" class="field hidden">
+        <label>Acabado</label>
+        <select id="b-acab" onchange="onBVar()"><option value="">Seleccionar…</option></select>
+      </div>
+      <div id="b-color-f" class="field hidden">
+        <label>Color</label>
+        <select id="b-color" onchange="calcB()"><option value="">Seleccionar…</option></select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Dimensiones</div>
+      <div class="g2">
+        <div class="field"><label>Ancho (mm)</label><input type="number" id="b-ancho" min="1" placeholder="0" oninput="calcB()"></div>
+        <div class="field"><label>Largo (mm)</label><input type="number" id="b-largo" min="1" placeholder="0" oninput="calcB()"></div>
+      </div>
+      <div class="field"><label>Cantidad</label><input type="number" id="b-cant" min="1" value="1" oninput="calcB()"></div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Confección</div>
+      <div class="seg">
+        <button class="seg-btn on" id="b-sf" onclick="setBConf('VULCANIZADA')">Sin Fin</button>
+        <button class="seg-btn" id="b-gr" onclick="setBConf('GRAPA')">Grapa</button>
+        <button class="seg-btn" id="b-ab" onclick="setBConf('ABIERTA')">Abierta</button>
+      </div>
+      <div id="b-grapa-f" class="field hidden" style="margin-top:10px">
+        <label>Modelo de grapa</label>
+        <select id="b-grapa" onchange="calcB()"><option value="">Sin compatibles</option></select>
+      </div>
+    </div>
+    <div class="card result" id="b-res"><div class="result-empty">Completa los datos para calcular</div></div>
+  </div>
+</main>
+
+<nav class="tabs">
+  <button class="tab-btn on" id="nav-piezas" onclick="switchTab('piezas')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Piezas m²
+  </button>
+  <button class="tab-btn" id="nav-metrajes" onclick="switchTab('metrajes')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><line x1="7" y1="3" x2="7" y2="6"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="17" y1="3" x2="17" y2="6"/></svg>
+    Metrajes
+  </button>
+  <button class="tab-btn" id="nav-bandas" onclick="switchTab('bandas')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M3 12c0 4 4 7 9 7s9-3 9-7"/></svg>
+    Bandas PVC
+  </button>
+</nav>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+const fmt4 = n => n.toLocaleString('es-ES',{minimumFractionDigits:4,maximumFractionDigits:4});
+
+let D = null; // cached data
+let bConf = 'VULCANIZADA';
+let syncing = false;
+
+// ── Storage ──────────────────────────────────────────────────────────────────
+function load() { try { const r=localStorage.getItem('calc_d'); if(r) D=JSON.parse(r); } catch(e){} }
+function save(d) { try { localStorage.setItem('calc_d', JSON.stringify(d)); } catch(e){} }
+
+// ── Sync ─────────────────────────────────────────────────────────────────────
+async function syncData() {
+  if (syncing) return;
+  syncing = true; $('btnSync').disabled = true;
+  setSUI('ing','Sincronizando…');
+  try {
+    const res = await fetch('/api/calculadora/sync', {signal:AbortSignal.timeout(8000)});
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    D = await res.json(); save(D);
+    const t = new Date(D.syncedAt).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    setSUI('on','Sync ' + t);
+    rebuild();
+  } catch(e) {
+    setSUI('off', D ? 'Datos guardados' : 'Sin conexión');
+    if (D) rebuild(); else noData();
+  } finally { syncing=false; $('btnSync').disabled=false; }
+}
+
+function setSUI(s,t) {
+  $('dot').className='dot'+(s==='ing'?' ing':s==='off'?' off':'');
+  $('lbl').textContent=t;
+}
+
+// ── Build selects ─────────────────────────────────────────────────────────────
+function tarLabel(t) {
+  let l = t.espesor+' mm';
+  if (t.lonas!=null) l+=' · '+t.lonas+'L';
+  if (t.acabado) l+=' · '+t.acabado;
+  if (t.color) l+=' · '+t.color;
+  return l;
+}
+
+function rebuild() {
+  if (!D) return;
+  const mats = [...new Set(D.tarifas.map(t=>t.material))].sort();
+  const mrgOpts = '<option value="">Sin margen (precio coste)</option>' +
+    D.margenes.map(m=>`<option value="${m.id}">${m.descripcion} ×${m.multiplicador}</option>`).join('');
+
+  // Piezas materials
+  const pM=$('p-mat'), pMv=pM.value;
+  pM.innerHTML='<option value="">Seleccionar…</option>'+mats.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(pMv) pM.value=pMv;
+
+  // Metrajes materials
+  const mM=$('m-mat'), mMv=mM.value;
+  mM.innerHTML='<option value="">Seleccionar…</option>'+mats.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(mMv) mM.value=mMv;
+
+  // Margenes
+  const pMrg=$('p-mrg'), pMrgv=pMrg.value; pMrg.innerHTML=mrgOpts; if(pMrgv) pMrg.value=pMrgv;
+  const mMrg=$('m-mrg'), mMrgv=mMrg.value; mMrg.innerHTML=mrgOpts; if(mMrgv) mMrg.value=mMrgv;
+
+  // Bandas espesores (PVC only)
+  const bE=$('b-esp'), bEv=bE.value;
+  const pvcs=[...new Set(D.tarifas.filter(t=>t.material==='PVC').map(t=>String(t.espesor)))].sort((a,b)=>parseFloat(a)-parseFloat(b));
+  bE.innerHTML='<option value="">Seleccionar espesor…</option>'+pvcs.map(e=>`<option value="${e}">${e} mm</option>`).join('');
+  if(bEv) bE.value=bEv;
+
+  onPMat(); onMMat(); if(bEv) onBEsp();
+}
+
+// Piezas — material → tarifa select
+function onPMat() {
+  if(!D) return;
+  const mat=$('p-mat').value, el=$('p-tar'), prev=el.value;
+  if(!mat){el.innerHTML='<option value="">—</option>';calcP();return;}
+  el.innerHTML='<option value="">Seleccionar…</option>'+
+    D.tarifas.filter(t=>t.material===mat).map(t=>`<option value="${t.id}">${tarLabel(t)}</option>`).join('');
+  if(prev) el.value=prev;
+  calcP();
+}
+
+// Metrajes — material → tarifa select
+function onMMat() {
+  if(!D) return;
+  const mat=$('m-mat').value, el=$('m-tar'), prev=el.value;
+  if(!mat){el.innerHTML='<option value="">—</option>';calcM();return;}
+  el.innerHTML='<option value="">Seleccionar…</option>'+
+    D.tarifas.filter(t=>t.material===mat).map(t=>`<option value="${t.id}">${tarLabel(t)}</option>`).join('');
+  if(prev) el.value=prev;
+  calcM();
+}
+
+// ── Bandas cascades ───────────────────────────────────────────────────────────
+function onBEsp() {
+  if(!D) return;
+  const esp=parseFloat($('b-esp').value);
+  if(!esp){hideBVar();calcB();return;}
+  const ts=D.tarifas.filter(t=>t.material==='PVC'&&Math.abs(t.espesor-esp)<0.001);
+
+  const lOpts=[...new Set(ts.map(t=>t.lonas==null?'__':String(t.lonas)))];
+  if(lOpts.length>1){
+    $('b-lonas').innerHTML='<option value="">Seleccionar…</option>'+lOpts.map(v=>`<option value="${v}">${v==='__'?'— Sin especificar':v+' lona'+(v!=='1'?'s':'')}</option>`).join('');
+    $('b-lonas-f').classList.remove('hidden');
+  } else { $('b-lonas-f').classList.add('hidden'); $('b-lonas').value=''; }
+
+  $('b-acab-f').classList.add('hidden'); $('b-color-f').classList.add('hidden');
+  updateBGrapa(esp); calcB();
+}
+
+function onBVar() {
+  if(!D) return;
+  const esp=parseFloat($('b-esp').value); if(!esp) return;
+  const ts=D.tarifas.filter(t=>t.material==='PVC'&&Math.abs(t.espesor-esp)<0.001);
+  const lonas=$('b-lonas').value;
+  const lOpts=[...new Set(ts.map(t=>t.lonas==null?'__':String(t.lonas)))];
+  let tl=lOpts.length>1&&lonas ? ts.filter(t=>lonas==='__'?t.lonas==null:String(t.lonas)===lonas) : ts;
+
+  const aOpts=[...new Set(tl.map(t=>t.acabado==null?'__':t.acabado))];
+  if(aOpts.length>1){
+    $('b-acab').innerHTML='<option value="">Seleccionar…</option>'+aOpts.map(v=>`<option value="${v}">${v==='__'?'— Estándar':v}</option>`).join('');
+    $('b-acab-f').classList.remove('hidden');
+  } else { $('b-acab-f').classList.add('hidden'); $('b-acab').value=''; }
+
+  const acab=$('b-acab').value;
+  const aOpts2=[...new Set(tl.map(t=>t.acabado==null?'__':t.acabado))];
+  let ta=aOpts2.length>1&&acab ? tl.filter(t=>acab==='__'?!t.acabado:t.acabado===acab) : tl;
+
+  const cOpts=[...new Set(ta.map(t=>t.color==null?'__':t.color))];
+  if(cOpts.length>1){
+    $('b-color').innerHTML='<option value="">Seleccionar…</option>'+cOpts.map(v=>`<option value="${v}">${v==='__'?'— Estándar':v}</option>`).join('');
+    $('b-color-f').classList.remove('hidden');
+  } else { $('b-color-f').classList.add('hidden'); $('b-color').value=''; }
+  calcB();
+}
+
+function hideBVar(){ $('b-lonas-f').classList.add('hidden'); $('b-acab-f').classList.add('hidden'); $('b-color-f').classList.add('hidden'); }
+
+function updateBGrapa(esp){
+  const gf=$('b-grapa-f');
+  if(bConf!=='GRAPA'){gf.classList.add('hidden');return;}
+  const ms=(D.modelosGrapa||[]).filter(m=>m.tipo==='NORMAL'&&esp>=m.espesorDesde&&esp<=(m.espesorHasta??Infinity));
+  $('b-grapa').innerHTML=ms.length?ms.map(m=>`<option value="${m.id}">${m.nombre} · ${fmt(m.precioPor100mm)}/100mm</option>`).join(''):'<option value="">Sin grapas compatibles</option>';
+  gf.classList.remove('hidden');
+}
+
+function setBConf(c){
+  bConf=c;
+  $('b-sf').className='seg-btn'+(c==='VULCANIZADA'?' on':'');
+  $('b-gr').className='seg-btn'+(c==='GRAPA'?' on':'');
+  $('b-ab').className='seg-btn'+(c==='ABIERTA'?' on':'');
+  const esp=parseFloat($('b-esp').value);
+  if(esp) updateBGrapa(esp); else $('b-grapa-f').classList.add('hidden');
+  calcB();
+}
+
+// ── Resolve tarifa for banda ──────────────────────────────────────────────────
+function resolveBTarifa(){
+  if(!D) return null;
+  const esp=parseFloat($('b-esp').value); if(!esp) return null;
+  let ts=D.tarifas.filter(t=>t.material==='PVC'&&Math.abs(t.espesor-esp)<0.001);
+  if(!ts.length) return null; if(ts.length===1) return ts[0];
+  const lonas=$('b-lonas').value, acab=$('b-acab').value, color=$('b-color').value;
+  const lOpts=[...new Set(ts.map(t=>t.lonas==null?'__':String(t.lonas)))];
+  if(lOpts.length>1){if(!lonas) return null; ts=ts.filter(t=>lonas==='__'?t.lonas==null:String(t.lonas)===lonas);}
+  const aOpts=[...new Set(ts.map(t=>t.acabado==null?'__':t.acabado))];
+  if(aOpts.length>1){if(!acab) return null; ts=ts.filter(t=>acab==='__'?!t.acabado:t.acabado===acab);}
+  const cOpts=[...new Set(ts.map(t=>t.color==null?'__':t.color))];
+  if(cOpts.length>1){if(!color) return null; ts=ts.filter(t=>color==='__'?!t.color:t.color===color);}
+  return ts[0]??null;
+}
+
+// ── Calculators ───────────────────────────────────────────────────────────────
+function calcP(){
+  const el=$('p-res');
+  if(!D){empty(el,'Sin datos. Pulsa Sync cuando tengas WiFi.');return;}
+  const tarId=parseInt($('p-tar').value)||null;
+  const tar=tarId?D.tarifas.find(t=>t.id===tarId):null;
+  const ancho=parseFloat($('p-ancho').value), largo=parseFloat($('p-largo').value);
+  const cant=parseInt($('p-cant').value)||1;
+  if(!tar||!ancho||!largo||ancho<=0||largo<=0){empty(el);return;}
+  const area=(ancho/1000)*(largo/1000);
+  const mrgId=parseInt($('p-mrg').value)||null;
+  const mrg=mrgId?D.margenes.find(m=>m.id===mrgId):null;
+  const mul=mrg?mrg.multiplicador:1, gasto=mrg?(mrg.gastoFijo||0):0;
+  const pu=tar.precio*area*mul+gasto/cant, tot=pu*cant;
+  el.className='card result ok';
+  el.innerHTML=`<div class="result-n">${fmt(pu)}</div>
+    <div class="result-lbl">por unidad${cant>1?` · ×${cant} = ${fmt(tot)}`:''}</div>
+    <div class="result-brk">
+      <div><span>${tar.material} ${tar.espesor}mm${tar.lonas!=null?' '+tar.lonas+'L':''}${tar.acabado?' '+tar.acabado:''}${tar.color?' '+tar.color:''}</span><span>${fmt(tar.precio)}/m²</span></div>
+      <div><span>Área</span><span>${fmt4(area)} m²</span></div>
+      ${mrg?`<div><span>Margen</span><span>${mrg.descripcion} ×${mrg.multiplicador}</span></div>`:''}
+      ${gasto>0?`<div><span>Gasto fijo</span><span>${fmt(gasto)} ÷ ${cant} uds</span></div>`:''}
+    </div>`;
+}
+
+function calcM(){
+  const el=$('m-res');
+  if(!D){empty(el,'Sin datos. Pulsa Sync cuando tengas WiFi.');return;}
+  const tarId=parseInt($('m-tar').value)||null;
+  const tar=tarId?D.tarifas.find(t=>t.id===tarId):null;
+  const ancho=parseFloat($('m-ancho').value), metros=parseFloat($('m-metros').value);
+  if(!tar||!ancho||!metros||ancho<=0||metros<=0){empty(el);return;}
+  const area=(ancho/1000)*metros;
+  const mrgId=parseInt($('m-mrg').value)||null;
+  const mrg=mrgId?D.margenes.find(m=>m.id===mrgId):null;
+  const mul=mrg?mrg.multiplicador:1, gasto=mrg?(mrg.gastoFijo||0):0;
+  const precio=tar.precio*area*mul+gasto;
+  el.className='card result ok';
+  el.innerHTML=`<div class="result-n">${fmt(precio)}</div>
+    <div class="result-lbl">total · ${metros} m × ${ancho} mm</div>
+    <div class="result-brk">
+      <div><span>${tar.material} ${tar.espesor}mm${tar.lonas!=null?' '+tar.lonas+'L':''}${tar.acabado?' '+tar.acabado:''}${tar.color?' '+tar.color:''}</span><span>${fmt(tar.precio)}/m²</span></div>
+      <div><span>Área</span><span>${fmt4(area)} m²</span></div>
+      ${mrg?`<div><span>Margen</span><span>${mrg.descripcion} ×${mrg.multiplicador}</span></div>`:''}
+      ${gasto>0?`<div><span>Gasto fijo</span><span>+ ${fmt(gasto)}</span></div>`:''}
+    </div>`;
+}
+
+function calcB(){
+  const el=$('b-res');
+  if(!D){empty(el,'Sin datos. Pulsa Sync cuando tengas WiFi.');return;}
+  const tar=resolveBTarifa();
+  if(!tar){
+    if($('b-esp').value) err(el,'Selecciona la variante completa');
+    else empty(el);
+    return;
+  }
+  const ancho=parseFloat($('b-ancho').value), largo=parseFloat($('b-largo').value);
+  const cant=parseInt($('b-cant').value)||1;
+  if(!ancho||!largo||ancho<=0||largo<=0){empty(el);return;}
+  const ancM=ancho/1000, larM=largo/1000, area=ancM*larM;
+  const matCost=tar.precio*area;
+  let conf=0, confLbl='';
+  const vulcM=D.config?.costeVulcanizadoMetro??0;
+  if(bConf==='VULCANIZADA'){
+    conf=vulcM*ancM;
+    confLbl=vulcM>0?`Vulcanizado: ${fmt(conf)}`:'Sin coste vulcanizado config.';
+  } else if(bConf==='GRAPA'){
+    const mId=parseInt($('b-grapa').value), mod=D.modelosGrapa?.find(m=>m.id===mId);
+    if(mod){conf=(ancho/100)*mod.precioPor100mm; confLbl=`Grapa ${mod.nombre}: ${fmt(conf)}`;}
+  } else { confLbl='Abierta (sin confección)'; }
+  const pu=Math.round((matCost+conf)*100)/100, tot=Math.round(pu*cant*100)/100;
+  const peso=tar.peso?tar.peso*area*cant:null;
+  el.className='card result ok';
+  el.innerHTML=`<div class="result-n">${fmt(pu)}</div>
+    <div class="result-lbl">por unidad${cant>1?` · ×${cant} = ${fmt(tot)}`:''}${peso?` · ${peso.toLocaleString('es-ES',{maximumFractionDigits:2})} kg`:''}</div>
+    <div class="result-brk">
+      <div><span>PVC ${tar.espesor}mm${tar.lonas!=null?' '+tar.lonas+'L':''}${tar.acabado?' '+tar.acabado:''}${tar.color?' '+tar.color:''}</span><span>${fmt(tar.precio)}/m²</span></div>
+      <div><span>Área</span><span>${(ancho/1000).toLocaleString('es-ES',{minimumFractionDigits:3})} × ${(largo/1000).toLocaleString('es-ES',{minimumFractionDigits:3})} = ${fmt4(area)} m²</span></div>
+      <div><span>Material</span><span>${fmt(matCost)}</span></div>
+      <div><span>Confección</span><span>${confLbl||'—'}</span></div>
+    </div>`;
+}
+
+// ── Result helpers ────────────────────────────────────────────────────────────
+function empty(el,msg){el.className='card result';el.innerHTML=`<div class="result-empty">${msg||'Completa los datos para calcular'}</div>`;}
+function err(el,msg){el.className='card result';el.innerHTML=`<div class="result-err">⚠ ${msg}</div>`;}
+function noData(){['p','m','b'].forEach(p=>empty($(p+'-res'),'Sin datos. Pulsa Sync cuando tengas WiFi.'));}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(t){
+  ['piezas','metrajes','bandas'].forEach(n=>{
+    $('tab-'+n).classList.toggle('on',n===t);
+    $('nav-'+n).classList.toggle('on',n===t);
+  });
+  try{localStorage.setItem('calc_tab',t);}catch(e){}
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(function init(){
+  try{const s=localStorage.getItem('calc_tab');if(s)switchTab(s);}catch(e){}
+  load();
+  if(D){
+    const t=new Date(D.syncedAt).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    setSUI('off','Datos: '+t); rebuild();
+  }
+  if(navigator.onLine) syncData();
+  else{setSUI('off',D?'Sin conexión':'Offline — sin datos');if(!D)noData();}
+  window.addEventListener('online',()=>syncData());
+  window.addEventListener('offline',()=>setSUI('off','Sin conexión'));
+  if('serviceWorker'in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "Calculadora Taller",
+  "short_name": "Calc",
+  "description": "Calculadora de precios offline para el taller",
+  "start_url": "/calc/index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1e40af",
+  "theme_color": "#1e40af",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/logo-crm.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
