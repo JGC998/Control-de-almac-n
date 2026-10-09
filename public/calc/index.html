@@ -95,7 +95,8 @@
     .seg-btn.on{background:var(--primary);color:#fff}
     /* Result */
     .result{background:var(--surface2);border:2px solid var(--border);border-radius:var(--r);padding:16px;text-align:center}
-    .result.ok{border-color:var(--primary);background:var(--primary-l)}
+    .result.ok{border-color:var(--primary);background:var(--primary-l);cursor:pointer;user-select:none}
+    .result.copied{border-color:#16a34a;background:#dcfce7}
     .result-n{font-size:2.3rem;font-weight:800;color:var(--primary);letter-spacing:-.03em;line-height:1.1}
     .result-lbl{font-size:.75rem;color:var(--text2);margin-top:2px}
     .result-brk{margin-top:10px;font-size:.78rem;color:var(--text2);text-align:left}
@@ -431,6 +432,26 @@ function resolveBTarifa(){
 }
 
 // ── Calculators ───────────────────────────────────────────────────────────────
+function matDesc(t){
+  let s=`${t.material} ${t.espesor}mm`;
+  if(t.lonas!=null) s+=` · ${t.lonas}L`;
+  if(t.acabado) s+=` · ${t.acabado}`;
+  if(t.color) s+=` · ${t.color}`;
+  return s;
+}
+function copyResult(el, text){
+  navigator.clipboard.writeText(text).then(()=>{
+    const prev=el.className;
+    el.className='card result copied';
+    const inner=el.innerHTML;
+    el.innerHTML='<div style="font-size:1.4rem;padding:8px 0">✅ ¡Copiado!</div>';
+    setTimeout(()=>{el.className=prev;el.innerHTML=inner;},1200);
+  }).catch(()=>{});
+}
+function ivaLine(tot){
+  return `\n🧾 Total + IVA (21%): ${fmt(Math.round(tot*1.21*100)/100)}`;
+}
+
 function calcP(){
   const el=$('p-res');
   if(!D){empty(el,'Sin datos. Pulsa Sync cuando tengas WiFi.');return;}
@@ -444,7 +465,10 @@ function calcP(){
   const mrg=mrgId?D.margenes.find(m=>String(m.id)===mrgId):null;
   const mul=mrg?mrg.multiplicador:1, gasto=mrg?(mrg.gastoFijo||0):0;
   const pu=tar.precio*area*mul+gasto/cant, tot=pu*cant;
+  const iva=Math.round(tot*1.21*100)/100;
+  const copyTxt=`🧱 Pieza ${matDesc(tar)}\n📐 ${ancho} × ${largo} mm${cant>1?' · ×'+cant+' uds':''}\n💰 ${fmt(pu)} / ud${cant>1?' · Total: '+fmt(tot):''}${ivaLine(tot)}`;
   el.className='card result ok';
+  el.onclick=()=>copyResult(el,copyTxt);
   el.innerHTML=`<div class="result-n">${fmt(pu)}</div>
     <div class="result-lbl">por unidad${cant>1?` · ×${cant} = ${fmt(tot)}`:''}</div>
     <div class="result-brk">
@@ -452,7 +476,9 @@ function calcP(){
       <div><span>Área</span><span>${fmt4(area)} m²</span></div>
       ${mrg?`<div><span>Margen</span><span>${mrg.descripcion} ×${mrg.multiplicador}</span></div>`:''}
       ${gasto>0?`<div><span>Gasto fijo</span><span>${fmt(gasto)} ÷ ${cant} uds</span></div>`:''}
-    </div>`;
+      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>
+    </div>
+    <div style="font-size:.7rem;color:var(--text3);margin-top:8px">Toca para copiar</div>`;
 }
 
 function calcM(){
@@ -467,7 +493,10 @@ function calcM(){
   const mrg=mrgId?D.margenes.find(m=>String(m.id)===mrgId):null;
   const mul=mrg?mrg.multiplicador:1, gasto=mrg?(mrg.gastoFijo||0):0;
   const precio=tar.precio*area*mul+gasto;
+  const iva=Math.round(precio*1.21*100)/100;
+  const copyTxt=`📏 Metraje ${matDesc(tar)}\n📐 ${ancho} mm × ${metros} m\n💰 Total: ${fmt(precio)}${ivaLine(precio)}`;
   el.className='card result ok';
+  el.onclick=()=>copyResult(el,copyTxt);
   el.innerHTML=`<div class="result-n">${fmt(precio)}</div>
     <div class="result-lbl">total · ${metros} m × ${ancho} mm</div>
     <div class="result-brk">
@@ -475,7 +504,9 @@ function calcM(){
       <div><span>Área</span><span>${fmt4(area)} m²</span></div>
       ${mrg?`<div><span>Margen</span><span>${mrg.descripcion} ×${mrg.multiplicador}</span></div>`:''}
       ${gasto>0?`<div><span>Gasto fijo</span><span>+ ${fmt(gasto)}</span></div>`:''}
-    </div>`;
+      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>
+    </div>
+    <div style="font-size:.7rem;color:var(--text3);margin-top:8px">Toca para copiar</div>`;
 }
 
 function calcB(){
@@ -502,8 +533,12 @@ function calcB(){
     if(mod){conf=(ancho/100)*mod.precioPor100mm; confLbl=`Grapa ${mod.nombre}: ${fmt(conf)}`;}
   } else { confLbl='Abierta (sin confección)'; }
   const pu=Math.round((matCost+conf)*100)/100, tot=Math.round(pu*cant*100)/100;
+  const iva=Math.round(tot*1.21*100)/100;
+  const confTipo=bConf==='VULCANIZADA'?'Sin fin':bConf==='GRAPA'?'Grapa':'Abierta';
+  const copyTxt=`🔄 Banda PVC ${tar.espesor}mm${tar.lonas!=null?' · '+tar.lonas+'L':''}${tar.acabado?' · '+tar.acabado:''}${tar.color?' · '+tar.color:''}\n📐 Ancho: ${ancho} mm · ${confTipo}\n💰 ${fmt(pu)} / ud${cant>1?' · Total: '+fmt(tot):''}${ivaLine(tot)}`;
   const peso=tar.peso?tar.peso*area*cant:null;
   el.className='card result ok';
+  el.onclick=()=>copyResult(el,copyTxt);
   el.innerHTML=`<div class="result-n">${fmt(pu)}</div>
     <div class="result-lbl">por unidad${cant>1?` · ×${cant} = ${fmt(tot)}`:''}${peso?` · ${peso.toLocaleString('es-ES',{maximumFractionDigits:2})} kg`:''}</div>
     <div class="result-brk">
@@ -511,7 +546,9 @@ function calcB(){
       <div><span>Área</span><span>${(ancho/1000).toLocaleString('es-ES',{minimumFractionDigits:3})} × ${(largo/1000).toLocaleString('es-ES',{minimumFractionDigits:3})} = ${fmt4(area)} m²</span></div>
       <div><span>Material</span><span>${fmt(matCost)}</span></div>
       <div><span>Confección</span><span>${confLbl||'—'}</span></div>
-    </div>`;
+      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>
+    </div>
+    <div style="font-size:.7rem;color:var(--text3);margin-top:8px">Toca para copiar</div>`;
 }
 
 // ── Result helpers ────────────────────────────────────────────────────────────
