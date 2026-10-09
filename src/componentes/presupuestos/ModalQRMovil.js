@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Smartphone, X } from 'lucide-react';
 
-const URL_MOVIL = 'http://192.168.1.250/ventas/presupuesto-rapido';
+const URL_MOVIL = 'http://192.168.1.250/calc/index.html';
 
 export default function ModalQRMovil() {
   const dialogRef = useRef(null);
