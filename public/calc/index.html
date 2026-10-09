@@ -440,8 +440,8 @@ function calcP(){
   const cant=parseInt($('p-cant').value)||1;
   if(!tar||!ancho||!largo||ancho<=0||largo<=0){empty(el);return;}
   const area=(ancho/1000)*(largo/1000);
-  const mrgId=parseInt($('p-mrg').value)||null;
-  const mrg=mrgId?D.margenes.find(m=>m.id===mrgId):null;
+  const mrgId=$('p-mrg').value||null;
+  const mrg=mrgId?D.margenes.find(m=>String(m.id)===mrgId):null;
   const mul=mrg?mrg.multiplicador:1, gasto=mrg?(mrg.gastoFijo||0):0;
   const pu=tar.precio*area*mul+gasto/cant, tot=pu*cant;
   el.className='card result ok';
@@ -463,8 +463,8 @@ function calcM(){
   const ancho=parseFloat($('m-ancho').value), metros=parseFloat($('m-metros').value);
   if(!tar||!ancho||!metros||ancho<=0||metros<=0){empty(el);return;}
   const area=(ancho/1000)*metros;
-  const mrgId=parseInt($('m-mrg').value)||null;
-  const mrg=mrgId?D.margenes.find(m=>m.id===mrgId):null;
+  const mrgId=$('m-mrg').value||null;
+  const mrg=mrgId?D.margenes.find(m=>String(m.id)===mrgId):null;
   const mul=mrg?mrg.multiplicador:1, gasto=mrg?(mrg.gastoFijo||0):0;
   const precio=tar.precio*area*mul+gasto;
   el.className='card result ok';
