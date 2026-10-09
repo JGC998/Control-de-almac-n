@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { FileText, PlusCircle, Download } from 'lucide-react';
+import { FileText, PlusCircle, Download, Zap } from 'lucide-react';
+import ModalQRMovil from '@/componentes/presupuestos/ModalQRMovil';
 import { db } from '@/lib/db';
 import TablaConSeleccion from '@/componentes/compuestos/TablaConSeleccion';
 import { PaginacionServidor } from '@/componentes/ui';
@@ -85,6 +86,10 @@ export default async function PresupuestosPage({ searchParams: searchParamsPromi
           <a href="/api/presupuestos/export" target="_blank" className="btn btn-outline btn-success gap-2">
             <Download className="w-4 h-4" /> Exportar Excel
           </a>
+          <Link href="/ventas/presupuesto-rapido" className="btn btn-outline btn-warning gap-2">
+            <Zap className="w-4 h-4" /> Presupuesto rápido
+          </Link>
+          <ModalQRMovil />
           <Link href="/presupuestos/nuevo" className="btn btn-primary">
             <PlusCircle className="w-4 h-4" /> Nuevo Presupuesto
           </Link>
