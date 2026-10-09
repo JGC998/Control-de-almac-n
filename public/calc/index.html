@@ -440,13 +440,24 @@ function matDesc(t){
   return s;
 }
 function copyResult(el, text){
-  navigator.clipboard.writeText(text).then(()=>{
-    const prev=el.className;
+  function flash(){
+    const prev=el.className, inner=el.innerHTML;
     el.className='card result copied';
-    const inner=el.innerHTML;
     el.innerHTML='<div style="font-size:1.4rem;padding:8px 0">✅ ¡Copiado!</div>';
     setTimeout(()=>{el.className=prev;el.innerHTML=inner;},1200);
-  }).catch(()=>{});
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(flash).catch(()=>fallback(text,flash));
+  } else { fallback(text,flash); }
+}
+function fallback(text,cb){
+  const ta=document.createElement('textarea');
+  ta.value=text;
+  ta.style.cssText='position:fixed;top:0;left:0;opacity:0;font-size:16px';
+  document.body.appendChild(ta);
+  ta.focus();ta.select();
+  try{document.execCommand('copy');cb();}catch(e){}
+  document.body.removeChild(ta);
 }
 function ivaLine(tot){
   return `\n🧾 Total + IVA (21%): ${fmt(Math.round(tot*1.21*100)/100)}`;
