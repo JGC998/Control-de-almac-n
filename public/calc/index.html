@@ -37,7 +37,6 @@
       font-size:16px;line-height:1.5;
       -webkit-font-smoothing:antialiased;
     }
-    /* Header */
     header{
       position:sticky;top:0;z-index:10;
       background:var(--primary);color:var(--primary-fg);
@@ -58,20 +57,16 @@
     }
     .btn-sync:active{background:rgba(255,255,255,.28)}
     .btn-sync:disabled{opacity:.5;cursor:not-allowed}
-    /* Main */
     main{
       flex:1;overflow-y:auto;padding:14px 16px;
       padding-bottom:calc(var(--tabh) + 14px + env(safe-area-inset-bottom));
     }
-    /* Panels */
     .panel{display:none}.panel.on{display:block}
-    /* Cards */
     .card{
       background:var(--surface);border-radius:var(--r);
       box-shadow:var(--shadow);padding:14px;margin-bottom:10px;
     }
     .card-ttl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px}
-    /* Fields */
     .field{margin-bottom:10px}.field:last-child{margin-bottom:0}
     label{display:block;font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:3px}
     select,input[type=number]{
@@ -84,7 +79,6 @@
     select:focus,input[type=number]:focus{border-color:var(--primary)}
     .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .hidden{display:none!important}
-    /* Segmented control */
     .seg{display:flex;border:1.5px solid var(--border);border-radius:var(--r2);overflow:hidden}
     .seg-btn{
       flex:1;padding:9px 4px;border:none;border-right:1px solid var(--border);
@@ -95,7 +89,7 @@
     .seg-btn.on{background:var(--primary);color:#fff}
     /* Result */
     .result{background:var(--surface2);border:2px solid var(--border);border-radius:var(--r);padding:16px;text-align:center}
-    .result.ok{border-color:var(--primary);background:var(--primary-l);cursor:pointer;user-select:none}
+    .result.ok{border-color:var(--primary);background:var(--primary-l)}
     .result.copied{border-color:#16a34a;background:#dcfce7}
     .result-n{font-size:2.3rem;font-weight:800;color:var(--primary);letter-spacing:-.03em;line-height:1.1}
     .result-lbl{font-size:.75rem;color:var(--text2);margin-top:2px}
@@ -104,6 +98,40 @@
     .result-brk div:last-child{border-bottom:none}
     .result-empty{color:var(--text3);font-size:.875rem;padding:8px 0}
     .result-err{color:var(--err);font-size:.8rem;padding:8px 0}
+    /* Action buttons inside result */
+    .result-actions{display:flex;gap:8px;margin-top:12px}
+    .btn-act{
+      flex:1;padding:10px 6px;border:none;border-radius:var(--r2);
+      font-size:.85rem;font-weight:600;font-family:inherit;
+      cursor:pointer;transition:opacity .12s;
+    }
+    .btn-act:active{opacity:.75}
+    .btn-copy{background:var(--border);color:var(--text2)}
+    .btn-cart{background:var(--primary);color:#fff}
+    /* Cart */
+    .cart-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+    .cart-item:last-of-type{border-bottom:none}
+    .cart-item-info{flex:1;min-width:0}
+    .cart-item-name{font-size:.85rem;font-weight:600;line-height:1.3}
+    .cart-item-dim{font-size:.75rem;color:var(--text2);margin-top:1px}
+    .cart-item-price{font-size:.9rem;font-weight:700;color:var(--primary);white-space:nowrap;margin-top:2px}
+    .cart-item-iva{font-size:.72rem;color:var(--text3)}
+    .btn-remove{background:none;border:none;color:var(--err);font-size:1.2rem;cursor:pointer;padding:2px 6px;flex-shrink:0}
+    .cart-total{background:var(--primary-l);border-radius:var(--r2);padding:12px;margin-top:8px}
+    .cart-total-row{display:flex;justify-content:space-between;font-size:.85rem;color:var(--text2);padding:2px 0}
+    .cart-total-row.main{font-size:1rem;font-weight:700;color:var(--primary);padding-top:6px;margin-top:4px;border-top:1px solid var(--border)}
+    .cart-btns{display:flex;gap:8px;margin-top:10px}
+    .btn-primary{flex:1;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:var(--r2);font-size:.9rem;font-weight:600;font-family:inherit;cursor:pointer}
+    .btn-danger{padding:11px 14px;background:transparent;color:var(--err);border:1.5px solid var(--err);border-radius:var(--r2);font-size:.9rem;font-weight:600;font-family:inherit;cursor:pointer}
+    .cart-empty-msg{text-align:center;color:var(--text3);padding:32px 0;font-size:.9rem}
+    /* Badge */
+    .tab-badge{
+      display:inline-flex;align-items:center;justify-content:center;
+      background:var(--err);color:#fff;border-radius:10px;
+      font-size:.55rem;font-weight:700;min-width:16px;height:16px;padding:0 4px;
+      margin-left:3px;vertical-align:middle;
+    }
+    .tab-badge.hidden{display:none}
     /* Tab bar */
     nav.tabs{
       position:fixed;bottom:0;left:0;right:0;
@@ -115,7 +143,7 @@
     .tab-btn{
       flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
       gap:2px;border:none;background:transparent;cursor:pointer;
-      color:var(--text3);font-size:.63rem;font-weight:600;font-family:inherit;
+      color:var(--text3);font-size:.6rem;font-weight:600;font-family:inherit;
       text-transform:uppercase;letter-spacing:.05em;padding:8px 4px;transition:color .12s;
     }
     .tab-btn.on{color:var(--primary)}
@@ -137,6 +165,14 @@
 <main>
   <!-- ─── PIEZAS ─── -->
   <div id="tab-piezas" class="panel on">
+    <div class="card" id="p-prod-card" style="display:none">
+      <div class="card-ttl">Producto (opcional)</div>
+      <div class="field">
+        <select id="p-prod" onchange="onPProd()">
+          <option value="">— Seleccionar producto —</option>
+        </select>
+      </div>
+    </div>
     <div class="card">
       <div class="card-ttl">Material</div>
       <div class="field">
@@ -167,6 +203,14 @@
 
   <!-- ─── METRAJES ─── -->
   <div id="tab-metrajes" class="panel">
+    <div class="card" id="m-prod-card" style="display:none">
+      <div class="card-ttl">Producto (opcional)</div>
+      <div class="field">
+        <select id="m-prod" onchange="onMProd()">
+          <option value="">— Seleccionar producto —</option>
+        </select>
+      </div>
+    </div>
     <div class="card">
       <div class="card-ttl">Material</div>
       <div class="field">
@@ -196,6 +240,14 @@
 
   <!-- ─── BANDAS PVC ─── -->
   <div id="tab-bandas" class="panel">
+    <div class="card" id="b-prod-card" style="display:none">
+      <div class="card-ttl">Producto (opcional)</div>
+      <div class="field">
+        <select id="b-prod" onchange="onBProd()">
+          <option value="">— Seleccionar producto —</option>
+        </select>
+      </div>
+    </div>
     <div class="card">
       <div class="card-ttl">PVC — Selección</div>
       <div class="field">
@@ -237,6 +289,22 @@
     </div>
     <div class="card result" id="b-res"><div class="result-empty">Completa los datos para calcular</div></div>
   </div>
+
+  <!-- ─── CARRITO ─── -->
+  <div id="tab-carrito" class="panel">
+    <div class="card" id="cart-panel">
+      <div class="cart-empty-msg" id="cart-empty">El carrito está vacío.<br>Añade artículos desde los calculadores.</div>
+      <div id="cart-items"></div>
+      <div class="cart-total" id="cart-total" style="display:none">
+        <div class="cart-total-row"><span>Subtotal</span><span id="ct-sub">—</span></div>
+        <div class="cart-total-row main"><span>Total + IVA (21%)</span><span id="ct-iva">—</span></div>
+      </div>
+      <div class="cart-btns" id="cart-btns" style="display:none">
+        <button class="btn-primary" onclick="copyCart()">📋 Copiar para WhatsApp</button>
+        <button class="btn-danger" onclick="clearCart()">Vaciar</button>
+      </div>
+    </div>
+  </div>
 </main>
 
 <nav class="tabs">
@@ -252,6 +320,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M3 12c0 4 4 7 9 7s9-3 9-7"/></svg>
     Bandas PVC
   </button>
+  <button class="tab-btn" id="nav-carrito" onclick="switchTab('carrito')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+    <span>Carrito <span class="tab-badge hidden" id="cart-badge">0</span></span>
+  </button>
 </nav>
 
 <script>
@@ -259,13 +331,17 @@ const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
 const fmt4 = n => n.toLocaleString('es-ES',{minimumFractionDigits:4,maximumFractionDigits:4});
 
-let D = null; // cached data
+let D = null;
 let bConf = 'VULCANIZADA';
 let syncing = false;
+let lastCalc = {}; // stores last calc result per tab key
+let cart = [];
 
 // ── Storage ──────────────────────────────────────────────────────────────────
 function load() { try { const r=localStorage.getItem('calc_d'); if(r) D=JSON.parse(r); } catch(e){} }
 function save(d) { try { localStorage.setItem('calc_d', JSON.stringify(d)); } catch(e){} }
+function saveCart() { try { sessionStorage.setItem('calc_cart', JSON.stringify(cart)); } catch(e){} }
+function loadCart() { try { const r=sessionStorage.getItem('calc_cart'); if(r) cart=JSON.parse(r); } catch(e){} }
 
 // ── Sync ─────────────────────────────────────────────────────────────────────
 async function syncData() {
@@ -305,30 +381,114 @@ function rebuild() {
   const mrgOpts = '<option value="">Sin margen (precio coste)</option>' +
     D.margenes.map(m=>`<option value="${m.id}">${m.descripcion} ×${m.multiplicador}</option>`).join('');
 
-  // Piezas materials
   const pM=$('p-mat'), pMv=pM.value;
   pM.innerHTML='<option value="">Seleccionar…</option>'+mats.map(m=>`<option value="${m}">${m}</option>`).join('');
   if(pMv) pM.value=pMv;
 
-  // Metrajes materials
   const mM=$('m-mat'), mMv=mM.value;
   mM.innerHTML='<option value="">Seleccionar…</option>'+mats.map(m=>`<option value="${m}">${m}</option>`).join('');
   if(mMv) mM.value=mMv;
 
-  // Margenes
   const pMrg=$('p-mrg'), pMrgv=pMrg.value; pMrg.innerHTML=mrgOpts; if(pMrgv) pMrg.value=pMrgv;
   const mMrg=$('m-mrg'), mMrgv=mMrg.value; mMrg.innerHTML=mrgOpts; if(mMrgv) mMrg.value=mMrgv;
 
-  // Bandas espesores (PVC only)
   const bE=$('b-esp'), bEv=bE.value;
   const pvcs=[...new Set(D.tarifas.filter(t=>t.material==='PVC').map(t=>String(t.espesor)))].sort((a,b)=>parseFloat(a)-parseFloat(b));
   bE.innerHTML='<option value="">Seleccionar espesor…</option>'+pvcs.map(e=>`<option value="${e}">${e} mm</option>`).join('');
   if(bEv) bE.value=bEv;
 
+  // Product selects
+  const prods = D.productos || [];
+  const bandaProds = prods.filter(p=>p.tipo==='BANDA');
+  const otrosProds = prods.filter(p=>p.tipo!=='BANDA');
+
+  if(otrosProds.length){
+    $('p-prod').innerHTML='<option value="">— Seleccionar producto —</option>'+
+      otrosProds.map(p=>`<option value="${p.id}">${p.nombre}${p.ancho?' · '+p.ancho+'mm':''}</option>`).join('');
+    $('p-prod-card').style.display='';
+    $('m-prod').innerHTML='<option value="">— Seleccionar producto —</option>'+
+      otrosProds.map(p=>`<option value="${p.id}">${p.nombre}${p.ancho?' · '+p.ancho+'mm':''}</option>`).join('');
+    $('m-prod-card').style.display='';
+  }
+  if(bandaProds.length){
+    $('b-prod').innerHTML='<option value="">— Seleccionar producto —</option>'+
+      bandaProds.map(p=>`<option value="${p.id}">${p.nombre}${p.ancho?' · '+p.ancho+'mm':''}</option>`).join('');
+    $('b-prod-card').style.display='';
+  }
+
   onPMat(); onMMat(); if(bEv) onBEsp();
 }
 
-// Piezas — material → tarifa select
+// ── Product selectors ─────────────────────────────────────────────────────────
+function onPProd() {
+  const id=$('p-prod').value; if(!id||!D) return;
+  const p=D.productos.find(x=>x.id===id); if(!p) return;
+  if(p.ancho) $('p-ancho').value=p.ancho;
+  if(p.largo) $('p-largo').value=p.largo;
+  if(p.materialNombre){
+    $('p-mat').value=p.materialNombre;
+    onPMat();
+    // try to select the matching tarifa by espesor+lonas+acabado+color
+    if(p.espesor){
+      setTimeout(()=>{
+        const opts=[...$('p-tar').options];
+        const match=D.tarifas.find(t=>
+          t.material===p.materialNombre &&
+          Math.abs(Number(t.espesor)-Number(p.espesor))<0.001 &&
+          (p.lonas==null||t.lonas===p.lonas) &&
+          (p.acabado==null||t.acabado===p.acabado) &&
+          (p.color==null||t.color===p.color)
+        );
+        if(match){ const o=opts.find(o=>o.value===String(match.id)); if(o) $('p-tar').value=o.value; }
+        calcP();
+      },50);
+    }
+  } else { calcP(); }
+}
+
+function onMProd() {
+  const id=$('m-prod').value; if(!id||!D) return;
+  const p=D.productos.find(x=>x.id===id); if(!p) return;
+  if(p.ancho) $('m-ancho').value=p.ancho;
+  if(p.largo) $('m-metros').value=p.largo;
+  if(p.materialNombre){
+    $('m-mat').value=p.materialNombre;
+    onMMat();
+    if(p.espesor){
+      setTimeout(()=>{
+        const opts=[...$('m-tar').options];
+        const match=D.tarifas.find(t=>
+          t.material===p.materialNombre &&
+          Math.abs(Number(t.espesor)-Number(p.espesor))<0.001 &&
+          (p.lonas==null||t.lonas===p.lonas) &&
+          (p.acabado==null||t.acabado===p.acabado) &&
+          (p.color==null||t.color===p.color)
+        );
+        if(match){ const o=opts.find(o=>o.value===String(match.id)); if(o) $('m-tar').value=o.value; }
+        calcM();
+      },50);
+    }
+  } else { calcM(); }
+}
+
+function onBProd() {
+  const id=$('b-prod').value; if(!id||!D) return;
+  const p=D.productos.find(x=>x.id===id); if(!p) return;
+  if(p.ancho) $('b-ancho').value=p.ancho;
+  if(p.largo) $('b-largo').value=p.largo;
+  if(p.espesor){
+    $('b-esp').value=String(p.espesor);
+    onBEsp();
+    setTimeout(()=>{
+      if(p.lonas!=null){ const v=String(p.lonas); const o=[...$('b-lonas').options].find(o=>o.value===v); if(o) $('b-lonas').value=v; }
+      if(p.acabado){ const o=[...$('b-acab').options].find(o=>o.value===p.acabado); if(o) $('b-acab').value=p.acabado; }
+      if(p.color){ const o=[...$('b-color').options].find(o=>o.value===p.color); if(o) $('b-color').value=p.color; }
+      onBVar(); calcB();
+    },50);
+  }
+}
+
+// ── Material → tarifa selects ─────────────────────────────────────────────────
 function onPMat() {
   if(!D) return;
   const mat=$('p-mat').value, el=$('p-tar'), prev=el.value;
@@ -339,7 +499,6 @@ function onPMat() {
   calcP();
 }
 
-// Metrajes — material → tarifa select
 function onMMat() {
   if(!D) return;
   const mat=$('m-mat').value, el=$('m-tar'), prev=el.value;
@@ -383,8 +542,7 @@ function onBVar() {
   } else { $('b-acab-f').classList.add('hidden'); $('b-acab').value=''; }
 
   const acab=$('b-acab').value;
-  const aOpts2=[...new Set(tl.map(t=>t.acabado==null?'__':t.acabado))];
-  let ta=aOpts2.length>1&&acab ? tl.filter(t=>acab==='__'?!t.acabado:t.acabado===acab) : tl;
+  let ta=aOpts.length>1&&acab ? tl.filter(t=>acab==='__'?!t.acabado:t.acabado===acab) : tl;
 
   const cOpts=[...new Set(ta.map(t=>t.color==null?'__':t.color))];
   if(cOpts.length>1){
@@ -431,7 +589,7 @@ function resolveBTarifa(){
   return ts[0]??null;
 }
 
-// ── Calculators ───────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function matDesc(t){
   let s=`${t.material} ${t.espesor}mm`;
   if(t.lonas!=null) s+=` · ${t.lonas}L`;
@@ -439,30 +597,55 @@ function matDesc(t){
   if(t.color) s+=` · ${t.color}`;
   return s;
 }
-function copyResult(el, text){
-  function flash(){
-    const prev=el.className, inner=el.innerHTML;
-    el.className='card result copied';
-    el.innerHTML='<div style="font-size:1.4rem;padding:8px 0">✅ ¡Copiado!</div>';
-    setTimeout(()=>{el.className=prev;el.innerHTML=inner;},1200);
-  }
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(flash).catch(()=>fallback(text,flash));
-  } else { fallback(text,flash); }
-}
-function fallback(text,cb){
-  const ta=document.createElement('textarea');
-  ta.value=text;
-  ta.style.cssText='position:fixed;top:0;left:0;opacity:0;font-size:16px';
-  document.body.appendChild(ta);
-  ta.focus();ta.select();
-  try{document.execCommand('copy');cb();}catch(e){}
-  document.body.removeChild(ta);
-}
-function ivaLine(tot){
-  return `\n🧾 Total + IVA (21%): ${fmt(Math.round(tot*1.21*100)/100)}`;
+function ivaLine(tot){ return `\n🧾 Total + IVA (21%): ${fmt(Math.round(tot*1.21*100)/100)}`; }
+function round2(n){ return Math.round(n*100)/100; }
+
+function showResult(el, k, data){
+  lastCalc[k] = data;
+  el.className='card result ok';
+  el.onclick=null;
+  el.innerHTML=`
+    <div class="result-n">${fmt(data.pu)}</div>
+    <div class="result-lbl">${data.lbl}</div>
+    <div class="result-brk">${data.brk}</div>
+    <div class="result-actions">
+      <button class="btn-act btn-copy" onclick="doCopy('${k}')">📋 Copiar</button>
+      <button class="btn-act btn-cart" onclick="doAddCart('${k}')">🛒 Añadir</button>
+    </div>`;
 }
 
+function doCopy(k){
+  const c=lastCalc[k]; if(!c) return;
+  copyText(c.copyTxt);
+}
+
+function doAddCart(k){
+  const c=lastCalc[k]; if(!c) return;
+  cart.push({id:Date.now(), ...c});
+  saveCart(); renderCart(); updateCartBadge();
+  // brief flash on the button
+  const btn=event.target;
+  const prev=btn.textContent;
+  btn.textContent='✅ Añadido';
+  btn.disabled=true;
+  setTimeout(()=>{btn.textContent=prev;btn.disabled=false;},1000);
+}
+
+// ── Clipboard ─────────────────────────────────────────────────────────────────
+function copyText(text){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).catch(()=>fallbackCopy(text));
+  } else { fallbackCopy(text); }
+}
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.style.cssText='position:fixed;top:0;left:0;opacity:0;font-size:16px';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+}
+
+// ── Calculators ───────────────────────────────────────────────────────────────
 function calcP(){
   const el=$('p-res');
   if(!D){empty(el,'Sin datos. Pulsa Sync cuando tengas WiFi.');return;}
@@ -475,21 +658,22 @@ function calcP(){
   const mrgId=$('p-mrg').value||null;
   const mrg=mrgId?D.margenes.find(m=>String(m.id)===mrgId):null;
   const mul=mrg?mrg.multiplicador:1, gasto=mrg?(mrg.gastoFijo||0):0;
-  const pu=tar.precio*area*mul+gasto/cant, tot=pu*cant;
-  const iva=Math.round(tot*1.21*100)/100;
-  const copyTxt=`🧱 Pieza ${matDesc(tar)}\n📐 ${ancho} × ${largo} mm${cant>1?' · ×'+cant+' uds':''}\n💰 ${fmt(pu)} / ud${cant>1?' · Total: '+fmt(tot):''}${ivaLine(tot)}`;
-  el.className='card result ok';
-  el.onclick=()=>copyResult(el,copyTxt);
-  el.innerHTML=`<div class="result-n">${fmt(pu)}</div>
-    <div class="result-lbl">por unidad${cant>1?` · ×${cant} = ${fmt(tot)}`:''}</div>
-    <div class="result-brk">
+  const pu=round2(tar.precio*area*mul+gasto/cant), tot=round2(pu*cant);
+  const iva=round2(tot*1.21);
+  const prodNombre=$('p-prod')?.value ? (D.productos||[]).find(p=>p.id===$('p-prod').value)?.nombre : null;
+  showResult(el,'p',{
+    pu, tot, iva, cant,
+    lbl: `por unidad${cant>1?` · ×${cant} = ${fmt(tot)}`:''}`,
+    brk: `
       <div><span>${tar.material} ${tar.espesor}mm${tar.lonas!=null?' '+tar.lonas+'L':''}${tar.acabado?' '+tar.acabado:''}${tar.color?' '+tar.color:''}</span><span>${fmt(tar.precio)}/m²</span></div>
       <div><span>Área</span><span>${fmt4(area)} m²</span></div>
       ${mrg?`<div><span>Margen</span><span>${mrg.descripcion} ×${mrg.multiplicador}</span></div>`:''}
       ${gasto>0?`<div><span>Gasto fijo</span><span>${fmt(gasto)} ÷ ${cant} uds</span></div>`:''}
-      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>
-    </div>
-    <div style="font-size:.7rem;color:var(--text3);margin-top:8px">Toca para copiar</div>`;
+      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>`,
+    desc: prodNombre||`Pieza ${matDesc(tar)}`,
+    dim: `${ancho} × ${largo} mm${cant>1?' · ×'+cant+' uds':''}`,
+    copyTxt: `🧱 ${prodNombre?prodNombre+' — ':''}Pieza ${matDesc(tar)}\n📐 ${ancho} × ${largo} mm${cant>1?' · ×'+cant+' uds':''}\n💰 ${fmt(pu)} / ud${cant>1?' · Total: '+fmt(tot):''}${ivaLine(tot)}`,
+  });
 }
 
 function calcM(){
@@ -503,21 +687,21 @@ function calcM(){
   const mrgId=$('m-mrg').value||null;
   const mrg=mrgId?D.margenes.find(m=>String(m.id)===mrgId):null;
   const mul=mrg?mrg.multiplicador:1, gasto=mrg?(mrg.gastoFijo||0):0;
-  const precio=tar.precio*area*mul+gasto;
-  const iva=Math.round(precio*1.21*100)/100;
-  const copyTxt=`📏 Metraje ${matDesc(tar)}\n📐 ${ancho} mm × ${metros} m\n💰 Total: ${fmt(precio)}${ivaLine(precio)}`;
-  el.className='card result ok';
-  el.onclick=()=>copyResult(el,copyTxt);
-  el.innerHTML=`<div class="result-n">${fmt(precio)}</div>
-    <div class="result-lbl">total · ${metros} m × ${ancho} mm</div>
-    <div class="result-brk">
+  const pu=round2(tar.precio*area*mul+gasto), tot=pu, iva=round2(tot*1.21);
+  const prodNombre=$('m-prod')?.value ? (D.productos||[]).find(p=>p.id===$('m-prod').value)?.nombre : null;
+  showResult(el,'m',{
+    pu, tot, iva, cant:1,
+    lbl: `total · ${metros} m × ${ancho} mm`,
+    brk: `
       <div><span>${tar.material} ${tar.espesor}mm${tar.lonas!=null?' '+tar.lonas+'L':''}${tar.acabado?' '+tar.acabado:''}${tar.color?' '+tar.color:''}</span><span>${fmt(tar.precio)}/m²</span></div>
       <div><span>Área</span><span>${fmt4(area)} m²</span></div>
       ${mrg?`<div><span>Margen</span><span>${mrg.descripcion} ×${mrg.multiplicador}</span></div>`:''}
       ${gasto>0?`<div><span>Gasto fijo</span><span>+ ${fmt(gasto)}</span></div>`:''}
-      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>
-    </div>
-    <div style="font-size:.7rem;color:var(--text3);margin-top:8px">Toca para copiar</div>`;
+      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>`,
+    desc: prodNombre||`Metraje ${matDesc(tar)}`,
+    dim: `${ancho} mm × ${metros} m`,
+    copyTxt: `📏 ${prodNombre?prodNombre+' — ':''}Metraje ${matDesc(tar)}\n📐 ${ancho} mm × ${metros} m\n💰 Total: ${fmt(pu)}${ivaLine(tot)}`,
+  });
 }
 
 function calcB(){
@@ -543,33 +727,88 @@ function calcB(){
     const mId=parseInt($('b-grapa').value), mod=D.modelosGrapa?.find(m=>m.id===mId);
     if(mod){conf=(ancho/100)*mod.precioPor100mm; confLbl=`Grapa ${mod.nombre}: ${fmt(conf)}`;}
   } else { confLbl='Abierta (sin confección)'; }
-  const pu=Math.round((matCost+conf)*100)/100, tot=Math.round(pu*cant*100)/100;
-  const iva=Math.round(tot*1.21*100)/100;
-  const confTipo=bConf==='VULCANIZADA'?'Sin fin':bConf==='GRAPA'?'Grapa':'Abierta';
-  const copyTxt=`🔄 Banda PVC ${tar.espesor}mm${tar.lonas!=null?' · '+tar.lonas+'L':''}${tar.acabado?' · '+tar.acabado:''}${tar.color?' · '+tar.color:''}\n📐 Ancho: ${ancho} mm · ${confTipo}\n💰 ${fmt(pu)} / ud${cant>1?' · Total: '+fmt(tot):''}${ivaLine(tot)}`;
+  const pu=round2(matCost+conf), tot=round2(pu*cant), iva=round2(tot*1.21);
   const peso=tar.peso?tar.peso*area*cant:null;
-  el.className='card result ok';
-  el.onclick=()=>copyResult(el,copyTxt);
-  el.innerHTML=`<div class="result-n">${fmt(pu)}</div>
-    <div class="result-lbl">por unidad${cant>1?` · ×${cant} = ${fmt(tot)}`:''}${peso?` · ${peso.toLocaleString('es-ES',{maximumFractionDigits:2})} kg`:''}</div>
-    <div class="result-brk">
+  const confTipo=bConf==='VULCANIZADA'?'Sin fin':bConf==='GRAPA'?'Grapa':'Abierta';
+  const prodNombre=$('b-prod')?.value ? (D.productos||[]).find(p=>p.id===$('b-prod').value)?.nombre : null;
+  showResult(el,'b',{
+    pu, tot, iva, cant,
+    lbl: `por unidad${cant>1?` · ×${cant} = ${fmt(tot)}`:''}${peso?` · ${peso.toLocaleString('es-ES',{maximumFractionDigits:2})} kg`:''}`,
+    brk: `
       <div><span>PVC ${tar.espesor}mm${tar.lonas!=null?' '+tar.lonas+'L':''}${tar.acabado?' '+tar.acabado:''}${tar.color?' '+tar.color:''}</span><span>${fmt(tar.precio)}/m²</span></div>
       <div><span>Área</span><span>${(ancho/1000).toLocaleString('es-ES',{minimumFractionDigits:3})} × ${(largo/1000).toLocaleString('es-ES',{minimumFractionDigits:3})} = ${fmt4(area)} m²</span></div>
       <div><span>Material</span><span>${fmt(matCost)}</span></div>
       <div><span>Confección</span><span>${confLbl||'—'}</span></div>
-      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>
-    </div>
-    <div style="font-size:.7rem;color:var(--text3);margin-top:8px">Toca para copiar</div>`;
+      <div><span>Total + IVA (21%)</span><span><strong>${fmt(iva)}</strong></span></div>`,
+    desc: prodNombre||`Banda PVC ${tar.espesor}mm${tar.lonas!=null?' · '+tar.lonas+'L':''}${tar.acabado?' · '+tar.acabado:''}${tar.color?' · '+tar.color:''}`,
+    dim: `${ancho} mm · ${confTipo}`,
+    copyTxt: `🔄 ${prodNombre?prodNombre+' — ':''}Banda PVC ${tar.espesor}mm${tar.lonas!=null?' · '+tar.lonas+'L':''}${tar.acabado?' · '+tar.acabado:''}${tar.color?' · '+tar.color:''}\n📐 Ancho: ${ancho} mm · ${confTipo}\n💰 ${fmt(pu)} / ud${cant>1?' · Total: '+fmt(tot):''}${ivaLine(tot)}`,
+  });
+}
+
+// ── Cart ──────────────────────────────────────────────────────────────────────
+function renderCart(){
+  const items=$('cart-items'), empty2=$('cart-empty');
+  const total=$('cart-total'), btns=$('cart-btns');
+  const badge=$('cart-badge');
+  if(!cart.length){
+    items.innerHTML=''; empty2.style.display=''; total.style.display='none'; btns.style.display='none';
+    return;
+  }
+  empty2.style.display='none';
+  items.innerHTML=cart.map(c=>`
+    <div class="cart-item" id="ci-${c.id}">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${c.desc}</div>
+        <div class="cart-item-dim">${c.dim}</div>
+        <div class="cart-item-price">${c.cant>1?`×${c.cant} · `:''}${fmt(c.tot)}</div>
+        <div class="cart-item-iva">Con IVA: ${fmt(c.iva)}</div>
+      </div>
+      <button class="btn-remove" onclick="removeFromCart(${c.id})">✕</button>
+    </div>`).join('');
+  const sub=round2(cart.reduce((s,c)=>s+c.tot,0));
+  const ivaTotal=round2(sub*1.21);
+  $('ct-sub').textContent=fmt(sub);
+  $('ct-iva').textContent=fmt(ivaTotal);
+  total.style.display=''; btns.style.display='';
+  updateCartBadge();
+}
+
+function updateCartBadge(){
+  const b=$('cart-badge');
+  if(cart.length){ b.textContent=cart.length; b.classList.remove('hidden'); }
+  else { b.classList.add('hidden'); }
+}
+
+function removeFromCart(id){
+  cart=cart.filter(c=>c.id!==id);
+  saveCart(); renderCart();
+}
+
+function clearCart(){
+  cart=[]; saveCart(); renderCart();
+}
+
+function copyCart(){
+  if(!cart.length) return;
+  const lines=cart.map(c=>c.copyTxt).join('\n\n');
+  const sub=round2(cart.reduce((s,c)=>s+c.tot,0));
+  const iva=round2(sub*1.21);
+  const txt=lines+`\n\n─────────────────\n💰 Subtotal: ${fmt(sub)}\n🧾 Total + IVA (21%): ${fmt(iva)}`;
+  copyText(txt);
+  const btn=event.target;
+  btn.textContent='✅ ¡Copiado!';
+  setTimeout(()=>btn.textContent='📋 Copiar para WhatsApp',1500);
 }
 
 // ── Result helpers ────────────────────────────────────────────────────────────
-function empty(el,msg){el.className='card result';el.innerHTML=`<div class="result-empty">${msg||'Completa los datos para calcular'}</div>`;}
-function err(el,msg){el.className='card result';el.innerHTML=`<div class="result-err">⚠ ${msg}</div>`;}
+function empty(el,msg){el.className='card result';el.onclick=null;el.innerHTML=`<div class="result-empty">${msg||'Completa los datos para calcular'}</div>`;}
+function err(el,msg){el.className='card result';el.onclick=null;el.innerHTML=`<div class="result-err">⚠ ${msg}</div>`;}
 function noData(){['p','m','b'].forEach(p=>empty($(p+'-res'),'Sin datos. Pulsa Sync cuando tengas WiFi.'));}
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 function switchTab(t){
-  ['piezas','metrajes','bandas'].forEach(n=>{
+  ['piezas','metrajes','bandas','carrito'].forEach(n=>{
     $('tab-'+n).classList.toggle('on',n===t);
     $('nav-'+n).classList.toggle('on',n===t);
   });
@@ -579,7 +818,7 @@ function switchTab(t){
 // ── Init ──────────────────────────────────────────────────────────────────────
 (function init(){
   try{const s=localStorage.getItem('calc_tab');if(s)switchTab(s);}catch(e){}
-  load();
+  load(); loadCart(); renderCart();
   if(D){
     const t=new Date(D.syncedAt).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
     setSUI('off','Datos: '+t); rebuild();
