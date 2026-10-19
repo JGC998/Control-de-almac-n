@@ -6,20 +6,10 @@ import { Printer, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import PreviewBandaPVC from '@/componentes/calculadoras/PreviewBandaPVC';
 
-// Palette para tipos cuando la familia no tiene color
-const TIPO_COLORS = {
-  BANDA: '#1d4ed8',
-  METRAJE: '#15803d',
-  M2: '#b45309',
-  PIEZA: '#b45309',
-};
-
 function tipoBadge(item) {
-  const familia = item.producto?.subfamilia?.familia;
   const subfamilia = item.producto?.subfamilia;
   const label = subfamilia?.nombre || item.producto?.tipo || '—';
-  const color = familia?.color || TIPO_COLORS[item.producto?.tipo] || '#64748b';
-  return { label, color };
+  return { label };
 }
 
 // Resumen de tipos para la cabecera
@@ -32,15 +22,6 @@ function buildResumen(items) {
   return Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(' · ');
 }
 
-// Urgencia según fecha de entrega
-function urgencia(fechaEntrega) {
-  if (!fechaEntrega) return null;
-  const diff = (new Date(fechaEntrega) - new Date()) / (1000 * 60 * 60 * 24);
-  if (diff < 0) return { label: 'VENCIDO', bg: '#fef2f2', border: '#dc2626', text: '#dc2626' };
-  if (diff <= 2) return { label: 'URGENTE', bg: '#fff7ed', border: '#ea580c', text: '#ea580c' };
-  if (diff <= 5) return { label: 'PRÓXIMO', bg: '#fefce8', border: '#ca8a04', text: '#ca8a04' };
-  return { label: 'OK', bg: '#f0fdf4', border: '#16a34a', text: '#16a34a' };
-}
 
 export default function NotaTrabajo() {
   const { id } = useParams();
@@ -78,7 +59,6 @@ export default function NotaTrabajo() {
     ? new Date(order.fechaEntrega).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : null;
 
-  const urg = urgencia(order.fechaEntrega);
   const items = order.items || [];
   const resumen = buildResumen(items);
 
@@ -101,6 +81,7 @@ export default function NotaTrabajo() {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.06em;
+          background: #1f2937;
           color: #fff;
           margin-bottom: 4px;
         }
@@ -144,13 +125,10 @@ export default function NotaTrabajo() {
               <p className="text-xs text-gray-400 uppercase font-semibold">Fecha pedido</p>
               <p className="font-semibold">{fecha}</p>
             </div>
-            {fechaEntregaStr && urg && (
-              <div
-                className="border rounded px-3 py-1.5 text-center"
-                style={{ background: urg.bg, borderColor: urg.border }}
-              >
-                <p className="text-xs font-bold uppercase" style={{ color: urg.text }}>{urg.label}</p>
-                <p className="text-sm font-black" style={{ color: urg.text }}>Entrega: {fechaEntregaStr}</p>
+            {fechaEntregaStr && (
+              <div>
+                <p className="text-xs text-gray-400 uppercase font-semibold">Entrega</p>
+                <p className="font-semibold">{fechaEntregaStr}</p>
               </div>
             )}
           </div>
@@ -185,14 +163,11 @@ export default function NotaTrabajo() {
                 let detalles = null;
                 try { detalles = item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; } catch {}
                 const esBanda = !!detalles?.dimensiones;
-                const { label: tipoLabel, color: tipoColor } = tipoBadge(item);
+                const { label: tipoLabel } = tipoBadge(item);
                 return (
                   <tr key={idx} className="border border-gray-300">
                     <td className="border border-gray-300 px-3 py-3">
-                      <span
-                        className="tipo-badge"
-                        style={{ backgroundColor: tipoColor }}
-                      >
+                      <span className="tipo-badge">
                         {tipoLabel}
                       </span>
                       <div className="flex items-start gap-3">
