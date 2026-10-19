@@ -695,7 +695,7 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         doc.setTextColor(140, 140, 140);
         doc.text("CLIENTE", ML + 3, y + 4);
 
-        doc.setFontSize(12);
+        doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(26, 26, 26);
         doc.text(clienteNombre, ML + 3, y + 10);
@@ -716,8 +716,58 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         doc.setLineWidth(0.3);
         doc.setDrawColor(200, 200, 200);
 
+        // Fechas (lado derecho del bloque cliente)
+        const rightX = 130;
+        const fechaPedidoStr = new Date(order.fechaCreacion).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(140, 140, 140);
+        doc.text("FECHA PEDIDO", rightX, y + 4);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(26, 26, 26);
+        doc.text(fechaPedidoStr, rightX, y + 10);
+
+        if (order.fechaEntrega) {
+            const fechaEntregaStr = new Date(order.fechaEntrega).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            doc.setFontSize(6);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(140, 140, 140);
+            doc.text("ENTREGA", rightX, y + 18);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(26, 26, 26);
+            doc.text(fechaEntregaStr, rightX, y + 25);
+        }
+
         doc.setTextColor(0, 0, 0);
         y = detailY + 6;
+
+        // ── Resumen de tipos ──────────────────────────────────────────
+        const getTipo = (item) => {
+            const subfamilia = item.producto?.subfamilia;
+            return (subfamilia?.nombre || item.producto?.tipo || '').toUpperCase();
+        };
+        const buildResumen = (items) => {
+            const counts = {};
+            for (const item of items) {
+                const label = getTipo(item) || '—';
+                counts[label] = (counts[label] || 0) + Number(item.quantity || 1);
+            }
+            return Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(' · ');
+        };
+        const resumenStr = buildResumen(order.items || []);
+        if (resumenStr) {
+            doc.setFillColor(242, 241, 238);
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.rect(ML, y, 182, 9, 'FD');
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(80, 80, 80);
+            doc.text(resumenStr, ML + 3, y + 6);
+            y += 13;
+        }
 
         // ── Tabla ─────────────────────────────────────────────────────
         const tableRows = [];
@@ -733,11 +783,15 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         // Helpers para columnas técnicas del producto
         const dash = '—';
         const getDescripcion = (item) => {
+            const tipo = getTipo(item);
             const det = parseDetTecnicos(item);
+            let desc;
             if (det?.material && det?.tipoPieza) {
-                return det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
+                desc = det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
+            } else {
+                desc = item.descripcion || item.producto?.nombre || '';
             }
-            return item.descripcion || item.producto?.nombre || '';
+            return tipo ? `${tipo}\n${desc}` : desc;
         };
         const getRefFab     = (item) => item.producto?.referenciaFabricante || dash;
         const getFabricante = (item) => {
