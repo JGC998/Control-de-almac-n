@@ -25,7 +25,7 @@ export async function GET(request, { params: paramsPromise }) {
             producto: {
               select: {
                 id: true, nombre: true, referenciaFabricante: true, pesoUnitario: true,
-                espesor: true, ancho: true, largo: true, acabado: true,
+                espesor: true, ancho: true, largo: true, acabado: true, tipo: true,
                 subfamilia: { select: { nombre: true, familia: { select: { nombre: true, color: true } } } },
                 fabricante: { select: { nombre: true } },
               },
