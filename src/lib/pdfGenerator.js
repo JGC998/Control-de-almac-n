@@ -783,17 +783,13 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         // Helpers para columnas técnicas del producto
         const dash = '—';
         const getDescripcion = (item) => {
-            const tipo = getTipo(item);
             const det = parseDetTecnicos(item);
-            let desc;
             if (det?.material && det?.tipoPieza) {
-                desc = det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
-            } else {
-                desc = item.descripcion || item.producto?.nombre || '';
+                return det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
             }
-            return tipo ? `${tipo}\n${desc}` : desc;
+            return item.descripcion || item.producto?.nombre || '';
         };
-        const getRefFab     = (item) => item.producto?.referenciaFabricante || dash;
+        const getSubfamilia = (item) => item.producto?.subfamilia?.nombre || dash;
         const getFabricante = (item) => {
             if (item.producto?.fabricante?.nombre) return item.producto.fabricante.nombre;
             const det = parseDetTecnicos(item);
@@ -860,7 +856,7 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             if (valorado) {
                 tableRows.push([
                     getDescripcion(item),
-                    getRefFab(item),
+                    getSubfamilia(item),
                     getFabricante(item),
                     getMaterial(item),
                     getEspesor(item),
@@ -875,7 +871,7 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             } else {
                 tableRows.push([
                     getDescripcion(item),
-                    getRefFab(item),
+                    getSubfamilia(item),
                     getFabricante(item),
                     getMaterial(item),
                     getEspesor(item),
@@ -889,33 +885,33 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         }
 
         const head = valorado
-            ? [["Descripción", "Ref. Fab.", "Fabricante", "Material", "Esp.", "Ancho", "Largo", "Cant.", "Precio/ud", "Total", "Peso u.", "Peso t."]]
-            : [["Descripción", "Ref. Fab.", "Fabricante", "Material", "Esp.", "Ancho", "Largo", "Cant.", "Peso unit.", "Peso total"]];
+            ? [["Descripción", "Subfamilia", "Fabricante", "Material", "Esp.", "Ancho", "Largo", "Cant.", "Precio/ud", "Total", "Peso u.", "Peso t."]]
+            : [["Descripción", "Subfamilia", "Fabricante", "Material", "Esp.", "Ancho", "Largo", "Cant.", "Peso unit.", "Peso total"]];
 
         // Ancho útil: 210 - 14 (ML) - 14 (MR) = 182 mm
         const colStyles = valorado ? {
-            // 26+18+22+15+11+11+11+11+17+17+12+11 = 182
-            0: { cellWidth: 26 },
+            // 24+18+20+15+11+13+13+11+17+17+12+11 = 182
+            0: { cellWidth: 24 },
             1: { cellWidth: 18, fontSize: 7 },
-            2: { cellWidth: 22, fontSize: 7 },
+            2: { cellWidth: 20, fontSize: 7 },
             3: { cellWidth: 15, fontSize: 7 },
             4: { halign: 'center', cellWidth: 11, fontSize: 7 },
-            5: { halign: 'center', cellWidth: 11, fontSize: 7 },
-            6: { halign: 'center', cellWidth: 11, fontSize: 7 },
+            5: { halign: 'center', cellWidth: 13, fontSize: 7 },
+            6: { halign: 'center', cellWidth: 13, fontSize: 7 },
             7: { halign: 'center', cellWidth: 11 },
             8: { halign: 'right',  cellWidth: 17 },
             9: { halign: 'right',  cellWidth: 17 },
             10: { halign: 'right', cellWidth: 12 },
             11: { halign: 'right', cellWidth: 11 },
         } : {
-            // 30+20+26+16+13+13+13+12+20+19 = 182
-            0: { cellWidth: 30 },
+            // 28+20+24+16+13+15+15+12+20+19 = 182
+            0: { cellWidth: 28 },
             1: { cellWidth: 20, fontSize: 7 },
-            2: { cellWidth: 26, fontSize: 7 },
+            2: { cellWidth: 24, fontSize: 7 },
             3: { cellWidth: 16, fontSize: 7 },
             4: { halign: 'center', cellWidth: 13, fontSize: 7 },
-            5: { halign: 'center', cellWidth: 13, fontSize: 7 },
-            6: { halign: 'center', cellWidth: 13, fontSize: 7 },
+            5: { halign: 'center', cellWidth: 15, fontSize: 7 },
+            6: { halign: 'center', cellWidth: 15, fontSize: 7 },
             7: { halign: 'center', cellWidth: 12 },
             8: { halign: 'right',  cellWidth: 20 },
             9: { halign: 'right',  cellWidth: 19 },
