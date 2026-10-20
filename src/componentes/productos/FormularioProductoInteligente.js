@@ -88,15 +88,18 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     if (!productoAEditar || !opciones.materiales.length) return;
     const mat = productoAEditar.material?.nombre ?? '';
     const esp = productoAEditar.espesor;
-    if (!mat || esp == null) return;
+    if (!mat) return;
 
     (async () => {
       try {
-        // Espesores del material
+        // Espesores del material (siempre, aunque el producto no tenga espesor aún)
         const r1 = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(mat)}`);
         const d1 = await r1.json();
         const espesores = d1.espesores ?? [];
         setOpciones(prev => ({ ...prev, espesores, sinTarifas: espesores.length === 0 }));
+
+        // Si el producto no tiene espesor, no hay más cascada que hacer
+        if (esp == null) return;
 
         // Tarifas + acabados + colores del material+espesor
         const r2 = await fetch(`/api/tarifas-material-opciones?material=${encodeURIComponent(mat)}&espesor=${esp}`);
