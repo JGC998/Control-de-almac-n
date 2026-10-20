@@ -455,8 +455,9 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
               value={form.espesor}
               onChange={e => handleEspesorChange(e.target.value)}
               required
+              disabled={cargando}
             >
-              <option value="">— Selecciona espesor —</option>
+              <option value="">{cargando ? '— Cargando espesores… —' : '— Selecciona espesor —'}</option>
               {opciones.espesores.map(e => <option key={e} value={e}>{e} mm</option>)}
             </select>
           )}
