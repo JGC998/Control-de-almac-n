@@ -18,6 +18,11 @@
   ],
   "shortcuts": [
     {
+      "name": "App Móvil",
+      "url": "/movil",
+      "description": "Chat, calculadoras, tarifas y productos"
+    },
+    {
       "name": "Nuevo pedido",
       "url": "/pedidos/nuevo",
       "description": "Crear un nuevo pedido de cliente"

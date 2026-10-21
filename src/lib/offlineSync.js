@@ -33,3 +33,26 @@ export async function loadOffline(key) {
     });
   } catch { return null; }
 }
+
+const SYNC_ENDPOINTS = [
+  '/api/precios',
+  '/api/modelos-grapa',
+  '/api/config',
+  '/api/pricing/margenes',
+  '/api/productos?limit=500&activo=true',
+];
+
+export const SYNC_TS_KEY = '__movil_sync_ts';
+
+export async function syncAll() {
+  const results = await Promise.allSettled(
+    SYNC_ENDPOINTS.map(url =>
+      fetch(url)
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(data => saveOffline(url, data))
+    )
+  );
+  const ok = results.filter(r => r.status === 'fulfilled').length;
+  if (ok > 0) await saveOffline(SYNC_TS_KEY, { ts: Date.now() });
+  return { ok, total: SYNC_ENDPOINTS.length };
+}
