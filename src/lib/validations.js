@@ -203,6 +203,9 @@ export const productoSchema = z.object({
     unidad: z.enum(['M2', 'M', 'ML', 'UDS', 'KG', 'PAR']).optional().default('M2'),
     activo: z.boolean().optional().default(true),
     descripcion: z.string().max(1000).optional().nullable(),
+    tipoConfeccion: z.enum(['ABIERTA', 'GRAPA', 'VULCANIZADA']).optional().default('ABIERTA'),
+    grapaId: z.number().int().positive().optional().nullable(),
+    tacosConfig: z.string().max(2000).optional().nullable(),
 });
 
 // ============================================

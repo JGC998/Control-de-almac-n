@@ -25,6 +25,9 @@ const productoUpdateSchema = z.object({
   fabricanteId:         z.string().optional().nullable(),
   materialId:           z.string().optional().nullable(),
   subfamiliaId:         z.string().optional().nullable(),
+  tipoConfeccion:       z.enum(['ABIERTA','GRAPA','VULCANIZADA']).optional(),
+  grapaId:              z.number().int().positive().optional().nullable(),
+  tacosConfig:          z.string().max(2000).optional().nullable(),
 });
 
 export async function GET(request, { params }) {

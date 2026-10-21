@@ -143,6 +143,9 @@ export async function POST(request) {
         fabricanteId: d.fabricanteId ?? null,
         materialId: d.materialId ?? null,
         subfamiliaId: d.subfamiliaId ?? null,
+        tipoConfeccion: d.tipoConfeccion ?? 'ABIERTA',
+        grapaId: d.grapaId ?? null,
+        tacosConfig: d.tacosConfig ?? null,
       },
     });
 

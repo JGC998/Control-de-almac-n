@@ -397,6 +397,9 @@ model Producto {
   unidad               String  @default("M2")
   activo               Boolean @default(true)
   descripcion          String? @db.Text
+  tipoConfeccion       String  @default("ABIERTA")
+  grapaId              Int?
+  tacosConfig          String? @db.Text
 
   creadoEn     DateTime @default(now())
   actualizado  DateTime @default(now()) @updatedAt
@@ -404,6 +407,7 @@ model Producto {
   fabricante  Fabricante?  @relation(fields: [fabricanteId], references: [id])
   material    Material?    @relation(fields: [materialId], references: [id])
   subfamilia  Subfamilia?  @relation(fields: [subfamiliaId], references: [id])
+  grapa       ModeloGrapa? @relation(fields: [grapaId], references: [id])
 
   itemsPedido      PedidoItem[]
   itemsPresup      PresupuestoItem[]
@@ -471,6 +475,7 @@ model ModeloGrapa {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   historialPrecios  HistorialPrecioGrapa[]
+  productos         Producto[]
 
   // @@unique([tipo, espesorDesde]) eliminado — 62 y 62 Inox son distintos pero comparten espesor
 }

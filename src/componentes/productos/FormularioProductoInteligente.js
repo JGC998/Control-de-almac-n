@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import useSWR from 'swr';
 import { Package, Loader2 } from 'lucide-react';
 import SelectorFamiliaSubfamilia from './SelectorFamiliaSubfamilia';
 import SelectorFabricante from './SelectorFabricante';
+import ModalConfiguracionTacos from '../calculadoras/ModalConfiguracionTacos';
 
 const VACIO = { materiales: [], espesores: [], acabados: [], colores: [], lonasOpciones: [], tarifa: null, tarifas: [], sinTarifas: null };
 
@@ -34,6 +35,8 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
 
   const { data: familias = [] } = useSWR('/api/familias');
   const { data: fabricantes = [] } = useSWR('/api/fabricantes');
+  const { data: modelosGrapaData } = useSWR('/api/modelos-grapa');
+  const { data: configData } = useSWR('/api/config');
   const [familiaIdSugerida, setFamiliaIdSugerida] = useState(null);
 
   const [opciones, setOpciones] = useState(VACIO);
@@ -41,6 +44,30 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
+
+  // Confección
+  const [tipoConfeccion, setTipoConfeccion] = useState('ABIERTA');
+  const [grapaId, setGrapaId] = useState('');
+  const [tacosConfigObj, setTacosConfigObj] = useState(null);
+  const [mostrarModalTacos, setMostrarModalTacos] = useState(false);
+
+  const costeVulcanizadoMetro = configData?.costeVulcanizadoMetro ?? 0;
+  const modelosGrapa = modelosGrapaData?.modelos ?? [];
+
+  const modelosCompatibles = useMemo(() => {
+    if (!form.espesor || !modelosGrapa.length) return [];
+    const esp = parseFloat(form.espesor);
+    return modelosGrapa.filter(m => esp >= m.espesorDesde && (m.espesorHasta == null || esp <= m.espesorHasta));
+  }, [modelosGrapa, form.espesor]);
+
+  const grapaSeleccionada = useMemo(() => {
+    if (!grapaId) return modelosCompatibles[0] ?? null;
+    return modelosCompatibles.find(m => m.id === parseInt(grapaId)) ?? modelosCompatibles[0] ?? null;
+  }, [modelosCompatibles, grapaId]);
+
+  // Ref siempre actualizado — evita closures rancias en aplicarTarifa y handleDimensionChange
+  const confeccionRef = useRef({ tipo: 'ABIERTA', grapa: null, tacos: null, costeVulc: 0 });
+  confeccionRef.current = { tipo: tipoConfeccion, grapa: grapaSeleccionada, tacos: tacosConfigObj, costeVulc: costeVulcanizadoMetro };
 
   // Cargar materiales al montar (nombres para dropdown + registros con ID para guardar)
   useEffect(() => {
@@ -80,6 +107,11 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         subfamiliaId:         productoAEditar.subfamiliaId ?? null,
         fabricanteId:         productoAEditar.fabricanteId ?? null,
       });
+      setTipoConfeccion(productoAEditar.tipoConfeccion ?? 'ABIERTA');
+      setGrapaId(productoAEditar.grapaId ? String(productoAEditar.grapaId) : '');
+      try {
+        setTacosConfigObj(productoAEditar.tacosConfig ? JSON.parse(productoAEditar.tacosConfig) : null);
+      } catch { setTacosConfigObj(null); }
     }
   }, [productoAEditar?.id]);
 
@@ -270,21 +302,34 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     if (tarifa) aplicarTarifa(tarifa);
   }, [opciones.tarifas, form.acabado, form.color]);
 
+  function calcPrecio(tarifa, anchoMm, largoMm, tipo, grapa, tacos, costeVulc) {
+    const a = parseFloat(anchoMm) / 1000 || 0;
+    const l = parseFloat(largoMm) / 1000 || 0;
+    if (!tarifa || a <= 0 || l <= 0) return null;
+    const base = tarifa.precio * a * l;
+    let conf = 0;
+    if (tipo === 'VULCANIZADA') conf = (costeVulc ?? 0) * a;
+    else if (tipo === 'GRAPA' && grapa) conf = (parseFloat(anchoMm) / 100) * grapa.precioPor100mm;
+    const costeTacos = tacos?.costeTacos ?? 0;
+    return Math.round((base + conf + costeTacos) * 100) / 100;
+  }
+
   function aplicarTarifa(tarifa) {
     if (!tarifa) return;
     setTarifaEncontrada(true);
     setOpciones(prev => ({ ...prev, tarifa }));
-    // Sentinel: 'null' para lonas=null (sin lona), '' para sin seleccionar
     const lonasForm = tarifa.lonas != null ? String(tarifa.lonas) : 'null';
+    const { tipo, grapa, tacos, costeVulc } = confeccionRef.current;
     setForm(f => {
       const a = parseFloat(f.ancho) / 1000 || 0;
       const l = parseFloat(f.largo) / 1000 || 0;
-      if (a > 0 && l > 0) {
+      const precio = calcPrecio(tarifa, f.ancho, f.largo, tipo, grapa, tacos, costeVulc);
+      if (precio !== null) {
         return {
           ...f,
           lonas: lonasForm,
-          precioUnitario: (tarifa.precio * a * l).toFixed(2),
-          pesoUnitario:   (tarifa.peso   * a * l).toFixed(3),
+          precioUnitario: precio.toFixed(2),
+          pesoUnitario:   (tarifa.peso * a * l).toFixed(3),
         };
       }
       return { ...f, lonas: lonasForm };
@@ -292,18 +337,51 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
   }
 
   function handleDimensionChange(campo, valor) {
+    const { tipo, grapa, tacos, costeVulc } = confeccionRef.current;
     setForm(f => {
       const next = { ...f, [campo]: valor };
       if (opciones.tarifa && (campo === 'ancho' || campo === 'largo')) {
-        const a = parseFloat(campo === 'ancho' ? valor : f.ancho) / 1000 || 0;
-        const l = parseFloat(campo === 'largo' ? valor : f.largo) / 1000 || 0;
-        if (a > 0 && l > 0) {
-          next.precioUnitario = (opciones.tarifa.precio * a * l).toFixed(2);
-          next.pesoUnitario   = (opciones.tarifa.peso   * a * l).toFixed(3);
+        const ancho = campo === 'ancho' ? valor : f.ancho;
+        const largo = campo === 'largo' ? valor : f.largo;
+        const a = parseFloat(ancho) / 1000 || 0;
+        const l = parseFloat(largo) / 1000 || 0;
+        const precio = calcPrecio(opciones.tarifa, ancho, largo, tipo, grapa, tacos, costeVulc);
+        if (precio !== null) {
+          next.precioUnitario = precio.toFixed(2);
+          next.pesoUnitario   = (opciones.tarifa.peso * a * l).toFixed(3);
         }
       }
       return next;
     });
+  }
+
+  function recalcFromConfeccion(tipo, grapa, tacos) {
+    if (!opciones.tarifa) return;
+    const precio = calcPrecio(opciones.tarifa, form.ancho, form.largo, tipo, grapa, tacos, costeVulcanizadoMetro);
+    if (precio !== null) setForm(f => ({ ...f, precioUnitario: precio.toFixed(2) }));
+  }
+
+  function handleTipoConfeccionChange(tipo) {
+    setTipoConfeccion(tipo);
+    if (tipo !== 'GRAPA') setGrapaId('');
+    const grapa = tipo === 'GRAPA' ? grapaSeleccionada : null;
+    recalcFromConfeccion(tipo, grapa, tacosConfigObj);
+  }
+
+  function handleGrapaChange(id) {
+    setGrapaId(id);
+    const grapa = modelosCompatibles.find(m => m.id === parseInt(id)) ?? null;
+    recalcFromConfeccion(tipoConfeccion, grapa, tacosConfigObj);
+  }
+
+  function handleTacosConfirm(cfg) {
+    setTacosConfigObj(cfg);
+    recalcFromConfeccion(tipoConfeccion, grapaSeleccionada, cfg);
+  }
+
+  function handleQuitarTacos() {
+    setTacosConfigObj(null);
+    recalcFromConfeccion(tipoConfeccion, grapaSeleccionada, null);
   }
 
   async function handleSubmit(e) {
@@ -332,6 +410,9 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
       referenciaFabricante: form.referenciaFabricante || null,
       subfamiliaId:         form.subfamiliaId ?? null,
       fabricanteId:         form.fabricanteId ?? null,
+      tipoConfeccion:       tipoConfeccion,
+      grapaId:              tipoConfeccion === 'GRAPA' && grapaSeleccionada ? grapaSeleccionada.id : null,
+      tacosConfig:          tacosConfigObj ? JSON.stringify(tacosConfigObj) : null,
     };
 
     const url    = productoAEditar ? `/api/productos/${productoAEditar.id}` : '/api/productos';
@@ -534,6 +615,66 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
       )}
 
+      {/* Confección (grapa / vulcanizada / abierta) — solo para bandas con espesor */}
+      {mostrarMaterial && form.espesor && (
+        <div className="form-control">
+          <label className="label"><span className="label-text font-medium">Confección</span></label>
+          <select
+            className="select select-bordered"
+            value={tipoConfeccion}
+            onChange={e => handleTipoConfeccionChange(e.target.value)}
+          >
+            <option value="ABIERTA">Abierta (sin unión)</option>
+            <option value="GRAPA">Con grapa</option>
+            <option value="VULCANIZADA">Vulcanizada</option>
+          </select>
+        </div>
+      )}
+
+      {/* Modelo de grapa */}
+      {mostrarMaterial && form.espesor && tipoConfeccion === 'GRAPA' && (
+        <div className="form-control">
+          <label className="label"><span className="label-text font-medium">Modelo de grapa</span></label>
+          {modelosCompatibles.length === 0 ? (
+            <div className="alert alert-warning text-sm py-2">
+              No hay grapas configuradas para {form.espesor}mm. Añádelas en Configuración → Grapas.
+            </div>
+          ) : (
+            <select
+              className="select select-bordered"
+              value={grapaId || (modelosCompatibles[0]?.id ? String(modelosCompatibles[0].id) : '')}
+              onChange={e => handleGrapaChange(e.target.value)}
+            >
+              {modelosCompatibles.map(m => (
+                <option key={m.id} value={String(m.id)}>
+                  {m.nombre} ({m.tipo}) — {m.precioPor100mm}€/100mm
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {/* Tacos */}
+      {mostrarMaterial && form.espesor && (
+        <div className="form-control">
+          <label className="label"><span className="label-text font-medium">Tacos</span></label>
+          {tacosConfigObj ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 rounded bg-base-200 px-3 py-2 text-sm">
+                Taco {tacosConfigObj.tipo} {tacosConfigObj.altura}mm · paso {tacosConfigObj.paso}mm ·{' '}
+                <strong>+{tacosConfigObj.costeTacos?.toFixed(2)}€</strong>
+              </div>
+              <button type="button" className="btn btn-sm btn-ghost btn-circle" onClick={handleQuitarTacos}>✕</button>
+            </div>
+          ) : (
+            <button type="button" className="btn btn-outline btn-sm w-fit" onClick={() => setMostrarModalTacos(true)}>
+              + Añadir tacos
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Ancho y Largo (oculto para ACCESORIO) */}
       {mostrarDimensiones && <div className="grid grid-cols-2 gap-3">
         <div className="form-control">
@@ -638,6 +779,14 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
           {productoAEditar ? 'Guardar cambios' : 'Crear producto'}
         </button>
       </div>
+
+      <ModalConfiguracionTacos
+        isOpen={mostrarModalTacos}
+        onClose={() => setMostrarModalTacos(false)}
+        onConfirm={handleTacosConfirm}
+        anchoBanda={form.ancho ? String(form.ancho) : ''}
+        largoBanda={form.largo ? String(form.largo) : ''}
+      />
     </form>
   );
 }
