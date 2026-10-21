@@ -102,9 +102,9 @@ export default function MovilProductosPage() {
                 <p className="text-xs text-base-content/40 mt-0.5 line-clamp-1">{p.descripcion}</p>
               )}
             </div>
-            {p.precioVenta != null && (
+            {p.precioUnitario != null && p.precioUnitario !== 0 && (
               <div className="text-right shrink-0">
-                <p className="font-bold font-mono text-sm">{Number(p.precioVenta).toFixed(2)} €</p>
+                <p className="font-bold font-mono text-sm">{Number(p.precioUnitario).toFixed(2)} €</p>
                 {p.unidad && <p className="text-xs text-base-content/40">/{p.unidad}</p>}
               </div>
             )}
