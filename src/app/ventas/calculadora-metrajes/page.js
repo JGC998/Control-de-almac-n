@@ -1,10 +1,9 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import useSWR from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, RotateCcw, Ruler } from 'lucide-react';
-import { fetcher } from '@/lib/fetcher';
+import { ArrowLeft, RotateCcw, Ruler, WifiOff } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
+import { useOfflineData } from '@/hooks/useOfflineData';
 
 function ChatBubble({ pregunta, respuesta }) {
   return (
@@ -26,8 +25,8 @@ function ChatBubble({ pregunta, respuesta }) {
 }
 
 export default function CalculadoraMetrajesVentasPage() {
-  const { data: tarifas } = useSWR('/api/precios', fetcher);
-  const { data: margenes } = useSWR('/api/pricing/margenes', fetcher);
+  const { data: tarifas, offline: isOffline, offlineTs } = useOfflineData('/api/precios');
+  const { data: margenes } = useOfflineData('/api/pricing/margenes');
 
   const [historial, setHistorial] = useState([]);
   const [vals, setVals] = useState({});
@@ -197,7 +196,14 @@ export default function CalculadoraMetrajesVentasPage() {
             </div>
             <div>
               <p className="font-semibold text-sm leading-none">Calculadora Metrajes</p>
-              <p className="text-xs text-base-content/50">Precio por metros lineales</p>
+              {isOffline && offlineTs ? (
+                <p className="text-xs text-warning flex items-center gap-1">
+                  <WifiOff className="w-3 h-3" />
+                  Sin red · datos del {new Date(offlineTs).toLocaleDateString('es-ES')}
+                </p>
+              ) : (
+                <p className="text-xs text-base-content/50">Precio por metros lineales</p>
+              )}
             </div>
           </div>
         </div>

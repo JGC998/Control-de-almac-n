@@ -7,6 +7,23 @@ import {
   Ruler, BarChart2, Tag, Zap,
 } from 'lucide-react';
 
+function InstallQR({ url }) {
+  useEffect(() => {
+    const el = document.getElementById('qr-install');
+    if (!el) return;
+    QRCode.toCanvas(url, {
+      width: 120,
+      margin: 1,
+      color: { dark: '#1a1a2e', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    }).then(canvas => {
+      el.innerHTML = '';
+      el.appendChild(canvas);
+    }).catch(() => {});
+  }, [url]);
+  return null;
+}
+
 const ACCESOS_DEFECTO = [
   { id: 'inicio',          label: 'Inicio',                  path: '/',                               icon: 'Home',        color: 'badge-neutral' },
   { id: 'nuevo-pedido',    label: 'Nuevo pedido',            path: '/pedidos/nuevo',                  icon: 'ShoppingCart',color: 'badge-primary' },
@@ -109,6 +126,27 @@ export default function AccesosQRPage() {
           .print-grid { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 12px; }
         }
       `}</style>
+
+      {/* QR de instalación en Android */}
+      {baseUrl && (
+        <div className="card bg-base-200 border border-base-300 no-print">
+          <div className="card-body py-4 px-5 flex flex-row items-center gap-5">
+            <div id="qr-install" />
+            <div className="flex-1">
+              <p className="font-bold text-base flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-primary" /> Instalar en Android
+              </p>
+              <p className="text-sm text-base-content/70 mt-1">
+                Escanea con la cámara del móvil → se abre Chrome → menú <strong>⋮</strong> → <strong>Añadir a pantalla de inicio</strong>.
+              </p>
+              <p className="text-xs text-base-content/40 mt-1 font-mono">{baseUrl}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Script para generar el QR de instalación */}
+      {baseUrl && <InstallQR url={baseUrl} />}
 
       {/* Cabecera */}
       <div className="flex items-center justify-between no-print">

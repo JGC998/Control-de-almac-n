@@ -1,10 +1,9 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import useSWR from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, RotateCcw, Layers } from 'lucide-react';
-import { fetcher } from '@/lib/fetcher';
+import { ArrowLeft, RotateCcw, Layers, WifiOff } from 'lucide-react';
 import { formatCurrency } from '@/utils/utilidades';
+import { useOfflineData } from '@/hooks/useOfflineData';
 
 const CONFECCION_LABELS = {
   VULCANIZADA: 'Vulcanizada (sin fin)',
@@ -32,10 +31,11 @@ function ChatBubble({ pregunta, respuesta }) {
 }
 
 export default function CalculadoraBandasVentasPage() {
-  const { data: tarifas } = useSWR('/api/precios', fetcher);
-  const { data: modelosData } = useSWR('/api/modelos-grapa', fetcher);
-  const { data: configData } = useSWR('/api/config', fetcher);
+  const { data: tarifas, offline: offlineTarifas, offlineTs } = useOfflineData('/api/precios');
+  const { data: modelosData } = useOfflineData('/api/modelos-grapa');
+  const { data: configData } = useOfflineData('/api/config');
 
+  const isOffline = offlineTarifas;
   const costeVulc = configData?.costeVulcanizadoMetro ?? 0;
 
   const [historial, setHistorial] = useState([]);
@@ -249,7 +249,14 @@ export default function CalculadoraBandasVentasPage() {
             </div>
             <div>
               <p className="font-semibold text-sm leading-none">Calculadora Bandas PVC</p>
-              <p className="text-xs text-base-content/50">Cotización rápida</p>
+              {isOffline && offlineTs ? (
+                <p className="text-xs text-warning flex items-center gap-1">
+                  <WifiOff className="w-3 h-3" />
+                  Sin red · datos del {new Date(offlineTs).toLocaleDateString('es-ES')}
+                </p>
+              ) : (
+                <p className="text-xs text-base-content/50">Cotización rápida</p>
+              )}
             </div>
           </div>
         </div>
