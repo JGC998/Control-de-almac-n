@@ -7,6 +7,40 @@ import {
   Ruler, BarChart2, Tag, Zap,
 } from 'lucide-react';
 
+function ApkQR({ url }) {
+  const [qrSrc, setQrSrc] = useState('');
+  useEffect(() => {
+    QRCode.toDataURL(url, {
+      width: 180, margin: 1,
+      color: { dark: '#1a1a2e', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    }).then(setQrSrc).catch(() => {});
+  }, [url]);
+
+  return (
+    <div className="card bg-base-200 border border-base-300 no-print">
+      <div className="card-body py-4 px-5 flex flex-row items-center gap-5">
+        {qrSrc
+          ? <img src={qrSrc} alt="Descargar APK" className="w-[120px] h-[120px] flex-shrink-0" />
+          : <div className="w-[120px] h-[120px] bg-base-300 animate-pulse rounded flex-shrink-0" />
+        }
+        <div className="flex-1">
+          <p className="font-bold text-base flex items-center gap-2">
+            <Calculator className="w-5 h-5 text-error" /> Descargar APK — Calculadora Taller
+          </p>
+          <p className="text-sm text-base-content/70 mt-1">
+            Escanea con el móvil Android para descargar la app de calculadoras (banda PVC, metraje, pieza). Requiere activar &quot;instalar desde fuentes desconocidas&quot;.
+          </p>
+          <a href={url} download className="btn btn-xs btn-outline btn-error mt-2 no-print" target="_blank" rel="noreferrer">
+            Descargar directamente
+          </a>
+          <p className="text-xs text-base-content/40 mt-1 font-mono break-all">{url}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InstallQR({ url }) {
   useEffect(() => {
     const el = document.getElementById('qr-install');
@@ -147,6 +181,9 @@ export default function AccesosQRPage() {
 
       {/* Script para generar el QR de instalación */}
       {baseUrl && <InstallQR url={baseUrl} />}
+
+      {/* QR de descarga APK */}
+      {baseUrl && <ApkQR url={`${baseUrl}/downloads/calculadora.apk`} />}
 
       {/* Cabecera */}
       <div className="flex items-center justify-between no-print">
