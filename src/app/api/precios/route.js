@@ -105,7 +105,7 @@ export async function PUT(request) {
       });
 
       // Si cambió el precio base, recalcular precioBase de todos los rollos de ese material+espesor
-      if (nuevoPrecio != null && nuevoPrecio !== tarifaAnterior?.precio) {
+      if (nuevoPrecio != null && nuevoPrecio !== Number(tarifaAnterior?.precio)) {
         const rollos = await tx.tarifaRollo.findMany({
           where: { material: data.material, espesor: getSafeFloat(data.espesor) },
         });
@@ -122,7 +122,7 @@ export async function PUT(request) {
     await logUpdate('TarifaMaterial', id, tarifaAnterior, updatedTarifa, 'Admin');
 
     // Registrar en historial si el precio base cambió
-    if (nuevoPrecio != null && nuevoPrecio !== tarifaAnterior?.precio) {
+    if (nuevoPrecio != null && nuevoPrecio !== Number(tarifaAnterior?.precio)) {
       await db.tarifaVentaHistorial.create({
         data: {
           material: updatedTarifa.material,

@@ -80,9 +80,10 @@ export async function GET(request) {
       });
     }
 
-    // Comportamiento legado: sin cap, devuelve todos los productos
+    // Comportamiento legado: cap de seguridad a 1000
     const productos = await db.producto.findMany({
       where: whereClause,
+      take: 1000,
       orderBy: { nombre: 'asc' },
       include: {
         fabricante: true,

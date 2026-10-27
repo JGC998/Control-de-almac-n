@@ -104,10 +104,13 @@ export async function POST(request) {
           })),
         },
       },
+      include: { cliente: true, items: true },
     });
 
     revalidatePath('/presupuestos'); // Invalidate cache for the list page
-    return NextResponse.json(serializeDecimals(newQuote, ['subtotal', 'tax', 'total']), { status: 201 });
+    const serialized = serializeDecimals(newQuote, ['subtotal', 'tax', 'total']);
+    serialized.items = (serialized.items || []).map(item => serializeDecimals(item, ['unitPrice']));
+    return NextResponse.json(serialized, { status: 201 });
   } catch (error) {
     logApiError(error, 'Error al crear el presupuesto:');
     if (error.code === 'P2025') {

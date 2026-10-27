@@ -245,7 +245,7 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
                 try {
                     const dt = JSON.parse(item.detallesTecnicos);
                     if (dt.tipo === 'metraje') return null;
-                    return { quantity: item.quantity, dt };
+                    return { quantity: item.quantity, dt, unitPriceVenta: item.unitPriceVenta ?? item.unitPrice };
                 } catch { return null; }
             })
             .filter(Boolean);
