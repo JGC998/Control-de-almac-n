@@ -39,6 +39,7 @@ export async function GET() {
       }
       return acc;
     }, {});
+    configObject.app_version = 2; // incrementar aquí al publicar una nueva APK
     return NextResponse.json(configObject);
   } catch (error) {
     logApiError(error, 'GET /api/config');
