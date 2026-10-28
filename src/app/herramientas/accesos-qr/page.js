@@ -41,6 +41,40 @@ function ApkQR({ url }) {
   );
 }
 
+function ApkQRAlmacen({ url }) {
+  const [qrSrc, setQrSrc] = useState('');
+  useEffect(() => {
+    QRCode.toDataURL(url, {
+      width: 180, margin: 1,
+      color: { dark: '#0d111e', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    }).then(setQrSrc).catch(() => {});
+  }, [url]);
+
+  return (
+    <div className="card bg-base-200 border border-base-300 no-print">
+      <div className="card-body py-4 px-5 flex flex-row items-center gap-5">
+        {qrSrc
+          ? <img src={qrSrc} alt="Descargar APK Almacén" className="w-[120px] h-[120px] flex-shrink-0" />
+          : <div className="w-[120px] h-[120px] bg-base-300 animate-pulse rounded flex-shrink-0" />
+        }
+        <div className="flex-1">
+          <p className="font-bold text-base flex items-center gap-2">
+            <Package className="w-5 h-5 text-success" /> Descargar APK — Gestión Almacén
+          </p>
+          <p className="text-sm text-base-content/70 mt-1">
+            App de gestión completa: pedidos, presupuestos, clientes y stock. Contraseña de acceso: <strong>1994</strong>.
+          </p>
+          <a href={url} download className="btn btn-xs btn-outline btn-success mt-2 no-print" target="_blank" rel="noreferrer">
+            Descargar directamente
+          </a>
+          <p className="text-xs text-base-content/40 mt-1 font-mono break-all">{url}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InstallQR({ url }) {
   useEffect(() => {
     const el = document.getElementById('qr-install');
@@ -182,8 +216,11 @@ export default function AccesosQRPage() {
       {/* Script para generar el QR de instalación */}
       {baseUrl && <InstallQR url={baseUrl} />}
 
-      {/* QR de descarga APK */}
+      {/* QR de descarga APK calculadora */}
       {baseUrl && <ApkQR url={`${baseUrl}/downloads/calculadora.apk`} />}
+
+      {/* QR de descarga APK almacén */}
+      {baseUrl && <ApkQRAlmacen url={`${baseUrl}/downloads/almacen.apk`} />}
 
       {/* Cabecera */}
       <div className="flex items-center justify-between no-print">
