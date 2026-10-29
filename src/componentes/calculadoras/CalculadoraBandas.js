@@ -5,7 +5,7 @@ import { Plus, Info, Layers, Link2, BookmarkPlus, Check, Calculator } from 'luci
 import { toastError } from '@/lib/toast';
 import { formatCurrency } from '@/utils/utilidades';
 import ModalConfiguracionTacos from './ModalConfiguracionTacos';
-import PreviewBandaPVC from './PreviewBandaPVC';
+import Visor3DBandaPVC from './Visor3DBandaPVC';
 
 
 const SELECTED_MATERIAL = 'PVC';
@@ -505,15 +505,17 @@ export default function CalculadoraBandas({ onAddItem, className = "" }) {
                     )}
                 </div>
 
-                {/* Previsualización de la banda */}
-                <div className="mt-3 border border-base-300 rounded-lg p-2 bg-base-200/30">
-                    <p className="text-xs text-base-content/40 uppercase font-semibold tracking-wide mb-1 text-center">Previsualización</p>
-                    <PreviewBandaPVC
+                {/* Previsualización 3D de la banda */}
+                <div className="mt-3">
+                    <Visor3DBandaPVC
                         ancho={ancho}
                         largo={largo}
+                        espesor={selectedEspesor}
                         tipoConfeccion={tipoConfeccion}
+                        tipoGrapa={tipoGrapa}
                         configuracionTacos={configuracionTacos}
                         color={selectedColor && selectedColor !== '__std' ? selectedColor : (tarifaSeleccionada?.color ?? '')}
+                        height={260}
                     />
                 </div>
 

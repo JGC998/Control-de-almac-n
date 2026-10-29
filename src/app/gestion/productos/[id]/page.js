@@ -7,6 +7,7 @@ import { ArrowLeft, Package, DollarSign, Info, List, Edit, TrendingUp, Trash2, C
 import { toastError, toast } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';
+import Visor3DBandaPVC from '@/componentes/calculadoras/Visor3DBandaPVC';
 
 const InfoCard = ({ title, value, unit = '', icon: Icon = Package }) => (
   <div className="flex items-center p-4 bg-base-200 rounded-lg shadow-inner">
@@ -400,6 +401,17 @@ export default function ProductoDetallePage() {
     return <div className="text-error text-center p-10">Error al cargar los detalles del producto.</div>;
   }
 
+  function parsePvcParams(producto) {
+    const nombre = producto.nombre || '';
+    let tipoConfeccion = 'ABIERTA';
+    if (/\bSF\b|-SF-/i.test(nombre) || /sin.?fin/i.test(nombre)) tipoConfeccion = 'VULCANIZADA';
+    else if (/\bGR\b|-GR-/i.test(nombre) || /grapa/i.test(nombre)) tipoConfeccion = 'GRAPA';
+    return { tipoConfeccion };
+  }
+
+  const esBandaPVC = producto.referenciaFabricante === 'BANDA_PVC' ||
+    (producto.ancho && producto.largo && /PVC/i.test(producto.nombre));
+
   const formatValue = (value, fallback = 'N/A') => {
     if (value === null || value === undefined) return fallback;
     if (typeof value === 'number') return value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -486,6 +498,26 @@ export default function ProductoDetallePage() {
               onActualizar={mutate}
             />
           </div>
+
+          {/* ── Visor 3D — solo para bandas PVC ── */}
+          {esBandaPVC && producto.ancho && producto.largo && (() => {
+            const { tipoConfeccion } = parsePvcParams(producto);
+            return (
+              <div className="mb-6">
+                <div className="divider text-base-content/50 font-semibold uppercase tracking-widest text-xs mb-3">
+                  Vista 3D
+                </div>
+                <Visor3DBandaPVC
+                  ancho={producto.ancho}
+                  largo={producto.largo}
+                  espesor={producto.espesor || 3}
+                  color={producto.color || ''}
+                  tipoConfeccion={tipoConfeccion}
+                  height={340}
+                />
+              </div>
+            );
+          })()}
 
           {/* ── Información general ── */}
           <div className="divider text-base-content/50 font-semibold uppercase tracking-widest text-xs">Información General</div>
