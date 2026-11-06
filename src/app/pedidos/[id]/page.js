@@ -320,7 +320,7 @@ export default function PedidoDetalle() {
           const pesoTotal = (order.items || []).reduce((s, i) => s + ((i.pesoUnitario || i.producto?.pesoUnitario || 0) * i.quantity), 0);
           setParteForm(p => ({ ...p, kg: pesoTotal > 0 ? pesoTotal.toFixed(2) : '', cp: order.cliente?.cp || '', poblacion: order.cliente?.poblacion || '' }));
           setParteAgenciaOpen(true);
-        }} className="btn btn-outline gap-1">
+        }} className="btn btn-warning gap-1">
           <Truck className="w-4 h-4" /> Parte de Agencia
         </button>
         <button onClick={handleDelete} className="btn btn-outline btn-error" disabled={isDeleting}>
