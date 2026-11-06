@@ -147,7 +147,7 @@ export default function PedidoDetalle() {
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [parteAgenciaOpen, setParteAgenciaOpen] = useState(false);
-  const [parteForm, setParteForm] = useState({ agencia: 'Tradiscor', bultos: 1, kg: '', cp: '', poblacion: '', provincia: '', observaciones: '', volumen: '' });
+  const [parteForm, setParteForm] = useState({ agencia: 'Tradiscor', bultos: 1, kg: '', direccion: '', cp: '', poblacion: '', provincia: '', observaciones: '', volumen: '' });
   const [parteGenerando, setParteGenerando] = useState(false);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
@@ -236,6 +236,7 @@ export default function PedidoDetalle() {
       a.download = `parte-${parteForm.agencia.toLowerCase()}-${order.numero}.pdf`;
       document.body.appendChild(a); a.click(); a.remove();
       setParteAgenciaOpen(false);
+      mutate(); // refresca datos del cliente (cp, poblacion, direccion guardados)
     } catch (err) {
       toastError(err.message);
     } finally {
@@ -318,7 +319,7 @@ export default function PedidoDetalle() {
         */}
         <button onClick={() => {
           const pesoTotal = (order.items || []).reduce((s, i) => s + ((i.pesoUnitario || i.producto?.pesoUnitario || 0) * i.quantity), 0);
-          setParteForm(p => ({ ...p, kg: pesoTotal > 0 ? pesoTotal.toFixed(2) : '', cp: order.cliente?.cp || '', poblacion: order.cliente?.poblacion || '' }));
+          setParteForm(p => ({ ...p, kg: pesoTotal > 0 ? pesoTotal.toFixed(2) : '', direccion: order.cliente?.direccion || '', cp: order.cliente?.cp || '', poblacion: order.cliente?.poblacion || '' }));
           setParteAgenciaOpen(true);
         }} className="btn btn-warning gap-1">
           <Truck className="w-4 h-4" /> Parte de Agencia
@@ -350,6 +351,10 @@ export default function PedidoDetalle() {
               <div>
                 <label className="label text-sm font-medium">Kg</label>
                 <input type="number" step="0.01" className="input input-bordered w-full" value={parteForm.kg} onChange={e => setParteForm(p => ({ ...p, kg: e.target.value }))} />
+              </div>
+              <div className="col-span-2">
+                <label className="label text-sm font-medium">Dirección destino</label>
+                <input type="text" className="input input-bordered w-full" value={parteForm.direccion} onChange={e => setParteForm(p => ({ ...p, direccion: e.target.value }))} />
               </div>
               <div>
                 <label className="label text-sm font-medium">CP destino</label>

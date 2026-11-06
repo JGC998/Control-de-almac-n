@@ -17,22 +17,25 @@ export async function POST(request, { params }) {
     if (!pedido) return new NextResponse('Pedido no encontrado', { status: 404 });
 
     const body = await request.json();
-    const { agencia, bultos, kg, reembolso, observaciones, cp, poblacion, provincia, volumen } = body;
+    const { agencia, bultos, kg, reembolso, observaciones, direccion, cp, poblacion, provincia, volumen } = body;
 
     if (!agencia || !bultos) {
       return NextResponse.json({ error: 'Agencia y bultos son obligatorios' }, { status: 400 });
     }
 
-    // Guardar cp/poblacion en el cliente si se proporcionaron
-    if ((cp || poblacion) && pedido.clienteId) {
+    // Guardar direccion/cp/poblacion en el cliente si se proporcionaron y el cliente no los tiene
+    if ((direccion || cp || poblacion) && pedido.clienteId) {
       const updateData = {};
+      if (direccion && !pedido.cliente?.direccion) updateData.direccion = direccion;
       if (cp) updateData.cp = cp;
       if (poblacion) updateData.poblacion = poblacion;
-      await db.cliente.update({ where: { id: pedido.clienteId }, data: updateData }).catch(() => {});
+      if (Object.keys(updateData).length) {
+        await db.cliente.update({ where: { id: pedido.clienteId }, data: updateData }).catch(() => {});
+      }
     }
 
     const pdfBuffer = await generarParteAgenciaPDF(pedido, {
-      agencia, bultos, kg, reembolso, observaciones, cp, poblacion, provincia, volumen,
+      agencia, bultos, kg, reembolso, observaciones, direccion, cp, poblacion, provincia, volumen,
     });
 
     const agenciaNombre = agencia.toLowerCase();

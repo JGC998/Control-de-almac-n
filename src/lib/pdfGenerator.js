@@ -2455,7 +2455,7 @@ export async function generateEtiquetasLoteA4PDF(items, nomConfig = {}) {
 
 // ─── Parte de Agencia ────────────────────────────────────────────────────────
 export async function generarParteAgenciaPDF(pedido, params) {
-    const { agencia, bultos, kg, observaciones, cp, poblacion, provincia, volumen } = params;
+    const { agencia, bultos, kg, observaciones, direccion, cp, poblacion, provincia, volumen } = params;
     const emisor = await getEmisorInfo();
     const cliente = pedido.cliente || {};
     const fecha = new Date().toLocaleDateString('es-ES');
@@ -2472,13 +2472,13 @@ export async function generarParteAgenciaPDF(pedido, params) {
     } catch {}
 
     if (agencia === 'CBL') {
-        return generarParteCBL({ cliente, emisor, fecha, bultos, kg, observaciones, cp, poblacion, provincia, volumen, cblLogoB64 });
+        return generarParteCBL({ cliente, emisor, fecha, bultos, kg, observaciones, direccion, cp, poblacion, provincia, volumen, cblLogoB64 });
     } else {
-        return generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg, cp, poblacion, tradiscorLogoB64 });
+        return generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg, direccion, cp, poblacion, tradiscorLogoB64 });
     }
 }
 
-function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg, cp, poblacion, tradiscorLogoB64 }) {
+function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg, direccion, cp, poblacion, tradiscorLogoB64 }) {
     const isGLS = agencia === 'GLS';
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
     const W = 297, PAD = 14;
@@ -2525,7 +2525,7 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
         : ['CONSIGNATARIO', 'DIRECCIÓN', 'CP', 'POBLACIÓN', 'TFNO', 'REEMBOLSO', 'BT', 'KG', 'AGENCIA'];
 
     const dataRow = [
-        cliente.nombre || '', cliente.direccion || '', cp || '', poblacion || '',
+        cliente.nombre || '', direccion || cliente.direccion || '', cp || '', poblacion || '',
         cliente.telefono || '', '',
         bultos != null ? String(bultos) : '',
         kg ? String(kg) : '',
@@ -2581,7 +2581,7 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
     return doc.output('arraybuffer');
 }
 
-function generarParteCBL({ cliente, emisor, fecha, bultos, kg, observaciones, cp, poblacion, provincia, volumen, cblLogoB64 }) {
+function generarParteCBL({ cliente, emisor, fecha, bultos, kg, observaciones, direccion, cp, poblacion, provincia, volumen, cblLogoB64 }) {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const W = 210, PAD = 14;
 
@@ -2653,7 +2653,7 @@ function generarParteCBL({ cliente, emisor, fecha, bultos, kg, observaciones, cp
     };
 
     const filled = {
-        fecha, nombre: cliente.nombre || '', direccion: cliente.direccion || '',
+        fecha, nombre: cliente.nombre || '', direccion: direccion || cliente.direccion || '',
         telefono: cliente.telefono || '', cp, poblacion, provincia, bultos, kg, volumen, observaciones,
     };
 
