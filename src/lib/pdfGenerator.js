@@ -2563,20 +2563,20 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
     });
 
     // ── Área de firma ─────────────────────────────────────────
-    const sy = doc.lastAutoTable.finalY + 10;
-    const lineEnd = W - PAD;
+    const sy = doc.lastAutoTable.finalY + 6;
+    const lineLen = 70; // líneas cortas (~70mm)
 
     doc.setTextColor(220, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
     doc.text('NOMBRE:', PAD, sy);
     doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.3);
-    doc.line(PAD + 29, sy + 0.5, lineEnd, sy + 0.5);
+    doc.line(PAD + 29, sy + 0.5, PAD + 29 + lineLen, sy + 0.5);
 
     doc.setTextColor(0, 0, 0);
-    doc.text('D.N.I.:', PAD, sy + 14);
-    doc.line(PAD + 20, sy + 14.5, lineEnd, sy + 14.5);
+    doc.text('D.N.I.:', PAD, sy + 11);
+    doc.line(PAD + 20, sy + 11.5, PAD + 20 + lineLen, sy + 11.5);
 
-    doc.text('FIRMA:', PAD, sy + 28);
-    doc.line(PAD + 20, sy + 28.5, lineEnd, sy + 28.5);
+    doc.text('FIRMA:', PAD, sy + 22);
+    doc.line(PAD + 20, sy + 22.5, PAD + 20 + lineLen, sy + 22.5);
 
     return doc.output('arraybuffer');
 }

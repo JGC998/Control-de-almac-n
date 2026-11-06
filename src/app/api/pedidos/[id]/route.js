@@ -17,7 +17,7 @@ export async function GET(request, { params: paramsPromise }) {
     const order = await db.pedido.findUnique({
       where: { id },
       include: {
-        cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, tier: true } },
+        cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, cp: true, poblacion: true, tier: true } },
         presupuesto: { select: { id: true, numero: true, estado: true, total: true } },
         items: {
           orderBy: { descripcion: 'asc' },
@@ -114,7 +114,7 @@ export async function PUT(request, { params: paramsPromise }) {
           ...(sinFacturacion !== undefined ? { sinFacturacion } : {}),
         },
         include: {
-          cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, tier: true } },
+          cliente: { select: { id: true, nombre: true, email: true, telefono: true, direccion: true, cp: true, poblacion: true, tier: true } },
           presupuesto: { select: { id: true, numero: true, estado: true, total: true } },
           items: {
             include: {
