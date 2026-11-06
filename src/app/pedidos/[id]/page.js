@@ -147,7 +147,7 @@ export default function PedidoDetalle() {
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [parteAgenciaOpen, setParteAgenciaOpen] = useState(false);
-  const [parteForm, setParteForm] = useState({ agencia: 'Tradiscor', bultos: 1, kg: '', reembolso: '', cp: '', poblacion: '', provincia: '', observaciones: '', volumen: '' });
+  const [parteForm, setParteForm] = useState({ agencia: 'Tradiscor', bultos: 1, kg: '', cp: '', poblacion: '', provincia: '', observaciones: '', volumen: '' });
   const [parteGenerando, setParteGenerando] = useState(false);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
@@ -222,7 +222,7 @@ export default function PedidoDetalle() {
     setParteGenerando(true);
     try {
       const pesoTotal = (order.items || []).reduce((s, i) => s + ((i.pesoUnitario || i.producto?.pesoUnitario || 0) * i.quantity), 0);
-      const payload = { ...parteForm, kg: parteForm.kg || (pesoTotal > 0 ? pesoTotal.toFixed(2) : '') };
+      const payload = { ...parteForm };
       const res = await fetch(`/api/pedidos/${id}/parte-agencia`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -316,7 +316,11 @@ export default function PedidoDetalle() {
             }
           </button>
         */}
-        <button onClick={() => setParteAgenciaOpen(true)} className="btn btn-outline gap-1">
+        <button onClick={() => {
+          const pesoTotal = (order.items || []).reduce((s, i) => s + ((i.pesoUnitario || i.producto?.pesoUnitario || 0) * i.quantity), 0);
+          setParteForm(p => ({ ...p, kg: pesoTotal > 0 ? pesoTotal.toFixed(2) : '', cp: order.cliente?.cp || '', poblacion: order.cliente?.poblacion || '' }));
+          setParteAgenciaOpen(true);
+        }} className="btn btn-outline gap-1">
           <Truck className="w-4 h-4" /> Parte de Agencia
         </button>
         <button onClick={handleDelete} className="btn btn-outline btn-error" disabled={isDeleting}>
@@ -340,12 +344,12 @@ export default function PedidoDetalle() {
                 </select>
               </div>
               <div>
-                <label className="label text-sm font-medium">Bultos *</label>
+                <label className="label text-sm font-medium">Palé / Paquete *</label>
                 <input type="number" min="1" className="input input-bordered w-full" value={parteForm.bultos} onChange={e => setParteForm(p => ({ ...p, bultos: e.target.value }))} />
               </div>
               <div>
-                <label className="label text-sm font-medium">Kg (aprox.)</label>
-                <input type="number" step="0.01" className="input input-bordered w-full" placeholder="Auto desde pedido" value={parteForm.kg} onChange={e => setParteForm(p => ({ ...p, kg: e.target.value }))} />
+                <label className="label text-sm font-medium">Kg</label>
+                <input type="number" step="0.01" className="input input-bordered w-full" value={parteForm.kg} onChange={e => setParteForm(p => ({ ...p, kg: e.target.value }))} />
               </div>
               <div>
                 <label className="label text-sm font-medium">CP destino</label>
@@ -367,10 +371,6 @@ export default function PedidoDetalle() {
                   </div>
                 </>
               )}
-              <div>
-                <label className="label text-sm font-medium">Reembolso (€)</label>
-                <input type="number" step="0.01" className="input input-bordered w-full" value={parteForm.reembolso} onChange={e => setParteForm(p => ({ ...p, reembolso: e.target.value }))} />
-              </div>
               <div className="col-span-2">
                 <label className="label text-sm font-medium">Observaciones</label>
                 <input type="text" className="input input-bordered w-full" value={parteForm.observaciones} onChange={e => setParteForm(p => ({ ...p, observaciones: e.target.value }))} />

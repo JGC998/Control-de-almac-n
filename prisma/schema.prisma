@@ -14,6 +14,8 @@ model Cliente {
   email        String?
   direccion    String?
   telefono     String?
+  cp           String?
+  poblacion    String?
   tier         String?
   // categoria eliminado — era columna duplicada de tier (nunca se escribía en BD)
   pedidos      Pedido[]

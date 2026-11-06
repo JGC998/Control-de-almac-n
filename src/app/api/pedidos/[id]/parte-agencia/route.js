@@ -23,6 +23,14 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Agencia y bultos son obligatorios' }, { status: 400 });
     }
 
+    // Guardar cp/poblacion en el cliente si se proporcionaron
+    if ((cp || poblacion) && pedido.clienteId) {
+      const updateData = {};
+      if (cp) updateData.cp = cp;
+      if (poblacion) updateData.poblacion = poblacion;
+      await db.cliente.update({ where: { id: pedido.clienteId }, data: updateData }).catch(() => {});
+    }
+
     const pdfBuffer = await generarParteAgenciaPDF(pedido, {
       agencia, bultos, kg, reembolso, observaciones, cp, poblacion, provincia, volumen,
     });
