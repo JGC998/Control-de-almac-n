@@ -2557,18 +2557,26 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
             fillColor: [255, 255, 255], textColor: [0, 0, 0],
             fontStyle: 'bold', halign: 'center', minCellHeight: 9,
         },
-        bodyStyles: { minCellHeight: 10 },
+        bodyStyles: { minCellHeight: 6 },
         columnStyles: colStyles,
         margin: { left: PAD, right: PAD },
     });
 
     // ── Área de firma ─────────────────────────────────────────
-    const sy = doc.lastAutoTable.finalY + 8;
-    doc.setTextColor(220, 80, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    const sy = doc.lastAutoTable.finalY + 10;
+    const lineEnd = W - PAD;
+
+    doc.setTextColor(220, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
     doc.text('NOMBRE:', PAD, sy);
-    doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text('D.N.I.:', PAD, sy + 12);
-    doc.text('FIRMA:', PAD, sy + 26);
+    doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.3);
+    doc.line(PAD + 29, sy + 0.5, lineEnd, sy + 0.5);
+
+    doc.setTextColor(0, 0, 0);
+    doc.text('D.N.I.:', PAD, sy + 14);
+    doc.line(PAD + 20, sy + 14.5, lineEnd, sy + 14.5);
+
+    doc.text('FIRMA:', PAD, sy + 28);
+    doc.line(PAD + 20, sy + 28.5, lineEnd, sy + 28.5);
 
     return doc.output('arraybuffer');
 }
