@@ -2485,27 +2485,27 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
 
     // ── Cabecera izquierda ────────────────────────────────────
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-    doc.text('TRANSPORTES CARGO BALO SL', PAD, 20);
+    doc.text('TRANSPORTES CARGO BALO SL', PAD, 15);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text('P.IND.LAS QUEMADAS', PAD, 26);
-    doc.text('14014 CÓRDOBA', PAD, 31);
-    doc.text('Tlf 957-272737', PAD, 36);
-    doc.text(`email: ${isGLS ? 'azahara@tradiscor.com' : 'recogidas@tradiscor.com'}`, PAD, 41);
+    doc.text('P.IND.LAS QUEMADAS', PAD, 21);
+    doc.text('14014 CÓRDOBA', PAD, 27);
+    doc.text('Tlf 957-272737', PAD, 33);
+    doc.text(`email: ${isGLS ? 'azahara@tradiscor.com' : 'recogidas@tradiscor.com'}`, PAD, 39);
 
     // ── Título centrado ───────────────────────────────────────
     doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-    doc.text('ORDEN DE RECOGIDA', W / 2, 20, { align: 'center' });
+    doc.text('ORDEN DE RECOGIDA', W / 2, 14, { align: 'center' });
 
     // ── RTE (remitente) ───────────────────────────────────────
-    const rteX = 110;
+    const rteX = 108;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text(`RTE:   ${emisor.nombre || 'COMERCIAL DE RECAMBIOS MONTAMEYOR'}`, rteX, 20);
-    doc.text(`DIRECCION   ${emisor.address || 'LA JARRA'}`, rteX, 26);
-    doc.text(`POBLACION   LA RAMBLA`, rteX, 32);
-    doc.text(`FECHA:   ${fecha}`, rteX + 90, 26);
+    doc.text(`RTE:   ${emisor.nombre || 'COMERCIAL DE RECAMBIOS MONTAMEYOR'}`, rteX, 23);
+    doc.text(`DIRECCION   ${emisor.address || 'LA JARRA'}`, rteX, 30);
+    doc.text(`POBLACION   LA RAMBLA`, rteX, 37);
+    doc.text(`FECHA:   ${fecha}`, rteX + 95, 30);
 
     // ── Logo agencia (arriba derecha) ─────────────────────────
-    const lx = 253, ly = 10, lw = 30, lh = 22;
+    const lx = 253, ly = 8, lw = 30, lh = 22;
     if (isGLS) {
         doc.setFillColor(0, 83, 164);
         doc.rect(lx, ly, lw, lh, 'F');
@@ -2535,11 +2535,11 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
 
     const colStyles = isGLS ? {
         0: { cellWidth: 55 }, 1: { cellWidth: 65 }, 2: { cellWidth: 17 },
-        3: { cellWidth: 40 }, 4: { cellWidth: 28 }, 5: { cellWidth: 25 },
-        6: { cellWidth: 14 }, 7: { cellWidth: 25 },
+        3: { cellWidth: 38 }, 4: { cellWidth: 27 }, 5: { cellWidth: 27 },
+        6: { cellWidth: 13 }, 7: { cellWidth: 27 },
     } : {
-        0: { cellWidth: 50 }, 1: { cellWidth: 60 }, 2: { cellWidth: 15 },
-        3: { cellWidth: 35 }, 4: { cellWidth: 25 }, 5: { cellWidth: 22 },
+        0: { cellWidth: 50 }, 1: { cellWidth: 58 }, 2: { cellWidth: 14 },
+        3: { cellWidth: 33 }, 4: { cellWidth: 25 }, 5: { cellWidth: 27 },
         6: { cellWidth: 12 }, 7: { cellWidth: 15 }, 8: { cellWidth: 35 },
     };
 
