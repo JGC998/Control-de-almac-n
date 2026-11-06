@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Plus, Ban, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, Printer, FileText, DollarSign, CheckCircle, Package, Plus, Ban, ClipboardList, Truck } from 'lucide-react';
 import { toast, toastError } from '@/lib/toast';
 import FormularioPedidoCliente from '@/componentes/pedidos/FormularioPedidoCliente';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
@@ -146,6 +146,9 @@ export default function PedidoDetalle() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [parteAgenciaOpen, setParteAgenciaOpen] = useState(false);
+  const [parteForm, setParteForm] = useState({ agencia: 'Tradiscor', bultos: 1, kg: '', reembolso: '', cp: '', poblacion: '', provincia: '', observaciones: '', volumen: '' });
+  const [parteGenerando, setParteGenerando] = useState(false);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
   const openEditModal = () => setIsEditModalOpen(true);
@@ -211,6 +214,32 @@ export default function PedidoDetalle() {
       mutate();
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handleGenerarParte = async () => {
+    if (!parteForm.bultos) return;
+    setParteGenerando(true);
+    try {
+      const pesoTotal = (order.items || []).reduce((s, i) => s + ((i.pesoUnitario || i.producto?.pesoUnitario || 0) * i.quantity), 0);
+      const payload = { ...parteForm, kg: parteForm.kg || (pesoTotal > 0 ? pesoTotal.toFixed(2) : '') };
+      const res = await fetch(`/api/pedidos/${id}/parte-agencia`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('Error al generar el parte');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `parte-${parteForm.agencia.toLowerCase()}-${order.numero}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setParteAgenciaOpen(false);
+    } catch (err) {
+      toastError(err.message);
+    } finally {
+      setParteGenerando(false);
     }
   };
 
@@ -287,11 +316,77 @@ export default function PedidoDetalle() {
             }
           </button>
         */}
+        <button onClick={() => setParteAgenciaOpen(true)} className="btn btn-outline gap-1">
+          <Truck className="w-4 h-4" /> Parte de Agencia
+        </button>
         <button onClick={handleDelete} className="btn btn-outline btn-error" disabled={isDeleting}>
           {isDeleting ? <span className="loading loading-spinner loading-xs"></span> : <Trash2 className="w-4 h-4" />}
           Eliminar
         </button>
       </div>
+
+      {/* Modal Parte de Agencia */}
+      {parteAgenciaOpen && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-lg">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Truck className="w-5 h-5" /> Generar Parte de Agencia</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="label text-sm font-medium">Agencia</label>
+                <select className="select select-bordered w-full" value={parteForm.agencia} onChange={e => setParteForm(p => ({ ...p, agencia: e.target.value }))}>
+                  <option value="Tradiscor">Tradiscor</option>
+                  <option value="GLS">GLS</option>
+                  <option value="CBL">CBL</option>
+                </select>
+              </div>
+              <div>
+                <label className="label text-sm font-medium">Bultos *</label>
+                <input type="number" min="1" className="input input-bordered w-full" value={parteForm.bultos} onChange={e => setParteForm(p => ({ ...p, bultos: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label text-sm font-medium">Kg (aprox.)</label>
+                <input type="number" step="0.01" className="input input-bordered w-full" placeholder="Auto desde pedido" value={parteForm.kg} onChange={e => setParteForm(p => ({ ...p, kg: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label text-sm font-medium">CP destino</label>
+                <input type="text" className="input input-bordered w-full" value={parteForm.cp} onChange={e => setParteForm(p => ({ ...p, cp: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label text-sm font-medium">Población destino</label>
+                <input type="text" className="input input-bordered w-full" value={parteForm.poblacion} onChange={e => setParteForm(p => ({ ...p, poblacion: e.target.value }))} />
+              </div>
+              {parteForm.agencia === 'CBL' && (
+                <>
+                  <div>
+                    <label className="label text-sm font-medium">Provincia</label>
+                    <input type="text" className="input input-bordered w-full" value={parteForm.provincia} onChange={e => setParteForm(p => ({ ...p, provincia: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="label text-sm font-medium">Volumen m³</label>
+                    <input type="number" step="0.01" className="input input-bordered w-full" value={parteForm.volumen} onChange={e => setParteForm(p => ({ ...p, volumen: e.target.value }))} />
+                  </div>
+                </>
+              )}
+              <div>
+                <label className="label text-sm font-medium">Reembolso (€)</label>
+                <input type="number" step="0.01" className="input input-bordered w-full" value={parteForm.reembolso} onChange={e => setParteForm(p => ({ ...p, reembolso: e.target.value }))} />
+              </div>
+              <div className="col-span-2">
+                <label className="label text-sm font-medium">Observaciones</label>
+                <input type="text" className="input input-bordered w-full" value={parteForm.observaciones} onChange={e => setParteForm(p => ({ ...p, observaciones: e.target.value }))} />
+              </div>
+            </div>
+            <div className="modal-action">
+              <button className="btn btn-ghost" onClick={() => setParteAgenciaOpen(false)}>Cancelar</button>
+              <button className="btn btn-primary gap-1" onClick={handleGenerarParte} disabled={parteGenerando || !parteForm.bultos}>
+                {parteGenerando ? <span className="loading loading-spinner loading-xs"></span> : <Truck className="w-4 h-4" />}
+                Generar PDF
+              </button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setParteAgenciaOpen(false)} />
+        </div>
+      )}
 
       <div className="bg-base-100 shadow-xl rounded-lg p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start gap-3">

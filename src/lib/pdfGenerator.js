@@ -2452,3 +2452,138 @@ export async function generateEtiquetasLoteA4PDF(items, nomConfig = {}) {
         throw error;
     }
 }
+
+// ─── Parte de Agencia ────────────────────────────────────────────────────────
+export async function generarParteAgenciaPDF(pedido, params) {
+    const { agencia, bultos, kg, reembolso, observaciones, cp, poblacion, provincia, volumen } = params;
+    const emisor = await getEmisorInfo();
+    const cliente = pedido.cliente || {};
+    const fecha = new Date().toLocaleDateString('es-ES');
+
+    if (agencia === 'CBL') {
+        return generarParteCBL({ cliente, emisor, fecha, bultos, kg, reembolso, observaciones, cp, poblacion, provincia, volumen });
+    } else {
+        return generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg, reembolso, cp, poblacion });
+    }
+}
+
+function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg, reembolso, cp, poblacion }) {
+    const isGLS = agencia === 'GLS';
+    const email = isGLS ? 'azahara@tradiscor.com' : 'recogidas@tradiscor.com';
+    const tituloAgencia = isGLS ? 'GLS' : '';
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const W = 297; const PAD = 14;
+
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text('TRANSPORTES CARGO BALO SL', PAD, 18);
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+    doc.text('P. IND. LAS QUEMADAS', PAD, 24);
+    doc.text('14014 CÓRDOBA', PAD, 29);
+    doc.text(`Tlf: 957-272737`, PAD, 34);
+    doc.text(`email: ${email}`, PAD, 39);
+
+    doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+    doc.text('ORDEN DE RECOGIDA', W / 2, 18, { align: 'center' });
+
+    const rteX = W / 2 + 10;
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+    doc.text(`RTE: ${emisor.nombre || 'COMERCIAL DE RECAMBIOS MONTEMAYOR'}`, rteX, 24);
+    doc.text(`DIRECCIÓN: ${emisor.address || 'LA JARRA'}`, rteX, 29);
+    doc.text(`POBLACIÓN: LA RAMBLA`, rteX, 34);
+    doc.text(`FECHA: ${fecha}`, rteX, 39);
+
+    const cols = isGLS
+        ? ['CONSIGNATARIO', 'DIRECCIÓN', 'CP', 'POBLACIÓN', 'TFNO', 'REEMBOLSO', 'BT', 'KG']
+        : ['CONSIGNATARIO', 'DIRECCIÓN', 'CP', 'POBLACIÓN', 'TFNO', 'REEMBOLSO', 'BT', 'KG', 'AGENCIA'];
+
+    const row = [
+        cliente.nombre || '',
+        cliente.direccion || '',
+        cp || '',
+        poblacion || '',
+        cliente.telefono || '',
+        reembolso ? `${reembolso} €` : '',
+        bultos || '',
+        kg ? `${kg} kg` : '',
+    ];
+    if (!isGLS) row.push(tituloAgencia);
+
+    autoTable(doc, {
+        startY: 46,
+        head: [cols],
+        body: [row, [], [], [], []],
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+            0: { cellWidth: 45 }, 1: { cellWidth: 55 }, 2: { cellWidth: 18 },
+            3: { cellWidth: 35 }, 4: { cellWidth: 25 }, 5: { cellWidth: 22 },
+            6: { cellWidth: 12 }, 7: { cellWidth: 18 },
+        },
+        margin: { left: PAD, right: PAD },
+    });
+
+    const signY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(10);
+    doc.text('NOMBRE: ___________________________', PAD, signY);
+    doc.text('D.N.I.: ___________________________', PAD, signY + 12);
+    doc.text('FIRMA:', PAD, signY + 28);
+    doc.rect(PAD + 18, signY + 20, 60, 20);
+
+    return doc.output('arraybuffer');
+}
+
+function generarParteCBL({ cliente, emisor, fecha, bultos, kg, reembolso, observaciones, cp, poblacion, provincia, volumen }) {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = 210; const PAD = 14;
+
+    const drawLabel = (label, value, x, y, lw = 40) => {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text(label, x, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(value || '', x + lw, y);
+        doc.line(x + lw, y + 1, x + lw + 80, y + 1);
+    };
+
+    // Encabezado izquierda (CBL)
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.text('CBL CÓRDOBA', PAD, 18);
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('Ctra Palma del Río KM4', PAD, 24);
+    doc.text('PARQUE LOGÍSTICO', PAD, 29);
+    doc.text('14007 CÓRDOBA', PAD, 34);
+
+    // Encabezado derecha (remitente)
+    const rteX = W / 2 + 10;
+    doc.setFontSize(9);
+    doc.text(`Cliente: ${emisor.nombre || 'CRM'}`, rteX, 18);
+    doc.text(emisor.address || 'POL ALFARES', rteX, 24);
+    doc.text('LA RAMBLA', rteX, 29);
+    doc.text('CÓRDOBA', rteX, 34);
+
+    doc.setLineWidth(0.5); doc.line(PAD, 38, W - PAD, 38);
+
+    // Datos del envío
+    let y = 46;
+    drawLabel('FECHA:', fecha, PAD, y); y += 9;
+    drawLabel('DESTINATARIO:', cliente.nombre || '', PAD, y); y += 9;
+    drawLabel('DIRECCIÓN:', cliente.direccion || '', PAD, y); y += 9;
+    drawLabel('TELÉFONO:', cliente.telefono || '', PAD, y); y += 9;
+    drawLabel('CÓDIGO POSTAL:', cp || '', PAD, y);
+    drawLabel('LOCALIDAD:', poblacion || '', rteX, y); y += 9;
+    drawLabel('PROVINCIA:', provincia || '', PAD, y); y += 9;
+    drawLabel('BULTOS:', String(bultos || ''), PAD, y);
+    drawLabel('KILOS:', kg ? `${kg} kg` : '', rteX, y); y += 9;
+    drawLabel('VOLUMEN m³:', volumen ? `${volumen} m³` : '', PAD, y); y += 9;
+    drawLabel('SEGURO:', '', PAD, y);
+    drawLabel('PAGADO/DEBIDO:', '', rteX, y); y += 9;
+    drawLabel('REEMBOLSO:', reembolso ? `${reembolso} €` : '', PAD, y); y += 9;
+    drawLabel('OBSERVACIONES:', observaciones || '', PAD, y); y += 20;
+
+    doc.line(PAD, y, W - PAD, y);
+    doc.setFontSize(8); doc.setFont('helvetica', 'italic');
+    doc.text('Firma y sello del destinatario:', PAD, y + 8);
+    doc.rect(PAD, y + 12, 80, 25);
+
+    return doc.output('arraybuffer');
+}
