@@ -2480,8 +2480,8 @@ export async function generarParteAgenciaPDF(pedido, params) {
 
 function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg, cp, poblacion, tradiscorLogoB64 }) {
     const isGLS = agencia === 'GLS';
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const W = 210, PAD = 14;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+    const W = 297, PAD = 14;
 
     // ── Cabecera izquierda ────────────────────────────────────
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
@@ -2497,15 +2497,15 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
     doc.text('ORDEN DE RECOGIDA', W / 2, 20, { align: 'center' });
 
     // ── RTE (remitente) ───────────────────────────────────────
-    const rteX = 97;
+    const rteX = 110;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text(`RTE:   ${emisor.nombre || 'COMERCIAL DE RECAMBIOS MONTAMEYOR'}`, rteX, 27);
-    doc.text(`DIRECCION   ${emisor.address || 'LA JARRA'}`, rteX, 32);
-    doc.text(`POBLACION   LA RAMBLA`, rteX, 37);
-    doc.text(`FECHA:   ${fecha}`, 155, 32);
+    doc.text(`RTE:   ${emisor.nombre || 'COMERCIAL DE RECAMBIOS MONTAMEYOR'}`, rteX, 20);
+    doc.text(`DIRECCION   ${emisor.address || 'LA JARRA'}`, rteX, 26);
+    doc.text(`POBLACION   LA RAMBLA`, rteX, 32);
+    doc.text(`FECHA:   ${fecha}`, rteX + 90, 26);
 
     // ── Logo agencia (arriba derecha) ─────────────────────────
-    const lx = 168, ly = 12, lw = 28, lh = 20;
+    const lx = 253, ly = 10, lw = 30, lh = 22;
     if (isGLS) {
         doc.setFillColor(0, 83, 164);
         doc.rect(lx, ly, lw, lh, 'F');
@@ -2513,7 +2513,7 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
         doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
         doc.text('GLS', lx + 4, ly + lh / 2 + 3);
         doc.setTextColor(255, 215, 0); doc.setFontSize(16);
-        doc.text('.', lx + 19, ly + lh / 2 + 3);
+        doc.text('.', lx + 21, ly + lh / 2 + 3);
         doc.setTextColor(0, 0, 0);
     } else if (tradiscorLogoB64) {
         doc.addImage(`data:image/jpeg;base64,${tradiscorLogoB64}`, 'JPEG', lx, ly, lw, lh);
@@ -2534,13 +2534,13 @@ function generarParteTradiscorGLS({ agencia, cliente, emisor, fecha, bultos, kg,
     const emptyRow = cols.map(() => '');
 
     const colStyles = isGLS ? {
-        0: { cellWidth: 42 }, 1: { cellWidth: 48 }, 2: { cellWidth: 15 },
-        3: { cellWidth: 30 }, 4: { cellWidth: 20 }, 5: { cellWidth: 10 },
-        6: { cellWidth: 8 },  7: { cellWidth: 9 },
+        0: { cellWidth: 55 }, 1: { cellWidth: 65 }, 2: { cellWidth: 17 },
+        3: { cellWidth: 40 }, 4: { cellWidth: 28 }, 5: { cellWidth: 25 },
+        6: { cellWidth: 14 }, 7: { cellWidth: 25 },
     } : {
-        0: { cellWidth: 38 }, 1: { cellWidth: 43 }, 2: { cellWidth: 13 },
-        3: { cellWidth: 27 }, 4: { cellWidth: 18 }, 5: { cellWidth: 10 },
-        6: { cellWidth: 7 },  7: { cellWidth: 8 },  8: { cellWidth: 18 },
+        0: { cellWidth: 50 }, 1: { cellWidth: 60 }, 2: { cellWidth: 15 },
+        3: { cellWidth: 35 }, 4: { cellWidth: 25 }, 5: { cellWidth: 22 },
+        6: { cellWidth: 12 }, 7: { cellWidth: 15 }, 8: { cellWidth: 35 },
     };
 
     autoTable(doc, {
