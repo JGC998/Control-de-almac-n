@@ -29,7 +29,7 @@ export default function PrefacturaPage() {
     const { data: pedidosPendientesData } = useSWR('/api/pedidos?estado=Pendiente&limit=500', fetcher);
     // SWR — pedidos del cliente seleccionado
     const { data: pedidosClienteData } = useSWR(
-        clienteSeleccionado ? `/api/pedidos?clientId=${clienteSeleccionado.id}&limit=50` : null,
+        clienteSeleccionado ? `/api/pedidos?clientId=${clienteSeleccionado.id}&estado=Pendiente&limit=50` : null,
         fetcher
     );
 
