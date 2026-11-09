@@ -1,341 +1,476 @@
 "use client";
 import { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { FileText, Search, Truck, Package, ArrowRight, Calculator } from 'lucide-react';
+import { FileText, Search, Plus, Trash2, Package, Calculator, ChevronRight, Users } from 'lucide-react';
 
 const fetcher = url => fetch(url).then(r => r.json());
-
 const fmtN = (v) => {
     const n = typeof v === 'number' ? v : parseFloat(v) || 0;
     return isFinite(n) ? n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00';
 };
 
 export default function PrefacturaPage() {
-    const [search, setSearch] = useState('');
-    const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
-    const [agencia, setAgencia] = useState('Pallex');
-    const [tipoPale, setTipoPale] = useState('EUROPEO');
+    // Step 1
+    const [clienteSearch, setClienteSearch] = useState('');
+    const [showSugerencias, setShowSugerencias] = useState(false);
+    const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+    const [pedidosSeleccionados, setPedidosSeleccionados] = useState(new Set());
+    const [pedidosFull, setPedidosFull] = useState([]);
+    const [cargando, setCargando] = useState(false);
+
+    // Step 2
+    const [palets, setPalets] = useState([{ id: 'p1', label: 'Palé 1', tipo: 'EUROPEO', altura: '', costePallex: null }]);
+    const [asignaciones, setAsignaciones] = useState({});
+    const [calculando, setCalculando] = useState({});
     const [provincia, setProvincia] = useState('');
-    const [altura, setAltura] = useState('');
-    const [costeManual, setCosteManual] = useState('');
-    const [costesCalculados, setCostesCalculados] = useState(null);
-    const [calculando, setCalculando] = useState(false);
-    const [generando, setGenerando] = useState(false);
-    const [errorCalculo, setErrorCalculo] = useState('');
 
-    const [cargandoPedido, setCargandoPedido] = useState(false);
+    // Step 3
+    const [generando, setGenerando] = useState('');
 
-    const { data: pedidosData } = useSWR('/api/pedidos?limit=100', fetcher);
+    // SWR
+    const { data: clientesRaw } = useSWR(
+        clienteSearch.length >= 2 ? `/api/clientes?q=${encodeURIComponent(clienteSearch)}` : null,
+        fetcher
+    );
+    const { data: pedidosClienteData } = useSWR(
+        clienteSeleccionado ? `/api/pedidos?clientId=${clienteSeleccionado.id}&limit=50` : null,
+        fetcher
+    );
 
-    const pedidosFiltrados = useMemo(() => {
-        const lista = pedidosData?.data || [];
-        if (!search) return lista.slice(0, 30);
-        const q = search.toLowerCase();
-        return lista.filter(p =>
-            p.numero?.toLowerCase().includes(q) ||
-            p.cliente?.nombre?.toLowerCase().includes(q)
-        ).slice(0, 30);
-    }, [pedidosData, search]);
+    const clientesFiltrados = useMemo(() =>
+        (Array.isArray(clientesRaw) ? clientesRaw : []).slice(0, 8),
+        [clientesRaw]
+    );
+    const pedidosLista = pedidosClienteData?.data || [];
 
-    const seleccionarPedido = async (p) => {
-        setCargandoPedido(true);
-        setCostesCalculados(null);
-        setCosteManual('');
-        setErrorCalculo('');
-        try {
-            const res = await fetch(`/api/pedidos/${p.id}`);
-            const full = await res.json();
-            setPedidoSeleccionado(full);
-            if (full.cliente?.poblacion) setProvincia(full.cliente.poblacion);
-        } finally {
-            setCargandoPedido(false);
-        }
+    // Pool de items de todos los pedidos seleccionados
+    const itemsPool = useMemo(() =>
+        pedidosFull.flatMap(pedido =>
+            (pedido.items || []).map(item => ({
+                key: `${pedido.id}::${item.id}`,
+                pedidoId: pedido.id,
+                pedidoNumero: pedido.numero,
+                itemId: item.id,
+                descripcion: item.descripcion || item.producto?.nombre || '',
+                cantidad: Number(item.quantity) || 0,
+                unitPrice: Number(item.unitPrice) || 0,
+                pesoUnitario: Number(item.producto?.pesoUnitario) || 0,
+            }))
+        ),
+        [pedidosFull]
+    );
+
+    // Helpers de asignación
+    const getAsignado = (key, paletId) => Number(asignaciones[key]?.[paletId]) || 0;
+    const getTotalAsignado = (key) => palets.reduce((s, p) => s + getAsignado(key, p.id), 0);
+    const getSinAsignar = (item) => item.cantidad - getTotalAsignado(item.key);
+    const getPaletPeso = (paletId) =>
+        itemsPool.reduce((s, item) => s + getAsignado(item.key, paletId) * item.pesoUnitario, 0);
+    const getPaletItems = (paletId) =>
+        itemsPool
+            .filter(item => getAsignado(item.key, paletId) > 0)
+            .map(item => ({ ...item, cantidadPalet: getAsignado(item.key, paletId) }));
+
+    const setAsignacion = (key, paletId, raw) => {
+        const item = itemsPool.find(i => i.key === key);
+        if (!item) return;
+        const maxDisp = item.cantidad - getTotalAsignado(key) + getAsignado(key, paletId);
+        const v = Math.max(0, Math.min(Number(raw) || 0, maxDisp));
+        setAsignaciones(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [paletId]: v } }));
     };
 
-    const pesoTotal = useMemo(() => {
-        if (!pedidoSeleccionado?.items) return 0;
-        return pedidoSeleccionado.items.reduce((sum, item) => {
-            return sum + (Number(item.quantity) || 0) * (Number(item.producto?.pesoUnitario) || 0);
-        }, 0);
-    }, [pedidoSeleccionado]);
+    const addPalet = () => {
+        const n = palets.length + 1;
+        setPalets(prev => [...prev, { id: `p${Date.now()}`, label: `Palé ${n}`, tipo: 'EUROPEO', altura: '', costePallex: null }]);
+    };
 
-    const calcularPallex = async () => {
-        if (!provincia || !altura) { setErrorCalculo('Introduce provincia y altura del palé'); return; }
-        setCalculando(true);
-        setErrorCalculo('');
+    const removePalet = (paletId) => {
+        setPalets(prev => prev.filter(p => p.id !== paletId));
+        setAsignaciones(prev => {
+            const next = {};
+            Object.keys(prev).forEach(k => { const a = { ...prev[k] }; delete a[paletId]; next[k] = a; });
+            return next;
+        });
+    };
+
+    const seleccionarCliente = (c) => {
+        setClienteSeleccionado(c);
+        setClienteSearch(c.nombre);
+        setShowSugerencias(false);
+        setPedidosSeleccionados(new Set());
+        setPedidosFull([]);
+        setProvincia(c.poblacion || '');
+        setAsignaciones({});
+    };
+
+    const togglePedido = async (pedido) => {
+        const newSet = new Set(pedidosSeleccionados);
+        if (newSet.has(pedido.id)) {
+            newSet.delete(pedido.id);
+            setPedidosFull(prev => prev.filter(p => p.id !== pedido.id));
+        } else {
+            newSet.add(pedido.id);
+            setCargando(true);
+            try {
+                const res = await fetch(`/api/pedidos/${pedido.id}`);
+                const full = await res.json();
+                setPedidosFull(prev => [...prev, full]);
+            } finally {
+                setCargando(false);
+            }
+        }
+        setPedidosSeleccionados(newSet);
+        setAsignaciones({});
+    };
+
+    const calcularPalet = async (paletId) => {
+        const palet = palets.find(p => p.id === paletId);
+        if (!palet?.altura || !provincia) return;
+        setCalculando(prev => ({ ...prev, [paletId]: true }));
         try {
             const res = await fetch('/api/logistica/calcular', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     provincia: provincia.toUpperCase(),
-                    peso: pesoTotal || 1,
-                    altura: parseFloat(altura),
-                    tipoPale,
+                    peso: getPaletPeso(paletId) || 1,
+                    altura: parseFloat(palet.altura),
+                    tipoPale: palet.tipo,
                 }),
             });
             const data = await res.json();
-            if (!res.ok) { setErrorCalculo(data.error || 'Error en cálculo'); return; }
-            setCostesCalculados({ tipo: 'pallex', ...data });
-        } catch {
-            setErrorCalculo('Error de conexión');
+            if (res.ok) setPalets(prev => prev.map(p => p.id === paletId ? { ...p, costePallex: data } : p));
         } finally {
-            setCalculando(false);
+            setCalculando(prev => ({ ...prev, [paletId]: false }));
         }
     };
 
-    const costesEnvio = useMemo(() => {
-        if (agencia === 'Pallex') return costesCalculados;
-        const total = parseFloat(costeManual) || 0;
-        if (!total) return null;
-        return { tipo: 'manual', total };
-    }, [agencia, costesCalculados, costeManual]);
-
-    const subtotalProductos = Number(pedidoSeleccionado?.subtotal ?? 0);
-    const totalEnvio = costesEnvio
-        ? (costesEnvio.tipo === 'pallex' ? Number(costesEnvio.costeTotal) : Number(costesEnvio.total || 0))
-        : 0;
-    const baseImponible = subtotalProductos + totalEnvio;
-    const iva = baseImponible * 0.21;
-    const totalFinal = baseImponible + iva;
-
-    const generarPDF = async () => {
-        if (!pedidoSeleccionado) return;
-        setGenerando(true);
+    const generarPackingList = async (paletId) => {
+        const palet = palets.find(p => p.id === paletId);
+        const items = getPaletItems(paletId);
+        if (!items.length) return;
+        setGenerando(paletId);
         try {
-            const res = await fetch(`/api/pedidos/${pedidoSeleccionado.id}/prefactura`, {
+            const res = await fetch('/api/prefactura/packing-list', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agencia, costesEnvio }),
+                body: JSON.stringify({ palet: { label: palet.label, tipo: palet.tipo }, items, cliente: clienteSeleccionado }),
             });
-            if (!res.ok) { alert('Error al generar la prefactura'); return; }
+            if (!res.ok) { alert('Error generando packing list'); return; }
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `prefactura-${pedidoSeleccionado.numero}.pdf`;
+            a.download = `packing-list-${palet.label.replace(/\s/g, '-').toLowerCase()}.pdf`;
             a.click();
             URL.revokeObjectURL(url);
         } finally {
-            setGenerando(false);
+            setGenerando('');
         }
     };
 
+    const generarPrefactura = async () => {
+        setGenerando('prefactura');
+        try {
+            const res = await fetch('/api/prefactura', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clienteId: clienteSeleccionado.id,
+                    pedidoIds: [...pedidosSeleccionados],
+                    palets: palets.map(p => ({
+                        label: p.label,
+                        tipo: p.tipo,
+                        peso: getPaletPeso(p.id),
+                        costePallex: p.costePallex,
+                    })),
+                    provincia,
+                }),
+            });
+            if (!res.ok) { alert('Error generando prefactura'); return; }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prefactura-${(clienteSeleccionado.nombre || 'cliente').replace(/\s+/g, '-')}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setGenerando('');
+        }
+    };
+
+    // Totales
+    const subtotalProductos = pedidosFull.reduce((s, p) => s + Number(p.subtotal || 0), 0);
+    const totalEnvio = palets.reduce((s, p) => s + (Number(p.costePallex?.costeTotal) || 0), 0);
+    const baseImponible = subtotalProductos + totalEnvio;
+    const iva = baseImponible * 0.21;
+    const totalFinal = baseImponible + iva;
+    const todoAsignado = itemsPool.length > 0 && itemsPool.every(item => getSinAsignar(item) === 0);
+
     return (
-        <div className="container mx-auto p-4 max-w-6xl">
+        <div className="container mx-auto p-4 max-w-7xl">
             <div className="flex items-center gap-3 mb-6">
                 <FileText className="w-7 h-7 text-primary" />
                 <div>
                     <h1 className="text-2xl font-bold">Prefactura</h1>
-                    <p className="text-base-content/60 text-sm">Genera una pre-factura con desglose de productos y costes de envío</p>
+                    <p className="text-base-content/60 text-sm">Agrupa pedidos de un cliente, distribuye en palés y genera la prefactura + packing lists</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {/* Panel izquierdo — selección de pedido */}
-                <div className="lg:col-span-2 space-y-3">
-                    <div className="card bg-base-100 shadow">
-                        <div className="card-body p-4">
-                            <h2 className="font-semibold flex items-center gap-2 mb-3">
-                                <Search className="w-4 h-4" /> Seleccionar pedido
-                            </h2>
+            {/* PASO 1: Cliente + pedidos */}
+            <div className="card bg-base-100 shadow mb-4">
+                <div className="card-body p-4">
+                    <h2 className="font-semibold flex items-center gap-2 mb-3">
+                        <Users className="w-4 h-4" /> 1. Cliente y pedidos
+                    </h2>
+                    <div className="flex flex-wrap gap-4 items-start">
+                        {/* Búsqueda cliente */}
+                        <div className="relative">
+                            <label className="label py-0 mb-1"><span className="label-text text-xs">Cliente</span></label>
                             <input
                                 type="text"
-                                placeholder="Buscar por número o cliente…"
-                                className="input input-bordered input-sm w-full mb-3"
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Buscar cliente…"
+                                className="input input-bordered input-sm w-72"
+                                value={clienteSearch}
+                                onChange={e => {
+                                    setClienteSearch(e.target.value);
+                                    setShowSugerencias(true);
+                                    if (clienteSeleccionado && e.target.value !== clienteSeleccionado.nombre) setClienteSeleccionado(null);
+                                }}
+                                onFocus={() => setShowSugerencias(true)}
+                                onBlur={() => setTimeout(() => setShowSugerencias(false), 150)}
                             />
-                            <div className="space-y-1 max-h-[60vh] overflow-y-auto">
-                                {pedidosFiltrados.map(p => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => seleccionarPedido(p)}
-                                        className={`w-full text-left p-3 rounded-lg border transition-colors hover:bg-base-200 ${pedidoSeleccionado?.id === p.id ? 'border-primary bg-primary/5' : 'border-base-200'}`}
-                                    >
-                                        <div className="font-mono text-sm font-semibold">{p.numero}</div>
-                                        <div className="text-sm text-base-content/70 truncate">{p.cliente?.nombre}</div>
-                                        <div className="text-xs text-base-content/50 flex justify-between mt-1">
-                                            <span>{new Date(p.fecha || p.fechaCreacion).toLocaleDateString('es-ES')}</span>
-                                            <span className="font-semibold text-base-content/70">{fmtN(p.total)} €</span>
-                                        </div>
-                                    </button>
-                                ))}
-                                    {cargandoPedido && <p className="text-center text-base-content/50 text-sm py-4">Cargando pedido…</p>}
-                            {!pedidosFiltrados.length && (
-                                    <p className="text-center text-base-content/50 text-sm py-8">Sin resultados</p>
+                            {showSugerencias && clientesFiltrados.length > 0 && (
+                                <div className="absolute z-50 mt-1 w-72 bg-base-100 border border-base-300 rounded-lg shadow-lg">
+                                    {clientesFiltrados.map(c => (
+                                        <button key={c.id} onMouseDown={() => seleccionarCliente(c)} className="w-full text-left px-3 py-2 hover:bg-base-200 text-sm first:rounded-t-lg last:rounded-b-lg">
+                                            <div className="font-medium">{c.nombre}</div>
+                                            {c.telefono && <div className="text-xs text-base-content/50">{c.telefono}</div>}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Pedidos del cliente */}
+                        {clienteSeleccionado && (
+                            <div className="flex-1 min-w-80">
+                                <label className="label py-0 mb-1"><span className="label-text text-xs">Pedidos de {clienteSeleccionado.nombre}</span></label>
+                                {pedidosLista.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {pedidosLista.map(p => (
+                                            <label key={p.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${pedidosSeleccionados.has(p.id) ? 'border-primary bg-primary/10 font-medium' : 'border-base-200 hover:bg-base-200'}`}>
+                                                <input type="checkbox" className="checkbox checkbox-xs checkbox-primary" checked={pedidosSeleccionados.has(p.id)} onChange={() => togglePedido(p)} disabled={cargando} />
+                                                <span className="font-mono">{p.numero}</span>
+                                                <span className="text-base-content/60">{fmtN(p.total)} €</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <span className="text-sm text-base-content/40">Sin pedidos</span>
                                 )}
+                                {cargando && <span className="loading loading-spinner loading-xs ml-2" />}
                             </div>
+                        )}
+
+                        {/* Provincia */}
+                        {pedidosSeleccionados.size > 0 && (
+                            <div>
+                                <label className="label py-0 mb-1"><span className="label-text text-xs">Provincia destino (Pallex)</span></label>
+                                <input
+                                    type="text"
+                                    placeholder="Ej: JAÉN"
+                                    className="input input-bordered input-sm w-32 uppercase"
+                                    value={provincia}
+                                    onChange={e => setProvincia(e.target.value.toUpperCase())}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* PASO 2: Distribución en palés */}
+            {itemsPool.length > 0 && (
+                <div className="card bg-base-100 shadow mb-4">
+                    <div className="card-body p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="font-semibold flex items-center gap-2">
+                                <Package className="w-4 h-4" /> 2. Distribución en palés
+                                {todoAsignado && <span className="badge badge-success badge-sm ml-2">Todo asignado ✓</span>}
+                            </h2>
+                            <button onClick={addPalet} className="btn btn-sm btn-ghost gap-1">
+                                <Plus className="w-4 h-4" /> Añadir palé
+                            </button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="table table-xs w-full border border-base-200 rounded-lg">
+                                <thead>
+                                    <tr className="bg-base-200">
+                                        <th className="min-w-48">Artículo</th>
+                                        <th className="w-28 text-center">Pedido</th>
+                                        <th className="w-12 text-center">Total</th>
+                                        {palets.map(p => (
+                                            <th key={p.id} className="w-20 text-center bg-primary/5">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    {p.label}
+                                                    {palets.length > 1 && (
+                                                        <button onClick={() => removePalet(p.id)} className="text-error opacity-40 hover:opacity-100">
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </th>
+                                        ))}
+                                        <th className="w-12 text-center">Resto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {itemsPool.map(item => {
+                                        const resto = getSinAsignar(item);
+                                        return (
+                                            <tr key={item.key} className="hover">
+                                                <td><span className="text-xs line-clamp-2">{item.descripcion}</span></td>
+                                                <td className="text-center"><span className="font-mono text-xs text-base-content/50">{item.pedidoNumero}</span></td>
+                                                <td className="text-center font-semibold text-sm">{item.cantidad}</td>
+                                                {palets.map(p => (
+                                                    <td key={p.id} className="text-center bg-primary/[0.02]">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={item.cantidad}
+                                                            value={getAsignado(item.key, p.id) || ''}
+                                                            onChange={e => setAsignacion(item.key, p.id, e.target.value)}
+                                                            className="input input-xs input-bordered w-14 text-center"
+                                                            placeholder="0"
+                                                        />
+                                                    </td>
+                                                ))}
+                                                <td className={`text-center font-semibold text-sm ${resto > 0 ? 'text-warning' : 'text-success'}`}>{resto}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                                <tfoot className="border-t-2 border-base-300">
+                                    <tr className="bg-base-50">
+                                        <td colSpan={3} className="text-xs font-semibold text-base-content/60 py-2">Peso aprox.</td>
+                                        {palets.map(p => <td key={p.id} className="text-center text-xs font-semibold">{fmtN(getPaletPeso(p.id))} kg</td>)}
+                                        <td />
+                                    </tr>
+                                    <tr>
+                                        <td colSpan={3} className="text-xs text-base-content/60">Tipo</td>
+                                        {palets.map(p => (
+                                            <td key={p.id}>
+                                                <select className="select select-xs select-bordered w-full" value={p.tipo}
+                                                    onChange={e => setPalets(prev => prev.map(x => x.id === p.id ? { ...x, tipo: e.target.value, costePallex: null } : x))}>
+                                                    <option value="EUROPEO">Europeo</option>
+                                                    <option value="MEDIO">Medio</option>
+                                                </select>
+                                            </td>
+                                        ))}
+                                        <td />
+                                    </tr>
+                                    <tr>
+                                        <td colSpan={3} className="text-xs text-base-content/60">Altura (cm)</td>
+                                        {palets.map(p => (
+                                            <td key={p.id}>
+                                                <input type="number" placeholder="cm" value={p.altura}
+                                                    onChange={e => setPalets(prev => prev.map(x => x.id === p.id ? { ...x, altura: e.target.value, costePallex: null } : x))}
+                                                    className="input input-xs input-bordered w-full" />
+                                            </td>
+                                        ))}
+                                        <td />
+                                    </tr>
+                                    <tr>
+                                        <td colSpan={3} className="text-xs text-base-content/60">Coste Pallex</td>
+                                        {palets.map(p => (
+                                            <td key={p.id} className="text-center py-1">
+                                                {p.costePallex ? (
+                                                    <div>
+                                                        <div className="text-xs font-bold text-success">{fmtN(p.costePallex.costeTotal)} €</div>
+                                                        <div className="text-xs text-base-content/40">{p.costePallex.tipologia}</div>
+                                                        <button onClick={() => calcularPalet(p.id)} className="btn btn-xs btn-ghost mt-0.5">↺</button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => calcularPalet(p.id)} disabled={!p.altura || !provincia || calculando[p.id]} className="btn btn-xs btn-secondary gap-1">
+                                                        {calculando[p.id] ? <span className="loading loading-spinner loading-xs" /> : <><Calculator className="w-3 h-3" /> Calc</>}
+                                                    </button>
+                                                )}
+                                            </td>
+                                        ))}
+                                        <td />
+                                    </tr>
+                                    <tr>
+                                        <td colSpan={3} className="text-xs text-base-content/60">Packing list</td>
+                                        {palets.map(p => (
+                                            <td key={p.id} className="text-center py-1">
+                                                <button onClick={() => generarPackingList(p.id)} disabled={!getPaletItems(p.id).length || generando === p.id} className="btn btn-xs btn-outline gap-1">
+                                                    {generando === p.id ? <span className="loading loading-spinner loading-xs" /> : <FileText className="w-3 h-3" />} PDF
+                                                </button>
+                                            </td>
+                                        ))}
+                                        <td />
+                                    </tr>
+                                </tfoot>
+                            </table>
                         </div>
                     </div>
                 </div>
+            )}
 
-                {/* Panel derecho — configurador */}
-                <div className="lg:col-span-3 space-y-4">
-                    {!pedidoSeleccionado ? (
-                        <div className="card bg-base-100 shadow">
-                            <div className="card-body items-center justify-center py-20 text-base-content/40">
-                                <ArrowRight className="w-12 h-12 mb-3" />
-                                <p>Selecciona un pedido para continuar</p>
+            {/* PASO 3: Resumen + Generar */}
+            {itemsPool.length > 0 && (
+                <div className="card bg-base-100 shadow">
+                    <div className="card-body p-4">
+                        <h2 className="font-semibold flex items-center gap-2 mb-4">
+                            <ChevronRight className="w-4 h-4" /> 3. Resumen y generar prefactura
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <p className="text-sm font-medium mb-2">Desglose por palé:</p>
+                                <div className="space-y-1">
+                                    {palets.map(p => (
+                                        <div key={p.id} className="flex justify-between text-sm">
+                                            <span className="text-base-content/60">{p.label} — {p.tipo}{p.altura ? `, ${p.altura} cm` : ''}, {fmtN(getPaletPeso(p.id))} kg</span>
+                                            <span className="font-medium">{p.costePallex ? `${fmtN(p.costePallex.costeTotal)} €` : '—'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="space-y-1 text-sm">
+                                {pedidosFull.map(p => (
+                                    <div key={p.id} className="flex justify-between text-xs text-base-content/50">
+                                        <span>{p.numero}</span><span>{fmtN(p.subtotal)} €</span>
+                                    </div>
+                                ))}
+                                <div className="flex justify-between font-medium border-t border-base-200 pt-1 mt-1">
+                                    <span>Subtotal productos</span><span>{fmtN(subtotalProductos)} €</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-base-content/60">Total envío ({palets.length} palé{palets.length > 1 ? 's' : ''})</span>
+                                    <span>{fmtN(totalEnvio)} €</span>
+                                </div>
+                                <div className="divider my-1" />
+                                <div className="flex justify-between">
+                                    <span className="text-base-content/60">Base imponible</span><span>{fmtN(baseImponible)} €</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-base-content/60">IVA 21%</span><span>{fmtN(iva)} €</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-base pt-1">
+                                    <span>TOTAL</span><span className="text-primary">{fmtN(totalFinal)} €</span>
+                                </div>
                             </div>
                         </div>
-                    ) : (
-                        <>
-                            {/* Resumen pedido */}
-                            <div className="card bg-base-100 shadow">
-                                <div className="card-body p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <span className="font-mono font-bold text-lg">{pedidoSeleccionado.numero}</span>
-                                            <span className="ml-3 text-base-content/60">{pedidoSeleccionado.cliente?.nombre}</span>
-                                        </div>
-                                        <span className="font-semibold">{fmtN(subtotalProductos)} € <span className="text-xs text-base-content/50">s/IVA</span></span>
-                                    </div>
-                                    {pesoTotal > 0 && (
-                                        <p className="text-sm text-base-content/50 mt-1">
-                                            <Package className="w-3 h-3 inline mr-1" />
-                                            Peso aprox.: {fmtN(pesoTotal)} kg
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Configuración envío */}
-                            <div className="card bg-base-100 shadow">
-                                <div className="card-body p-4">
-                                    <h2 className="font-semibold flex items-center gap-2 mb-4">
-                                        <Truck className="w-4 h-4" /> Configurar envío
-                                    </h2>
-
-                                    {/* Selector de agencia */}
-                                    <div className="mb-4">
-                                        <label className="label py-1"><span className="label-text font-medium">Tipo de envío</span></label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {['Pallex', 'GLS', 'CBL', 'Furgoneta'].map(a => (
-                                                <button
-                                                    key={a}
-                                                    onClick={() => { setAgencia(a); setCostesCalculados(null); setCosteManual(''); setErrorCalculo(''); }}
-                                                    className={`btn btn-sm ${agencia === a ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
-                                                >
-                                                    {a}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {agencia === 'Pallex' ? (
-                                        <div className="space-y-3">
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="label py-1"><span className="label-text text-sm">Provincia destino</span></label>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Ej: JAÉN"
-                                                        className="input input-bordered input-sm w-full uppercase"
-                                                        value={provincia}
-                                                        onChange={e => setProvincia(e.target.value.toUpperCase())}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="label py-1"><span className="label-text text-sm">Tipo de palé</span></label>
-                                                    <select className="select select-bordered select-sm w-full" value={tipoPale} onChange={e => setTipoPale(e.target.value)}>
-                                                        <option value="EUROPEO">Europeo (120×80cm)</option>
-                                                        <option value="MEDIO">Medio palé (60×80cm)</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="label py-1"><span className="label-text text-sm">Altura del palé (cm)</span></label>
-                                                <input
-                                                    type="number"
-                                                    placeholder="Ej: 120"
-                                                    className="input input-bordered input-sm w-full"
-                                                    value={altura}
-                                                    onChange={e => setAltura(e.target.value)}
-                                                />
-                                            </div>
-                                            {errorCalculo && <p className="text-error text-sm">{errorCalculo}</p>}
-                                            <button
-                                                onClick={calcularPallex}
-                                                disabled={calculando}
-                                                className="btn btn-secondary btn-sm gap-2"
-                                            >
-                                                <Calculator className="w-4 h-4" />
-                                                {calculando ? 'Calculando…' : 'Calcular coste Pallex'}
-                                            </button>
-
-                                            {costesCalculados && (
-                                                <div className="bg-base-200 rounded-lg p-3 text-sm space-y-1">
-                                                    <div className="flex justify-between"><span className="text-base-content/60">Tipología:</span><span className="font-mono uppercase">{costesCalculados.tipologia}</span></div>
-                                                    <div className="flex justify-between"><span className="text-base-content/60">· Palé:</span><span>{fmtN(costesCalculados.desglose.pale)} €</span></div>
-                                                    <div className="flex justify-between"><span className="text-base-content/60">· Materiales embalaje:</span><span>{fmtN(costesCalculados.desglose.materiales)} €</span></div>
-                                                    <div className="flex justify-between"><span className="text-base-content/60">· Transporte:</span><span>{fmtN(costesCalculados.costeTransporte)} €</span></div>
-                                                    <div className="divider my-1" />
-                                                    <div className="flex justify-between font-semibold"><span>Total envío:</span><span>{fmtN(costesCalculados.costeTotal)} €</span></div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <label className="label py-1"><span className="label-text text-sm">Coste de envío ({agencia})</span></label>
-                                            <div className="join">
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    placeholder="0,00"
-                                                    className="input input-bordered input-sm join-item w-40"
-                                                    value={costeManual}
-                                                    onChange={e => setCosteManual(e.target.value)}
-                                                />
-                                                <span className="btn btn-sm join-item no-animation bg-base-200 border-base-300 pointer-events-none">€</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Resumen total */}
-                            <div className="card bg-base-100 shadow">
-                                <div className="card-body p-4">
-                                    <h2 className="font-semibold mb-3">Resumen prefactura</h2>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-base-content/60">Subtotal productos</span>
-                                            <span>{fmtN(subtotalProductos)} €</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-base-content/60">Coste envío ({agencia})</span>
-                                            <span>{fmtN(totalEnvio)} €</span>
-                                        </div>
-                                        <div className="divider my-1" />
-                                        <div className="flex justify-between">
-                                            <span className="text-base-content/60">Base imponible</span>
-                                            <span>{fmtN(baseImponible)} €</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-base-content/60">IVA 21%</span>
-                                            <span>{fmtN(iva)} €</span>
-                                        </div>
-                                        <div className="flex justify-between font-bold text-base pt-1">
-                                            <span>TOTAL</span>
-                                            <span className="text-primary">{fmtN(totalFinal)} €</span>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={generarPDF}
-                                        disabled={generando || !pedidoSeleccionado}
-                                        className="btn btn-primary w-full mt-4 gap-2"
-                                    >
-                                        <FileText className="w-4 h-4" />
-                                        {generando ? 'Generando PDF…' : 'Generar Prefactura PDF'}
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    )}
+                        <button onClick={generarPrefactura} disabled={generando === 'prefactura' || !pedidosSeleccionados.size} className="btn btn-primary w-full mt-4 gap-2">
+                            <FileText className="w-4 h-4" />
+                            {generando === 'prefactura' ? 'Generando PDF…' : `Generar Prefactura (${pedidosSeleccionados.size} pedido${pedidosSeleccionados.size > 1 ? 's' : ''})`}
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

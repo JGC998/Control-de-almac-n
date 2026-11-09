@@ -2794,3 +2794,183 @@ export async function generarPrefacturaPDF(pedido, { costesEnvio, agencia, ivaRa
 
     return doc.output('arraybuffer');
 }
+
+// Genera el PDF de packing list de un palé
+export async function generarPackingListPDF(palet, items, cliente) {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    // Cabecera
+    doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
+    doc.text('PACKING LIST', 14, 20);
+    doc.setFontSize(13); doc.setFont('helvetica', 'normal');
+    doc.text(palet.label.toUpperCase(), 14, 29);
+
+    // Info palé
+    doc.setFontSize(10);
+    const tipoLabel = palet.tipo === 'EUROPEO' ? 'Palé Europeo (120×80 cm)' : 'Medio Palé (60×80 cm)';
+    doc.text(`Tipo: ${tipoLabel}`, 14, 37);
+    doc.text(`Cliente: ${cliente?.nombre || '—'}`, 14, 44);
+    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 51);
+
+    // Tabla de artículos
+    const rows = items.map(item => [
+        item.descripcion,
+        item.pedidoNumero || '—',
+        String(item.cantidadPalet),
+        item.pesoUnitario ? `${fmtN(item.pesoUnitario)} kg` : '—',
+        item.pesoUnitario ? `${fmtN(item.cantidadPalet * item.pesoUnitario)} kg` : '—',
+    ]);
+
+    const pesoTotal = items.reduce((s, i) => s + (i.cantidadPalet * (i.pesoUnitario || 0)), 0);
+
+    autoTable(doc, {
+        head: [['Artículo', 'Pedido', 'Cant.', 'Peso unit.', 'Peso total']],
+        body: rows,
+        startY: 58,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+            0: { cellWidth: 90 },
+            1: { cellWidth: 35, halign: 'center' },
+            2: { cellWidth: 15, halign: 'center' },
+            3: { cellWidth: 25, halign: 'right' },
+            4: { cellWidth: 25, halign: 'right' },
+        },
+        margin: { left: 14, right: 14 },
+        foot: [['', '', '', 'PESO TOTAL:', `${fmtN(pesoTotal)} kg`]],
+        footStyles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+    });
+
+    return doc.output('arraybuffer');
+}
+
+// Genera la prefactura multi-pedido con desglose de palés
+export async function generarPrefacturaMultiPDF(pedidos, palets, cliente, { totalEnvio = 0, ivaRate = 0.21 } = {}) {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210; const PAD = 14;
+    const { nombre: emisorNombre, nif, address, phone } = await getEmisorInfo();
+    const logoBase64 = await getLogoBase64();
+
+    if (logoBase64) {
+        try { doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', W - PAD - 50, 12, 50, 15); } catch {}
+    }
+
+    // Título
+    doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
+    doc.text('PRE-FACTURA', PAD, 22);
+
+    // Emisor (alineado a la derecha)
+    doc.setFontSize(10);
+    let ey = 32;
+    if (emisorNombre) { doc.setFont('helvetica', 'bold'); doc.text(emisorNombre, W - PAD, ey, { align: 'right' }); ey += 6; doc.setFont('helvetica', 'normal'); }
+    if (nif) { doc.text(`NIF: ${nif}`, W - PAD, ey, { align: 'right' }); ey += 5; }
+    if (address) { doc.text(address, W - PAD, ey, { align: 'right' }); ey += 5; }
+    if (phone) { doc.text(`Tel: ${phone}`, W - PAD, ey, { align: 'right' }); }
+
+    // Fecha + pedidos de referencia
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, PAD, 36);
+    if (pedidos.length) {
+        doc.text(`Pedidos: ${pedidos.map(p => p.numero).join(', ')}`, PAD, 42);
+    }
+
+    // Caja cliente
+    const cBoxX = PAD, cBoxY = 52, cBoxW = 90, cLineH = 6, cTextX = PAD + 5, cMaxW = cBoxW - 10;
+    doc.setFontSize(10);
+    const cNombreLines = doc.splitTextToSize(cliente?.nombre || 'Sin cliente', cMaxW);
+    const cDirLines = cliente?.direccion ? doc.splitTextToSize(cliente.direccion, cMaxW) : [];
+    const cCpPob = [cliente?.cp, cliente?.poblacion].filter(Boolean).join(' ');
+    const cAllLines = [...cNombreLines, ...cDirLines, ...(cCpPob ? [cCpPob] : []), ...(cliente?.telefono ? [cliente.telefono] : [])];
+    const cBoxH = Math.max(26, 10 + cAllLines.length * cLineH + 2);
+    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3);
+    doc.rect(cBoxX, cBoxY, cBoxW, cBoxH);
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(100, 100, 100);
+    doc.text('CLIENTE:', cTextX, cBoxY + 5);
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(0, 0, 0);
+    let cLineY = cBoxY + 11;
+    cAllLines.forEach(line => { doc.text(line, cTextX, cLineY); cLineY += cLineH; });
+
+    let startY = cBoxY + cBoxH + 8;
+    let subtotalTotal = 0;
+
+    // Items por pedido
+    for (const pedido of pedidos) {
+        const subtotal = Number(pedido.subtotal || 0);
+        subtotalTotal += subtotal;
+
+        doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
+        doc.text(`Pedido ${pedido.numero}`, PAD, startY);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(80, 80, 80);
+        doc.text(`${fmtN(subtotal)} € s/IVA`, W - PAD, startY, { align: 'right' });
+        startY += 2;
+
+        autoTable(doc, {
+            head: [['Descripción', 'Cant.', 'P. Unit.', 'Total']],
+            body: (pedido.items || []).map(item => [
+                item.descripcion || item.producto?.nombre || '',
+                String(item.quantity ?? 0),
+                `${fmtN(item.unitPrice ?? 0)} €`,
+                `${fmtN((item.unitPrice ?? 0) * (item.quantity ?? 0))} €`,
+            ]),
+            startY,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, textColor: [0, 0, 0] },
+            headStyles: { fillColor: [60, 60, 60], textColor: 255, fontStyle: 'bold' },
+            columnStyles: {
+                0: { cellWidth: 100 },
+                1: { cellWidth: 20, halign: 'center' },
+                2: { cellWidth: 35, halign: 'right' },
+                3: { cellWidth: 35, halign: 'right' },
+            },
+            margin: { left: PAD, right: PAD },
+        });
+
+        startY = doc.lastAutoTable.finalY + 8;
+    }
+
+    // Totales
+    const labelX = 128, valX = W - PAD;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal productos:', labelX, startY);
+    doc.text(`${fmtN(subtotalTotal)} €`, valX, startY, { align: 'right' }); startY += 7;
+
+    if (palets?.length) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Envío Pallex:', labelX, startY); startY += 5;
+        doc.setFont('helvetica', 'normal');
+        for (const p of palets) {
+            if (p.costePallex) {
+                const lineText = `  · ${p.label} (${p.tipo === 'EUROPEO' ? 'Europeo' : 'Medio'}, ${fmtN(p.peso || 0)} kg):`;
+                doc.text(lineText, labelX, startY);
+                doc.text(`${fmtN(p.costePallex.costeTotal)} €`, valX, startY, { align: 'right' }); startY += 5;
+            }
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.text('Subtotal envío:', labelX + 3, startY);
+        doc.text(`${fmtN(totalEnvio)} €`, valX, startY, { align: 'right' });
+        doc.setFont('helvetica', 'normal'); startY += 7;
+    }
+
+    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3);
+    doc.line(labelX, startY, valX, startY); startY += 5;
+
+    const baseImponible = subtotalTotal + totalEnvio;
+    const ivaImporte = baseImponible * ivaRate;
+    const totalConIva = baseImponible + ivaImporte;
+
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('Base imponible:', labelX, startY);
+    doc.text(`${fmtN(baseImponible)} €`, valX, startY, { align: 'right' }); startY += 5;
+    doc.text(`IVA ${(ivaRate * 100).toFixed(0)}%:`, labelX, startY);
+    doc.text(`${fmtN(ivaImporte)} €`, valX, startY, { align: 'right' }); startY += 6;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('TOTAL:', labelX, startY);
+    doc.text(`${fmtN(totalConIva)} €`, valX, startY, { align: 'right' });
+
+    doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(140, 140, 140);
+    doc.text('Documento sin valor fiscal. La factura oficial se emitirá una vez realizada la entrega.', PAD, 285);
+
+    return doc.output('arraybuffer');
+}
