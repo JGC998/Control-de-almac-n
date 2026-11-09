@@ -15,10 +15,11 @@ export async function GET(request) {
     const pageParam = searchParams.get('page');
     const limitParam = searchParams.get('limit');
 
+    const estadoParam = searchParams.get('estado');
+
     const whereClause = {};
-    if (clientId) {
-      whereClause.clienteId = clientId;
-    }
+    if (clientId) whereClause.clienteId = clientId;
+    if (estadoParam) whereClause.estado = estadoParam;
 
     const page = Math.max(1, parseInt(pageParam || '1', 10) || 1);
     const limit = Math.min(500, Math.max(1, parseInt(limitParam || '50', 10) || 50));
@@ -30,7 +31,7 @@ export async function GET(request) {
         take: limit,
         skip,
         include: {
-          cliente: { select: { nombre: true } },
+          cliente: { select: { id: true, nombre: true } },
         },
         orderBy: { fechaCreacion: 'desc' },
       }),
