@@ -2665,3 +2665,132 @@ function generarParteCBL({ cliente, emisor, fecha, bultos, kg, observaciones, di
 
     return doc.output('arraybuffer');
 }
+
+// ─── Prefactura ───────────────────────────────────────────────────────────────
+export async function generarPrefacturaPDF(pedido, { costesEnvio, agencia, ivaRate = 0.21 } = {}) {
+    const doc = new jsPDF();
+    const cliente = pedido.cliente;
+    const { nombre: emisorNombre, nif, address, phone } = await getEmisorInfo();
+    const logoBase64 = await getLogoBase64();
+
+    if (logoBase64) doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 145, 15, 50, 15);
+
+    // Título
+    doc.setFontSize(20); doc.setFont('helvetica', 'bold');
+    doc.text('PRE-FACTURA', 14, 22);
+
+    // Emisor (derecha)
+    doc.setFontSize(10);
+    let ey = 32;
+    if (emisorNombre) { doc.setFont('helvetica', 'bold'); doc.text(emisorNombre, 200, ey, { align: 'right' }); ey += 6; doc.setFont('helvetica', 'normal'); }
+    if (nif) { doc.text(`NIF: ${nif}`, 200, ey, { align: 'right' }); ey += 6; }
+    if (address) { doc.text(address, 200, ey, { align: 'right' }); ey += 6; }
+    if (phone) { doc.text(`Tel: ${phone}`, 200, ey, { align: 'right' }); }
+
+    // Ref + fecha
+    doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+    doc.text('Pedido:', 14, 36); doc.setFont('helvetica', 'normal');
+    doc.text(pedido.numero || '', 42, 36);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Fecha:', 14, 42); doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('es-ES'), 38, 42);
+
+    // Cliente
+    const cBoxX = 14, cBoxY = 55, cBoxW = 90, cLineH = 6, cTextX = 20, cMaxW = cBoxW - 12;
+    doc.setFontSize(10);
+    const cNombreLines = doc.splitTextToSize(cliente?.nombre || 'Sin cliente', cMaxW);
+    const cDirLines = cliente?.direccion ? doc.splitTextToSize(cliente.direccion, cMaxW) : [];
+    const cCpPob = [cliente?.cp, cliente?.poblacion].filter(Boolean).join(' ');
+    const cAllLines = [...cNombreLines, ...cDirLines, ...(cCpPob ? [cCpPob] : []), ...(cliente?.telefono ? [cliente.telefono] : [])];
+    const cBoxH = Math.max(28, 10 + cAllLines.length * cLineH + 4);
+    doc.rect(cBoxX, cBoxY, cBoxW, cBoxH);
+    doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+    doc.text('Cliente:', cTextX, cBoxY + 6);
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+    let cLineY = cBoxY + 13;
+    cAllLines.forEach(line => { doc.text(line, cTextX, cLineY); cLineY += cLineH; });
+
+    const tableStartY = cBoxY + cBoxH + 7;
+
+    // Items
+    autoTable(doc, {
+        head: [['Descripción', 'Cant.', 'P. Unit.', 'Total']],
+        body: (pedido.items || []).map(item => [
+            item.descripcion || item.producto?.nombre || '',
+            String(item.quantity ?? 0),
+            `${fmtN(item.unitPrice ?? 0)} €`,
+            `${fmtN((item.unitPrice ?? 0) * (item.quantity ?? 0))} €`,
+        ]),
+        startY: tableStartY,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+            0: { cellWidth: 100 },
+            1: { cellWidth: 20, halign: 'center' },
+            2: { cellWidth: 35, halign: 'right' },
+            3: { cellWidth: 35, halign: 'right' },
+        },
+        margin: { left: 14, right: 14 },
+    });
+
+    let y = doc.lastAutoTable.finalY + 10;
+    const labelX = 128, valX = 198;
+    const subtotalProductos = Number(pedido.subtotal ?? 0);
+
+    // Subtotal productos
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal productos:', labelX, y);
+    doc.text(`${fmtN(subtotalProductos)} €`, valX, y, { align: 'right' }); y += 7;
+
+    // Costes de envío
+    const totalEnvio = costesEnvio
+        ? (costesEnvio.tipo === 'pallex' ? Number(costesEnvio.costeTotal) : Number(costesEnvio.total || 0))
+        : 0;
+
+    if (costesEnvio) {
+        if (costesEnvio.tipo === 'pallex') {
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Envío Pallex${agencia ? ` (${agencia})` : ''}:`, labelX, y); y += 5;
+            doc.setFont('helvetica', 'normal');
+            doc.text(`  · Palé:`, labelX + 3, y);
+            doc.text(`${fmtN(costesEnvio.desglose.pale)} €`, valX, y, { align: 'right' }); y += 5;
+            doc.text(`  · Materiales embalaje:`, labelX + 3, y);
+            doc.text(`${fmtN(costesEnvio.desglose.materiales)} €`, valX, y, { align: 'right' }); y += 5;
+            doc.text(`  · Transporte:`, labelX + 3, y);
+            doc.text(`${fmtN(costesEnvio.costeTransporte)} €`, valX, y, { align: 'right' }); y += 5;
+        } else {
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Envío${agencia ? ` (${agencia})` : ''}:`, labelX, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${fmtN(totalEnvio)} €`, valX, y, { align: 'right' }); y += 5;
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.text('Subtotal envío:', labelX + 3, y);
+        doc.text(`${fmtN(totalEnvio)} €`, valX, y, { align: 'right' });
+        doc.setFont('helvetica', 'normal'); y += 7;
+    }
+
+    // Separador
+    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3);
+    doc.line(labelX, y, valX, y); y += 5;
+
+    const baseImponible = subtotalProductos + totalEnvio;
+    const ivaImporte = baseImponible * ivaRate;
+    const totalConIva = baseImponible + ivaImporte;
+
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('Base imponible:', labelX, y);
+    doc.text(`${fmtN(baseImponible)} €`, valX, y, { align: 'right' }); y += 5;
+    doc.text(`IVA ${(ivaRate * 100).toFixed(0)}%:`, labelX, y);
+    doc.text(`${fmtN(ivaImporte)} €`, valX, y, { align: 'right' }); y += 6;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('TOTAL:', labelX, y);
+    doc.text(`${fmtN(totalConIva)} €`, valX, y, { align: 'right' });
+
+    // Nota pie
+    doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(140, 140, 140);
+    doc.text('Documento sin valor fiscal. La factura oficial se emitirá una vez realizada la entrega.', 14, 285);
+
+    return doc.output('arraybuffer');
+}

@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { DollarSign, FileText, Package, FilePlus, PackagePlus, FileCheck, Layers, Ruler, Zap } from 'lucide-react';
+import { DollarSign, FileText, Package, FilePlus, PackagePlus, FileCheck, Layers, Ruler, Zap, Receipt } from 'lucide-react';
 
 export const metadata = { title: 'Ventas — CRM Taller' };
 
@@ -60,6 +60,18 @@ export default function VentasHub() {
               titulo: 'Metrajes',
               descripcion: 'Precio de material por metros lineales para cualquier material del catálogo.',
               accion: 'Calcular',
+            },
+          ]
+        },
+        {
+          titulo: 'Facturación',
+          items: [
+            {
+              href: '/ventas/prefactura',
+              icon: Receipt,
+              titulo: 'Prefactura',
+              descripcion: 'Genera una pre-factura con desglose de productos y costes de envío (Pallex, GLS, CBL o furgoneta).',
+              accion: 'Crear prefactura',
             },
           ]
         },
