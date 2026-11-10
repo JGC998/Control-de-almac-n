@@ -2815,13 +2815,12 @@ export async function generarPackingListPDF(palet, items, cliente, { paletIndex 
 
     // ── Tabla con 3 columnas grandes ─────────────────────────────────────────
     const rows = items.map(item => [
-        item.pedidoNumero || '—',
         item.descripcion || '—',
         String(item.cantidadPalet),
     ]);
 
     autoTable(doc, {
-        head: [['REF. PEDIDO', 'REF. PRODUCTO', 'CANTIDAD']],
+        head: [['REF. PRODUCTO', 'CANTIDAD']],
         body: rows,
         startY: HEADER_H + 2,
         theme: 'plain',
@@ -2844,9 +2843,8 @@ export async function generarPackingListPDF(palet, items, cliente, { paletIndex 
             halign: 'center',
         },
         columnStyles: {
-            0: { cellWidth: 70 },
-            1: { cellWidth: 'auto' },
-            2: { cellWidth: 35, halign: 'center' },
+            0: { cellWidth: 'auto' },
+            1: { cellWidth: 45, halign: 'center' },
         },
         margin: { left: PAD, right: PAD },
         rowPageBreak: 'avoid',
