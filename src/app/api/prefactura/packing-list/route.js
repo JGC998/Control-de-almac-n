@@ -6,13 +6,13 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
     try {
-        const { palet, items, cliente } = await request.json();
+        const { palet, items, cliente, paletIndex = 1, totalPalets = 1 } = await request.json();
 
         if (!palet || !items?.length) {
             return NextResponse.json({ error: 'palet e items son obligatorios' }, { status: 400 });
         }
 
-        const pdfBuffer = await generarPackingListPDF(palet, items, cliente);
+        const pdfBuffer = await generarPackingListPDF(palet, items, cliente, { paletIndex, totalPalets });
 
         const paletLabel = (palet.label || 'pale').replace(/\s+/g, '-').toLowerCase();
         return new NextResponse(pdfBuffer, {

@@ -6,10 +6,21 @@ import { configPaletizadoSchema } from '@/lib/validations';
 
 export const dynamic = 'force-dynamic';
 
+const DEFAULT_CONFIGS = [
+  { tipo: 'EUROPEO', costePale: 8.5, costeFilm: 0.538, costeFleje: 0.183, costePrecinto: 0.0147 },
+  { tipo: 'MEDIO', costePale: 5.0, costeFilm: 0.269, costeFleje: 0.092, costePrecinto: 0.0074 },
+];
+
 // GET: Obtener configuración de paletizado
 export async function GET() {
   try {
-    const configs = await db.configPaletizado.findMany();
+    let configs = await db.configPaletizado.findMany();
+    if (configs.length === 0) {
+      await Promise.all(DEFAULT_CONFIGS.map(c =>
+        db.configPaletizado.upsert({ where: { tipo: c.tipo }, update: c, create: c })
+      ));
+      configs = await db.configPaletizado.findMany();
+    }
     return NextResponse.json(configs);
   } catch (error) {
     logApiError(error, 'Error fetching config paletizado:');

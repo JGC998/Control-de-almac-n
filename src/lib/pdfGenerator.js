@@ -2809,7 +2809,7 @@ export async function generarPackingListPDF(palet, items, cliente, { paletIndex 
     doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
     doc.text('CONTENIDO DEL ENVÍO', PAD, HEADER_H / 2 + 3);
 
-    const paletLabel = `${palet.label.toUpperCase()} / ${totalPalets}`;
+    const paletLabel = `PALÉ ${paletIndex} / ${totalPalets}`;
     doc.setFontSize(14);
     doc.text(paletLabel, W - PAD, HEADER_H / 2 + 3, { align: 'right' });
 
@@ -2832,6 +2832,8 @@ export async function generarPackingListPDF(palet, items, cliente, { paletIndex 
             textColor: [0, 0, 0],
             lineColor: [220, 220, 220],
             lineWidth: 0.3,
+            halign: 'center',
+            valign: 'middle',
         },
         headStyles: {
             fontSize: 9,
@@ -2839,6 +2841,7 @@ export async function generarPackingListPDF(palet, items, cliente, { paletIndex 
             textColor: [120, 120, 120],
             fillColor: false,
             cellPadding: { top: 4, bottom: 4, left: 6, right: 6 },
+            halign: 'center',
         },
         columnStyles: {
             0: { cellWidth: 70 },
@@ -2847,6 +2850,7 @@ export async function generarPackingListPDF(palet, items, cliente, { paletIndex 
         },
         margin: { left: PAD, right: PAD },
         rowPageBreak: 'avoid',
+        tableWidth: 'auto',
     });
 
     return doc.output('arraybuffer');

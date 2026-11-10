@@ -164,7 +164,7 @@ export default function PrefacturaPage() {
             const res = await fetch('/api/prefactura/packing-list', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ palet: { label: palet.label, tipo: palet.tipo }, items, cliente: clienteSeleccionado }),
+                body: JSON.stringify({ palet: { label: palet.label, tipo: palet.tipo }, items, cliente: clienteSeleccionado, paletIndex: palets.indexOf(palet) + 1, totalPalets: palets.length }),
             });
             if (!res.ok) { alert('Error generando packing list'); return; }
             const blob = await res.blob();
