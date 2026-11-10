@@ -295,8 +295,13 @@ export default function PedidoDetalle() {
           </Link>
         )}
         {order.estado === 'Pendiente' && !order.sinFacturacion && (
-          <button onClick={() => handleUpdateStatus('Facturado')} className="btn btn-success">
-            <CheckCircle className="w-4 h-4" /> Marcar como Facturado
+          <button onClick={() => handleUpdateStatus('Terminado')} className="btn btn-success">
+            <CheckCircle className="w-4 h-4" /> Marcar como Terminado
+          </button>
+        )}
+        {order.estado === 'Terminado' && (
+          <button onClick={() => handleUpdateStatus('Pendiente')} className="btn btn-warning">
+            <CheckCircle className="w-4 h-4" /> Desmarcar Terminado
           </button>
         )}
         {/*
