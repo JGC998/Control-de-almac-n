@@ -2795,51 +2795,58 @@ export async function generarPrefacturaPDF(pedido, { costesEnvio, agencia, ivaRa
     return doc.output('arraybuffer');
 }
 
-// Genera el PDF de packing list de un palé
-export async function generarPackingListPDF(palet, items, cliente) {
+// Genera el PDF de packing list de un palé — estilo "CONTENIDO DEL ENVÍO"
+export async function generarPackingListPDF(palet, items, cliente, { paletIndex = 1, totalPalets = 1 } = {}) {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const W = 297; const PAD = 14;
+    const HEADER_H = 28;
 
-    // Cabecera
-    doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
-    doc.text('PACKING LIST', 14, 20);
-    doc.setFontSize(13); doc.setFont('helvetica', 'normal');
-    doc.text(palet.label.toUpperCase(), 14, 29);
+    // ── Cabecera oscura ──────────────────────────────────────────────────────
+    doc.setFillColor(26, 42, 58);
+    doc.rect(0, 0, W, HEADER_H, 'F');
 
-    // Info palé
-    doc.setFontSize(10);
-    const tipoLabel = palet.tipo === 'EUROPEO' ? 'Palé Europeo (120×80 cm)' : 'Medio Palé (60×80 cm)';
-    doc.text(`Tipo: ${tipoLabel}`, 14, 37);
-    doc.text(`Cliente: ${cliente?.nombre || '—'}`, 14, 44);
-    doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 51);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    doc.text('CONTENIDO DEL ENVÍO', PAD, HEADER_H / 2 + 3);
 
-    // Tabla de artículos
+    const paletLabel = `${palet.label.toUpperCase()} / ${totalPalets}`;
+    doc.setFontSize(14);
+    doc.text(paletLabel, W - PAD, HEADER_H / 2 + 3, { align: 'right' });
+
+    // ── Tabla con 3 columnas grandes ─────────────────────────────────────────
     const rows = items.map(item => [
-        item.descripcion,
         item.pedidoNumero || '—',
+        item.descripcion || '—',
         String(item.cantidadPalet),
-        item.pesoUnitario ? `${fmtN(item.pesoUnitario)} kg` : '—',
-        item.pesoUnitario ? `${fmtN(item.cantidadPalet * item.pesoUnitario)} kg` : '—',
     ]);
 
-    const pesoTotal = items.reduce((s, i) => s + (i.cantidadPalet * (i.pesoUnitario || 0)), 0);
-
     autoTable(doc, {
-        head: [['Artículo', 'Pedido', 'Cant.', 'Peso unit.', 'Peso total']],
+        head: [['REF. PEDIDO', 'REF. PRODUCTO', 'CANTIDAD']],
         body: rows,
-        startY: 58,
-        theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [31, 45, 58], textColor: 255, fontStyle: 'bold' },
-        columnStyles: {
-            0: { cellWidth: 90 },
-            1: { cellWidth: 35, halign: 'center' },
-            2: { cellWidth: 15, halign: 'center' },
-            3: { cellWidth: 25, halign: 'right' },
-            4: { cellWidth: 25, halign: 'right' },
+        startY: HEADER_H + 2,
+        theme: 'plain',
+        styles: {
+            fontSize: 18,
+            fontStyle: 'bold',
+            cellPadding: { top: 8, bottom: 8, left: 6, right: 6 },
+            textColor: [0, 0, 0],
+            lineColor: [220, 220, 220],
+            lineWidth: 0.3,
         },
-        margin: { left: 14, right: 14 },
-        foot: [['', '', '', 'PESO TOTAL:', `${fmtN(pesoTotal)} kg`]],
-        footStyles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+        headStyles: {
+            fontSize: 9,
+            fontStyle: 'normal',
+            textColor: [120, 120, 120],
+            fillColor: false,
+            cellPadding: { top: 4, bottom: 4, left: 6, right: 6 },
+        },
+        columnStyles: {
+            0: { cellWidth: 70 },
+            1: { cellWidth: 'auto' },
+            2: { cellWidth: 35, halign: 'center' },
+        },
+        margin: { left: PAD, right: PAD },
+        rowPageBreak: 'avoid',
     });
 
     return doc.output('arraybuffer');
