@@ -67,8 +67,8 @@ export async function GET(request) {
     const results = [
       ...clientes.map(c => ({ id: c.id, nombre: c.nombre, email: c.email, type: 'cliente' })),
       ...productos.map(p => ({ id: p.id, nombre: p.nombre, referencia: p.referenciaFabricante, type: 'producto' })),
-      ...pedidos.map(p => ({ id: p.id, numero: p.numero, estado: p.estado, total: p.total, clienteNombre: p.cliente?.nombre, type: 'pedido' })),
-      ...presupuestos.map(q => ({ id: q.id, numero: q.numero, estado: q.estado, total: q.total, clienteNombre: q.cliente?.nombre, type: 'presupuesto' })),
+      ...pedidos.map(p => ({ id: p.id, numero: p.numero, estado: p.estado, total: p.total ? Number(p.total) : null, clienteNombre: p.cliente?.nombre, type: 'pedido' })),
+      ...presupuestos.map(q => ({ id: q.id, numero: q.numero, estado: q.estado, total: q.total ? Number(q.total) : null, clienteNombre: q.cliente?.nombre, type: 'presupuesto' })),
     ];
 
     // Ordenar los resultados para priorizar los que coinciden al principio, si fuera necesario.

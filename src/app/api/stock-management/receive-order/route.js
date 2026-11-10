@@ -26,7 +26,13 @@ export async function POST(request) {
 
     const valorTotalMercanciaEUR = pedido.bobinas.reduce((acc, b) => {
       const precioBaseEUR = (b.precioMetro || 0) * (esImportacion ? tasa : 1);
-      const cantidad = parseInt(b.cantidad, 10) || 1;
+      const cantidad = parseInt(b.cantidad, 10);
+      if (isNaN(cantidad) || cantidad <= 0) {
+        throw Object.assign(
+          new Error(`Cantidad inválida en bobina (ref: ${b.referencia?.codigo ?? b.id}). Revisa el pedido antes de recibir.`),
+          { badData: true }
+        );
+      }
       return acc + (precioBaseEUR * (b.largo || 0) * cantidad);
     }, 0);
 

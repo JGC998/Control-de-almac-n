@@ -15,7 +15,7 @@ export async function GET(request) {
 
   try {
     const contenedores = await db.importacionContenedor.findMany({
-      where: { estado: { not: 'RECIBIDO' } },
+      where: { estado: { not: 'RECIBIDO' }, trackingActivo: true },
       select: {
         id:                   true,
         numContenedor:        true,

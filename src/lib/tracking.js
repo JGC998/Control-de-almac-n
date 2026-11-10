@@ -207,8 +207,9 @@ async function buscarTrackingMSC(trackingNumber) {
 
 function parseFechaYM(str) {
   if (!str) return null;
-  // "2026/06/09 22:22" → ISO 8601
-  const iso = str.replace(/\//g, '-').replace(' ', 'T') + ':00Z';
+  // "2026/06/09 22:22" o "2026/06/09 22:22:30" → ISO 8601
+  const normalized = str.replace(/\//g, '-').replace(' ', 'T');
+  const iso = /T\d{2}:\d{2}:\d{2}/.test(normalized) ? normalized + 'Z' : normalized + ':00Z';
   const d = new Date(iso);
   return isNaN(d.getTime()) ? null : d.toISOString();
 }

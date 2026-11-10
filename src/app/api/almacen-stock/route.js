@@ -1,7 +1,17 @@
 ﻿import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
-import { revalidatePath } from 'next/cache'; // 👈 Importación requerida
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const entradaSchema = z.object({
+  material:          z.string().min(1).max(200),
+  metrosDisponibles: z.number().positive(),
+  espesor:           z.number().min(0).default(0),
+  cantidadBobinas:   z.number().int().positive().default(1),
+  costoMetro:        z.number().min(0).default(0),
+  proveedor:         z.string().optional().nullable(),
+});
 
 // GET /api/almacen-stock - Obtiene todo el stock
 export async function GET() {
@@ -111,30 +121,37 @@ export async function POST(request) {
     } else {
       // --- Lógica de ENTRADA (Añadir Stock Manual) ---
 
-      const metros = parseFloat(data.metrosDisponibles);
-      if (!data.material || typeof data.material !== 'string' || !data.material.trim()) {
-        return NextResponse.json({ message: 'El campo material es requerido.' }, { status: 400 });
+      const parsed = entradaSchema.safeParse({
+        material:          data.material,
+        metrosDisponibles: parseFloat(data.metrosDisponibles),
+        espesor:           data.espesor !== undefined ? parseFloat(data.espesor) : 0,
+        cantidadBobinas:   data.cantidadBobinas !== undefined ? parseInt(data.cantidadBobinas, 10) : 1,
+        costoMetro:        data.costoMetro !== undefined ? parseFloat(data.costoMetro) : 0,
+        proveedor:         data.proveedor || null,
+      });
+      if (!parsed.success) {
+        return NextResponse.json(
+          { message: parsed.error.issues[0].message },
+          { status: 400 }
+        );
       }
-      if (isNaN(metros) || metros <= 0) {
-        return NextResponse.json({ message: 'Los metros disponibles deben ser un número positivo.' }, { status: 400 });
-      }
+      const entradaData = parsed.data;
 
-      // BUG-04: Envolver en transacción para garantizar consistencia
       const newStockItem = await db.$transaction(async (tx) => {
         const item = await tx.stock.create({
           data: {
-            material: data.material,
-            espesor: parseFloat(data.espesor) || 0,
-            metrosDisponibles: parseFloat(data.metrosDisponibles),
-            proveedorId: data.proveedor || null,
-            cantidadBobinas: parseInt(data.cantidadBobinas, 10) || 1,
-            costoMetro: parseFloat(data.costoMetro) || 0,
+            material: entradaData.material,
+            espesor: entradaData.espesor,
+            metrosDisponibles: entradaData.metrosDisponibles,
+            proveedorId: entradaData.proveedor || null,
+            cantidadBobinas: entradaData.cantidadBobinas,
+            costoMetro: entradaData.costoMetro,
           },
         });
         await tx.movimientoStock.create({
           data: {
             tipo: 'ENTRADA',
-            cantidad: parseFloat(data.metrosDisponibles),
+            cantidad: entradaData.metrosDisponibles,
             stockId: item.id,
           },
         });
