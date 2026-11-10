@@ -351,7 +351,7 @@ export default function PrefacturaPage() {
                                                                         />
                                                                     </td>
                                                                 ))}
-                                                                <td className={`text-center font-semibold text-sm ${resto > 0 ? 'text-warning' : 'text-success'}`}>{resto}</td>
+                                                                <td className={`text-center font-semibold text-sm ${resto > 0 ? 'text-orange-500' : resto < 0 ? 'text-info' : 'text-success'}`}>{resto}</td>
                                                             </tr>
                                                         );
                                                     })}
