@@ -86,10 +86,7 @@ export default function PrefacturaPage() {
             .map(item => ({ ...item, cantidadPalet: getAsignado(item.key, paletId) }));
 
     const setAsignacion = (key, paletId, raw) => {
-        const item = itemsPool.find(i => i.key === key);
-        if (!item) return;
-        const maxDisp = item.cantidad - getTotalAsignado(key) + getAsignado(key, paletId);
-        const v = Math.max(0, Math.min(Number(raw) || 0, maxDisp));
+        const v = Math.max(0, Number(raw) || 0);
         setAsignaciones(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [paletId]: v } }));
     };
 
@@ -346,7 +343,7 @@ export default function PrefacturaPage() {
                                                                 {palets.map(p => (
                                                                     <td key={p.id} className="text-center bg-primary/[0.02]">
                                                                         <input
-                                                                            type="number" min="0" max={item.cantidad}
+                                                                            type="number" min="0"
                                                                             value={getAsignado(item.key, p.id) || ''}
                                                                             onChange={e => setAsignacion(item.key, p.id, e.target.value)}
                                                                             className="input input-xs input-bordered w-14 text-center"
