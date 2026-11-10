@@ -26,6 +26,7 @@ export default function FiltroEstado() {
         >
             <option value="">Todos los estados</option>
             <option value="Pendiente">Pendiente</option>
+            <option value="Terminado">Terminado</option>
             <option value="Facturado">Facturado</option>
             <option value="Cancelado">Cancelado</option>
         </select>

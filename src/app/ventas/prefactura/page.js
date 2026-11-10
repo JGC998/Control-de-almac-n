@@ -25,15 +25,15 @@ export default function PrefacturaPage() {
     // Step 3
     const [generando, setGenerando] = useState('');
 
-    // SWR — pedidos pendientes para derivar clientes únicos
-    const { data: pedidosPendientesData } = useSWR('/api/pedidos?estado=Pendiente&limit=500', fetcher);
+    // SWR — pedidos terminados/cancelados para derivar clientes únicos
+    const { data: pedidosPendientesData } = useSWR('/api/pedidos?estados=Terminado,Cancelado&limit=500', fetcher);
     // SWR — pedidos del cliente seleccionado
     const { data: pedidosClienteData } = useSWR(
-        clienteSeleccionado ? `/api/pedidos?clientId=${clienteSeleccionado.id}&estado=Pendiente&limit=50` : null,
+        clienteSeleccionado ? `/api/pedidos?clientId=${clienteSeleccionado.id}&estados=Terminado,Cancelado&limit=50` : null,
         fetcher
     );
 
-    // Clientes únicos con pedidos pendientes
+    // Clientes únicos con pedidos listos para prefactura
     const clientesConPedidos = useMemo(() => {
         const pedidos = pedidosPendientesData?.data || [];
         const mapa = new Map();
@@ -197,6 +197,23 @@ export default function PrefacturaPage() {
             const a = document.createElement('a'); a.href = url;
             a.download = `prefactura-${(clienteSeleccionado.nombre || 'cliente').replace(/\s+/g, '-')}.pdf`;
             a.click(); URL.revokeObjectURL(url);
+
+            // Marcar pedidos como Facturado
+            const ids = [...pedidosSeleccionados];
+            if (ids.length > 0) {
+                await fetch('/api/pedidos/bulk-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids, estado: 'Facturado' }),
+                });
+            }
+
+            // Resetear selección tras facturar
+            setClienteSeleccionado(null);
+            setPedidosSeleccionados(new Set());
+            setPedidosFull([]);
+            setPalets([{ id: 'p1', label: 'Palé 1', tipo: 'EUROPEO', altura: '', costePallex: null }]);
+            setAsignaciones({});
         } finally { setGenerando(''); }
     };
 
@@ -214,7 +231,7 @@ export default function PrefacturaPage() {
                 <FileText className="w-7 h-7 text-primary" />
                 <div>
                     <h1 className="text-2xl font-bold">Prefactura</h1>
-                    <p className="text-base-content/60 text-sm">Selecciona un cliente, elige sus pedidos pendientes y distribuye en palés</p>
+                    <p className="text-base-content/60 text-sm">Selecciona un cliente, elige sus pedidos terminados y distribuye en palés</p>
                 </div>
             </div>
 

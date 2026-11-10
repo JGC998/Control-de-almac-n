@@ -59,36 +59,63 @@ function exportarCSV(datos, columnas, nombre) {
 function getAcciones(tipo, estadoFiltro) {
   if (tipo === 'pedido') {
     const esFacturado = estadoFiltro === 'Facturado';
+    const esTerminado = estadoFiltro === 'Terminado';
+
+    const bulkUpdate = async (ids, estado) => {
+      const res = await fetch('/api/pedidos/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, estado }),
+      });
+      if (!res.ok) throw new Error('Error al actualizar');
+    };
+
+    if (esFacturado) {
+      return [
+        {
+          label: 'Desmarcar Facturado',
+          icon: CheckCircle,
+          variant: 'btn-warning',
+          confirm: '¿Volver los pedidos seleccionados a estado Pendiente?',
+          onClick: (ids) => bulkUpdate(ids, 'Pendiente'),
+        },
+      ];
+    }
+
+    if (esTerminado) {
+      return [
+        {
+          label: 'Desmarcar Terminado',
+          icon: CheckCircle,
+          variant: 'btn-warning',
+          confirm: '¿Volver los pedidos seleccionados a Pendiente?',
+          onClick: (ids) => bulkUpdate(ids, 'Pendiente'),
+        },
+        {
+          label: 'Cancelar',
+          icon: XCircle,
+          variant: 'btn-error btn-outline',
+          confirm: '¿Cancelar los pedidos seleccionados?',
+          onClick: (ids) => bulkUpdate(ids, 'Cancelado'),
+        },
+      ];
+    }
+
+    // Pendiente u otros
     return [
       {
-        label: esFacturado ? 'Desmarcar Facturado' : 'Marcar Facturado',
+        label: 'Marcar Terminado',
         icon: CheckCircle,
-        variant: esFacturado ? 'btn-warning' : 'btn-success',
-        confirm: esFacturado
-          ? '¿Volver los pedidos seleccionados a estado Pendiente?'
-          : '¿Marcar los pedidos seleccionados como Facturado?',
-        onClick: async (ids) => {
-          const res = await fetch('/api/pedidos/bulk-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids, estado: esFacturado ? 'Pendiente' : 'Facturado' }),
-          });
-          if (!res.ok) throw new Error('Error al actualizar');
-        },
+        variant: 'btn-success',
+        confirm: '¿Marcar los pedidos seleccionados como Terminado?',
+        onClick: (ids) => bulkUpdate(ids, 'Terminado'),
       },
       {
         label: 'Cancelar',
         icon: XCircle,
         variant: 'btn-error btn-outline',
-        confirm: '¿Cancelar los pedidos seleccionados? Esta acción no se puede deshacer fácilmente.',
-        onClick: async (ids) => {
-          const res = await fetch('/api/pedidos/bulk-update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids, estado: 'Cancelado' }),
-          });
-          if (!res.ok) throw new Error('Error al cancelar');
-        },
+        confirm: '¿Cancelar los pedidos seleccionados?',
+        onClick: (ids) => bulkUpdate(ids, 'Cancelado'),
       },
     ];
   }

@@ -15,11 +15,18 @@ export async function GET(request) {
     const pageParam = searchParams.get('page');
     const limitParam = searchParams.get('limit');
 
-    const estadoParam = searchParams.get('estado');
+    const estadoParam  = searchParams.get('estado');
+    const estadosParam = searchParams.get('estados'); // "Terminado,Cancelado"
 
     const whereClause = {};
     if (clientId) whereClause.clienteId = clientId;
-    if (estadoParam) whereClause.estado = estadoParam;
+    if (estadosParam) {
+      const lista = estadosParam.split(',').map(s => s.trim()).filter(Boolean);
+      if (lista.length === 1) whereClause.estado = lista[0];
+      else if (lista.length > 1) whereClause.estado = { in: lista };
+    } else if (estadoParam) {
+      whereClause.estado = estadoParam;
+    }
 
     const page = Math.max(1, parseInt(pageParam || '1', 10) || 1);
     const limit = Math.min(500, Math.max(1, parseInt(limitParam || '50', 10) || 50));

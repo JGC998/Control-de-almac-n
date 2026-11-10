@@ -21,8 +21,9 @@ const columnasPedido = [
     etiqueta: 'Estado',
     formato: 'insignia',
     insigniaConfig: {
-      'Facturado': 'exito',
       'Pendiente': 'advertencia',
+      'Terminado': 'info',
+      'Facturado': 'exito',
       'Cancelado': 'error',
     }
   },
