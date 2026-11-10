@@ -68,7 +68,7 @@ export default function PrefacturaPage() {
                 descripcion: item.descripcion || item.producto?.nombre || '',
                 cantidad: Number(item.quantity) || 0,
                 unitPrice: Number(item.unitPrice) || 0,
-                pesoUnitario: Number(item.producto?.pesoUnitario) || 0,
+                pesoUnitario: Number(item.pesoUnitario) || Number(item.producto?.pesoUnitario) || 0,
             }))
         ),
         [pedidosFull]

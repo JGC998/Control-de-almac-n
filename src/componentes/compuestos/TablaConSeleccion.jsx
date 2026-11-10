@@ -56,19 +56,22 @@ function exportarCSV(datos, columnas, nombre) {
 
 // ── Acciones por tipo ────────────────────────────────────────────────────────
 
-function getAcciones(tipo) {
+function getAcciones(tipo, estadoFiltro) {
   if (tipo === 'pedido') {
+    const esFacturado = estadoFiltro === 'Facturado';
     return [
       {
-        label: 'Marcar Facturado',
+        label: esFacturado ? 'Desmarcar Facturado' : 'Marcar Facturado',
         icon: CheckCircle,
-        variant: 'btn-success',
-        confirm: '¿Marcar los pedidos seleccionados como Facturado?',
+        variant: esFacturado ? 'btn-warning' : 'btn-success',
+        confirm: esFacturado
+          ? '¿Volver los pedidos seleccionados a estado Pendiente?'
+          : '¿Marcar los pedidos seleccionados como Facturado?',
         onClick: async (ids) => {
           const res = await fetch('/api/pedidos/bulk-update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids, estado: 'Facturado' }),
+            body: JSON.stringify({ ids, estado: esFacturado ? 'Pendiente' : 'Facturado' }),
           });
           if (!res.ok) throw new Error('Error al actualizar');
         },
@@ -135,6 +138,7 @@ export default function TablaConSeleccion({
   rutaBase = null,
   campoEnlace = 'id',
   mensajeVacio = 'No hay datos.',
+  estadoFiltro = null,
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState(new Set());
@@ -142,7 +146,7 @@ export default function TablaConSeleccion({
   const [error, setError] = useState(null);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
 
-  const acciones = getAcciones(tipo);
+  const acciones = getAcciones(tipo, estadoFiltro);
   const selectedIds = [...selected];
   const selectedDatos = datos.filter(d => selected.has(d[campoEnlace]));
   const allSelected = datos.length > 0 && selected.size === datos.length;

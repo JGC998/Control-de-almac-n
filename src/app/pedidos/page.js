@@ -158,6 +158,7 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
             columnas={columnasPedido}
             rutaBase="/pedidos"
             mensajeVacio={esInterno ? 'No hay pedidos internos.' : 'No hay pedidos registrados.'}
+            estadoFiltro={searchParams?.estado || null}
           />
         </div>
       </div>

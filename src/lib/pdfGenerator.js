@@ -2797,7 +2797,7 @@ export async function generarPrefacturaPDF(pedido, { costesEnvio, agencia, ivaRa
 
 // Genera el PDF de packing list de un palé
 export async function generarPackingListPDF(palet, items, cliente) {
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
     // Cabecera
     doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
