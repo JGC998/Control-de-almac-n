@@ -44,7 +44,7 @@ export async function POST(request) {
           { badData: true }
         );
       }
-      const cantidadBobinas = parseInt(bobina.cantidad, 10) || 1;
+      const cantidadBobinas = parseInt(bobina.cantidad, 10);
       const metrosTotales = metrosPorBobina * cantidadBobinas;
       const precioBaseEUR = (parseFloat(bobina.precioMetro) || 0) * (esImportacion ? tasa : 1);
       const costeTotalBaseLinea = precioBaseEUR * metrosTotales;

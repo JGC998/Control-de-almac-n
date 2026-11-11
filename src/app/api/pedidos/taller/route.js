@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
+import { serializeDecimals } from '@/lib/manejadores-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export async function GET() {
   try {
     const pedidos = await db.pedido.findMany({
       where: {
-        estado: 'Pendiente',
+        estado: { in: ['Pendiente', 'Terminado'] },
         tallerEstado: { in: ['Pendiente', 'EnTaller', 'Listo'] },
       },
       include: {
@@ -38,7 +39,7 @@ export async function GET() {
       return new Date(a.fechaCreacion) - new Date(b.fechaCreacion);
     });
 
-    return NextResponse.json(pedidos);
+    return NextResponse.json(pedidos.map(p => serializeDecimals(p, ['subtotal', 'tax', 'total'])));
   } catch (error) {
     logApiError(error, 'GET /api/pedidos/taller');
     return NextResponse.json({ message: 'Error al obtener pedidos del taller' }, { status: 500 });

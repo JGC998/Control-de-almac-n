@@ -9,7 +9,7 @@ import { logApiError } from '@/lib/logger';
 export async function POST() {
   try {
     const [rollos, materiales] = await Promise.all([
-      db.tarifaRollo.findMany({ take: 2000 }),
+      db.tarifaRollo.findMany(),
       db.tarifaMaterial.findMany({ select: { material: true, espesor: true, precio: true, acabado: true } }),
     ]);
 
@@ -23,7 +23,7 @@ export async function POST() {
       const match = matches.find(m => m.acabado == null) ?? matches[0] ?? null;
       if (!match) continue;
 
-      const esperado = match.precio * (r.ancho / 1000) * r.metrajeMinimo;
+      const esperado = Number(match.precio) * (r.ancho / 1000) * r.metrajeMinimo;
       if (Math.abs(esperado - r.precioBase) < 0.001) continue;
 
       updates.push(db.tarifaRollo.update({

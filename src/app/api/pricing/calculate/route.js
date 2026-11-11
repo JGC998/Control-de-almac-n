@@ -2,17 +2,37 @@
 import { logApiError } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { getMargenes } from '@/lib/config-cache';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const itemSchema = z.object({
+  productId: z.string().optional().nullable(),
+  quantity: z.number().positive(),
+  unitPrice: z.number().nonnegative().optional(),
+  descripcion: z.string().optional().nullable(),
+  detallesTecnicos: z.string().optional().nullable(),
+  pesoUnitario: z.number().nonnegative().optional(),
+});
+
+const bodySchema = z.object({
+  items: z.array(itemSchema).min(1, 'Se requiere al menos un item'),
+  clienteId: z.string().optional().nullable(),
+  selectedMarginId: z.string().optional().nullable(),
+});
 
 // POST /api/pricing/calculate
 export async function POST(request) {
   try {
-    const { items, clienteId, selectedMarginId } = await request.json(); // Se recibe selectedMarginId
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ message: 'Se requiere un array de "items"' }, { status: 400 });
+    const raw = await request.json();
+    const parsed = bodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { message: parsed.error.issues[0].message, details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
+    const { items, clienteId, selectedMarginId } = parsed.data;
 
     // 1. Obtener reglas de precios y cliente en paralelo
     const [cliente, margenes] = await Promise.all([

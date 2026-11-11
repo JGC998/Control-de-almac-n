@@ -54,6 +54,39 @@ function exportarCSV(datos, columnas, nombre) {
   URL.revokeObjectURL(url);
 }
 
+// ── Expansión por tipo ───────────────────────────────────────────────────────
+
+function getExpansion(tipo) {
+  if (tipo === 'pedido') {
+    return (fila) => {
+      if (!fila.items?.length) return <span className="text-xs text-base-content/40">Sin artículos</span>;
+      return (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-base-content/40 uppercase tracking-wide">
+              <th className="text-left pb-1 font-medium">Artículo</th>
+              <th className="text-center pb-1 font-medium w-16">Cant.</th>
+              <th className="text-right pb-1 font-medium w-24">P. Venta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fila.items.map((item, i) => (
+              <tr key={i} className="border-t border-base-200">
+                <td className="py-1 pr-4 text-base-content/80">{item.descripcion || '—'}</td>
+                <td className="py-1 text-center tabular-nums">{item.quantity}</td>
+                <td className="py-1 text-right tabular-nums text-success font-medium">
+                  {Number(item.unitPrice || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    };
+  }
+  return null;
+}
+
 // ── Acciones por tipo ────────────────────────────────────────────────────────
 
 function getAcciones(tipo, estadoFiltro) {
@@ -166,7 +199,6 @@ export default function TablaConSeleccion({
   campoEnlace = 'id',
   mensajeVacio = 'No hay datos.',
   estadoFiltro = null,
-  renderExpansion = null,
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState(new Set());
@@ -174,6 +206,8 @@ export default function TablaConSeleccion({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
+
+  const renderExpansion = getExpansion(tipo);
 
   const toggleExpand = useCallback((id, e) => {
     e.stopPropagation();

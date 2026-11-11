@@ -26,7 +26,7 @@ export default function PrefacturaPage() {
     const [generando, setGenerando] = useState('');
 
     // SWR — pedidos terminados/cancelados para derivar clientes únicos
-    const { data: pedidosPendientesData } = useSWR('/api/pedidos?estados=Terminado,Cancelado&limit=500', fetcher);
+    const { data: pedidosPendientesData } = useSWR('/api/pedidos?estados=Terminado,Cancelado&limit=2000', fetcher);
     // SWR — pedidos del cliente seleccionado
     const { data: pedidosClienteData } = useSWR(
         clienteSeleccionado ? `/api/pedidos?clientId=${clienteSeleccionado.id}&estados=Terminado,Cancelado&limit=50` : null,

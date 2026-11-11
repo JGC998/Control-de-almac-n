@@ -163,28 +163,6 @@ export default async function PedidosPage({ searchParams: searchParamsPromise })
             rutaBase="/pedidos"
             mensajeVacio={esInterno ? 'No hay pedidos internos.' : 'No hay pedidos registrados.'}
             estadoFiltro={searchParams?.estado || null}
-            renderExpansion={(pedido) => pedido.items?.length ? (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-base-content/40 uppercase tracking-wide">
-                    <th className="text-left pb-1 font-medium">Artículo</th>
-                    <th className="text-center pb-1 font-medium w-16">Cant.</th>
-                    <th className="text-right pb-1 font-medium w-24">P. Venta</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pedido.items.map((item, i) => (
-                    <tr key={i} className="border-t border-base-200">
-                      <td className="py-1 pr-4 text-base-content/80">{item.descripcion || '—'}</td>
-                      <td className="py-1 text-center tabular-nums">{item.quantity}</td>
-                      <td className="py-1 text-right tabular-nums text-success font-medium">
-                        {Number(item.unitPrice || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : <span className="text-xs text-base-content/40">Sin artículos</span>}
           />
         </div>
       </div>
