@@ -3,7 +3,7 @@
 import { useState, useCallback, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Download, CheckCircle, XCircle, X } from 'lucide-react';
+import { Download, CheckCircle, XCircle, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 
 // ── Utilidades ───────────────────────────────────────────────────────────────
@@ -166,12 +166,23 @@ export default function TablaConSeleccion({
   campoEnlace = 'id',
   mensajeVacio = 'No hay datos.',
   estadoFiltro = null,
+  renderExpansion = null,
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState(new Set());
+  const [expanded, setExpanded] = useState(new Set());
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
   const { confirmar, ModalConfirmacion } = useConfirmacion();
+
+  const toggleExpand = useCallback((id, e) => {
+    e.stopPropagation();
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
 
   const acciones = getAcciones(tipo, estadoFiltro);
   const selectedIds = [...selected];
@@ -240,6 +251,7 @@ export default function TablaConSeleccion({
                   title="Seleccionar todo"
                 />
               </th>
+              {renderExpansion && <th className="w-8" />}
               {columnas.map((col, i) => <th key={col.clave || i} className={col.className || ''}>{col.etiqueta}</th>)}
               {rutaBase && <th />}
             </tr>
@@ -248,40 +260,58 @@ export default function TablaConSeleccion({
             {datos.map((fila, i) => {
               const id = fila[campoEnlace];
               const isSelected = selected.has(id);
+              const isExpanded = expanded.has(id);
+              const colSpan = 1 + (renderExpansion ? 1 : 0) + columnas.length + (rutaBase ? 1 : 0);
               return (
-                <tr
-                  key={id || i}
-                  className={`hover cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
-                  onClick={() => toggleOne(id)}
-                >
-                  <td onClick={e => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-sm"
-                      checked={isSelected}
-                      onChange={() => toggleOne(id)}
-                    />
-                  </td>
-                  {columnas.map((col, ci) => (
-                    <td key={col.clave || ci} className={col.className || ''} onClick={ci === 0 ? e => e.stopPropagation() : undefined}>
-                      {ci === 0 && rutaBase ? (
-                        <Link
-                          href={`${rutaBase}/${id}`}
-                          className="link link-primary font-semibold font-mono text-sm"
-                        >
-                          {renderCelda(fila, col)}
+                <>
+                  <tr
+                    key={id || i}
+                    className={`hover cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
+                    onClick={() => toggleOne(id)}
+                  >
+                    <td onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm"
+                        checked={isSelected}
+                        onChange={() => toggleOne(id)}
+                      />
+                    </td>
+                    {renderExpansion && (
+                      <td onClick={e => toggleExpand(id, e)} className="cursor-pointer text-base-content/40 hover:text-base-content/80 w-8 pr-0">
+                        {isExpanded
+                          ? <ChevronDown className="w-4 h-4" />
+                          : <ChevronRight className="w-4 h-4" />}
+                      </td>
+                    )}
+                    {columnas.map((col, ci) => (
+                      <td key={col.clave || ci} className={col.className || ''} onClick={ci === 0 ? e => e.stopPropagation() : undefined}>
+                        {ci === 0 && rutaBase ? (
+                          <Link
+                            href={`${rutaBase}/${id}`}
+                            className="link link-primary font-semibold font-mono text-sm"
+                          >
+                            {renderCelda(fila, col)}
+                          </Link>
+                        ) : renderCelda(fila, col)}
+                      </td>
+                    ))}
+                    {rutaBase && (
+                      <td className="text-right" onClick={e => e.stopPropagation()}>
+                        <Link href={`${rutaBase}/${id}`} className="btn btn-xs btn-ghost min-h-11 touch-manipulation">
+                          Ver →
                         </Link>
-                      ) : renderCelda(fila, col)}
-                    </td>
-                  ))}
-                  {rutaBase && (
-                    <td className="text-right" onClick={e => e.stopPropagation()}>
-                      <Link href={`${rutaBase}/${id}`} className="btn btn-xs btn-ghost min-h-11 touch-manipulation">
-                        Ver →
-                      </Link>
-                    </td>
+                      </td>
+                    )}
+                  </tr>
+                  {renderExpansion && isExpanded && (
+                    <tr key={`${id}-expand`} className="bg-base-200/50">
+                      <td colSpan={colSpan} className="px-6 py-3">
+                        {renderExpansion(fila)}
+                      </td>
+                    </tr>
                   )}
-                </tr>
+                </>
               );
             })}
           </tbody>
