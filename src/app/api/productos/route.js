@@ -68,6 +68,7 @@ export async function GET(request) {
       const productosSerializados = productos.map(({ costoUnitario: _omit, ...p }) => ({
         ...p,
         precioUnitario: p.precioUnitario ? Number(p.precioUnitario) : 0,
+        precioVenta: p.precioVenta ? Number(p.precioVenta) : 0,
         pesoUnitario: p.pesoUnitario ? Number(p.pesoUnitario) : 0,
         espesor: p.espesor ? Number(p.espesor) : null,
         largo: p.largo ? Number(p.largo) : null,
@@ -96,6 +97,7 @@ export async function GET(request) {
     const productosSerializados = productos.map(({ costoUnitario: _omit, ...p }) => ({
       ...p,
       precioUnitario: p.precioUnitario ? Number(p.precioUnitario) : 0,
+      precioVenta: p.precioVenta ? Number(p.precioVenta) : 0,
       pesoUnitario: p.pesoUnitario ? Number(p.pesoUnitario) : 0,
       espesor: p.espesor ? Number(p.espesor) : null,
       largo: p.largo ? Number(p.largo) : null,
@@ -135,8 +137,10 @@ export async function POST(request) {
         largo: d.largo ?? null,
         ancho: d.ancho ?? null,
         precioUnitario: d.precioUnitario,
+        precioVenta: d.precioVenta ?? d.precioUnitario,
         pesoUnitario: d.pesoUnitario ?? 0,
         costoUnitario: d.costoUnitario ?? null,
+        unidadesVendidas: d.unidadesVendidas ?? 0,
         tieneTroquel: d.tieneTroquel ?? false,
         color: d.color ?? null,
         acabado: d.acabado ?? null,

@@ -26,8 +26,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
     ancho: '',
     largo: '',
     precioUnitario: '',
+    precioVenta: '',
     costoUnitario: '',
     pesoUnitario: '',
+    unidadesVendidas: '',
     referenciaFabricante: '',
     subfamiliaId: null,
     fabricanteId: null,
@@ -101,8 +103,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         ancho:                productoAEditar.ancho ?? '',
         largo:                productoAEditar.largo ?? '',
         precioUnitario:       productoAEditar.precioUnitario ?? '',
+        precioVenta:          productoAEditar.precioVenta ?? productoAEditar.precioUnitario ?? '',
         costoUnitario:        productoAEditar.costoUnitario ?? '',
         pesoUnitario:         productoAEditar.pesoUnitario ?? '',
+        unidadesVendidas:     productoAEditar.unidadesVendidas ?? '',
         referenciaFabricante: productoAEditar.referenciaFabricante ?? '',
         subfamiliaId:         productoAEditar.subfamiliaId ?? null,
         fabricanteId:         productoAEditar.fabricanteId ?? null,
@@ -405,8 +409,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
                             (form.lonas === 'null' ? null : form.lonas !== '' ? parseInt(form.lonas, 10) : null) ??
                             productoAEditar?.lonas   ?? null,
       precioUnitario:       parseFloat(form.precioUnitario) || 0,
+      precioVenta:          parseFloat(form.precioVenta) || parseFloat(form.precioUnitario) || 0,
       ...(form.costoUnitario !== '' && { costoUnitario: parseFloat(form.costoUnitario) || 0 }),
       pesoUnitario:         parseFloat(form.pesoUnitario)   || 0,
+      ...(form.unidadesVendidas !== '' && { unidadesVendidas: parseInt(form.unidadesVendidas, 10) || 0 }),
       referenciaFabricante: form.referenciaFabricante || null,
       subfamiliaId:         form.subfamiliaId ?? null,
       fabricanteId:         form.fabricanteId ?? null,
@@ -699,10 +705,10 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
         </div>
       </div>}
 
-      {/* Precio y Peso */}
+      {/* Coste, Precio de venta y Peso */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Precio venta (€)</span>
+          <span className="label-text font-medium">Coste de producto (€)</span>
           {tieneTarifa && <span className="label-text-alt text-success text-xs">Auto ✓</span>}
         </label>
         <input
@@ -711,6 +717,30 @@ export default function FormularioProductoInteligente({ productoAEditar, onGuard
           onChange={e => setForm(f => ({ ...f, precioUnitario: e.target.value }))}
           placeholder="0.00"
           className={`input input-bordered ${tieneTarifa ? 'input-success' : ''}`}
+        />
+      </div>
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">Precio de venta a fabricante (€)</span>
+        </label>
+        <input
+          type="number" min="0" step="0.01"
+          value={form.precioVenta}
+          onChange={e => setForm(f => ({ ...f, precioVenta: e.target.value }))}
+          placeholder="0.00"
+          className="input input-bordered"
+        />
+      </div>
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">Unidades vendidas</span>
+        </label>
+        <input
+          type="number" min="0" step="1"
+          value={form.unidadesVendidas}
+          onChange={e => setForm(f => ({ ...f, unidadesVendidas: e.target.value }))}
+          placeholder="0"
+          className="input input-bordered"
         />
       </div>
       <div className="form-control">

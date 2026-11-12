@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { ArrowLeft, Package, DollarSign, Info, List, Edit, TrendingUp, Trash2, Camera, X, ZoomIn, Printer, FileText, ExternalLink, Ruler } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Info, List, Edit, TrendingUp, Trash2, Camera, X, ZoomIn, Printer, FileText, ExternalLink, Ruler, ShoppingCart, Check } from 'lucide-react';
 import { toastError, toast } from '@/lib/toast';
 import { useConfirmacion } from '@/componentes/ui/ModalConfirmacion';
 import ModalEditarProducto from '@/componentes/modales/ModalEditarProducto';
@@ -18,6 +18,66 @@ const InfoCard = ({ title, value, unit = '', icon: Icon = Package }) => (
     </div>
   </div>
 );
+
+function InfoCardEditable({ title, value, unit = '', icon: Icon = Package, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleEdit = () => { setDraft(String(value)); setEditing(true); };
+  const handleCancel = () => setEditing(false);
+  const handleSave = async () => {
+    const num = parseFloat(draft);
+    if (isNaN(num) || num < 0) return;
+    setSaving(true);
+    try { await onSave(num); setEditing(false); } finally { setSaving(false); }
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center p-4 bg-base-200 rounded-lg shadow-inner gap-2">
+        <Icon className="w-5 h-5 text-primary shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-base-content/50 mb-1">{title}</div>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              autoFocus
+              className="input input-bordered input-sm w-28 font-mono"
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel(); }}
+            />
+            <span className="text-sm">{unit}</span>
+            <button className="btn btn-xs btn-success" onClick={handleSave} disabled={saving}>
+              {saving ? <span className="loading loading-spinner loading-xs" /> : <Check className="w-3 h-3" />}
+            </button>
+            <button className="btn btn-xs btn-ghost" onClick={handleCancel}><X className="w-3 h-3" /></button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center p-4 bg-base-200 rounded-lg shadow-inner group">
+      <Icon className="w-5 h-5 mr-3 text-primary" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-base-content/50">{title}</div>
+        <div className="text-lg font-semibold">{value} {unit}</div>
+      </div>
+      <button
+        className="btn btn-xs btn-ghost opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={handleEdit}
+        title="Editar"
+      >
+        <Edit className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
 
 function HistorialCostos({ productoId }) {
   const { data: historial = [], isLoading } = useSWR(`/api/productos/${productoId}/historial-costos`);
@@ -383,6 +443,17 @@ export default function ProductoDetallePage() {
   const { data: producto, error, isLoading, mutate } = useSWR(id ? `/api/productos/${id}` : null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  const handleSavePrecioVenta = async (value) => {
+    const res = await fetch(`/api/productos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ precioVenta: value }),
+    });
+    if (!res.ok) throw new Error('Error al guardar precio de venta');
+    await mutate();
+    toast('Precio de venta actualizado');
+  };
+
   const handleDeleteProduct = async () => {
     const ok = await confirmar({ titulo: '¿Eliminar producto?', mensaje: 'Esta acción es irreversible.' });
     if (!ok) return;
@@ -447,7 +518,7 @@ export default function ProductoDetallePage() {
             {/* Precio + botones — en móvil ocupan ancho completo */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <div className="text-xs text-base-content/60 uppercase font-bold tracking-wider">Precio</div>
+                <div className="text-xs text-base-content/60 uppercase font-bold tracking-wider">Coste de Producto</div>
                 <div className="text-3xl sm:text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario ?? 0))} €</div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -553,7 +624,15 @@ export default function ProductoDetallePage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 content-start">
-              <InfoCard title="Precio Unitario" value={formatValue(parseFloat(producto.precioUnitario ?? 0))} unit="€" icon={DollarSign} />
+              <InfoCard title="Coste de Producto" value={formatValue(parseFloat(producto.precioUnitario ?? 0))} unit="€" icon={DollarSign} />
+              <InfoCardEditable
+                title="Precio de Venta"
+                value={formatValue(parseFloat(producto.precioVenta ?? 0))}
+                unit="€"
+                icon={DollarSign}
+                onSave={handleSavePrecioVenta}
+              />
+              <InfoCard title="Unidades Vendidas" value={producto.unidadesVendidas ?? 0} unit="uds" icon={ShoppingCart} />
               <InfoCard title="Peso Unitario" value={formatValue(parseFloat(producto.pesoUnitario ?? 0))} unit="kg" icon={List} />
             </div>
           </div>

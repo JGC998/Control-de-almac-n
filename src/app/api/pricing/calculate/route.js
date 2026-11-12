@@ -46,7 +46,7 @@ export async function POST(request) {
     if (productIds.length > 0) {
       const productos = await db.producto.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, precioUnitario: true },
+        select: { id: true, precioUnitario: true, precioVenta: true },
       });
       for (const p of productos) productosMap.set(p.id, p);
     }
@@ -73,7 +73,7 @@ export async function POST(request) {
         continue;
       }
 
-      const costoBase = parseFloat(producto.precioUnitario) || 0;
+      const costoBase = parseFloat(producto.precioVenta) || parseFloat(producto.precioUnitario) || 0;
       let precioFinal = costoBase;
 
       if (costoBase > 0) {
