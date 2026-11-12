@@ -454,6 +454,17 @@ export default function ProductoDetallePage() {
     toast('Precio de venta actualizado');
   };
 
+  const handleSaveUnidadesVendidas = async (value) => {
+    const res = await fetch(`/api/productos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unidadesVendidas: Math.round(value) }),
+    });
+    if (!res.ok) throw new Error('Error al guardar unidades vendidas');
+    await mutate();
+    toast('Unidades vendidas actualizadas');
+  };
+
   const handleDeleteProduct = async () => {
     const ok = await confirmar({ titulo: '¿Eliminar producto?', mensaje: 'Esta acción es irreversible.' });
     if (!ok) return;
@@ -518,8 +529,8 @@ export default function ProductoDetallePage() {
             {/* Precio + botones — en móvil ocupan ancho completo */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <div className="text-xs text-base-content/60 uppercase font-bold tracking-wider">Coste de Producto</div>
-                <div className="text-3xl sm:text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioUnitario ?? 0))} €</div>
+                <div className="text-xs text-base-content/60 uppercase font-bold tracking-wider">Precio de Venta</div>
+                <div className="text-3xl sm:text-4xl font-mono font-bold text-primary">{formatValue(parseFloat(producto.precioVenta ?? producto.precioUnitario ?? 0))} €</div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <a
@@ -632,7 +643,13 @@ export default function ProductoDetallePage() {
                 icon={DollarSign}
                 onSave={handleSavePrecioVenta}
               />
-              <InfoCard title="Unidades Vendidas" value={producto.unidadesVendidas ?? 0} unit="uds" icon={ShoppingCart} />
+              <InfoCardEditable
+                title="Unidades Vendidas"
+                value={producto.unidadesVendidas ?? 0}
+                unit="uds"
+                icon={ShoppingCart}
+                onSave={handleSaveUnidadesVendidas}
+              />
               <InfoCard title="Peso Unitario" value={formatValue(parseFloat(producto.pesoUnitario ?? 0))} unit="kg" icon={List} />
             </div>
           </div>
