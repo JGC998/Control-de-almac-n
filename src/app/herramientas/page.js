@@ -1,5 +1,5 @@
 import HubPage from '@/componentes/layout/HubPage';
-import { Wrench, Calculator, Truck, TrendingUp, FileText, Ruler, Factory, QrCode, BarChart2, Timer } from 'lucide-react';
+import { Wrench, Calculator, Truck, TrendingUp, FileText, Ruler, Factory, QrCode, BarChart2, Timer, Tags } from 'lucide-react';
 
 export const metadata = { title: 'Herramientas — CRM Taller' };
 
@@ -66,6 +66,13 @@ export default function HerramientasHub() {
           titulo: 'Accesos rápidos QR',
           descripcion: 'Genera códigos QR para las páginas más usadas. Imprímelos y pégalos en el taller para abrir cualquier sección desde el móvil de un escaneo.',
           accion: 'Generar QR codes',
+        },
+        {
+          href: '/herramientas/importar-precios',
+          icon: Tags,
+          titulo: 'Importar precios de venta',
+          descripcion: 'Vincula los productos del catálogo de facturación con los productos de la web y actualiza su precio de venta y unidades vendidas.',
+          accion: 'Importar precios',
         },
         {
           href: '/herramientas/estadisticas-pedidos',
