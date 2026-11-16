@@ -25,6 +25,10 @@ export default function ImportarPreciosPage() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
 
+  // Formulario de creación editable
+  const [modoCrear, setModoCrear] = useState(false);
+  const [formCrear, setFormCrear] = useState({});
+
   const candidatos = data?.candidatos || [];
   const productos  = data?.productos  || [];
 
@@ -63,8 +67,7 @@ export default function ImportarPreciosPage() {
 
   const handleSeleccionar = (c) => {
     setSeleccionado(c);
-    setBusqDB('');
-    // Pre-rellenar búsqueda con las primeras palabras del nombre
+    setModoCrear(false);
     const palabras = c.nombre.split(' ').slice(0, 3).join(' ');
     setBusqDB(palabras);
   };
@@ -106,6 +109,19 @@ export default function ImportarPreciosPage() {
     }
   }, [seleccionado, procesados, avanzarSiguiente]);
 
+  const abrirFormCrear = useCallback(() => {
+    if (!seleccionado) return;
+    setFormCrear({
+      nombre: seleccionado.nombre,
+      espesor: seleccionado.espesor ?? '',
+      ancho:   seleccionado.ancho   ?? '',
+      largo:   seleccionado.largo   ?? '',
+      pvp:     seleccionado.pvp,
+      uds:     seleccionado.uds,
+    });
+    setModoCrear(true);
+  }, [seleccionado]);
+
   const handleCrear = useCallback(async () => {
     if (!seleccionado) return;
     setGuardando(true);
@@ -116,14 +132,13 @@ export default function ImportarPreciosPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accion: 'crear',
-          nombre: seleccionado.nombre,
-          espesor: seleccionado.espesor,
-          ancho: seleccionado.ancho,
-          largo: seleccionado.largo,
-          lonas: seleccionado.lonas ?? null,
-          pvpNuevo: seleccionado.pvp,
-          udsNuevas: seleccionado.uds,
-          materialNombre: seleccionado.material,
+          nombre:           formCrear.nombre,
+          espesor:          formCrear.espesor !== '' ? Number(formCrear.espesor) : null,
+          ancho:            formCrear.ancho   !== '' ? Number(formCrear.ancho)   : null,
+          largo:            formCrear.largo   !== '' ? Number(formCrear.largo)   : null,
+          pvpNuevo:         Number(formCrear.pvp),
+          udsNuevas:        Number(formCrear.uds),
+          materialNombre:   seleccionado.material,
           fabricanteNombre: seleccionado.familia,
         }),
       });
@@ -133,6 +148,7 @@ export default function ImportarPreciosPage() {
       const nuevos = { ...procesados, [seleccionado.id]: { estado: 'actualizado', productoId: json.producto.id, nombre: json.producto.nombre } };
       setProcesados(nuevos);
       setMensaje({ tipo: 'ok', texto: `✓ Producto creado: ${json.producto.nombre}` });
+      setModoCrear(false);
       avanzarSiguiente(seleccionado.id, nuevos);
 
     } catch (err) {
@@ -140,7 +156,7 @@ export default function ImportarPreciosPage() {
     } finally {
       setGuardando(false);
     }
-  }, [seleccionado, procesados, avanzarSiguiente]);
+  }, [seleccionado, formCrear, procesados, avanzarSiguiente]);
 
   const handleOmitir = useCallback(() => {
     if (!seleccionado) return;
@@ -435,17 +451,91 @@ export default function ImportarPreciosPage() {
                 {/* Crear como nuevo */}
                 <div className="border-t border-base-300 pt-3">
                   <p className="text-xs opacity-50 mb-2">¿No encuentras el producto en la web? Créalo directamente:</p>
-                  <button
-                    className="btn btn-outline btn-success btn-sm gap-1 w-full"
-                    onClick={handleCrear}
-                    disabled={guardando}
-                  >
-                    {guardando
-                      ? <span className="loading loading-spinner loading-xs" />
-                      : <PlusCircle size={14} />
-                    }
-                    Crear como nuevo producto
-                  </button>
+
+                  {!modoCrear ? (
+                    <button
+                      className="btn btn-outline btn-success btn-sm gap-1 w-full"
+                      onClick={abrirFormCrear}
+                      disabled={guardando}
+                    >
+                      <PlusCircle size={14} />
+                      Crear como nuevo producto
+                    </button>
+                  ) : (
+                    <div className="bg-success/10 border border-success/30 rounded-lg p-3 space-y-2">
+                      <p className="text-xs font-semibold text-success">Nuevo producto — revisa los datos antes de crear</p>
+
+                      <div>
+                        <label className="text-xs opacity-60">Nombre</label>
+                        <input
+                          className="input input-bordered input-xs w-full mt-0.5"
+                          value={formCrear.nombre}
+                          onChange={e => setFormCrear(f => ({ ...f, nombre: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { key: 'espesor', label: 'Esp (mm)' },
+                          { key: 'ancho',   label: 'Ancho (mm)' },
+                          { key: 'largo',   label: 'Largo (mm)' },
+                        ].map(({ key, label }) => (
+                          <div key={key}>
+                            <label className="text-xs opacity-60">{label}</label>
+                            <input
+                              type="number"
+                              className="input input-bordered input-xs w-full mt-0.5"
+                              value={formCrear[key]}
+                              placeholder="—"
+                              onChange={e => setFormCrear(f => ({ ...f, [key]: e.target.value }))}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs opacity-60">PVP (€)</label>
+                          <input
+                            type="number"
+                            className="input input-bordered input-xs w-full mt-0.5"
+                            value={formCrear.pvp}
+                            onChange={e => setFormCrear(f => ({ ...f, pvp: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs opacity-60">Uds vendidas</label>
+                          <input
+                            type="number"
+                            className="input input-bordered input-xs w-full mt-0.5"
+                            value={formCrear.uds}
+                            onChange={e => setFormCrear(f => ({ ...f, uds: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          className="btn btn-success btn-sm gap-1 flex-1"
+                          onClick={handleCrear}
+                          disabled={guardando || !formCrear.nombre}
+                        >
+                          {guardando
+                            ? <span className="loading loading-spinner loading-xs" />
+                            : <Check size={14} />
+                          }
+                          Confirmar creación
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setModoCrear(false)}
+                          disabled={guardando}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Botón omitir */}
