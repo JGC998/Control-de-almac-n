@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
-import { Check, Search, ArrowRight, SkipForward, RefreshCw, Tag, Info } from 'lucide-react';
+import { Check, Search, ArrowRight, SkipForward, Tag, Info, PlusCircle } from 'lucide-react';
 
 export default function ImportarPreciosPage() {
   const { data, isLoading, error } = useSWR('/api/herramientas/import-preview', fetcher);
@@ -69,6 +69,13 @@ export default function ImportarPreciosPage() {
     setBusqDB(palabras);
   };
 
+  const avanzarSiguiente = useCallback((candidatoIdProcesado, nuevosProcessados) => {
+    const idx = candidatosFiltrados.findIndex(c => c.id === candidatoIdProcesado);
+    const siguiente = candidatosFiltrados.slice(idx + 1).find(c => !nuevosProcessados[c.id]);
+    if (siguiente) handleSeleccionar(siguiente);
+    else setSeleccionado(null);
+  }, [candidatosFiltrados]);
+
   const handleActualizar = useCallback(async (productoId, productoNombre) => {
     if (!seleccionado) return;
     setGuardando(true);
@@ -87,33 +94,60 @@ export default function ImportarPreciosPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Error');
 
-      setProcesados(prev => ({
-        ...prev,
-        [seleccionado.id]: { estado: 'actualizado', productoId, nombre: productoNombre },
-      }));
+      const nuevos = { ...procesados, [seleccionado.id]: { estado: 'actualizado', productoId, nombre: productoNombre } };
+      setProcesados(nuevos);
       setMensaje({ tipo: 'ok', texto: `✓ ${productoNombre} actualizado a ${seleccionado.pvp.toFixed(2)} €` });
-
-      // Avanzar al siguiente candidato pendiente
-      const idx = candidatosFiltrados.findIndex(c => c.id === seleccionado.id);
-      const siguiente = candidatosFiltrados.slice(idx + 1).find(c => !procesados[c.id]);
-      if (siguiente) handleSeleccionar(siguiente);
-      else setSeleccionado(null);
+      avanzarSiguiente(seleccionado.id, nuevos);
 
     } catch (err) {
       setMensaje({ tipo: 'error', texto: err.message });
     } finally {
       setGuardando(false);
     }
-  }, [seleccionado, candidatosFiltrados, procesados]);
+  }, [seleccionado, procesados, avanzarSiguiente]);
+
+  const handleCrear = useCallback(async () => {
+    if (!seleccionado) return;
+    setGuardando(true);
+    setMensaje(null);
+    try {
+      const res = await fetch('/api/herramientas/import-preview/fundir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accion: 'crear',
+          nombre: seleccionado.nombre,
+          espesor: seleccionado.espesor,
+          ancho: seleccionado.ancho,
+          largo: seleccionado.largo,
+          lonas: seleccionado.lonas ?? null,
+          pvpNuevo: seleccionado.pvp,
+          udsNuevas: seleccionado.uds,
+          materialNombre: seleccionado.material,
+          fabricanteNombre: seleccionado.familia,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Error');
+
+      const nuevos = { ...procesados, [seleccionado.id]: { estado: 'actualizado', productoId: json.producto.id, nombre: json.producto.nombre } };
+      setProcesados(nuevos);
+      setMensaje({ tipo: 'ok', texto: `✓ Producto creado: ${json.producto.nombre}` });
+      avanzarSiguiente(seleccionado.id, nuevos);
+
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: err.message });
+    } finally {
+      setGuardando(false);
+    }
+  }, [seleccionado, procesados, avanzarSiguiente]);
 
   const handleOmitir = useCallback(() => {
     if (!seleccionado) return;
-    setProcesados(prev => ({ ...prev, [seleccionado.id]: { estado: 'omitido' } }));
-    const idx = candidatosFiltrados.findIndex(c => c.id === seleccionado.id);
-    const siguiente = candidatosFiltrados.slice(idx + 1).find(c => !procesados[c.id]);
-    if (siguiente) handleSeleccionar(siguiente);
-    else setSeleccionado(null);
-  }, [seleccionado, candidatosFiltrados, procesados]);
+    const nuevos = { ...procesados, [seleccionado.id]: { estado: 'omitido' } };
+    setProcesados(nuevos);
+    avanzarSiguiente(seleccionado.id, nuevos);
+  }, [seleccionado, procesados, avanzarSiguiente]);
 
   const fmtDims = (c) => {
     const p = [];
@@ -232,13 +266,18 @@ export default function ImportarPreciosPage() {
                     onClick={() => handleSeleccionar(c)}
                     className={`
                       p-2 rounded-lg cursor-pointer transition-all border
-                      ${isSelected ? 'bg-primary/10 border-primary' : 'bg-base-100 border-transparent hover:border-base-300'}
-                      ${proc ? 'opacity-50' : ''}
+                      ${isSelected ? 'bg-primary/10 border-primary' :
+                        proc?.estado === 'actualizado' ? 'bg-success/10 border-success/40' :
+                        proc?.estado === 'omitido' ? 'bg-base-200 border-transparent opacity-40' :
+                        'bg-base-100 border-transparent hover:border-base-300'}
                     `}
                   >
                     <div className="flex items-start justify-between gap-1">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-tight truncate">{c.nombre}</p>
+                        <p className={`text-sm font-medium leading-tight truncate ${proc?.estado === 'actualizado' ? 'text-success' : ''}`}>
+                          {proc?.estado === 'actualizado' && <Check size={12} className="inline mr-1" />}
+                          {c.nombre}
+                        </p>
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                           <span className="text-xs opacity-50">{c.familia}</span>
                           {c.material && <span className="text-xs text-primary/70">{c.material}</span>}
@@ -246,12 +285,14 @@ export default function ImportarPreciosPage() {
                             <span className="text-xs opacity-50">{fmtDims(c)}</span>
                           )}
                         </div>
+                        {proc?.estado === 'actualizado' && proc.nombre && (
+                          <p className="text-xs text-success/70 truncate mt-0.5">→ {proc.nombre}</p>
+                        )}
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className="font-mono text-sm font-bold text-success">
                           {c.pvp.toFixed(2)} €
                         </span>
-                        {estadoBadge(c)}
                         {!proc && c.sugerencia && (
                           <span className="badge badge-info badge-xs">match {c.sugerencia.score}%</span>
                         )}
@@ -389,6 +430,22 @@ export default function ImportarPreciosPage() {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Crear como nuevo */}
+                <div className="border-t border-base-300 pt-3">
+                  <p className="text-xs opacity-50 mb-2">¿No encuentras el producto en la web? Créalo directamente:</p>
+                  <button
+                    className="btn btn-outline btn-success btn-sm gap-1 w-full"
+                    onClick={handleCrear}
+                    disabled={guardando}
+                  >
+                    {guardando
+                      ? <span className="loading loading-spinner loading-xs" />
+                      : <PlusCircle size={14} />
+                    }
+                    Crear como nuevo producto
+                  </button>
                 </div>
 
                 {/* Botón omitir */}
