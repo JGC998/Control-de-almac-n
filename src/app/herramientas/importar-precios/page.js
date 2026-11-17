@@ -60,7 +60,7 @@ export default function ImportarPreciosPage() {
   const stats = useMemo(() => {
     const total = candidatos.length;
     const actualizados = Object.values(procesados).filter(p => p.estado === 'actualizado').length;
-    const omitidos     = Object.values(procesados).filter(p => p.estado === 'omitidos').length;
+    const omitidos     = Object.values(procesados).filter(p => p.estado === 'omitido').length;
     const pendientes   = total - actualizados - omitidos;
     return { total, actualizados, omitidos, pendientes };
   }, [candidatos, procesados]);

@@ -50,7 +50,8 @@ export async function POST(request) {
       );
     }
 
-    return NextResponse.json({ message: 'Precios actualizados correctamente', count: tarifas.length });
+    const actualizadas = tarifas.filter(t => t.precio != null).length;
+    return NextResponse.json({ message: 'Precios actualizados correctamente', count: actualizadas });
   } catch (error) {
     logApiError(error, 'Error en bulk-update:');
     return NextResponse.json({ message: 'Error interno' }, { status: 500 });

@@ -10,7 +10,7 @@ const clienteUpdateSchema = z.object({
   direccion: z.string().optional().nullable(),
   telefono: z.string().optional().nullable(),
   nif: z.string().optional().nullable(),
-  categoria: z.enum(['FABRICANTE', 'INTERMEDIARIO', 'FINAL']).optional().nullable(),
+  tier: z.enum(['FABRICANTE', 'INTERMEDIARIO', 'FINAL']).optional().nullable(),
 });
 
 export async function GET(request, { params }) {
@@ -32,10 +32,10 @@ export async function PUT(request, { params }) {
     if (!parsed.success) {
       return NextResponse.json({ message: 'Datos inválidos', errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
-    const { nombre, email, direccion, telefono, nif, categoria } = parsed.data;
+    const { nombre, email, direccion, telefono, nif, tier } = parsed.data;
     const updatedCliente = await db.cliente.update({
       where: { id },
-      data: { nombre, email, direccion, telefono, nif, tier: categoria },
+      data: { nombre, email, direccion, telefono, nif, tier },
     });
     revalidatePath('/gestion/clientes');
     revalidatePath(`/gestion/clientes/${id}`);
