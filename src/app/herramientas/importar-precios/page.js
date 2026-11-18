@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import { Check, Search, ArrowRight, SkipForward, Tag, Info, PlusCircle } from 'lucide-react';
@@ -19,7 +19,17 @@ export default function ImportarPreciosPage() {
   const [busqDB, setBusqDB] = useState('');
 
   // Mapa de procesados: candidatoId → { estado: 'actualizado'|'omitido', productoId?, nombre? }
-  const [procesados, setProcesados] = useState({});
+  // Persistido en localStorage para sobrevivir recargas de página
+  const [procesados, setProcesados] = useState(() => {
+    try {
+      const saved = localStorage.getItem('importar-precios:procesados');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('importar-precios:procesados', JSON.stringify(procesados)); } catch {}
+  }, [procesados]);
 
   // Estado de operación
   const [guardando, setGuardando] = useState(false);
@@ -214,6 +224,14 @@ export default function ImportarPreciosPage() {
             <div className="stat-value text-lg">{stats.total}</div>
           </div>
         </div>
+        {Object.keys(procesados).length > 0 && (
+          <button
+            className="btn btn-xs btn-ghost text-error"
+            onClick={() => { setProcesados({}); setSeleccionado(null); }}
+          >
+            Reiniciar progreso
+          </button>
+        )}
       </div>
 
       {mensaje && (
