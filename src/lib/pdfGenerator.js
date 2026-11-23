@@ -18,8 +18,8 @@ const fmtN = (v, dec = 2) => {
 // Formatea milímetros sin decimales (es-ES) — e.g. 1200 → "1.200"
 const fmtMmVal = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
 
-// Para columnas PDF: sin separador de miles para que "10000mm" no se parta en líneas
-const fmtMmCol = n => `${Math.round(Number(n))}mm`;
+// Para columnas PDF de dimensiones — mantiene separador de miles es-ES
+const fmtMmCol = n => `${fmtMmVal(n)}mm`;
 
 // Parsea detallesTecnicos JSON de un item de pedido/presupuesto; null si no existe o está malformado
 function parseDetTecnicos(item) {
@@ -916,28 +916,28 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
 
         // Ancho útil: 210 - 14 (ML) - 14 (MR) = 182 mm
         const colStyles = valorado ? {
-            // 24+18+20+15+11+13+13+11+17+17+12+11 = 182
+            // 24+18+18+15+11+13+15+11+17+17+12+11 = 182
             0: { cellWidth: 24 },
             1: { cellWidth: 18, fontSize: 7 },
-            2: { cellWidth: 20, fontSize: 7 },
+            2: { cellWidth: 18, fontSize: 7 },
             3: { cellWidth: 15, fontSize: 7 },
             4: { halign: 'center', cellWidth: 11, fontSize: 7 },
-            5: { halign: 'center', cellWidth: 13, fontSize: 7 },
-            6: { halign: 'center', cellWidth: 13, fontSize: 7 },
+            5: { halign: 'center', cellWidth: 13, fontSize: 6 },
+            6: { halign: 'center', cellWidth: 15, fontSize: 6 },
             7: { halign: 'center', cellWidth: 11 },
             8: { halign: 'right',  cellWidth: 17 },
             9: { halign: 'right',  cellWidth: 17 },
             10: { halign: 'right', cellWidth: 12 },
             11: { halign: 'right', cellWidth: 11 },
         } : {
-            // 28+20+24+16+13+15+15+12+20+19 = 182
+            // 28+20+22+16+13+15+17+12+20+19 = 182
             0: { cellWidth: 28 },
             1: { cellWidth: 20, fontSize: 7 },
-            2: { cellWidth: 24, fontSize: 7 },
+            2: { cellWidth: 22, fontSize: 7 },
             3: { cellWidth: 16, fontSize: 7 },
             4: { halign: 'center', cellWidth: 13, fontSize: 7 },
-            5: { halign: 'center', cellWidth: 15, fontSize: 7 },
-            6: { halign: 'center', cellWidth: 15, fontSize: 7 },
+            5: { halign: 'center', cellWidth: 15, fontSize: 6 },
+            6: { halign: 'center', cellWidth: 17, fontSize: 6 },
             7: { halign: 'center', cellWidth: 12 },
             8: { halign: 'right',  cellWidth: 20 },
             9: { halign: 'right',  cellWidth: 19 },
