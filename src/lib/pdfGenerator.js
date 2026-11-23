@@ -753,12 +753,26 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             return (subfamilia?.nombre || item.producto?.tipo || '').toUpperCase();
         };
         const buildResumen = (items) => {
+            const parts = [];
             const counts = {};
             for (const item of items) {
-                const label = getTipo(item) || '—';
-                counts[label] = (counts[label] || 0) + Number(item.quantity || 1);
+                const det = parseDetTecnicos(item);
+                if (det?.tipoPieza === 'ROLLO') {
+                    const qty = Number(item.quantity || 1);
+                    parts.push(`${qty} rollo${qty !== 1 ? 's' : ''} de ${det.material}`);
+                } else if (det?.tipoPieza === 'TIRAS') {
+                    const qty = Number(item.quantity || 1);
+                    parts.push(`${qty} tira${qty !== 1 ? 's' : ''} de ${det.material}`);
+                } else if (det?.tipoPieza) {
+                    const qty = Number(item.quantity || 1);
+                    parts.push(`${qty} ${det.material}`);
+                } else {
+                    const label = getTipo(item) || '—';
+                    counts[label] = (counts[label] || 0) + Number(item.quantity || 1);
+                }
             }
-            return Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(' · ');
+            for (const [k, v] of Object.entries(counts)) parts.push(`${v} ${k}`);
+            return parts.join(' · ');
         };
         const resumenStr = buildResumen(order.items || []);
         if (resumenStr) {
