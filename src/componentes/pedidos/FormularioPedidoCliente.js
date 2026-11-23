@@ -549,9 +549,9 @@ export default function FormularioPedidoCliente({ initialData = null, formType =
 
                 {/* Grupo 2: Metraje caucho */}
                 <div className="flex items-center gap-1.5 border border-base-300 rounded-lg px-2 py-1">
-                  <span className="text-xs text-base-content/40 pr-1 select-none">Caucho</span>
+                  <span className="text-xs text-base-content/40 pr-1 select-none">Rollo</span>
                   <button type="button" onClick={() => setIsCauchoOpen(true)} className="btn btn-xs btn-outline btn-accent gap-1">
-                    <Scissors className="w-3 h-3" /> Metraje caucho
+                    <Scissors className="w-3 h-3" /> Metraje
                   </button>
                 </div>
 

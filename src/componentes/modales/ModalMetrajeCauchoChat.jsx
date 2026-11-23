@@ -34,8 +34,8 @@ function parsePositiveInt(text) {
 }
 
 const PASOS_TEXTO = {
-  DIMS:     'Ej: 500×1200',
-  CANTIDAD: 'Nº de tiras, ej: 10',
+  DIMS:     'Ej: 600×10000',
+  CANTIDAD: 'Nº de rollos, ej: 4',
 };
 
 export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
@@ -47,14 +47,11 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
   const inputRef = useRef(null);
 
   const { data: todasTarifas } = useSWR('/api/precios');
-  const { data: margenesData } = useSWR('/api/pricing/margenes');
 
   const tarifasCaucho = useMemo(
     () => (todasTarifas ?? []).filter(t => MATERIALES_CAUCHO.includes(t.material)),
     [todasTarifas],
   );
-
-  const margenesVenta = useMemo(() => (margenesData ?? []).filter(m => m.tipo !== 'gastoFijo' && m.multiplicador !== 1), [margenesData]);
 
   const materialesDisp = useMemo(() => {
     const set = new Set(tarifasCaucho.map(t => t.material));
@@ -70,7 +67,7 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
 
   const msgInicial = (chips) => [{
     role: 'bot',
-    texto: '¡Hola! Vamos a añadir un metraje de caucho.\n¿Qué material necesitas?',
+    texto: '¡Hola! Vamos a añadir un metraje.\n¿Qué material necesitas?',
     chips,
   }];
 
@@ -162,10 +159,10 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
 
   const afterAcabado = (acabado, d0, tarsL0) => {
     pushBot(
-      `Espesor: ${parseFloat(d0.espesor)} mm ✓\n\n¿Cómo va la pieza?`,
+      `Espesor: ${parseFloat(d0.espesor)} mm ✓\n\n¿Cómo va el material?`,
       [
-        { label: 'Pieza completa', valor: 'PIEZA' },
-        { label: 'Tiras', valor: 'TIRAS' },
+        { label: 'Rollo', valor: 'ROLLO' },
+        { label: 'Pieza', valor: 'PIEZA' },
       ],
     );
     setDatos({ ...d0, acabado });
@@ -174,9 +171,9 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
 
   const afterTipoPieza = (tipo, d0) => {
     pushBot(
-      tipo === 'TIRAS'
-        ? 'Ancho × largo de cada tira, en mm.\nEj: 250×1200'
-        : '¿Cuáles son las dimensiones?\nAncho × largo en mm.\nEj: 500×1200',
+      tipo === 'ROLLO'
+        ? 'Ancho × largo del rollo, en mm.\nEj: 600×10000'
+        : 'Dimensiones de la pieza, en mm.\nAncho × largo. Ej: 500×1200',
     );
     setDatos({ ...d0, tipoPieza: tipo });
     setPaso('DIMS');
@@ -184,8 +181,8 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
   };
 
   const afterDims = (dims, d0) => {
-    if (d0.tipoPieza === 'TIRAS') {
-      pushBot(`Tiras de ${fmtMm(dims.ancho)} × ${fmtMm(dims.largo)} mm ✓\n\n¿Cuántas tiras?`);
+    if (d0.tipoPieza === 'ROLLO') {
+      pushBot(`Rollo de ${fmtMm(dims.ancho)} × ${fmtMm(dims.largo)} mm ✓\n\n¿Cuántos rollos?`);
       setDatos({ ...d0, ...dims });
       setPaso('CANTIDAD');
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -231,25 +228,20 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
     partes.push(`${parseFloat(espesor)}mm`);
     if (lonas) partes.push(`${lonas}L`);
     const dimStr = `${fmtMm(ancho)}×${fmtMm(largo)}mm`;
-    const descripcion = tipoPieza === 'TIRAS'
-      ? [...partes, `— ${cantidad} tiras ${dimStr}`].join(' ')
+    const descripcion = tipoPieza === 'ROLLO'
+      ? [...partes, `— ${cantidad} rollos ${dimStr}`].join(' ')
       : [...partes, `— ${dimStr}`].join(' ');
 
-    setDatos({
+    const d1 = {
       ...d0,
       _precioBase:   precioBase,
       _pesoUnitario: pesoUnitario,
       _area:         area,
       _tarifaPrecio: tarifa.precio,
       _descripcion:  descripcion,
-    });
-
-    const margenChips = [
-      { label: 'Coste interno', valor: '__tipo_coste', _mult: 1 },
-      ...margenesVenta.map(m => ({ label: m.descripcion, valor: `__tipo_${m.base}`, _mult: m.multiplicador })),
-    ];
-    pushBot('¿El precio es para...?', margenChips);
-    setPaso('TIPO_CLIENTE');
+    };
+    setDatos(d1);
+    mostrarResultadoCaucho(d1, 1, 'Coste');
   };
 
   const mostrarResultadoCaucho = (d0, mult, labelMult) => {
@@ -261,17 +253,15 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
     const pesoTotal      = Math.round(_pesoUnitario  * cantidad * 1000) / 1000;
 
     const lineas = [
-      tipoPieza === 'TIRAS'
-        ? `📐  ${cantidad} tiras de ${fmtMm(ancho)} × ${fmtMm(largo)} mm`
+      tipoPieza === 'ROLLO'
+        ? `📐  ${cantidad} rollo${cantidad !== 1 ? 's' : ''} de ${fmtMm(ancho)} × ${fmtMm(largo)} mm`
         : `📐  ${fmtMm(ancho)} × ${fmtMm(largo)} mm`,
       `🔧  ${material} ${parseFloat(espesor)} mm${lonas ? ` · ${lonas} lonas` : ''}${acabado ? ` · ${acabado}` : ''}`,
       ``,
       `Tarifa:     ${_tarifaPrecio.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²`,
       `Superficie: ${_area.toLocaleString('es-ES', { minimumFractionDigits: 4 })} m²`,
-      tipoPieza === 'TIRAS' ? `Precio/tira: ${fmtEur(precioUnitario)}` : null,
-      mult !== 1 ? `Coste:      ${fmtEur(tipoPieza === 'TIRAS' ? _precioBase * cantidad : _precioBase)}` : null,
+      tipoPieza === 'ROLLO' ? `Precio/rollo: ${fmtEur(precioUnitario)}` : null,
       `──────────────────────────`,
-      mult !== 1 ? `${labelMult} (×${mult}):` : null,
       `TOTAL:      ${fmtEur(precioTotal)}`,
       pesoTotal > 0 ? `Peso:       ${pesoTotal.toLocaleString('es-ES', { minimumFractionDigits: 3 })} kg` : null,
     ].filter(l => l !== null).join('\n');
@@ -324,7 +314,6 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
                          afterAcabado(valor === '__null' ? null : valor, d, tarsL);
                        } break;
       case 'TIPO_PIEZA':    afterTipoPieza(valor, d); break;
-      case 'TIPO_CLIENTE':  mostrarResultadoCaucho(d, chip._mult ?? 1, chip.label); break;
       default: break;
     }
   };
@@ -339,7 +328,7 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
       }
       case 'CANTIDAD': {
         const n = parsePositiveInt(texto);
-        if (!n) { pushBot('Escribe el número de tiras, ej: 10'); return; }
+        if (!n) { pushBot('Escribe el número de rollos, ej: 4'); return; }
         calcular({ ...d, cantidad: n });
         break;
       }
@@ -375,7 +364,7 @@ export default function ModalMetrajeCauchoChat({ isOpen, onClose, onAddItem }) {
         <div className="flex justify-between items-center px-4 py-3 border-b bg-base-200 shrink-0">
           <h3 className="font-bold text-sm flex items-center gap-2">
             <Scissors className="w-4 h-4" />
-            Metraje caucho
+            Metraje
           </h3>
           <button onClick={onClose} className="btn btn-xs btn-circle btn-ghost">
             <X className="w-4 h-4" />

@@ -133,7 +133,8 @@ export default function EditorFilaItem({
                     className="input input-bordered input-sm w-full text-center font-bold"
                     value={Number.isFinite(Number(item.quantity)) ? item.quantity : 0}
                     onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                    min="1"
+                    min="0.5"
+                    step="0.5"
                 />
             </td>
 

@@ -144,7 +144,11 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
         const dash = '—';
         const getBudgetDescripcion = (item) => {
             const det = parseDetTecnicos(item);
-            if (det?.material && det?.tipoPieza) return det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
+            if (det?.material && det?.tipoPieza) {
+                if (det.tipoPieza === 'ROLLO') return `Rollo de ${det.material}`;
+                if (det.tipoPieza === 'TIRAS') return `Tira de ${det.material}`;
+                return `Pieza de ${det.material}`;
+            }
             return item.descripcion || item.producto?.nombre || '';
         };
         const getBudgetMaterial = (item) => {
@@ -785,7 +789,9 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         const getDescripcion = (item) => {
             const det = parseDetTecnicos(item);
             if (det?.material && det?.tipoPieza) {
-                return det.tipoPieza === 'TIRAS' ? `Tira de ${det.material}` : `Pieza de ${det.material}`;
+                if (det.tipoPieza === 'ROLLO') return `Rollo de ${det.material}`;
+                if (det.tipoPieza === 'TIRAS') return `Tira de ${det.material}`;
+                return `Pieza de ${det.material}`;
             }
             return item.descripcion || item.producto?.nombre || '';
         };
