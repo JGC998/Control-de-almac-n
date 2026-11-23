@@ -18,12 +18,8 @@ const fmtN = (v, dec = 2) => {
 // Formatea milímetros sin decimales (es-ES) — e.g. 1200 → "1.200"
 const fmtMmVal = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
 
-// Para columnas PDF: >=1000mm → "10 m" (sin separador miles que confunde), <1000 → "600 mm"
-const fmtMmCol = n => {
-    const v = Number(n);
-    if (v >= 1000) return `${(v / 1000).toLocaleString('es-ES', { maximumFractionDigits: 3 })} m`;
-    return `${Math.round(v)} mm`;
-};
+// Para columnas PDF: sin separador de miles para que "10000mm" no se parta en líneas
+const fmtMmCol = n => `${Math.round(Number(n))}mm`;
 
 // Parsea detallesTecnicos JSON de un item de pedido/presupuesto; null si no existe o está malformado
 function parseDetTecnicos(item) {
