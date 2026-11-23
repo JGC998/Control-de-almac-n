@@ -789,7 +789,10 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
         const getDescripcion = (item) => {
             const det = parseDetTecnicos(item);
             if (det?.material && det?.tipoPieza) {
-                if (det.tipoPieza === 'ROLLO') return `Rollo de ${det.material}`;
+                if (det.tipoPieza === 'ROLLO') {
+                    const qty = Number(item.quantity) || 1;
+                    return `${qty} rollo${qty !== 1 ? 's' : ''} de ${det.material}`;
+                }
                 if (det.tipoPieza === 'TIRAS') return `Tira de ${det.material}`;
                 return `Pieza de ${det.material}`;
             }
