@@ -18,6 +18,13 @@ const fmtN = (v, dec = 2) => {
 // Formatea milímetros sin decimales (es-ES) — e.g. 1200 → "1.200"
 const fmtMmVal = n => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 0 });
 
+// Para columnas PDF: >=1000mm → "10 m" (sin separador miles que confunde), <1000 → "600 mm"
+const fmtMmCol = n => {
+    const v = Number(n);
+    if (v >= 1000) return `${(v / 1000).toLocaleString('es-ES', { maximumFractionDigits: 3 })} m`;
+    return `${Math.round(v)} mm`;
+};
+
 // Parsea detallesTecnicos JSON de un item de pedido/presupuesto; null si no existe o está malformado
 function parseDetTecnicos(item) {
   try { return item.detallesTecnicos ? JSON.parse(item.detallesTecnicos) : null; }
@@ -162,14 +169,14 @@ export async function generateBudgetPDF(quote, ivaRate = 0.21) {
             return det?.dimensiones?.espesor != null ? `${det.dimensiones.espesor}mm` : dash;
         };
         const getBudgetAncho = (item) => {
-            if (item.producto?.ancho != null) return `${fmtMmVal(item.producto.ancho)}mm`;
+            if (item.producto?.ancho != null) return fmtMmCol(item.producto.ancho);
             const det = parseDetTecnicos(item);
-            return det?.dimensiones?.ancho != null ? `${fmtMmVal(det.dimensiones.ancho)}mm` : dash;
+            return det?.dimensiones?.ancho != null ? fmtMmCol(det.dimensiones.ancho) : dash;
         };
         const getBudgetLargo = (item) => {
-            if (item.producto?.largo != null) return `${fmtMmVal(item.producto.largo)}mm`;
+            if (item.producto?.largo != null) return fmtMmCol(item.producto.largo);
             const det = parseDetTecnicos(item);
-            return det?.dimensiones?.largo != null ? `${fmtMmVal(det.dimensiones.largo)}mm` : dash;
+            return det?.dimensiones?.largo != null ? fmtMmCol(det.dimensiones.largo) : dash;
         };
 
         const tableColumn = ["Descripción", "Material", "Esp.", "Ancho", "Largo", "Cant.", "P. Unit.", "Total"];
@@ -830,14 +837,14 @@ export async function generateTallerPDF(order, { valorado = false, pedidoUrl = n
             return det?.dimensiones?.espesor != null ? `${det.dimensiones.espesor}mm` : dash;
         };
         const getAncho = (item) => {
-            if (item.producto?.ancho != null) return `${fmtMmVal(item.producto.ancho)}mm`;
+            if (item.producto?.ancho != null) return fmtMmCol(item.producto.ancho);
             const det = parseDetTecnicos(item);
-            return det?.dimensiones?.ancho != null ? `${fmtMmVal(det.dimensiones.ancho)}mm` : dash;
+            return det?.dimensiones?.ancho != null ? fmtMmCol(det.dimensiones.ancho) : dash;
         };
         const getLargo = (item) => {
-            if (item.producto?.largo != null) return `${fmtMmVal(item.producto.largo)}mm`;
+            if (item.producto?.largo != null) return fmtMmCol(item.producto.largo);
             const det = parseDetTecnicos(item);
-            return det?.dimensiones?.largo != null ? `${fmtMmVal(det.dimensiones.largo)}mm` : dash;
+            return det?.dimensiones?.largo != null ? fmtMmCol(det.dimensiones.largo) : dash;
         };
 
         // Columna Detalles: solo para valorado (cortes, metrajes, etc.)
