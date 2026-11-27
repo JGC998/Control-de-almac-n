@@ -393,9 +393,14 @@ function ModalTracking({ importacionId, numContenedor, blNumber, onClose }) {
   );
 }
 
-function HistorialImportaciones({ onCargar, onVerTracking }) {
+function HistorialImportaciones({ onCargar, onVerTracking, hayDatosPendientes }) {
   const { data: importaciones, isLoading } = useSWR('/api/importaciones', fetcher);
   const [abierto, setAbierto] = useState(false);
+
+  const handleCargar = (imp) => {
+    if (hayDatosPendientes && !confirm('Tienes datos sin guardar en la calculadora. ¿Cargar esta importación y perder los cambios actuales?')) return;
+    onCargar(imp);
+  };
 
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar esta importación del historial?')) return;
@@ -432,7 +437,7 @@ function HistorialImportaciones({ onCargar, onVerTracking }) {
                       <th>Nº Contenedor</th>
                       <th className="text-right">TC</th>
                       <th className="text-right">Coste producto</th>
-                      <th className="text-right">€/metro</th>
+                      <th className="text-right">€/m · €/m²</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -462,14 +467,29 @@ function HistorialImportaciones({ onCargar, onVerTracking }) {
                             {esBorrador ? <span className="text-base-content/30 font-normal">pendiente</span> : fmtEur(imp.costeProducto)}
                           </td>
                           <td className="text-right font-mono font-bold text-success">
-                            {esBorrador ? '—' : (imp.totalMetros > 0 ? fmtEur(imp.costeProducto / imp.totalMetros) + '/m' : '—')}
+                            {esBorrador ? '—' : (() => {
+                              if (imp.totalMetros <= 0) return '—';
+                              const eurM = fmtEur(imp.costeProducto / imp.totalMetros) + '/m';
+                              // Calcular m² desde bobinas JSON
+                              try {
+                                const bobs = typeof imp.bobinas === 'string' ? JSON.parse(imp.bobinas) : imp.bobinas;
+                                const m2 = Array.isArray(bobs) ? bobs.reduce((s, b) => {
+                                  const ancho = parseFloat(b.ancho) || 0;
+                                  const long = parseFloat(b.longitud) || 0;
+                                  const rollos = Math.max(parseFloat(b.numRollos) || 1, 1);
+                                  return (b.tipo || 'BOBINA') === 'BOBINA' && ancho > 0 ? s + long * rollos * (ancho / 1000) : s;
+                                }, 0) : 0;
+                                if (m2 > 0) return <>{eurM}<span className="block text-xs text-info">{fmtEur(imp.costeProducto / m2)}/m²</span></>;
+                              } catch {}
+                              return eurM;
+                            })()}
                           </td>
                           <td>
                             <div className="flex gap-1 flex-wrap">
                               <button
                                 className={`btn btn-xs ${esBorrador ? 'btn-warning' : 'btn-ghost'}`}
                                 title={esBorrador ? 'Completar esta recepción con TC y gastos' : 'Cargar estos datos en la calculadora'}
-                                onClick={() => onCargar(imp)}
+                                onClick={() => handleCargar(imp)}
                               >
                                 {esBorrador ? 'Completar' : 'Cargar'}
                               </button>
@@ -1266,15 +1286,15 @@ function CalculadoraContenedorPage() {
               <button className="btn btn-outline btn-sm gap-2" onClick={handleExportExcel}>
                 <FileSpreadsheet className="w-4 h-4" /> Excel
               </button>
-              <button
-                className={`btn btn-sm gap-2 ${editandoId ? 'btn-warning' : 'btn-success'}`}
-                onClick={() => setModalGuardar(true)}
-              >
-                <Save className="w-4 h-4" />
-                {editandoId ? 'Actualizar importación' : 'Guardar importación'}
-              </button>
             </>
           )}
+          <button
+            className={`btn btn-sm gap-2 ${editandoId ? 'btn-warning' : 'btn-success'}`}
+            onClick={() => setModalGuardar(true)}
+          >
+            <Save className="w-4 h-4" />
+            {editandoId ? 'Actualizar importación' : 'Guardar importación'}
+          </button>
         </div>
       </div>
 
@@ -1375,7 +1395,7 @@ function CalculadoraContenedorPage() {
                   <th>Referencia</th>
                   <th>Esp.<br/><span className="font-normal opacity-60">(mm)</span></th>
                   <th>Ancho<br/><span className="font-normal opacity-60">(mm)</span></th>
-                  <th>Long. / Pares/caja<br/><span className="font-normal opacity-60">(m / uds)</span></th>
+                  <th>Long. / Uds.<br/><span className="font-normal opacity-60 text-[10px]">m (bobina) · uds (caja)</span></th>
                   <th>Rollos/<br/><span className="font-normal opacity-60">Cajas/Ud.</span></th>
                   <th>Precio<br/><span className="font-normal opacity-60">USD/unidad</span></th>
                   <th>Auto-tarifa<br/><span className="font-normal opacity-60">vincular</span></th>
@@ -1489,10 +1509,11 @@ function CalculadoraContenedorPage() {
                           className="input input-xs input-bordered w-24"
                         />
                         <input
-                          type="text" placeholder="notas…"
+                          type="text" placeholder="descripción interna…"
                           value={b.notas || ''}
                           onChange={e => handleBobinaChange(b.id, 'notas', e.target.value)}
-                          className="input input-xs w-24 text-[10px] opacity-50 mt-0.5 border-0 border-b border-base-content/20 rounded-none bg-transparent focus:opacity-80 focus:outline-none"
+                          className="input input-xs input-bordered w-28 text-[10px] mt-0.5 bg-warning/10 border-warning/40 placeholder:text-base-content/40 focus:border-warning"
+                          title="Descripción interna (no aparece en PDF)"
                         />
                       </td>
                       {/* Espesor — solo BOBINA */}
@@ -1903,6 +1924,11 @@ function CalculadoraContenedorPage() {
                   </div>
                   <p className="text-xs text-base-content/50">Dentro de suplidos — te lo desgrava, no repercute</p>
                   <p className="text-[10px] text-base-content/30 font-mono">IVA FISCAL = cuota liquidada en aduana (dentro de Suplidos)</p>
+                  {n(ivaAduana) > 0 && n(suplidos) > 0 && n(ivaAduana) > n(suplidos) && (
+                    <div className="alert alert-error py-1 text-xs mt-1">
+                      <span>⚠️ IVA Aduana ({fmtEur(n(ivaAduana))}) es mayor que Total Suplidos ({fmtEur(n(suplidos))}). El IVA Aduana debe estar incluido dentro de Suplidos.</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2156,6 +2182,7 @@ function CalculadoraContenedorPage() {
         <HistorialImportaciones
           onCargar={handleCargarImportacion}
           onVerTracking={(imp) => setModalTracking({ id: imp.id, numContenedor: imp.numContenedor, blNumber: imp.blNumber })}
+          hayDatosPendientes={!editandoId && (bobinas.some(b => n(b.precio) > 0) || n(suplidos) > 0 || n(exentos) > 0 || n(sujetos) > 0)}
         />
       </div>
 
