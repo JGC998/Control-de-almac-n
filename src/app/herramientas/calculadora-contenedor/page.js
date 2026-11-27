@@ -30,6 +30,9 @@ const nuevaBobina = (id) => ({
   modeloGrapaId: '',    // ID de ModeloGrapa a actualizar al guardar
 });
 
+const LS_KEY = 'calc-contenedor:v1';
+const loadLS = () => { try { const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; } catch { return null; } };
+
 const n = (v) => parseFloat(v) || 0;
 const fmt = (v, dec = 2) => isFinite(v)
   ? v.toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec })
@@ -550,15 +553,24 @@ function CalculadoraContenedorPage() {
     return map;
   }, [importacionesHistorial]);
 
-  const [tasaCambio, setTasaCambio] = useState('0.9300');
-  const [bobinas, setBobinas] = useState([nuevaBobina(1)]);
-  const [suplidos, setSuplidos] = useState('');
-  const [exentos, setExentos] = useState('');
-  const [sujetos, setSujetos] = useState('');
-  const [ivaAduana, setIvaAduana] = useState('');
-  const [pesoTotalKg, setPesoTotalKg] = useState('');
-  const [volumenM3, setVolumenM3] = useState('');
-  const [nextId, setNextId] = useState(2);
+  const [tasaCambio, setTasaCambio] = useState(() => loadLS()?.tasaCambio ?? '0.9300');
+  const [bobinas, setBobinas] = useState(() => {
+    const ls = loadLS();
+    if (ls?.bobinas?.length) return ls.bobinas.map((b, i) => ({ ...nuevaBobina(b.id ?? i + 1), ...b }));
+    return [nuevaBobina(1)];
+  });
+  const [suplidos, setSuplidos] = useState(() => loadLS()?.suplidos ?? '');
+  const [exentos, setExentos] = useState(() => loadLS()?.exentos ?? '');
+  const [sujetos, setSujetos] = useState(() => loadLS()?.sujetos ?? '');
+  const [ivaAduana, setIvaAduana] = useState(() => loadLS()?.ivaAduana ?? '');
+  const [pesoTotalKg, setPesoTotalKg] = useState(() => loadLS()?.pesoTotalKg ?? '');
+  const [volumenM3, setVolumenM3] = useState(() => loadLS()?.volumenM3 ?? '');
+  const [tipoContenedor, setTipoContenedor] = useState(() => loadLS()?.tipoContenedor ?? '40FT');
+  const [nextId, setNextId] = useState(() => {
+    const ls = loadLS();
+    if (ls?.bobinas?.length) return Math.max(...ls.bobinas.map(b => b.id ?? 0)) + 1;
+    return 2;
+  });
   const [modalGuardar, setModalGuardar] = useState(false);
   const [modalEscaner, setModalEscaner] = useState(false);
   const [modalTracking, setModalTracking] = useState(null); // { id, numContenedor, blNumber }
@@ -636,8 +648,11 @@ function CalculadoraContenedorPage() {
   const densidad = volM3 > 0 && pesoKg > 0 ? pesoKg / volM3 : 0;
   const costeFletePorKg = pesoKg > 0 ? gastosRepercutibles / pesoKg : 0;
   const costePorKg = pesoKg > 0 ? costeProducto / pesoKg : 0;
+  const VOL_CONT = { '20FT': 33, '40FT': 67, '40HC': 76 };
+  const volContActual = VOL_CONT[tipoContenedor] || 67;
   const ocupacion20ft = volM3 > 0 ? Math.min(100, (volM3 / 33) * 100) : 0;
   const ocupacion40ft = volM3 > 0 ? Math.min(100, (volM3 / 67) * 100) : 0;
+  const ocupacionActual = volM3 > 0 ? Math.min(100, (volM3 / volContActual) * 100) : 0;
 
   // --- Prorrateo por valor ---
   const bobinasFinal = useMemo(() => bobinasCals.map(b => {
@@ -724,8 +739,10 @@ function CalculadoraContenedorPage() {
     setNextId(2);
     setTasaCambio('0.9300');
     setSuplidos(''); setExentos(''); setSujetos('');
+    setIvaAduana(''); setPesoTotalKg(''); setVolumenM3('');
     setEditandoId(null);
     setDatosTrazabilidad(TRAZABILIDAD_VACIA);
+    try { localStorage.removeItem(LS_KEY); } catch {}
   };
 
   const handleEtiquetaEscaneada = (campos) => {
@@ -744,8 +761,19 @@ function CalculadoraContenedorPage() {
   };
 
   const hayResultados = bobinasFinal.some(b => b.subtotalEUR > 0);
-  // PERF-01: calculado una vez, reutilizado en tabla de resultados y tfoot
   const articulosConValor = bobinasFinal.filter(b => b.subtotalEUR > 0);
+
+  const totalM2 = useMemo(() => bobinasFinal.reduce((s, b) => {
+    if ((b.tipo || 'BOBINA') === 'BOBINA' && n(b.ancho) > 0 && b.totalMetrosBobina > 0)
+      return s + b.totalMetrosBobina * (n(b.ancho) / 1000);
+    return s;
+  }, 0), [bobinasFinal]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ tasaCambio, bobinas, suplidos, exentos, sujetos, ivaAduana, pesoTotalKg, volumenM3, tipoContenedor }));
+    } catch {}
+  }, [tasaCambio, bobinas, suplidos, exentos, sujetos, ivaAduana, pesoTotalKg, volumenM3, tipoContenedor]);
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -1308,12 +1336,13 @@ function CalculadoraContenedorPage() {
                 <p className="text-xs opacity-50">Desembolso total: {fmtEur(totalDesembolso)}</p>
               </div>
               <div className="border-l border-primary-content/20 pl-4">
-                <p className="text-xs opacity-70">Total metros</p>
-                <p className="font-mono font-bold">{fmt(totalMetros, 0)} m</p>
+                <p className="text-xs opacity-70">Total metros{totalM2 > 0 ? ' · m²' : ''}</p>
+                <p className="font-mono font-bold">{fmt(totalMetros, 0)} m{totalM2 > 0 ? ` · ${fmt(totalM2, 1)} m²` : ''}</p>
                 {totalMetros > 0 && (
                   <>
                     <p className="text-xs opacity-70 mt-1">Coste medio</p>
                     <p className="font-mono text-lg font-bold">{fmtEur(costeProducto / totalMetros)}/m</p>
+                    {totalM2 > 0 && <p className="font-mono text-sm font-bold opacity-80">{fmtEur(costeProducto / totalM2)}/m²</p>}
                   </>
                 )}
               </div>
@@ -1806,6 +1835,7 @@ function CalculadoraContenedorPage() {
                     <span className="text-sm opacity-50">€</span>
                   </div>
                   <p className="text-xs text-base-content/50">Base imponible (sin IVA) — transporte nacional, descarga</p>
+                  <p className="text-[10px] text-base-content/30 font-mono">Facturas marcadas como SUJETO (honorarios, gestión)</p>
                   {suj > 0 && (
                     <p className="text-xs font-mono text-base-content/40">
                       IVA 21%: {fmtEur(ivaGeneral)} → factura: {fmtEur(suj + ivaGeneral)}
@@ -1829,6 +1859,7 @@ function CalculadoraContenedorPage() {
                     <span className="text-sm opacity-50">€</span>
                   </div>
                   <p className="text-xs text-base-content/50">Aranceles de aduana — sin IVA</p>
+                  <p className="text-[10px] text-base-content/30 font-mono">Facturas marcadas como NO SUJETO/EXENTO (aranceles DUA)</p>
                 </div>
 
                 {/* Total Suplidos */}
@@ -1847,6 +1878,7 @@ function CalculadoraContenedorPage() {
                     <span className="text-sm opacity-50">€</span>
                   </div>
                   <p className="text-xs text-base-content/50">Agente aduanero, handling, B/L, almacenaje en puerto</p>
+                  <p className="text-[10px] text-base-content/30 font-mono">THC, B/L, almacenaje, IVA fiscal DUA (NO SUJETO) — incluye IVA Aduana</p>
                   {ivaDuana > 0 && (
                     <p className="text-xs font-mono text-base-content/40">
                       Neto repercutido: {fmtEur(supl - ivaDuana)}
@@ -1870,6 +1902,7 @@ function CalculadoraContenedorPage() {
                     <span className="text-sm opacity-50">€</span>
                   </div>
                   <p className="text-xs text-base-content/50">Dentro de suplidos — te lo desgrava, no repercute</p>
+                  <p className="text-[10px] text-base-content/30 font-mono">IVA FISCAL = cuota liquidada en aduana (dentro de Suplidos)</p>
                 </div>
               </div>
 
@@ -1972,19 +2005,25 @@ function CalculadoraContenedorPage() {
                   <p className="text-xs text-base-content/40">€/kg</p>
                 </div>
               )}
-              {ocupacion20ft > 0 && (
+              {ocupacionActual > 0 && (
                 <div className="bg-base-100 rounded-lg p-3 text-center col-span-2">
-                  <p className="text-xs text-base-content/50 mb-1">Ocupación contenedor</p>
-                  <div className="flex gap-4 justify-center items-center">
-                    <div>
-                      <p className="font-mono font-bold text-lg">{fmt(ocupacion20ft, 1)}%</p>
-                      <p className="text-xs text-base-content/40">20ft (~33 m³)</p>
-                    </div>
-                    <div className="divider divider-horizontal m-0"></div>
-                    <div>
-                      <p className="font-mono font-bold text-lg">{fmt(ocupacion40ft, 1)}%</p>
-                      <p className="text-xs text-base-content/40">40ft (~67 m³)</p>
-                    </div>
+                  <p className="text-xs text-base-content/50 mb-2">Ocupación contenedor</p>
+                  <div className="flex gap-1 justify-center mb-3 flex-wrap">
+                    {[['20FT','20ft','33'],['40FT','40ft','67'],['40HC','40HC','76']].map(([v,l,vol]) => (
+                      <button key={v}
+                        className={`btn btn-xs ${tipoContenedor === v ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setTipoContenedor(v)}>
+                        {l} ({vol} m³)
+                      </button>
+                    ))}
+                  </div>
+                  <p className="font-mono font-bold text-2xl">{fmt(ocupacionActual, 1)}%</p>
+                  <p className="text-xs text-base-content/40 mt-0.5">
+                    {tipoContenedor === '20FT' ? '20ft (~33 m³)' : tipoContenedor === '40HC' ? '40HC (~76 m³)' : '40ft (~67 m³)'}
+                  </p>
+                  <div className="flex gap-4 justify-center mt-2 text-xs text-base-content/30 font-mono">
+                    {tipoContenedor !== '20FT' && <span>20ft: {fmt(ocupacion20ft, 1)}%</span>}
+                    {tipoContenedor !== '40FT' && <span>40ft: {fmt(ocupacion40ft, 1)}%</span>}
                   </div>
                 </div>
               )}
@@ -2022,7 +2061,7 @@ function CalculadoraContenedorPage() {
                     <th className="text-right">Gastos repercutidos</th>
                     <th className="text-right">Coste total €</th>
                     {kgPorMetro > 0 && <th className="text-right text-info">Peso est.</th>}
-                    <th className="text-right text-success">€/metro o ud.</th>
+                    <th className="text-right text-success">€/m · €/m²</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2066,7 +2105,14 @@ function CalculadoraContenedorPage() {
                         )}
                         <td className="text-right font-mono font-bold text-success text-base">
                           {b.costePorMetro > 0
-                            ? `${fmtEur(b.costePorMetro)}/m`
+                            ? <>
+                                <span>{fmtEur(b.costePorMetro)}/m</span>
+                                {n(b.ancho) > 0 && (
+                                  <span className="block text-sm text-info">
+                                    {fmtEur(b.costePorMetro / (n(b.ancho) / 1000))}/m²
+                                  </span>
+                                )}
+                              </>
                             : b.costeFinalEUR > 0 && b.numRollos > 0
                             ? `${fmtEur(b.costeFinalEUR / b.numRollos)}/ud`
                             : '—'}
@@ -2092,7 +2138,9 @@ function CalculadoraContenedorPage() {
                         </td>
                       )}
                       <td className="text-right font-mono text-success">
-                        {totalMetros > 0 ? `${fmtEur(costeProducto / totalMetros)}/m` : '—'}
+                        {totalMetros > 0
+                          ? <>{fmtEur(costeProducto / totalMetros)}/m{totalM2 > 0 && <span className="block text-sm text-info">{fmtEur(costeProducto / totalM2)}/m²</span>}</>
+                          : '—'}
                       </td>
                     </tr>
                   </tfoot>
